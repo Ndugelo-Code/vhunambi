@@ -1,0 +1,203 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_dimensions.dart';
+import '../providers/onboarding_providers.dart';
+import 'onboarding_view.dart';
+import '../../../../main.dart';
+
+class SplashView extends ConsumerStatefulWidget {
+  final Duration duration;
+  final VoidCallback? onFinished;
+
+  const SplashView({
+    super.key,
+    this.duration = const Duration(milliseconds: 1600),
+    this.onFinished,
+  });
+
+  @override
+  ConsumerState<SplashView> createState() => _SplashViewState();
+}
+
+class _SplashViewState extends ConsumerState<SplashView>
+    with SingleTickerProviderStateMixin {
+  Timer? _timer;
+  late AnimationController _animController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeIn),
+    );
+
+    _animController.forward();
+
+    _timer = Timer(widget.duration, _onSplashComplete);
+  }
+
+  void _onSplashComplete() {
+    if (!mounted) return;
+
+    if (widget.onFinished != null) {
+      widget.onFinished!();
+      return;
+    }
+
+    final hasCompleted =
+        ref.read(onboardingStateProvider).hasCompletedOnboarding;
+
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 400),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return hasCompleted ? const RootShell() : const OnboardingView();
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _animController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.surfaceCanvas,
+      body: Center(
+        child: AnimatedBuilder(
+          animation: _animController,
+          builder: (context, child) {
+            return FadeTransition(
+              opacity: _fadeAnimation,
+              child: ScaleTransition(
+                scale: _scaleAnimation,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Brand Emblem with Ambient Pulse Glow
+                    Container(
+                      width: 88,
+                      height: 88,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.brandPrimary.withAlpha(120),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.brandPrimary.withAlpha(45),
+                            blurRadius: 36,
+                            spreadRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 58,
+                          height: 58,
+                          decoration: const BoxDecoration(
+                            color: AppColors.brandPrimary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.music_note_rounded,
+                            color: AppColors.brandContrast,
+                            size: 34,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+
+                    // Brand Wordmark
+                    Text(
+                      'VHUNAMBI',
+                      style: AppTypography.displayLarge.copyWith(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 6,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Cultural Tshivenḓa Motto
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: AppColors.brandPrimary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'The talent to sing • Tshivenḓa',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.textSecondary,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: AppColors.brandPrimary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 36),
+
+                    // Subtle loading indicator
+                    SizedBox(
+                      width: 140,
+                      child: ClipRRect(
+                        borderRadius: AppRadius.pillBorder,
+                        child: const LinearProgressIndicator(
+                          minHeight: 2.5,
+                          backgroundColor: AppColors.surfaceSecondary,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.brandPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}

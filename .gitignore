@@ -1,0 +1,56 @@
+# ==============================================================================
+# VHUNAMBI Monorepo Root .gitignore
+# Covers Flutter Client (apps/vhunambi_client) and Node/Hono API (apps/vhunambi_api)
+# ==============================================================================
+
+# Node.js & Package Managers
+**/node_modules/
+**/dist/
+**/.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Flutter / Dart / Pub
+**/.dart_tool/
+**/build/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+**/coverage/
+**/doc/api/
+**/.metadata
+
+# Ephemeral Native Builds
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+**/ios/Flutter/.last_build_id
+**/ios/Pods/
+**/ios/.symlinks/
+**/macos/Pods/
+**/macos/.symlinks/
+**/windows/flutter/ephemeral/
+**/linux/flutter/ephemeral/
+
+# Environment Variables & Secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# IDE, Editors & OS
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary diagnostic & test logs
+*.log
+p11_*.txt
+apps/vhunambi_client/p14_*.txt

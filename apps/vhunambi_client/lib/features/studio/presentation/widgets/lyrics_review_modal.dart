@@ -1,0 +1,765 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/responsive_utils.dart';
+import '../../domain/models/lyrics_review_models.dart';
+import '../providers/generation_pipeline_providers.dart';
+import '../providers/lyrics_review_provider.dart';
+import '../providers/studio_form_provider.dart';
+
+/// Section id of the stanza editor the creator focused most recently while
+/// the cockpit has been open (`null` when none has been focused this session).
+///
+/// Focus *gains* are recorded but never cleared on blur: tapping an idiom
+/// chip unfocuses the editor before the chip's `onPressed` fires, so clearing
+/// on blur would misroute the insert to the fallback stanza. Reset when the
+/// cockpit closes or approves (Mission 1 / REQ-LYR-06).
+final _activeStanzaIdProvider = StateProvider<String?>((ref) => null);
+
+/// Studio lyrics review cockpit (T12.5 / REQ-LYR-02 → REQ-LYR-09).
+///
+/// Desktop viewports (> 1024px) get a centred elevated dialog; mobile gets an
+/// expandable 90% bottom sheet.
+class LyricsReviewModal extends ConsumerWidget {
+  const LyricsReviewModal({super.key});
+
+  static Future<void> show(BuildContext context) {
+    if (!ResponsiveUtils.isDesktop(context)) {
+      return showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: AppColors.surfaceModal,
+        isScrollControlled: true,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        shape: const RoundedRectangleBorder(
+          borderRadius: AppRadius.modalBorder,
+          side: BorderSide(color: AppColors.borderSubtle),
+        ),
+        builder: (_) => const LyricsReviewModal(),
+      );
+    }
+
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => Dialog(
+        backgroundColor: AppColors.surfaceModal,
+        insetPadding: const EdgeInsets.all(AppSpacing.xl),
+        shape: const RoundedRectangleBorder(
+          borderRadius: AppRadius.cardBorder,
+          side: BorderSide(color: AppColors.borderSubtle),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 760),
+          child: const LyricsReviewModal(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final draft = ref.watch(lyricsReviewProvider);
+
+    // The cockpit only mounts while a draft exists — guard disposal races
+    // (approve → pop, regenerate → dispose).
+    if (draft == null) return const SizedBox.shrink();
+
+    final notifier = ref.read(lyricsReviewProvider.notifier);
+
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _LyricsReviewHeader(
+            draft: draft,
+            onClose: () => _handleClose(context, ref),
+            onCopy: () => unawaited(_handleCopyLyrics(context, draft)),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _PromptSummaryCard(draft: draft),
+                  const SizedBox(height: AppSpacing.md),
+                  if (!draft.isRawEditorMode) ...[
+                    for (final section in draft.sections) ...[
+                      _LyricsSectionCard(
+                        section: section,
+                        onLinesChanged: (lines) =>
+                            notifier.updateSectionLines(section.id, lines),
+                        onFocusGained: () => ref
+                            .read(_activeStanzaIdProvider.notifier)
+                            .state = section.id,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
+                    const SizedBox(height: AppSpacing.xxs),
+                    _CulturalIdiomsRail(
+                      idioms: draft.culturalIdioms,
+                      onInsert: (idiom) =>
+                          _handleIdiomInsert(context, ref, idiom),
+                    ),
+                  ] else
+                    _RawLyricsEditor(
+                      draft: draft,
+                      onChanged: notifier.updateRawText,
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          _LyricsReviewActionBar(draft: draft),
+        ],
+      ),
+    );
+  }
+
+  /// REQ-LYR-09 — confirms before dropping an edited draft.
+  Future<void> _handleClose(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(lyricsReviewProvider.notifier);
+    final navigator = Navigator.of(context);
+
+    // A new session must fall back to the first verse, not the stanza that
+    // happened to be focused last time (Mission 1).
+    void close() {
+      ref.read(_activeStanzaIdProvider.notifier).state = null;
+      navigator.pop();
+    }
+
+    if (!notifier.hasEdits) {
+      close();
+      return;
+    }
+
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceModal,
+        title: Text('Discard lyric changes?', style: AppTypography.titleMedium),
+        content: Text(
+          'Your edits are kept in memory until you regenerate or leave.',
+          style: AppTypography.bodySmall,
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: const Key('lyrics_keep_editing'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text('Keep editing', style: AppTypography.bodySmall),
+          ),
+          TextButton(
+            key: const Key('lyrics_discard'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              'Discard changes',
+              style: AppTypography.bodySmall.copyWith(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (discard ?? false) close();
+  }
+}
+
+/// Header: title, genre • language pills, copy action and the dismissal
+/// trigger (Mission 2).
+class _LyricsReviewHeader extends StatelessWidget {
+  const _LyricsReviewHeader({
+    required this.draft,
+    required this.onClose,
+    required this.onCopy,
+  });
+
+  final LyricsReviewDraft draft;
+  final VoidCallback onClose;
+  final VoidCallback onCopy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.xs,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.lyrics_rounded,
+            size: 20,
+            color: AppColors.brandPrimary,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Review Lyrics', style: AppTypography.titleMedium),
+                Text(
+                  '${draft.genre} • ${draft.language}',
+                  style: AppTypography.caption,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            key: const Key('lyrics_copy'),
+            tooltip: 'Copy lyrics',
+            onPressed: onCopy,
+            icon: const Icon(
+              Icons.copy_rounded,
+              size: 18,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          IconButton(
+            key: const Key('lyrics_close'),
+            tooltip: 'Close',
+            onPressed: onClose,
+            icon: const Icon(
+              Icons.close_rounded,
+              size: 18,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Prompt + draft summary card.
+class _PromptSummaryCard extends StatelessWidget {
+  const _PromptSummaryCard({required this.draft});
+
+  final LyricsReviewDraft draft;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSecondary,
+        borderRadius: AppRadius.cardBorder,
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome,
+                size: 14,
+                color: AppColors.brandPrimary,
+              ),
+              const SizedBox(width: AppSpacing.xxs),
+              Text(
+                'AI draft • ${draft.sectionCount} sections',
+                style: AppTypography.badge.copyWith(
+                  color: AppColors.brandPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            draft.prompt.isEmpty ? 'No prompt provided' : draft.prompt,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.bodySmall.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One inline-editable stanza card (REQ-LYR-04).
+class _LyricsSectionCard extends StatefulWidget {
+  const _LyricsSectionCard({
+    required this.section,
+    required this.onLinesChanged,
+    this.onFocusGained,
+  });
+
+  final LyricsSection section;
+  final ValueChanged<List<String>> onLinesChanged;
+
+  /// Fired when this stanza's editor gains keyboard focus so the idiom rail
+  /// knows where to insert (Mission 1 / REQ-LYR-06).
+  final VoidCallback? onFocusGained;
+
+  @override
+  State<_LyricsSectionCard> createState() => _LyricsSectionCardState();
+}
+
+class _LyricsSectionCardState extends State<_LyricsSectionCard> {
+  bool _isEditing = false;
+
+  /// Live editor buffer so externally-driven changes (an idiom insert) land
+  /// in the focused field immediately, while the user's own keystrokes are
+  /// never clobbered by the model round-trip.
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+
+  /// Mirrors the text this card last pushed into [_controller] — the
+  /// [didUpdateWidget] guard that separates "user typed it" from "the model
+  /// changed underneath".
+  late String _lastSyncedLines;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastSyncedLines = widget.section.lines.join('\n');
+    _controller = TextEditingController(text: _lastSyncedLines);
+    _focusNode = FocusNode()..addListener(_handleFocusChange);
+  }
+
+  void _handleFocusChange() {
+    if (_focusNode.hasFocus) widget.onFocusGained?.call();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LyricsSectionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final incoming = widget.section.lines.join('\n');
+    if (incoming != _lastSyncedLines) {
+      _lastSyncedLines = incoming;
+      _controller.value = TextEditingValue(
+        text: incoming,
+        selection: TextSelection.collapsed(offset: incoming.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocusChange);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final section = widget.section;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: AppRadius.cardBorder,
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.brandPrimary.withAlpha(30),
+                  borderRadius: AppRadius.pillBorder,
+                ),
+                child: Text(
+                  section.header,
+                  style: AppTypography.badge.copyWith(
+                    color: AppColors.brandPrimary,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                key: Key('stanza_edit_${section.id}'),
+                tooltip: _isEditing ? 'Done editing' : 'Edit stanza',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => setState(() => _isEditing = !_isEditing),
+                icon: Icon(
+                  _isEditing ? Icons.check_rounded : Icons.edit_outlined,
+                  size: 16,
+                  color: _isEditing
+                      ? AppColors.brandPrimary
+                      : AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          if (!_isEditing)
+            for (final line in section.lines)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+                child: Text(
+                  line,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              )
+          else
+            TextFormField(
+              key: Key('stanza_editor_${section.id}'),
+              controller: _controller,
+              focusNode: _focusNode,
+              maxLines: null,
+              onChanged: (value) {
+                _lastSyncedLines = value;
+                widget.onLinesChanged(value.split('\n'));
+              },
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText: 'Write the lines for this section',
+              ),
+            ),
+          if (section.rhymeNotes.isNotEmpty)
+            Text(
+              'Rhyme: ${section.rhymeNotes.join(' • ')}',
+              style: AppTypography.caption,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Horizontal one-tap idiom / ad-lib injection tray (REQ-LYR-06).
+class _CulturalIdiomsRail extends StatelessWidget {
+  const _CulturalIdiomsRail({required this.idioms, required this.onInsert});
+
+  final List<String> idioms;
+  final ValueChanged<String> onInsert;
+
+  @override
+  Widget build(BuildContext context) {
+    if (idioms.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Cultural idioms & ad-libs',
+          style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        SizedBox(
+          height: 38,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: idioms.length,
+            separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.xxs),
+            itemBuilder: (context, index) => ActionChip(
+              key: Key('idiom_chip_$index'),
+              label: Text(
+                idioms[index],
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              backgroundColor: AppColors.surfaceSecondary,
+              side: const BorderSide(color: AppColors.borderSubtle),
+              onPressed: () => onInsert(idioms[index]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Raw markdown surface, bi-directionally synced with the stanza cards
+/// (REQ-LYR-05).
+class _RawLyricsEditor extends StatefulWidget {
+  const _RawLyricsEditor({required this.draft, required this.onChanged});
+
+  final LyricsReviewDraft draft;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_RawLyricsEditor> createState() => _RawLyricsEditorState();
+}
+
+class _RawLyricsEditorState extends State<_RawLyricsEditor> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.draft.rawText);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: AppRadius.cardBorder,
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: TextField(
+        key: const Key('lyrics_raw_editor'),
+        controller: _controller,
+        maxLines: null,
+        minLines: 12,
+        keyboardType: TextInputType.multiline,
+        onChanged: widget.onChanged,
+        style: AppTypography.bodySmall.copyWith(color: AppColors.textPrimary),
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          isDense: true,
+          hintText: '[Verse 1]\nWrite or paste your lyrics here',
+        ),
+      ),
+    );
+  }
+}
+/// Footer actions: regenerate, mode toggle and the synthesis handoff.
+class _LyricsReviewActionBar extends ConsumerWidget {
+  const _LyricsReviewActionBar({required this.draft});
+
+  final LyricsReviewDraft draft;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(lyricsReviewProvider.notifier);
+
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: [
+          OutlinedButton.icon(
+            key: const Key('lyrics_regenerate'),
+            onPressed: () => unawaited(notifier.regenerate()),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textPrimary,
+              side: const BorderSide(color: AppColors.borderSubtle),
+              shape: const RoundedRectangleBorder(
+                borderRadius: AppRadius.pillBorder,
+              ),
+            ),
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: Text(
+              'Regenerate Lyrics',
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          TextButton(
+            key: const Key('lyrics_toggle_raw'),
+            onPressed: notifier.toggleEditorMode,
+            child: Text(
+              draft.isRawEditorMode ? 'Section View' : 'Raw Editor',
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.brandPrimary,
+              ),
+            ),
+          ),
+          ElevatedButton.icon(
+            key: const Key('lyrics_approve'),
+            onPressed: () => _approveDraft(context, ref),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.brandPrimary,
+              foregroundColor: AppColors.brandContrast,
+              shape: const RoundedRectangleBorder(
+                borderRadius: AppRadius.pillBorder,
+              ),
+            ),
+            icon: const Icon(
+              Icons.arrow_forward_rounded,
+              size: 18,
+              color: AppColors.brandContrast,
+            ),
+            label: Text(
+              'Approve & Produce Beat ➔',
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.brandContrast,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// REQ-LYR-08 — persists the approved lyrics, queues the synthesis FSM and
+/// dismisses the cockpit.
+void _approveDraft(BuildContext context, WidgetRef ref) {
+  final navigator = Navigator.of(context);
+  final review = ref.read(lyricsReviewProvider.notifier);
+  final formNotifier = ref.read(studioFormProvider.notifier);
+  final formState = ref.read(studioFormProvider);
+
+  final lyrics = review.lyricsForSynthesis;
+  formNotifier.approveLyrics(lyrics);
+  // Fresh cockpit session next time — no stale focus target (Mission 1).
+  ref.read(_activeStanzaIdProvider.notifier).state = null;
+
+  unawaited(
+    ref.read(generationProgressProvider.notifier).submitAndStartGeneration(
+          trackTitle: formState.resolvedTitle,
+          genre: formState.genre,
+          language: formState.language,
+          lyrics: lyrics,
+          isInstrumental: formState.isInstrumental,
+        ),
+  );
+
+  navigator.pop();
+}
+
+/// Mission 1 — cultural idiom chip micro-interaction: haptic tick, append the
+/// phrase into the stanza being edited (first verse when nothing is focused)
+/// and a themed confirmation toast.
+void _handleIdiomInsert(BuildContext context, WidgetRef ref, String idiom) {
+  unawaited(HapticFeedback.lightImpact());
+
+  final draft = ref.read(lyricsReviewProvider);
+  final activeId = ref.read(_activeStanzaIdProvider);
+  final sections = draft?.sections ?? const <LyricsSection>[];
+
+  // Active stanza (still present in the draft) wins; otherwise fall back to
+  // the first verse — `null` lets the notifier use its own last-stanza
+  // default for degenerate drafts with no verse at all.
+  final targetId = activeId != null &&
+          sections.any((section) => section.id == activeId)
+      ? activeId
+      : _firstVerseId(sections);
+
+  ref
+      .read(lyricsReviewProvider.notifier)
+      .insertIdiom(idiom, sectionId: targetId);
+
+  _showLyricsToast(context, 'Inserted idiom into lyrics', Icons.lyrics_rounded);
+}
+
+/// First stanza typed as a verse, or `null` when the draft has none.
+String? _firstVerseId(List<LyricsSection> sections) {
+  for (final section in sections) {
+    if (section.type == LyricsSectionType.verse) return section.id;
+  }
+  return null;
+}
+
+/// Mission 2 — compiles every draft section into bracketed markdown
+/// (`[Intro] … [Verse 1] …`), copies it to the clipboard, buzzes and toasts.
+Future<void> _handleCopyLyrics(
+  BuildContext context,
+  LyricsReviewDraft draft,
+) async {
+  final fullLyrics = draft.rebuildRawText();
+
+  await Clipboard.setData(ClipboardData(text: fullLyrics));
+  unawaited(HapticFeedback.mediumImpact());
+
+  if (!context.mounted) return;
+  _showLyricsToast(context, 'Lyrics copied to clipboard', Icons.copy_rounded);
+}
+
+/// Toast currently on screen, if any — replaced rather than stacked.
+OverlayEntry? _activeToastEntry;
+
+/// Themed floating confirmation above the cockpit.
+///
+/// Rendered through the [Overlay] (inserted on top of the route stack) so it
+/// is visible above both the desktop dialog and the mobile bottom sheet —
+/// the cockpit itself has no [Scaffold] to host a [SnackBar], and the root
+/// Scaffold sits *behind* the modal barrier.
+void _showLyricsToast(BuildContext context, String message, IconData icon) {
+  final previous = _activeToastEntry;
+  if (previous != null && previous.mounted) previous.remove();
+  _activeToastEntry = null;
+
+  final entry = OverlayEntry(
+    builder: (_) => IgnorePointer(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(
+            // Clears the ~72px cockpit action bar on mobile so the toast
+            // never covers "Approve & Produce Beat".
+            bottom: AppSpacing.section * 2,
+            left: AppSpacing.xl,
+            right: AppSpacing.xl,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 160),
+              builder: (context, opacity, child) =>
+                  Opacity(opacity: opacity, child: child),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceModal,
+                  borderRadius: AppRadius.pillBorder,
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 16, color: AppColors.brandPrimary),
+                    const SizedBox(width: AppSpacing.xs),
+                    Flexible(
+                      child: Text(
+                        message,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  _activeToastEntry = entry;
+  Overlay.of(context, rootOverlay: true).insert(entry);
+
+  Future.delayed(const Duration(seconds: 2), () {
+    if (entry.mounted) entry.remove();
+    if (identical(_activeToastEntry, entry)) _activeToastEntry = null;
+  });
+}
+

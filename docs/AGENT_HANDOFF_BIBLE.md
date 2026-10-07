@@ -1,0 +1,512 @@
+# VHUNAMBI: Complete Agent Handoff Bible & Master State
+
+> **DOCUMENT PURPOSE:** This is the single, authoritative handoff document for the Vhunambi monorepo. Any AI agent (Antigravity, Cline, Cursor, Windsurf) or human engineer resuming work on this repository can read this document and resume seamlessly with zero loss of context.
+>
+> **Last Updated:** 2026-10-07T13:50:00+02:00  
+> **Repository Root:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\`  
+> **Client Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\`  
+> **Backend Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_api\`  
+> **Current Health:** `dart analyze .` = **0 issues** | `flutter test` = **100% passing (634/634)** | Backend API = **0 errors (100% passing)**  
+> **Active Phase:** Phase 15 Complete (Full-Stack Audio Synthesis Engine, Colocated Hono Backend Gateway & Client Pipeline Bridge)
+
+---
+
+## 1. Project Vision & Brand Identity
+
+* **Platform Name:** **`vhunambi`** (with an **i**, from Tshivenḓa for *"the talent or ability to sing"*). Never use `vhunamba`.
+* **Production Origin:** Cloned and reverse-engineered from production at `https://vhunambi.com`.
+* **Core Value Proposition:**
+  1. Specialized audio synthesis engine tailored for African musical heritage and regional BPM structures (Amapiano, Kwaito, Gqom, Maskandi, Mbaqanga, Marabi, Bubblegum, Afro House).
+  2. Native vocal synthesis supporting 25+ indigenous African languages (`Tshivenḓa`, `isiZulu`, `isiXhosa`, `Afrikaans`, `Sepedi`, `Setswana`, `Sesotho`, `Xitsonga`, `siSwati`, `isiNdebele`, `Kiswahili`, `Hausa`, `Yorùbá`, `Igbo`, `Amharic`, etc.).
+  3. Persistent cross-platform audio player dock (64px mobile mini-player / 72px desktop DAW transport bar / expanded cockpit modal).
+  4. Commercial beat licensing marketplace and user asset vault.
+
+---
+
+## 2. Dual-Agent Symbiosis Protocol
+
+The repository operates under the **Dual-Agent Pair Programming Standard** codified in [`docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md):
+
+```mermaid
+graph TD
+    Lead([Antigravity: Lead Architect & QA]) -->|Decomposes Phase| Quad[4-Doc Suite: blueprint, requirements, design, tasks]
+    Lead -->|Generates Guarded Prompt| Handoff[CLINE_HANDOFF_PHASE_X.md]
+    Handoff -->|Executes High-Volume Code| Workhorse[Cline / DeepSeek V4 Flash: 1M Context]
+    Workhorse -.->|Completes or Halts| Takeover[Antigravity Takeover Protocol]
+    Takeover -->|Step 1| Audit[Git Status & Diffs]
+    Takeover -->|Step 2| Analyze[dart analyze . -> 0 issues]
+    Takeover -->|Step 3| Tests[flutter test -> 100% pass]
+    Takeover -->|Step 4| SignOff[tasks.md Complete + walkthrough.md]
+```
+
+### The 4-Document Specification Rule
+Every feature milestone must have its 4-document specification under `docs/phases/phase_XX_<name>/`:
+1. `blueprint.md`: Layout geometry, responsive breakpoints, visual tokens, state machine diagrams.
+2. `requirements.md`: EARS & RFC 2119 requirements (`MUST`, `SHALL`) with traceable IDs (`REQ-XXX-01`).
+3. `design.md`: Dart class signatures, Riverpod providers, token mappings, widget hierarchy.
+4. `tasks.md`: Sequenced checklist (T1–TN) with pre-flight checks and verification gates.
+
+---
+
+## 3. Codebase Invariants & Non-Negotiable Rules
+
+When writing any code in this repository, you **MUST ALWAYS** follow these rules:
+
+1. **Design Tokens (Zero Raw Hex Values):**
+   * Never hardcode `#0A0A0C`, `#141418`, `#F97316`, or ad-hoc border radii in widgets.
+   * Always import and use tokens from `package:vhunambi_client/core/theme/`:
+     - `AppColors.surfaceCanvas` (`#0A0A0C`) — Pitch black canvas
+     - `AppColors.surfaceElevated` (`#141418`) — Elevated container surface
+     - `AppColors.surfaceSecondary` (`#1B1B22`) — Inset container, chips
+     - `AppColors.surfaceModal` (`#16161C`) — Bottom sheets and popovers
+     - `AppColors.brandPrimary` (`#F97316`) — Vibrant brand amber/orange
+     - `AppColors.brandContrast` (`#000000`) — Pure black text for brand buttons
+     - `AppColors.borderSubtle` (`#2D2D38`) — Standard card and divider border
+     - `AppGradients.forGenre(genre)` — 12 regional genre gradients
+     - `AppTypography` — Display, title, body, caption scales via Google Fonts Inter
+     - `AppRadius` — `pillBorder`, `cardBorder`, `inputBorder`, `modalBorder`
+     - `AppSpacing` — `xxs` (4), `xs` (8), `sm` (12), `md` (16), `lg` (20), `xl` (24), `xxl` (32)
+2. **SDK Enum Collision Safety:**
+   * Flutter 3.44 (`repeating_animation_builder.dart`) exports `RepeatMode`.
+   * **Our audio repeat enum is named `AudioRepeatMode`** (values: `off`, `all`, `one`). **NEVER name it `RepeatMode`**.
+   * Playback status enum is `PlaybackStatus` (values: `idle`, `buffering`, `playing`, `paused`, `completed`, `error`).
+3. **Responsive Helpers:**
+   * Always use `ResponsiveUtils.isDesktop(context)` (> 1024px) and `ResponsiveUtils.isMobile(context)` (< 768px).
+4. **Clean Layer Separation:**
+   * Presentation widgets depend on Riverpod providers.
+   * Providers manipulate immutable domain state models via `copyWith`.
+   * State is never mutated directly inside widget builds.
+
+---
+
+## 4. Phase-by-Phase Roadmap & Status
+
+### Phase 0: Single Source of Truth (SSOT) Blueprints ✅
+Committed under `docs/foundation_blueprints/`:
+* `00_SYSTEM_DESIGN_TOKENS.md`: Exact colors, surfaces, typography, radii, 12 genre gradients.
+* `01_EXPLORE_PAGE_SPEC.md`: Explore view geometry (2-column Mobile vs 6-column Desktop).
+* `02_PERSISTENT_PLAYER_SPEC.md`: Persistent audio architecture & expanded cockpit.
+* `03_CREATE_STUDIO_SPEC.md`: Parameter-rich studio cockpit (`/create`).
+* `04_LIBRARY_VAULT_SPEC.md`: User asset vault (`/library`) & 6 category tabs.
+* `05_MARKETPLACE_AND_LANDING_SPEC.md`: Beats marketplace (`/market`) & marketing funnel.
+* `06_TRACK_AND_CREATOR_PROFILES_SPEC.md`: Track details (`/track/:id`) & creator profiles.
+* `07_AUDIO_TRANSPORT_AND_PIPELINE_MODALS_SPEC.md`: Transport bar, mini player, and modals.
+
+### Phase 1: Client Scaffolding & Design System Tokens ✅
+* App location: `apps/vhunambi_client/` (`com.vhunambi.app`).
+* Dependencies: `flutter_riverpod`, `just_audio`, `audio_service`, `audio_session`, `hive_flutter`, `google_fonts`, `cached_network_image`, `dio`, `window_manager`.
+* Token files: `lib/core/theme/app_colors.dart`, `app_gradients.dart`, `app_typography.dart`, `app_dimensions.dart`, `app_theme.dart`.
+* Utilities: `lib/core/utils/responsive_utils.dart`, `lib/core/constants/app_constants.dart`.
+
+### Phase 2: Core Shell & Persistent Audio Engine ✅
+* `lib/features/player/domain/models/player_state.dart` (`PlayerState`, `PlaybackStatus`, `AudioRepeatMode`).
+* `lib/features/player/presentation/providers/player_provider.dart` (`playerStateProvider`).
+* `lib/features/player/presentation/widgets/waveform_bars.dart` (Animated amplitude visualizer).
+* `lib/features/player/presentation/widgets/mobile_mini_player.dart` (60px compact strip above bottom navigation).
+* `lib/features/player/presentation/widgets/desktop_transport_bar.dart` (72px desktop DAW console with volume & speed).
+* `lib/features/player/presentation/widgets/expanded_cockpit_modal.dart` (88% height modal with 40-bar waveform).
+* `lib/features/studio/presentation/widgets/generation_pipeline_card.dart` (4-step real-time synthesis FSM).
+* `lib/features/notifications/presentation/widgets/notifications_popover.dart` (Notifications drawer).
+* `lib/main.dart` with `RootShell` and 5-destination navigation.
+
+### Phase 3: Studio Creation Cockpit (`/create`) ✅
+* `lib/features/studio/domain/models/studio_form_state.dart` (8 enums, immutable `StudioFormState`).
+* `lib/features/studio/presentation/providers/studio_form_provider.dart` (`StudioFormNotifier`, `studioFormProvider`).
+* `lib/features/studio/presentation/widgets/prompt_input_box.dart` (Multiline input, inspiration chips, `Inspire Me`).
+* `lib/features/studio/presentation/widgets/reference_audio_dropzone.dart` (Audio-to-audio style conditioning dropzone).
+* `lib/features/studio/presentation/widgets/regional_genre_selector.dart` (5 regions, 8 primary genre tiles, custom adder).
+* `lib/features/studio/presentation/widgets/multilingual_language_selector.dart` (25+ African and diaspora language chips).
+* `lib/features/studio/presentation/widgets/advanced_options_accordion.dart` (Instrumental switch, slider, lyrics modes, mood, tempo, vocal arrangement).
+* `lib/features/studio/presentation/widgets/studio_action_bar.dart` (Public switch, full-width CTA, licensing notice).
+* `lib/features/studio/presentation/views/studio_view.dart` (Sticky app bar, max-width 840px container).
+* Mounted at tab index 2 in `RootShell` (`lib/main.dart`).
+* **Automated Tests:** 11 unit tests in `studio_form_test.dart` + 2 widget tests in `studio_view_test.dart`.
+
+### Phase 4: Library & User Asset Vault (`/library`) ✅
+* `lib/features/library/domain/models/library_models.dart` (`LibraryCategory`, `LibraryViewMode`, `TrackSyncStatus`, `LibrarySortOrder`, `LibrarySyncFilter` + immutable `LibraryTrack`).
+* `lib/features/library/presentation/providers/library_providers.dart` (`LibraryTracksNotifier` with 4 seeded vault records, vault selectors, pure `filterLibraryTracks()` engine, `playLibraryTrack()` bridge into the persistent player).
+* `lib/features/library/presentation/widgets/library_app_bar.dart` (Responsive header: brand group, breadcrumb, credit chip, bell, Analytics, overflow sort menu, Create CTA).
+* `lib/features/library/presentation/widgets/library_category_rail.dart` (6 pill categories with record-count badges).
+* `lib/features/library/presentation/widgets/library_empty_state.dart` (48x48 squircle, per-category copy, orange pill CTA).
+* `lib/features/library/presentation/widgets/library_track_tile.dart` + `library_track_grid_card.dart` (dense list row vs. square grid card).
+* `lib/features/library/presentation/widgets/track_actions_sheet.dart` (Play, Playlist, Stems, Download Offline, License, Share, Trash/Restore/Purge + certificate dialog).
+* `lib/features/library/presentation/widgets/library_badges.dart` + `library_cover_art.dart` (genre/sync badges, genre-gradient artwork).
+* `lib/features/library/presentation/views/library_view.dart` (screen assembly + search/filter/view-mode strip).
+* Mounted at tab index 3 in `RootShell` (`lib/main.dart`); the vault `✨ Create` CTA switches the shell to the Studio tab (index 2).
+* **Automated Tests:** 26 unit tests in `library_notifier_test.dart` + 7 widget tests in `library_view_test.dart`.
+
+### Phase 5: Explore Feed & Music Discovery (`/explore`) ✅
+* `lib/features/explore/domain/models/explore_models.dart` (`ExploreTab`, `ExploreSortBy`, immutable `CreatorProfile`, 12-genre / 10-mood / 10-language taxonomy catalogs).
+* `lib/features/explore/presentation/providers/explore_providers.dart` (`ExploreTracksNotifier` with 8 seeded catalog tracks, 6 seeded creators, pure `filterExploreTracks()` engine, `playExploreTrack()` / `playExploreGenreRadio()` player bridges, pagination cursor helpers).
+* `lib/features/explore/presentation/widgets/explore_top_bar.dart` (`DesktopExploreTopBar` 68px with breadcrumb/Ctrl+K search/credit/bell/avatar/Create + `MobileExploreTopBar` 56px).
+* `lib/features/explore/presentation/widgets/explore_header_section.dart` (title, subtitle, Discover/For You/Following tabs, `🔥 2 Streak` chip).
+* `lib/features/explore/presentation/widgets/african_charts_banner.dart` (terracotta→tangerine hero card).
+* `lib/features/explore/presentation/widgets/track_card.dart` + `track_list_tile.dart` (NEW/rank badges, gradient artwork, live play/pause trigger).
+* `lib/features/explore/presentation/widgets/creator_card.dart` + `genre_radio_tile.dart` (creator deck, glassmorphic `((•)) Play Radio`).
+* `lib/features/explore/presentation/widgets/catalog_filter_bar.dart` + `explore_empty_state.dart` (genre rail, mood wrap, language dropdown, sort pills, dual-CTA empty state).
+* `lib/features/explore/presentation/widgets/genre_glyph.dart` (shared instrument glyph tokens).
+* `lib/features/explore/presentation/views/explore_view.dart` (10-slice `CustomScrollView` + mobile/tablet/desktop breakpoint matrix).
+* `lib/shared/models/track.dart` gained optional `mood` + `creatorHandle` fields (additive).
+* Mounted at tab index 1 in `RootShell` (`lib/main.dart`); `+ Create` switches the shell to the Studio tab (index 2).
+* **Automated Tests:** 22 unit tests in `explore_notifier_test.dart` + 9 widget tests in `explore_view_test.dart`.
+
+### Phase 6: Beats Marketplace & Native App Architecture (`/market`, `/`, `/splash`, `/onboarding`) ✅
+* `lib/features/marketplace/domain/models/marketplace_models.dart` (`BeatListingEntity`, `MarketplaceFilterState`, 12-genre catalog, preview duration contract).
+* `lib/features/marketplace/presentation/providers/marketplace_providers.dart` (`marketplaceBeatsProvider` with 6 seeded listings, `filteredBeatsProvider` + pure `filterBeats()`, `marketplaceCreditsProvider`, `auditionBeat()`, `licenseBeat()` vault transaction, `clearMarketplaceFilters()`).
+* `lib/features/marketplace/presentation/widgets/` — `marketplace_top_bar.dart`, `seller_callout_banner.dart`, `beat_card.dart`, `beat_license_modal.dart`, `marketplace_filter_modal.dart`, `marketplace_empty_state.dart`, `pwa_install_dock.dart`.
+* `lib/features/marketplace/presentation/views/marketplace_view.dart` (grid 2/3/4 cols + banner + empty state + floating PWA dock mounted at Tab 4).
+* `lib/features/onboarding/domain/models/onboarding_models.dart` (`OnboardingState`, genre & language preference selection, user role).
+* `lib/features/onboarding/presentation/providers/onboarding_providers.dart` (`OnboardingNotifier`, `onboardingStateProvider`).
+* `lib/features/onboarding/presentation/views/splash_view.dart` (Animated emblem, soundwave pulse ring, Tshivenḓa motto *"Vhutsila ha u Imba"*).
+* `lib/features/onboarding/presentation/views/onboarding_view.dart` (3-step native walkthrough: Welcome, Genre/Language preference chips, 10 free credits ready).
+* `lib/features/home/presentation/views/home_dashboard_view.dart` (Native Creator Home Dashboard mounted at Tab 0: time-aware African greeting *"Ndi matsheloni"*, streak badge, credit pill, quick prompt bar, 4 action tiles `AI Studio`, `Beats Market`, `Asset Vault`, `Stem Lab`, Jump Back In mini-card, trending rail, subscription banner).
+* `lib/features/home/presentation/widgets/subscription_upgrade_modal.dart` (Native bottom sheet encapsulating 4 subscription tiers and monthly/yearly billing toggle).
+* `lib/features/landing/domain/models/` & `lib/features/landing/presentation/` (marketing models & funnel retained for presentational web/desktop marketing preview).
+* **Automated Tests:** Full suite of **127 automated tests passing (100%)** — 13 marketplace tests, 16 landing tests, 6 onboarding unit tests, 4 onboarding widget tests, 3 home dashboard widget tests, plus Phase 0–5 baseline.
+
+### Phase 7: Track Details Cockpit & Creator Profiles (`/track/:id`, `/profile/:id`, `/profile/me`) ✅
+* `lib/features/track/domain/models/track_detail_models.dart` (`LicenseType`, `StemTrackEntity`, `StemSeparationStatus`, `StemSeparationState`, `TrackDetailEntity`, `CommentEntity`).
+* `lib/features/profile/domain/models/profile_models.dart` (`SupporterEntity`, `TipRecordEntity`, `ReleaseType`, `MusicReleaseEntity`, `ArtistProfileEntity`).
+* `lib/features/track/presentation/providers/track_providers.dart` (`TrackDetailNotifier`, `trackDetailFamilyProvider`, `TrackCommentsNotifier`, `trackCommentsProvider`, `moreLikeThisProvider`, `seededTrackDetails` catalog).
+* `lib/features/profile/presentation/providers/profile_providers.dart` (`ArtistProfileNotifier`, `artistProfileFamilyProvider`, `ownerProfileProvider`, `seededArtistProfiles`).
+* `lib/features/track/presentation/widgets/` — `track_hero_section.dart` (1:1 art, ambient amber glow, royalty-free notice, creator byline), `track_actions_bar.dart` (Like, Plays, Remix, Tip), `utility_tool_dock.dart` (Download, Playlist, Radio, Lyrics, Variation, Comments, Embed), `emoji_reaction_deck.dart` (5 cultural emoji pills: 🔥, ❤️, 🎵, 🙌, 🌍), `waveform_scrubber.dart` (amplitude waveform with active brand fill and interactive tap-to-seek), `lyrics_teleprompter.dart` (formatted lyrical stanzas with bracketed tags), `stem_separation_lab.dart` (4-step stem separation simulation, solo/mute audition), `prompt_attribution_card.dart` (seed prompt + remix action), `comments_section.dart` (discussion thread with initials avatar and composer), `more_like_this_shelf.dart` (genre recommendations).
+* `lib/features/track/presentation/views/track_detail_view.dart` (860px max-width centered layout assembling all 10 dissection sub-widgets).
+* `lib/features/profile/presentation/widgets/` — `profile_banner_header.dart` (ambient banner with monogram avatar, verified badge, bio, follow/tip buttons), `profile_stats_grid.dart` (5 metrics: Songs, Likes, Plays, Followers, Day Streak), `top_supporters_leaderboard.dart` (🥇, 🥈, 🥉 medal ranks with credit tallies), `releases_manager_card.dart` (Album, EP, Single discography manager with creation dialog), `tip_history_ledger.dart` (Received/Sent sub-tabs and master switch), `profile_referral_card.dart` (one-tap clipboard link copy).
+* `lib/features/profile/presentation/views/artist_profile_view.dart` (Public Artist Profile at `/profile/:id`: banner, stats, Top Songs, Top Supporters, Recent Activity).
+* `lib/features/profile/presentation/views/owner_profile_view.dart` (Creator Studio Cockpit at `/profile/me`: header, action chips, top genres, Your Songs with Public/Private switch, Releases manager, Tip History ledger, Referral card).
+* `lib/features/home/presentation/views/home_dashboard_view.dart` wired: avatar tap routes to `OwnerProfileView`, Jump Back In track title tap routes to `TrackDetailView`.
+* **Automated Tests:** **160 total automated tests passing (100%)** — 14 track unit tests, 4 track widget tests, 11 profile unit tests, 3 artist profile widget tests, 3 owner profile widget tests, plus 127 baseline tests.
+
+### Phase 8: Offline Audio Persistence & Hive Cache ✅
+* `lib/features/offline/domain/models/offline_models.dart` (`DownloadStatus`, `AudioDownloadQuality`, `DownloadTask`, `CacheStorageStats`, `OfflinePreferenceState`).
+* `lib/features/offline/data/services/offline_storage_service.dart` (`IOfflineStorageService`, `OfflineStorageService` with dual Hive boxes `vaultBoxKey` and `preferencesBoxKey`, in-memory fallback, physical file eviction on disk).
+* `lib/features/offline/data/services/audio_download_service.dart` (`IAudioDownloadService`, `AudioDownloadService` with Dio chunked streaming & deterministic test simulation mode).
+* `lib/features/offline/presentation/providers/offline_providers.dart` (`offlineStorageServiceProvider`, `audioDownloadServiceProvider`, `DownloadManagerNotifier`, `downloadManagerProvider`, `cacheStorageStatsProvider`, `offlinePreferencesProvider`).
+* `lib/features/offline/presentation/widgets/vault_storage_modal.dart` (Animated quota usage rail, summary chips, per-track shelf with eviction, clear all confirmation dialog).
+* `lib/features/offline/presentation/widgets/offline_indicator_badge.dart` (`Icons.offline_pin_rounded` brand badge with subtle amber glow).
+* UI Integration: `TrackActionsSheet` (dynamic Download Offline / live progress / Remove Offline Download), `LibraryAppBar` (storage quota modal button), `LibraryTrackTile` & `LibraryTrackGridCard` (progress bar and offline pin badge), `TrackDetailView` (offline download flow), `ExpandedCockpitModal` (offline playback badge).
+* **Automated Tests:** **207 total automated tests passing (100%)** — 18 offline storage tests, 18 download manager tests, 11 vault storage modal tests (47 new tests), plus 160 baseline tests with zero regressions.
+
+### Phase 9: Production Audio Engine Hardware Bridge & Platform Services ✅
+* `lib/features/player/domain/models/audio_session_events.dart` (`AudioInterruptionType`, `AudioInterruptionEvent`, `BecomingNoisyEvent`).
+* `lib/features/player/data/services/audio_source_resolver.dart` (`IAudioSourceResolver`, `AudioSourceResolver`, `DeferredAudioSourceResolver` protecting test boot).
+* `lib/features/player/data/services/audio_session_manager.dart` (`IAudioSessionManager`, `AudioSessionManager` with telephony interruption & becoming noisy auto-pause, `TestAudioSessionManager`).
+* `lib/features/player/data/services/vhunambi_audio_handler.dart` (`IVhunambiAudioHandler`, `VhunambiAudioHandler` extending `BaseAudioHandler` with `QueueHandler` and `SeekHandler`, `TestVhunambiAudioHandler`, pure metadata/state mappers, `bootstrapPlatformAudioHandler`).
+* `lib/features/player/presentation/providers/audio_bridge_providers.dart` (`audioSourceResolverProvider`, `audioSessionManagerProvider`, `audioHandlerProvider`).
+* `lib/features/player/presentation/providers/player_provider.dart` (`PlayerNotifier` bi-directional hardware bridging, unawaited dispatch, echo-suppression, 1.5s seek tolerance).
+* Native platform integration: `AndroidManifest.xml` (foreground service & permissions), `MainActivity.kt` (`AudioServiceActivity`), `ios/Runner/Info.plist` (`UIBackgroundModes: audio`).
+* **Automated Tests:** **254 total automated tests passing (100%)** — 9 audio source resolver tests, 13 audio session manager tests, 17 audio handler tests, 8 player hardware bridge tests (47 new tests in `test/features/player/`), plus 207 baseline tests with zero regressions.
+
+### Phase 10: Audio Generation Pipeline Real-Time WebSocket Bridge & Result Panel ✅
+* `lib/features/studio/domain/models/generation_pipeline_state.dart` (`PipelineStep`, `PipelineSocketEvent`, `GenerationProgressState`).
+* `lib/features/studio/domain/models/stem_download_progress.dart` (`StemDownloadProgress`).
+* `lib/features/track/domain/models/track_entity.dart` (`TrackEntity`).
+* `lib/features/studio/domain/services/i_generation_socket_service.dart`, `lib/features/studio/data/services/generation_socket_service.dart`, `fake_generation_socket_service.dart`.
+* `lib/features/studio/domain/services/i_stem_download_service.dart`, `lib/features/studio/data/services/stem_download_service.dart`, `fake_stem_download_service.dart`.
+* `lib/features/studio/presentation/providers/generation_pipeline_providers.dart` (`GenerationPipelineNotifier`, `generationProgressProvider`, `notificationsProvider`).
+* `lib/features/studio/presentation/providers/stem_download_provider.dart` (`stemDownloadServiceProvider`, `masterDownloadProgressProvider`).
+* `lib/features/studio/presentation/widgets/generation_pipeline_card.dart` (`ConsumerStatefulWidget` live Result panel, equalizer, collapsible lyrics, error banner with retry).
+* `lib/features/notifications/domain/models/notification_entity.dart` (`NotificationEntity.generationReady()`).
+* **Automated Tests:** **321 total automated tests passing (100%)** — 67 new tests (22 pipeline state, 11 socket service, 9 stem download, 12 pipeline provider, 10 pipeline card widget, 5 notification entity), plus 254 baseline tests with zero regressions.
+
+---
+
+## 5. Phase 6 Delivery Record ✅ — Beats Marketplace & Native App Architecture
+
+### Specifications Consumed (Single Source of Truth)
+* **Blueprint:** [`docs/phases/phase_06_marketplace/blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_06_marketplace/blueprint.md) built on [`docs/foundation_blueprints/05_MARKETPLACE_AND_LANDING_SPEC.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/foundation_blueprints/05_MARKETPLACE_AND_LANDING_SPEC.md)
+* **Requirements:** [`docs/phases/phase_06_marketplace/requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_06_marketplace/requirements.md)
+* **Design:** [`docs/phases/phase_06_marketplace/design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_06_marketplace/design.md)
+* **Tasks Checklist:** [`docs/phases/phase_06_marketplace/tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_06_marketplace/tasks.md) — all tasks closed.
+* **Execution Record:** [`docs/CLINE_HANDOFF_PHASE6.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE6.md)
+
+### Requirement Traceability
+| Requirement | Implementation |
+| :--- | :--- |
+| REQ-MKT-01 Marketplace header & scaffolding | `marketplace_top_bar.dart` + `_header()` in `marketplace_view.dart` |
+| REQ-MKT-02 Seller monetization callout | `seller_callout_banner.dart` (border `brandPrimary` @35% + `AppColors.amberGlow` blur 16) |
+| REQ-MKT-03 Responsive beat listing cards | `beat_card.dart` + the grid delegate in `marketplace_view.dart` |
+| REQ-MKT-04 Licensing flow & modal | `beat_license_modal.dart` + `licenseBeat()` (credit deduction + Library vault record) |
+| REQ-MKT-05 Filter engine & empty state | `marketplace_filter_modal.dart`, `marketplace_empty_state.dart`, `filterBeats()` |
+| REQ-MKT-06 Persistent PWA install dock | `pwa_install_dock.dart` (session dismissal via `Not now`) |
+| REQ-APP-01 Native Splash Screen | `splash_view.dart` (animated brand emblem, pulse ring, Tshivenḓa motto) |
+| REQ-APP-02 Native Onboarding Flow | `onboarding_view.dart` + `onboarding_providers.dart` (3-step preference setup) |
+| REQ-APP-03 Creator Home Dashboard (Tab 0) | `home_dashboard_view.dart` (greeting, quick prompt, action tiles, Jump Back In) |
+| REQ-APP-04 Native Subscription Upgrade Modal | `subscription_upgrade_modal.dart` (4 tiers, billing cycle toggle) |
+| REQ-MKT-12 Riverpod state & shell integration | `marketplace_providers.dart`, `RootShell` tabs 0 and 4 |
+
+### Verification Gate (re-run by incoming agents)
+```powershell
+cd apps/vhunambi_client
+dart analyze .   # No issues found! (0 issues)
+flutter test     # 207 of 207 tests passed! (100%)
+```
+
+---
+
+## 6. Phase 8 Delivery Record ✅ — Offline Audio Persistence & Hive Cache
+
+### Specifications Consumed (Single Source of Truth)
+* **Parent Blueprint:** [`docs/foundation_blueprints/04_LIBRARY_VAULT_SPEC.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/foundation_blueprints/04_LIBRARY_VAULT_SPEC.md) §5
+* **Phase 5-Doc Suite:** [`docs/phases/phase_08_offline_cache/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_08_offline_cache/) (`blueprint.md`, `requirements.md`, `design.md`, `tasks.md`, `walkthrough.md`)
+* **Execution Record:** [`docs/CLINE_HANDOFF_PHASE8_RESUME.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE8_RESUME.md)
+* **Walkthrough Report:** [`docs/phases/phase_08_offline_cache/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_08_offline_cache/walkthrough.md)
+
+### Requirement Traceability
+| Requirement | Implementation |
+| :--- | :--- |
+| REQ-OFF-01 Offline storage service initialization | `offline_storage_service.dart` (dual Hive boxes, headless safety) |
+| REQ-OFF-02 Track metadata persistence & retrieval | `saveTrackMetadata`, `getTrackMetadata`, `listAllCachedTracks` |
+| REQ-OFF-03 Local file eviction & cache purging | `removeTrackMetadata`, `clearAllMetadata`, physical disk delete |
+| REQ-OFF-04 Background download & progress tracking | `DownloadManagerNotifier`, streaming, FSM, concurrency limit 2 |
+| REQ-OFF-05 Download cancellation & error recovery | `cancelDownload`, `retryDownload`, Dio cancel token abort |
+| REQ-OFF-06 Cache storage statistics & quota | `CacheStorageStats`, `cacheStorageStatsProvider`, `formatBytes` |
+| REQ-OFF-07 Track actions sheet integration | `track_actions_sheet.dart` (dynamic offline download/cancel/remove) |
+| REQ-OFF-08 Vault badges & offline indicators | `offline_indicator_badge.dart`, `library_badges.dart` |
+| REQ-OFF-09 Offline-only filter scoping | `library_providers.dart` (`LibrarySyncFilter.offlineOnly`) |
+| REQ-OFF-10 Persistent player offline fallback | `expanded_cockpit_modal.dart` (badge), local audio file priority |
+| REQ-OFF-11 Vault storage quota modal | `vault_storage_modal.dart` (progress bar, track shelf, clear all) |
+
+### Verification Gate (re-run by incoming agents)
+```powershell
+cd apps/vhunambi_client
+dart analyze .   # No issues found! (0 issues)
+flutter test     # 254 of 254 tests passed! (100%)
+```
+
+---
+
+## 7. Phase 9 Delivery Record ✅ — Production Audio Engine Hardware Bridge & Platform Services
+
+### Specifications Consumed (Single Source of Truth)
+* **Parent Blueprint:** [`docs/foundation_blueprints/07_AUDIO_TRANSPORT_AND_PIPELINE_MODALS_SPEC.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/foundation_blueprints/07_AUDIO_TRANSPORT_AND_PIPELINE_MODALS_SPEC.md) & [`docs/foundation_blueprints/02_PERSISTENT_PLAYER_SPEC.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/foundation_blueprints/02_PERSISTENT_PLAYER_SPEC.md)
+* **Phase 5-Doc Suite:** [`docs/phases/phase_09_hardware_audio_bridge/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_09_hardware_audio_bridge/) (`blueprint.md`, `requirements.md`, `design.md`, `tasks.md`, `walkthrough.md`)
+* **Execution Record:** [`docs/CLINE_HANDOFF_PHASE9.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE9.md)
+* **Walkthrough Report:** [`docs/phases/phase_09_hardware_audio_bridge/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_09_hardware_audio_bridge/walkthrough.md)
+
+### Requirement Traceability
+| Requirement | Implementation |
+| :--- | :--- |
+| REQ-AUD-01 Platform audio handler initialization | `vhunambi_audio_handler.dart` (`VhunambiAudioHandler`, channel `com.vhunambi.app.audio`) |
+| REQ-AUD-02 Headless & test-environment safety | `TestVhunambiAudioHandler`, `TestAudioSessionManager`, headless auto-degradation |
+| REQ-AUD-03 MediaItem metadata synchronization | `buildMediaItemForTrack()` mapping ID, title, artist, genre/album, duration, artwork |
+| REQ-AUD-04 OS PlaybackState synchronization | `buildOsPlaybackState()`, bidirectional state mappers, speed/position tracking |
+| REQ-AUD-05 Native OS remote command execution | `play`, `pause`, `stop`, `seek`, `skipToNext`, `skipToPrevious`, `setSpeed`, `setRepeatMode` |
+| REQ-AUD-06 Audio session configuration & priority | `AudioSessionManager.configureSession()`, `AudioSessionConfiguration.music()` |
+| REQ-AUD-07 Audio interruption handling (telephony) | `session.interruptionEventStream`, `wasPlayingBeforeInterruption`, auto-resume |
+| REQ-AUD-08 Becoming noisy protection (unplugging) | `session.becomingNoisyEventStream`, immediate audio pause without auto-resume |
+| REQ-AUD-09 Offline vault priority resolution | `audio_source_resolver.dart` (`AudioSourceResolver`, `DeferredAudioSourceResolver`) |
+| REQ-AUD-10 Bi-directional Riverpod synchronization | `player_provider.dart` (`PlayerNotifier` hardware bridging, echo-suppression) |
+
+### Verification Gate (re-run by incoming agents)
+```powershell
+cd apps/vhunambi_client
+dart analyze .   # No issues found! (0 issues)
+flutter test     # 254 of 254 tests passed! (100%)
+```
+
+---
+
+## 8. How to Run the Verification Gates
+
+Inside PowerShell from `apps/vhunambi_client`:
+
+```powershell
+cd c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client
+
+# Run static analysis (must report: No issues found!)
+dart analyze .
+
+# Run automated tests (must report: All tests passed!)
+flutter test
+```
+
+Current gate benchmark: **0 analyzer issues** | **541 of 541 tests passed (100%)**.
+
+---
+
+## 9. Active Handoff & Next Phases Ahead
+
+### Phase 7 (COMPLETE ✅): Track Details & Creator Profiles (`/track/:id`, `/profile/:id`, `/profile/me`)
+* **Status:** Executed and verified — 160/160 tests passing with 0 analyzer issues.
+* **Source Blueprint:** [`docs/foundation_blueprints/06_TRACK_AND_CREATOR_PROFILES_SPEC.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/foundation_blueprints/06_TRACK_AND_CREATOR_PROFILES_SPEC.md)
+* **Execution & Takeover Record:** [`docs/CLINE_HANDOFF_PHASE7.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE7.md)
+
+### Phase 8 (COMPLETE ✅): Offline Audio Persistence & Hive Cache
+* **Status:** Executed and verified — 207/207 tests passing with 0 analyzer issues.
+* **Focus:** Offline mode for Asset Vault (`/library`), Hive-backed metadata cache, Dio streaming downloader, storage quota subsystem.
+* **5-Document Specification Suite:** [`docs/phases/phase_08_offline_cache/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_08_offline_cache/)
+* **Execution & Resume Record:** [`docs/CLINE_HANDOFF_PHASE8_RESUME.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE8_RESUME.md)
+
+### Phase 9 (COMPLETE ✅): Production Audio Engine Hardware Bridge & Platform Services
+* **Status:** Executed and verified — 254/254 tests passing with 0 analyzer issues (47 new tests added, zero regressions).
+* **Focus:** Native OS lockscreen playback controls (`MediaSession`, `MPNowPlayingInfoCenter`, `MPRemoteCommandCenter`), notification transport bar, background audio session management, telephony interruptions, becoming-noisy protection, hybrid offline source resolver.
+* **Delivered Files:**
+  - `lib/features/player/domain/models/audio_session_events.dart`
+  - `lib/features/player/data/services/audio_source_resolver.dart`
+  - `lib/features/player/data/services/audio_session_manager.dart`
+  - `lib/features/player/data/services/vhunambi_audio_handler.dart`
+  - `lib/features/player/presentation/providers/audio_bridge_providers.dart`
+  - `lib/features/player/presentation/providers/player_provider.dart` (updated)
+  - Native platform configurations in Android & iOS
+* **Automated Tests (47 new, 254 total):**
+  - `test/features/player/audio_source_resolver_test.dart` (9 tests)
+  - `test/features/player/audio_session_manager_test.dart` (13 tests)
+  - `test/features/player/vhunambi_audio_handler_test.dart` (17 tests)
+  - `test/features/player/player_hardware_bridge_test.dart` (8 tests)
+* **5-Document Specification Suite:** [`docs/phases/phase_09_hardware_audio_bridge/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_09_hardware_audio_bridge/)
+* **Execution Record:** [`docs/CLINE_HANDOFF_PHASE9.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE9.md)
+* **Walkthrough Report:** [`docs/phases/phase_09_hardware_audio_bridge/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_09_hardware_audio_bridge/walkthrough.md)
+
+### Phase 10 (COMPLETE ✅): Audio Generation Pipeline Real-Time WebSocket Bridge & Result Panel
+* **Status:** Executed and verified — 321/321 tests passing with 0 analyzer issues (67 new tests added, zero regressions).
+* **Focus:** Real-time synthesis backend socket connection, multi-stage generation pipeline card (`Result` panel), live progress streaming from backend audio synthesizer, audio stem download orchestrator, in-app notification dispatch.
+* **Delivered Files:**
+  - `lib/features/studio/domain/models/generation_pipeline_state.dart`
+  - `lib/features/studio/domain/models/stem_download_progress.dart`
+  - `lib/features/track/domain/models/track_entity.dart`
+  - `lib/features/studio/domain/services/i_generation_socket_service.dart`
+  - `lib/features/studio/data/services/generation_socket_service.dart`
+  - `lib/features/studio/data/services/fake_generation_socket_service.dart`
+  - `lib/features/studio/domain/services/i_stem_download_service.dart`
+  - `lib/features/studio/data/services/stem_download_service.dart`
+  - `lib/features/studio/data/services/fake_stem_download_service.dart`
+  - `lib/features/studio/presentation/providers/generation_pipeline_providers.dart`
+  - `lib/features/studio/presentation/providers/stem_download_provider.dart`
+  - `lib/features/studio/presentation/widgets/generation_pipeline_card.dart`
+  - `lib/features/notifications/domain/models/notification_entity.dart`
+* **Automated Tests (67 new, 321 total):**
+  - `test/features/studio/domain/models/generation_pipeline_state_test.dart` (22 tests)
+  - `test/features/studio/data/services/generation_socket_service_test.dart` (11 tests)
+  - `test/features/studio/data/services/stem_download_service_test.dart` (9 tests)
+  - `test/features/studio/presentation/providers/generation_pipeline_providers_test.dart` (12 tests)
+  - `test/features/studio/presentation/widgets/generation_pipeline_card_test.dart` (10 tests)
+  - `test/features/notifications/domain/models/notification_entity_test.dart` (5 tests)
+* **5-Document Specification Suite:** [`docs/phases/phase_10_generation_pipeline_bridge/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_10_generation_pipeline_bridge/)
+* **Execution Record:** [`docs/CLINE_HANDOFF_PHASE10.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE10.md)
+* **Walkthrough Report:** [`docs/phases/phase_10_generation_pipeline_bridge/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_10_generation_pipeline_bridge/walkthrough.md)
+
+### Phase 11 (COMPLETE ✅): Notifications Drawer & Real-Time In-App Alert System
+* **Status:** Executed and verified — 0 analyzer issues; all 35 notification-suite tests (`notifications_popover_test`, `notification_bell_button_test`, `notifications_provider_test`, `time_ago_utils_test`, `notification_entity_test`) confirmed green inside the Phase 12 full-suite run (460/460).
+* **Focus:** Interactive notifications popover, unread counter badge (`NotificationBellButton`), deep-link routing on alert tap, backward-compatible `notificationsProvider` adapter.
+* **4-Document Specification Suite:** [`docs/phases/phase_11_notifications_drawer/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_11_notifications_drawer/)
+* **Execution Record:** [`docs/CLINE_HANDOFF_PHASE11.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE11.md)
+
+### Phase 12 (COMPLETE ✅): Studio Lyrics Review Cockpit & Playlists Queue Management
+* **Status:** Executed and verified — 460/460 tests passing (104 new tests, zero regressions) with 0 analyzer issues.
+* **Delivered Files:**
+  - `lib/features/studio/domain/models/lyrics_review_models.dart`
+  - `lib/features/studio/domain/services/i_lyrics_generation_service.dart`
+  - `lib/features/studio/data/services/fake_lyrics_generation_service.dart`
+  - `lib/features/studio/presentation/providers/lyrics_review_provider.dart`
+  - `lib/features/studio/presentation/widgets/lyrics_review_modal.dart`
+  - `lib/features/playlists/domain/models/playlist_entity.dart`
+  - `lib/features/playlists/domain/repositories/i_playlist_repository.dart`
+  - `lib/features/playlists/data/repositories/in_memory_playlist_repository.dart`
+  - `lib/features/playlists/presentation/providers/playlists_provider.dart`
+  - `lib/features/playlists/presentation/widgets/add_to_playlist_sheet.dart`
+  - `lib/features/player/presentation/widgets/queue_drawer.dart`
+* **Automated Tests (104 new, 460 total):**
+  - `test/features/studio/domain/models/lyrics_review_models_test.dart` (15 tests)
+  - `test/features/playlists/domain/models/playlist_entity_test.dart` (8 tests)
+  - `test/features/studio/data/services/fake_lyrics_generation_service_test.dart` (9 tests)
+  - `test/features/playlists/data/repositories/playlist_repository_test.dart` (8 tests)
+  - `test/features/studio/presentation/providers/lyrics_review_provider_test.dart` (13 tests)
+  - `test/features/playlists/presentation/providers/playlists_provider_test.dart` (9 tests)
+  - `test/features/player/player_queue_management_test.dart` (17 tests)
+  - `test/features/studio/presentation/widgets/lyrics_review_modal_test.dart` (9 tests)
+  - `test/features/player/widgets/queue_drawer_test.dart` (9 tests)
+  - `test/features/playlists/presentation/widgets/add_to_playlist_sheet_test.dart` (7 tests)
+* **Modified:** `player_provider.dart` (queue engine), `desktop_transport_bar.dart`, `expanded_cockpit_modal.dart`, `track_actions_sheet.dart`, `studio_form_state.dart`, `studio_form_provider.dart`, `studio_action_bar.dart`.
+* **Walkthrough Report:** [`docs/phases/phase_12_lyrics_and_playlists/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_lyrics_and_playlists/walkthrough.md)
+* **Deferred:** `PlaylistsVaultView` (`/library?tab=playlists`) and `PlaylistDetailView` UI surfaces — the supporting engine (`playPlaylist`, `playlistsProvider`, `IPlaylistRepository`) is delivered and tested.
+* **Focus:**
+  1. **Subsystem A (Studio Lyrics Review & Editing Cockpit):** Interactive review modal triggered by `"📄 Write Lyrics First"` when `lyricsMode == aiWrite`, pausing in `GenerationPhase.reviewingLyrics`, section stanza cards, cultural idiom chip injection, raw editor toggle, and approve-to-beat handoff.
+  2. **Subsystem B (Playlists & Playback Queue Drawer):** Full playlist CRUD (`PlaylistEntity`, `PlaylistsNotifier`), interactive sliding `QueueDrawer` with live equalizer and reorderable upcoming queue, `AddToPlaylistSheet` (Library Vault `/library?tab=playlists` grid deferred — see Deferred above).
+* **5-Document Specification Suite:** [`docs/phases/phase_12_lyrics_and_playlists/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_lyrics_and_playlists/)
+  - [`blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_lyrics_and_playlists/blueprint.md)
+  - [`requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_lyrics_and_playlists/requirements.md)
+  - [`design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_lyrics_and_playlists/design.md)
+  - [`tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_lyrics_and_playlists/tasks.md)
+  - [`walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_lyrics_and_playlists/walkthrough.md)
+* **Master Execution Record:** [`docs/CLINE_HANDOFF_PHASE12.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE12.md)
+* **Achieved Test Gate:** **460/460 passing** (104 new tests, 0 regressions, 0 analyzer issues) — target was ≥ 380 total / ≥ 35 new.
+
+### Phase 12.1 (COMPLETE ✅): Playlists Vault & Local Persistence
+* **Status:** Executed and verified — 477/477 tests passing (17 new tests, zero regressions) with 0 analyzer issues.
+* **Delivered Files:**
+  - `lib/features/playlists/data/repositories/playlist_repository.dart` (Production Hive-backed repository with headless fallback)
+  - `lib/features/playlists/presentation/views/playlists_vault_view.dart` (Playlists tab in User Library Vault)
+  - `lib/features/playlists/presentation/views/playlist_detail_view.dart` (Playlist details, playback triggers, track management)
+* **Automated Tests (17 new, 477 total):**
+  - `test/features/playlists/data/repositories/hive_playlist_repository_test.dart` (6 tests)
+  - `test/features/playlists/presentation/views/playlists_vault_view_test.dart` (6 tests)
+  - `test/features/playlists/presentation/views/playlist_detail_view_test.dart` (5 tests)
+* **Modified:** `app_constants.dart` (`playlistsBoxKey`), `library_view.dart` (wired `PlaylistsVaultView` when `LibraryCategory.playlists` is selected).
+* **5-Document Specification Suite:** [`docs/phases/phase_12_1_playlists_vault/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_1_playlists_vault/)
+  - [`blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_1_playlists_vault/blueprint.md)
+  - [`requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_1_playlists_vault/requirements.md)
+  - [`design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_1_playlists_vault/design.md)
+  - [`tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_1_playlists_vault/tasks.md)
+  - [`walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_12_1_playlists_vault/walkthrough.md)
+* **Master Execution Record:** [`docs/CLINE_HANDOFF_PHASE12_1.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE12_1.md)
+* **Achieved Test Gate:** **477/477 passing** (17 new tests, 0 regressions, 0 analyzer issues).
+
+### Phase 13 (COMPLETE ✅): Collections & EP/Album Concept Bundler
+* **Status:** Executed and verified — 541/541 tests passing (63 new collection tests + 1 realigned library CTA test, zero regressions) with 0 analyzer issues.
+* **Delivered Files:**
+  - `lib/features/collections/domain/models/collection_entity.dart` (`CollectionType`, `SplitParticipant`, `CollectionEntity`)
+  - `lib/features/collections/domain/repositories/i_collection_repository.dart` (10-method contract)
+  - `lib/features/collections/data/repositories/in_memory_collection_repository.dart` (seeded test double)
+  - `lib/features/collections/data/repositories/collection_repository.dart` (Hive-backed, headless in-memory fallback)
+  - `lib/features/collections/presentation/providers/collections_provider.dart` (`collectionsProvider` + 11-method `CollectionsNotifier`)
+  - `lib/features/collections/presentation/views/collections_vault_view.dart` (Collections tab, 2/3/4-col grid + list, search, create/rename/delete)
+  - `lib/features/collections/presentation/views/collection_detail_view.dart` (hero header, Play All/Shuffle deck, reorderable tracks, split ledger)
+  - `lib/features/collections/presentation/widgets/` — `collection_form_dialog.dart`, `add_to_collection_sheet.dart`, `add_participant_dialog.dart`, `split_sheet_modal.dart`, `collection_type_badge.dart`, `collection_artwork_placeholder.dart`
+  - `lib/features/collections/presentation/collection_format.dart` (`formatCollectionDate`, `formatCollectionDuration`)
+* **Automated Tests (64 new/realigned, 541 total):**
+  - `test/features/collections/domain/models/collection_entity_test.dart` (18 tests)
+  - `test/features/collections/data/repositories/collection_repository_test.dart` (14 tests)
+  - `test/features/collections/presentation/providers/collections_provider_test.dart` (11 tests)
+  - `test/features/collections/presentation/views/collections_vault_view_test.dart` (8 tests)
+  - `test/features/collections/presentation/views/collection_detail_view_test.dart` (12 tests)
+* **Modified:** `lib/core/constants/app_constants.dart` (`collectionsBoxKey`), `lib/features/library/presentation/views/library_view.dart` (mounts `CollectionsVaultView` when `LibraryCategory.collections` is selected), `test/features/library/library_view_test.dart` (Collections-tab CTA assertion realigned to REQ-COL-13; Studio handoff still asserted on generic categories).
+* **5-Document Specification Suite:** [`docs/phases/phase_13_collections_bundler/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_13_collections_bundler/)
+  - [`blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_13_collections_bundler/blueprint.md)
+  - [`requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_13_collections_bundler/requirements.md)
+  - [`design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_13_collections_bundler/design.md)
+  - [`tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_13_collections_bundler/tasks.md)
+  - [`walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_13_collections_bundler/walkthrough.md)
+* **Master Execution Record:** [`docs/CLINE_HANDOFF_PHASE13.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE13.md)
+* **Achieved Test Gate:** **541/541 passing** (64 new/realigned tests, 0 regressions, 0 analyzer issues) — target was ≥ 512 total / ≥ 35 new.
+* **Notable Deviations:** `onReorderItem` replaces the handoff's `onReorderEnd` (Flutter 3.44.4 exposes no source index on `onReorderEnd`); `playerStateProvider.notifier.playTrack` replaces the non-existent `playerNotifierProvider`; grid columns derive 2/3/4 from `ResponsiveUtils` breakpoints rather than `gridColumns()`.
+
+### Phase 14 (COMPLETE ✅): Producer Beats Vault & Beatstore Listing Cockpit
+* **Status:** Executed and verified — 627/627 tests passing (86 new beats tests + 1 realigned library-tab test, zero regressions) with 0 analyzer issues.
+* **Delivered Files:**
+  - `lib/features/beats/domain/models/producer_beat_entity.dart` (`BeatStatus`, `BeatLicenseTier`, `BeatStemPackage`, `BeatSaleRecord`, `ProducerBeatEntity`)
+  - `lib/features/beats/domain/repositories/i_beat_repository.dart` (9-method contract)
+  - `lib/features/beats/data/repositories/in_memory_beat_repository.dart` (seeded double + `beatCdnOrigin`)
+  - `lib/features/beats/data/repositories/beat_repository.dart` (Hive-backed, headless in-memory fallback)
+  - `lib/features/beats/presentation/providers/beats_provider.dart` (`beatsProvider` + 12-method `BeatsNotifier`, `beatsVaultFilterProvider`, `filteredBeatsVaultProvider`, `beatsVaultStatsProvider`, `beatListingFromEntity`, `beatPreviewTrack`/`auditionBeatPreview`/`isBeatAuditioning`)
+  - `lib/features/beats/presentation/beat_format.dart` (12 genres, 12 musical keys, price presets, genre gradients, `clampBeatBpm`, `parseBeatTags`, `beatPreviewUrlFor`)
+  - `lib/features/beats/presentation/views/beats_vault_view.dart` (Beats tab: stats banner, search, status chips, sort menu, grid/list, empty + no-match states, authoring/edit dialogs, publish sheet, stems sheet, delete confirmation)
+  - `lib/features/beats/presentation/views/beat_detail_cockpit_view.dart` (hero, marketplace status card, stems card, royalty ledger)
+  - `lib/features/beats/presentation/widgets/` — `beat_status_badge.dart`, `beat_stats_banner.dart`, `beat_card.dart`, `beat_list_tile.dart`, `beat_form_dialog.dart`, `publish_beat_modal.dart`, `stem_export_modal.dart`
+* **Automated Tests (86 new + 1 realigned, 627 total):**
+  - `test/features/beats/domain/models/producer_beat_entity_test.dart` (25 tests)
+  - `test/features/beats/data/repositories/beat_repository_test.dart` (14 tests)
+  - `test/features/beats/presentation/providers/beats_provider_test.dart` (19 tests)
+  - `test/features/beats/presentation/widgets/beats_widgets_test.dart` (14 tests)
+  - `test/features/beats/presentation/views/beats_vault_view_test.dart` (14 tests)
+* **Modified:** `lib/core/constants/app_constants.dart` (`beatsBoxKey`), `lib/features/library/presentation/views/library_view.dart` (mounts `BeatsVaultView` when `LibraryCategory.beats` is selected), `lib/features/marketplace/presentation/providers/marketplace_providers.dart` (`upsertListing` / `removeListing`), `test/features/library/library_view_test.dart` (Beats-tab assertions realigned to REQ-BEAT-14).
+* **5-Document Specification Suite:** [`docs/phases/phase_14_beats_vault/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_14_beats_vault/)
+  - [`blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_14_beats_vault/blueprint.md)
+  - [`requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_14_beats_vault/requirements.md)
+  - [`design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_14_beats_vault/design.md)
+  - [`tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_14_beats_vault/tasks.md)
+  - [`walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_14_beats_vault/walkthrough.md)
+* **Master Execution Record:** [`docs/CLINE_HANDOFF_PHASE14.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE14.md)
+* **Achieved Test Gate:** **627/627 passing** (86 new tests, 0 regressions, 0 analyzer issues) — target was ≥ 576 total / ≥ 35 new.
+* **Notable Deviations:** `BeatLicenseTier.fromJson` now lower-cases the enum name (`design.md` contract) so camelCase tiers survive Hive rehydration; `BeatsNotifier` uses a redirecting `BeatsNotifier._` constructor because `prefer_initializing_formals` rejects private-field initializer lists; marketplace publication rides on new `upsertListing` / `removeListing` mutators instead of a second listing store; vault/cockpit widget tests pump a tree-owned `ProviderScope` so `PlayerNotifier`'s 1s ticker is cancelled before flutter_test's pending-timer assertion.
+

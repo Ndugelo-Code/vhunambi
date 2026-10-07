@@ -1,0 +1,36 @@
+{
+  "name": "vhunambi-api",
+  "version": "1.0.0",
+  "description": "Autonomous African AI Music Synthesis & Commercial Licensing API Gateway",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "tsx test/index.test.ts && tsx test/health.test.ts"
+  },
+  "keywords": [
+    "african-music",
+    "ai-music",
+    "amapiano",
+    "gqom",
+    "synthesis",
+    "runpod",
+    "ace-step"
+  ],
+  "author": "VHUNAMBI Team",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@hono/node-server": "^1.13.8",
+    "aws4fetch": "^1.0.20",
+    "dotenv": "^16.4.7",
+    "hono": "^4.7.2",
+    "nanoid": "^5.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
