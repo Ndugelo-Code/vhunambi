@@ -11,6 +11,7 @@ import '../widgets/typography_preset_picker.dart';
 import '../widgets/duration_trim_scrubber.dart';
 import '../widgets/atmospheric_effects_deck.dart';
 import '../widgets/export_action_sheet.dart';
+import '../widgets/publish_clip_modal.dart';
 
 /// Responsive Content Studio Cockpit for turning song DNA, 9:16 cover art,
 /// and synchronized lyrics into exportable short-form videos.
@@ -96,11 +97,19 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
               exportedFilePath: state.exportedFilePath,
               errorMessage: state.errorMessage,
               onDismiss: () => Navigator.of(sheetContext).pop(),
+              onPublish: () {
+                Navigator.of(sheetContext).pop();
+                PublishClipModal.show(context);
+              },
             );
           },
         );
       },
     );
+  }
+
+  void _openPublishModal(BuildContext context) {
+    PublishClipModal.show(context);
   }
 
   @override
@@ -374,6 +383,24 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
             onToggle: notifier.toggleEffect,
           ),
           const SizedBox(height: 32),
+          OutlinedButton.icon(
+            key: const Key('dock_publish_to_profile_btn'),
+            onPressed: () => _openPublishModal(context),
+            icon: const Icon(Icons.campaign_rounded, color: AppColors.brandPrimary),
+            label: Text(
+              'Publish to Profile',
+              style: AppTypography.bodyLarge.copyWith(
+                color: AppColors.brandPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.brandPrimary),
+              minimumSize: const Size.fromHeight(48),
+              shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBorder),
+            ),
+          ),
+          const SizedBox(height: 12),
           ElevatedButton.icon(
             onPressed: () => _openExportSheet(context),
             icon: const Icon(Icons.download_rounded, color: AppColors.brandContrast),

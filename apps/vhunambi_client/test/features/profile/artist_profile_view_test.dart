@@ -52,18 +52,22 @@ void main() {
     expect(find.text('1.8K'), findsOneWidget);
     expect(find.text('🔥 4'), findsOneWidget);
 
-    // 3. Top Supporters Leaderboard (REQ-TRK-14)
+    // 3. Switch to Music tab (Top Songs & Recent Activity)
+    await tester.tap(find.text('Music'));
+    await tester.pumpAndSettle();
+    expect(find.text('Top Songs'), findsOneWidget);
+    expect(find.text('Ndo Mufuna Matibe'), findsWidgets);
+    expect(find.text('Recent Activity'), findsOneWidget);
+
+    // 4. Switch to Beats tab (Top Supporters Leaderboard REQ-TRK-14)
+    await tester.tap(find.text('Beats'));
+    await tester.pumpAndSettle();
     expect(find.byType(TopSupportersLeaderboard), findsOneWidget);
     expect(find.text('Top Supporters'), findsOneWidget);
     expect(find.text('Sipho Beats'), findsOneWidget);
     expect(find.text('🥇'), findsOneWidget);
     expect(find.text('Lerato K'), findsOneWidget);
     expect(find.text('🥈'), findsOneWidget);
-
-    // 4. Top Songs & Recent Activity
-    expect(find.text('Top Songs'), findsOneWidget);
-    expect(find.text('Ndo Mufuna Matibe'), findsWidgets);
-    expect(find.text('Recent Activity'), findsOneWidget);
   });
 
   testWidgets('ArtistProfileView toggles follow button and updates following state',

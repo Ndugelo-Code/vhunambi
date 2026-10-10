@@ -4,6 +4,8 @@ import '../../domain/models/content_studio_preset.dart';
 import '../../domain/models/lyric_word_timestamp.dart';
 import '../../domain/services/i_video_export_service.dart';
 import '../../data/services/local_video_export_service.dart';
+import '../../../social/domain/models/published_clip.dart';
+import '../../../social/presentation/providers/social_feed_provider.dart';
 
 final videoExportServiceProvider = Provider<IVideoExportService>((ref) {
   return LocalVideoExportService();
@@ -26,6 +28,9 @@ class ContentStudioState {
   final String? exportedFilePath;
   final String? errorMessage;
 
+  /// Share URL of the most recently published clip (REQ-SOC-05 celebration).
+  final String? publishedShareUrl;
+
   const ContentStudioState({
     this.dna,
     this.audioUrl,
@@ -42,6 +47,7 @@ class ContentStudioState {
     this.exportProgress = 0.0,
     this.exportedFilePath,
     this.errorMessage,
+    this.publishedShareUrl,
   });
 
   ContentStudioState copyWith({
@@ -60,6 +66,7 @@ class ContentStudioState {
     double? exportProgress,
     String? exportedFilePath,
     String? errorMessage,
+    String? publishedShareUrl,
   }) {
     return ContentStudioState(
       dna: dna ?? this.dna,
@@ -77,6 +84,7 @@ class ContentStudioState {
       exportProgress: exportProgress ?? this.exportProgress,
       exportedFilePath: exportedFilePath ?? this.exportedFilePath,
       errorMessage: errorMessage,
+      publishedShareUrl: publishedShareUrl ?? this.publishedShareUrl,
     );
   }
 }
@@ -84,7 +92,11 @@ class ContentStudioState {
 class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
   final IVideoExportService _exportService;
 
-  ContentStudioNotifier(this._exportService) : super(const ContentStudioState());
+  /// Injected social feed sink for optimistic in-house publishing (T2.4).
+  final SocialFeedNotifier? _socialFeed;
+
+  ContentStudioNotifier(this._exportService, [this._socialFeed])
+      : super(const ContentStudioState());
 
   void initializeWithDna({
     required SongMetadataDna dna,
@@ -227,6 +239,51 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
     }
   }
 
+  /// 1-tap in-house publish (REQ-SOC-01 … REQ-SOC-05): builds a [PublishedClip]
+  /// from the current studio session and optimistically injects it into the
+  /// social feed. Returns the created clip, or null when the session lacks a
+  /// compiled DNA / audio. The clip's `dna` powers zero-video in-house
+  /// playback — no MP4 is required (REQ-SOC-26).
+  PublishedClip? publishClipToProfile({
+    required String caption,
+    required List<String> tags,
+    ClipVisibility visibility = ClipVisibility.public,
+  }) {
+    final dna = state.dna;
+    final audioUrl = state.audioUrl;
+    if (dna == null || audioUrl == null) {
+      state = state.copyWith(
+        errorMessage: 'Cannot publish: song DNA or audio is missing.',
+      );
+      return null;
+    }
+
+    final clipId = 'clip_pub_local_${DateTime.now().millisecondsSinceEpoch}';
+    final clip = PublishedClip(
+      id: clipId,
+      trackId: 'track_${clipId.split('_').last}',
+      creatorId: 'creator_makhadzi',
+      creatorUsername: 'makhadzi',
+      creatorDisplayName: 'Makhadzi',
+      isCreatorVerified: true,
+      title: dna.title,
+      caption: caption,
+      tags: tags,
+      genre: dna.genre,
+      audioUrl: audioUrl,
+      coverUrl: state.coverArtUrl ?? '',
+      dna: dna,
+      publishedAt: DateTime.now(),
+    );
+
+    // Optimistic local injection — the clip appears instantly in the feed and
+    // on the creator profile (REQ-SOC-04). A networked repo would reconcile
+    // the server-assigned id/shareUrl here.
+    _socialFeed?.prependClip(clip);
+    state = state.copyWith(publishedShareUrl: clip.shareUrl, errorMessage: null);
+    return clip;
+  }
+
   void reset() {
     state = const ContentStudioState();
   }
@@ -235,5 +292,6 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
 final contentStudioProvider =
     StateNotifierProvider<ContentStudioNotifier, ContentStudioState>((ref) {
   final exportService = ref.watch(videoExportServiceProvider);
-  return ContentStudioNotifier(exportService);
+  final socialFeed = ref.read(socialFeedProvider.notifier);
+  return ContentStudioNotifier(exportService, socialFeed);
 });

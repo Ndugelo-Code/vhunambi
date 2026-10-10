@@ -12,6 +12,9 @@ import '../providers/profile_providers.dart';
 import '../widgets/profile_referral_card.dart';
 import '../widgets/releases_manager_card.dart';
 import '../widgets/tip_history_ledger.dart';
+import '../../../social/presentation/providers/creator_clips_provider.dart';
+import '../../../social/presentation/widgets/creator_reel_thumbnail_card.dart';
+import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
 
 /// Account Owner Creator Studio Profile View (`/profile/me`) (REQ-TRK-15, REQ-TRK-16).
 class OwnerProfileView extends ConsumerStatefulWidget {
@@ -328,6 +331,11 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
 
                   const SizedBox(height: 14),
 
+                  // 4b. My Clips & Reels (Phase 18 · REQ-SOC-07)
+                  const _OwnerReelsShelf(),
+
+                  const SizedBox(height: 14),
+
                   // 5. Discography Releases Manager
                   ReleasesManagerCard(
                     releases: profile.releases,
@@ -519,6 +527,74 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Horizontal shelf of the owner's published clips & reels (Phase 18).
+class _OwnerReelsShelf extends ConsumerWidget {
+  const _OwnerReelsShelf();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final clips = ref.watch(creatorClipsFamilyProvider('creator_me'));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.movie_filter_rounded,
+                color: AppColors.brandPrimary, size: 18),
+            const SizedBox(width: 8),
+            Text('My Clips & Reels',
+                style: AppTypography.titleMedium
+                    .copyWith(fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Text('${clips.length}',
+                style: AppTypography.caption
+                    .copyWith(color: AppColors.textSecondary)),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (clips.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: AppRadius.cardBorder,
+              border: Border.all(color: AppColors.borderSubtle),
+            ),
+            child: Text(
+              'Publish a reel from the Content Studio to feature it here.',
+              style: AppTypography.bodyMuted,
+            ),
+          )
+        else
+          SizedBox(
+            height: 180,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: clips.length,
+              separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+              itemBuilder: (context, i) {
+                final clip = clips[i];
+                return SizedBox(
+                  width: 96,
+                  child: CreatorReelThumbnailCard(
+                    clip: clip,
+                    onTap: () => KineticReelsModal.show(
+                      context,
+                      clips: clips,
+                      initialClipId: clip.id,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 }

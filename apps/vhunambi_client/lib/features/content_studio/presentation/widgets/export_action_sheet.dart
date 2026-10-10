@@ -10,6 +10,7 @@ class ExportActionSheet extends StatelessWidget {
   final String? exportedFilePath;
   final String? errorMessage;
   final VoidCallback onDismiss;
+  final VoidCallback? onPublish;
 
   const ExportActionSheet({
     super.key,
@@ -18,6 +19,7 @@ class ExportActionSheet extends StatelessWidget {
     required this.exportedFilePath,
     this.errorMessage,
     required this.onDismiss,
+    this.onPublish,
   });
 
   @override
@@ -118,6 +120,26 @@ class ExportActionSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
+            if (onPublish != null) ...[
+              ElevatedButton.icon(
+                key: const Key('export_publish_to_profile_btn'),
+                onPressed: onPublish,
+                icon: const Icon(Icons.campaign_rounded, color: AppColors.brandContrast),
+                label: Text(
+                  'Publish to Profile',
+                  style: AppTypography.bodyLarge.copyWith(
+                    color: AppColors.brandContrast,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.brandPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.of(context).pop();
