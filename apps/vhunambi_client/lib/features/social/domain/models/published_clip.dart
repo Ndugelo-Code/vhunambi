@@ -40,6 +40,9 @@ class PublishedClip {
   final bool isLikedByMe;
   final bool isSavedByMe;
 
+  /// The number of times the current user has loved this clip in multi-tap bursts.
+  final int userReactionCount;
+
   final DateTime publishedAt;
 
   const PublishedClip({
@@ -63,6 +66,7 @@ class PublishedClip {
     this.remixCount = 0,
     this.isLikedByMe = false,
     this.isSavedByMe = false,
+    this.userReactionCount = 0,
     required this.publishedAt,
   });
 
@@ -73,6 +77,7 @@ class PublishedClip {
     int? remixCount,
     bool? isLikedByMe,
     bool? isSavedByMe,
+    int? userReactionCount,
   }) {
     return PublishedClip(
       id: id,
@@ -95,6 +100,7 @@ class PublishedClip {
       remixCount: remixCount ?? this.remixCount,
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
       isSavedByMe: isSavedByMe ?? this.isSavedByMe,
+      userReactionCount: userReactionCount ?? this.userReactionCount,
       publishedAt: publishedAt,
     );
   }
@@ -120,6 +126,7 @@ class PublishedClip {
         'remixCount': remixCount,
         'isLikedByMe': isLikedByMe,
         'isSavedByMe': isSavedByMe,
+        'userReactionCount': userReactionCount,
         'publishedAt': publishedAt.toIso8601String(),
       };
 
@@ -140,13 +147,15 @@ class PublishedClip {
       genre: json['genre'] as String? ?? 'Amapiano',
       audioUrl: json['audioUrl'] as String? ?? '',
       coverUrl: json['coverUrl'] as String? ?? '',
-      dna: SongMetadataDna.fromJson(json['dna'] as Map<String, dynamic>),
-      playCount: json['playCount'] as int? ?? 0,
-      likeCount: json['likeCount'] as int? ?? 0,
-      commentCount: json['commentCount'] as int? ?? 0,
-      remixCount: json['remixCount'] as int? ?? 0,
-      isLikedByMe: json['isLikedByMe'] as bool? ?? false,
-      isSavedByMe: json['isSavedByMe'] as bool? ?? false,
+      dna: SongMetadataDna.fromJson(
+          json['dna'] as Map<String, dynamic>? ?? const {}),
+      playCount: (json['playCount'] as num?)?.toInt() ?? 0,
+      likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
+      commentCount: (json['commentCount'] as num?)?.toInt() ?? 0,
+      remixCount: (json['remixCount'] as num?)?.toInt() ?? 0,
+      isLikedByMe: (json['isLikedByMe'] as bool?) ?? false,
+      isSavedByMe: (json['isSavedByMe'] as bool?) ?? false,
+      userReactionCount: (json['userReactionCount'] as num?)?.toInt() ?? 0,
       publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? '') ??
           DateTime.now(),
     );

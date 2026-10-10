@@ -56,11 +56,37 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
             clip.copyWith(
               isLikedByMe: !clip.isLikedByMe,
               likeCount: clip.likeCount + (clip.isLikedByMe ? -1 : 1),
+              userReactionCount: clip.isLikedByMe ? 0 : 1,
             )
           else
             clip,
       ],
     );
+  }
+
+  /// Records a love tap in TikTok-familiar multi-tap bursts (REQ-COM-04).
+  ///
+  /// Increments the total [likeCount], ensures [isLikedByMe] is true, and
+  /// increments the user's specific [userReactionCount] for honest community tracking.
+  int recordLove(String clipId) {
+    var newReactionCount = 1;
+    state = state.copyWith(
+      clips: [
+        for (final clip in state.clips)
+          if (clip.id == clipId) () {
+            final nextCount = clip.userReactionCount + 1;
+            newReactionCount = nextCount;
+            return clip.copyWith(
+              isLikedByMe: true,
+              likeCount: clip.likeCount + 1,
+              userReactionCount: nextCount,
+            );
+          }()
+          else
+            clip,
+      ],
+    );
+    return newReactionCount;
   }
 
   /// Loads the next cursor page. The seeded catalogue is fully in-memory, so
