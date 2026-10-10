@@ -13,6 +13,7 @@ import '../../../profile/presentation/views/owner_profile_view.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import '../../../track/presentation/views/track_detail_view.dart';
 import '../widgets/subscription_upgrade_modal.dart';
+import '../../../social/presentation/widgets/trending_reels_shelf.dart';
 
 class HomeDashboardView extends ConsumerStatefulWidget {
   final VoidCallback? onNavigateToStudio;
@@ -423,6 +424,10 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
                 ),
               ),
             ),
+
+            // 4.5 Trending Kinetic Reels discovery shelf (Phase 19)
+            const SliverToBoxAdapter(child: TrendingReelsShelf()),
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
 
             // 5. Daily Heritage Spotlight Banner
             SliverToBoxAdapter(

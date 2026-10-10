@@ -14,7 +14,7 @@ import 'package:vhunambi_client/features/player/presentation/providers/player_pr
 
 Future<void> _pumpExplore(
   WidgetTester tester, {
-  Size size = const Size(1280, 2400),
+  Size size = const Size(1280, 2800),
   VoidCallback? onCreateRequested,
 }) async {
   tester.view.physicalSize = size;

@@ -8,6 +8,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/published_clip.dart';
 import '../providers/social_feed_provider.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
+import 'reels_comment_sheet.dart';
 
 /// Full-screen vertical "Kinetic Reels" feed (REQ-SOC-11).
 ///
@@ -94,8 +95,6 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
           return _ReelPage(
             clip: clip,
             isActive: i == _currentIndex,
-            onLike: () =>
-                ref.read(socialFeedProvider.notifier).toggleLike(clip.id),
             onShare: () => _share(clip),
           );
         },
@@ -108,13 +107,11 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
 class _ReelPage extends ConsumerStatefulWidget {
   final PublishedClip clip;
   final bool isActive;
-  final VoidCallback onLike;
   final VoidCallback onShare;
 
   const _ReelPage({
     required this.clip,
     required this.isActive,
-    required this.onLike,
     required this.onShare,
   });
 
@@ -190,8 +187,7 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
         Positioned(
           right: 12,
           bottom: 120,
-          child: _ActionRail(
-              clip: clip, onLike: widget.onLike, onShare: widget.onShare),
+          child: _ActionRail(clip: clip, onShare: widget.onShare),
         ),
         Positioned(
           left: 16,
@@ -234,15 +230,26 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
   }
 }
 
-class _ActionRail extends StatelessWidget {
+class _ActionRail extends ConsumerWidget {
   final PublishedClip clip;
-  final VoidCallback onLike;
   final VoidCallback onShare;
-  const _ActionRail(
-      {required this.clip, required this.onLike, required this.onShare});
+  const _ActionRail({required this.clip, required this.onShare});
+
+  void _recordLove(BuildContext context, WidgetRef ref) {
+    final count = ref.read(socialFeedProvider.notifier).recordLove(clip.id);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        key: ValueKey('love_toast_${clip.id}'),
+        content: Text('Loved ${count}x! ❤️'),
+        backgroundColor: AppColors.brandPrimary,
+        duration: const Duration(milliseconds: 900),
+      ),
+    );
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -253,14 +260,15 @@ class _ActionRail extends StatelessWidget {
               : Icons.favorite_border_rounded,
           color: clip.isLikedByMe ? AppColors.brandPrimary : AppColors.textPrimary,
           label: formatLikes(clip.likeCount),
-          onTap: onLike,
+          onTap: () => _recordLove(context, ref),
         ),
         const SizedBox(height: 18),
         _RailButton(
+          key: const Key('reel_comment_btn'),
           icon: Icons.mode_comment_outlined,
           color: AppColors.textPrimary,
           label: '${clip.commentCount}',
-          onTap: () {},
+          onTap: () => ReelsCommentSheet.show(context, clip: clip),
         ),
         const SizedBox(height: 18),
         _RailButton(

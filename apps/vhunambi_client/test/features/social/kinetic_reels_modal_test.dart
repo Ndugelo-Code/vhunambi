@@ -114,7 +114,9 @@ void main() {
 
     expect(find.byKey(const Key('reel_like_btn')), findsOneWidget);
     await tester.tap(find.byKey(const Key('reel_like_btn')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    // Let the multi-tap love toast auto-dismiss so no timer stays pending.
+    await tester.pump(const Duration(seconds: 1));
 
     // Like toggles optimistically
     expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
@@ -139,5 +141,56 @@ void main() {
     await tester.pump();
 
     expect(find.text('Loaded sound into Studio: Makhado Sun 🎵'), findsOneWidget);
+  });
+
+  testWidgets('Tapping the comment button opens the ReelsCommentSheet',
+      (tester) async {
+    // clip_seed_01 has seeded community comments.
+    final clip = _sampleClip(id: 'clip_seed_01', title: 'Ndo Mufuna Matibe');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: KineticReelsModal(clips: [clip]),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('reel_comment_btn')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('comment_sheet_close')), findsOneWidget);
+    expect(find.text('Comments (4)'), findsOneWidget);
+  });
+
+  testWidgets('Tapping like records a love burst with a toast', (tester) async {
+    final clip = _sampleClip(likeCount: 50, isLiked: false);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          socialFeedProvider.overrideWith((ref) {
+            final notifier = SocialFeedNotifier();
+            notifier.prependClip(clip);
+            return notifier;
+          }),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: KineticReelsModal(clips: [clip]),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('reel_like_btn')));
+    await tester.pump();
+
+    expect(find.textContaining('Loved'), findsWidgets);
+    // Dismiss the toast so its timer does not leak past the test.
+    await tester.pump(const Duration(seconds: 1));
   });
 }

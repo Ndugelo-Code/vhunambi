@@ -17,6 +17,7 @@ import '../widgets/explore_top_bar.dart';
 import '../widgets/genre_radio_tile.dart';
 import '../widgets/track_card.dart';
 import '../widgets/track_list_tile.dart';
+import '../../../social/presentation/widgets/trending_reels_shelf.dart';
 
 /// Explore Feed & Music Discovery (`/explore`) — mounted at tab index 1 of
 /// `RootShell`. Reference: `docs/phases/phase_05_explore_feed/blueprint.md`
@@ -72,6 +73,10 @@ class ExploreView extends ConsumerWidget {
               ),
             ),
           ),
+
+          // 3.5 Trending Kinetic Reels discovery shelf (Phase 19)
+          const SliverToBoxAdapter(child: TrendingReelsShelf()),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
 
           // 4. Hero Grid: Personalized "Recommended For You" when on For You tab, else "New This Week"
           if (activeTab == ExploreTab.forYou) ...[
