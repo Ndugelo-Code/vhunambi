@@ -117,4 +117,24 @@ class PlaylistRepository implements IPlaylistRepository {
     );
     await savePlaylist(updated);
   }
+
+  @override
+  Future<void> reorderTracksInPlaylist(
+    String playlistId,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    final playlist = await getPlaylistById(playlistId);
+    if (playlist == null) return;
+    if (oldIndex < 0 || oldIndex >= playlist.trackIds.length) return;
+
+    final trackIds = List<String>.of(playlist.trackIds);
+    final item = trackIds.removeAt(oldIndex);
+    final clampedIndex = newIndex.clamp(0, trackIds.length);
+    trackIds.insert(clampedIndex, item);
+
+    await savePlaylist(
+      playlist.copyWith(trackIds: trackIds, updatedAt: DateTime.now()),
+    );
+  }
 }

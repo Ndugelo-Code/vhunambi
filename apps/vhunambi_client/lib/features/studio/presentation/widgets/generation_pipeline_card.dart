@@ -8,6 +8,7 @@ import '../../../player/presentation/providers/player_provider.dart';
 import '../../../track/domain/models/track_entity.dart';
 import '../providers/generation_pipeline_providers.dart';
 import '../providers/stem_download_provider.dart';
+import 'package:vhunambi_client/features/content_studio/presentation/views/content_studio_dock_view.dart';
 
 /// Live result panel for the audio synthesis pipeline (T10.4).
 ///
@@ -606,36 +607,68 @@ class _ReadyTrackCard extends ConsumerWidget {
               ),
               const SizedBox(width: AppSpacing.xs),
               OutlinedButton.icon(
-                key: const Key('pipeline_download_stems'),
+                key: const Key('pipeline_create_reel_btn'),
                 onPressed: () {
-                  final downloader = ref.read(stemDownloadServiceProvider);
-                  final stemsUrl = track.masterMp3Url.replaceAll('.mp3', '_stems.zip');
-                  downloader.downloadStems(stemsUrl);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Downloading stem bundle for ${track.title}...'),
-                      backgroundColor: AppColors.surfaceElevated,
-                    ),
+                  ContentStudioDockView.open(
+                    context,
+                    dna: track.toSongMetadataDna(),
+                    audioUrl: track.masterMp3Url,
+                    coverArtUrl: track.coverUrl ??
+                        'https://r2.vhunambi.com/visuals/default_9_16.png',
                   );
                 },
                 icon: const Icon(
-                  Icons.download_rounded,
+                  Icons.movie_creation_rounded,
                   size: 16,
-                  color: AppColors.textPrimary,
+                  color: AppColors.brandPrimary,
                 ),
                 label: Text(
-                  'Stems',
+                  'Create Reel',
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textPrimary,
+                    color: AppColors.brandPrimary,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.borderSubtle),
+                  side: const BorderSide(color: AppColors.brandPrimary),
                   shape: const RoundedRectangleBorder(
                     borderRadius: AppRadius.pillBorder,
                   ),
                 ),
               ),
+              if (track.hasStems) ...[
+                const SizedBox(width: AppSpacing.xs),
+                OutlinedButton.icon(
+                  key: const Key('pipeline_download_stems'),
+                  onPressed: () {
+                    final downloader = ref.read(stemDownloadServiceProvider);
+                    downloader.downloadStems(track.stemsUrl!);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Downloading stem bundle for ${track.title}...'),
+                        backgroundColor: AppColors.surfaceElevated,
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.download_rounded,
+                    size: 16,
+                    color: AppColors.textPrimary,
+                  ),
+                  label: Text(
+                    'Stems',
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.borderSubtle),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: AppRadius.pillBorder,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ],

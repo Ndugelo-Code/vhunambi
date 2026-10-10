@@ -7,6 +7,7 @@ import '../../../../core/utils/responsive_utils.dart';
 import '../../../../shared/models/track.dart';
 import '../../domain/models/explore_models.dart';
 import '../providers/explore_providers.dart';
+import '../providers/recommendation_provider.dart';
 import '../widgets/african_charts_banner.dart';
 import '../widgets/catalog_filter_bar.dart';
 import '../widgets/creator_card.dart';
@@ -21,6 +22,7 @@ import '../widgets/track_list_tile.dart';
 /// `RootShell`. Reference: `docs/phases/phase_05_explore_feed/blueprint.md`
 class ExploreView extends ConsumerWidget {
   static const String newThisWeekTitle = 'New This Week';
+  static const String recommendedForYouTitle = 'Recommended For You';
   static const String risingTitle = 'Rising';
   static const String featuredCreatorsTitle = 'Featured Creators';
   static const String genreRadioTitle = 'Genre Radio';
@@ -35,7 +37,9 @@ class ExploreView extends ConsumerWidget {
     final isDesktop = ResponsiveUtils.isDesktop(context);
     final isMobile = ResponsiveUtils.isMobile(context);
 
+    final activeTab = ref.watch(exploreTabProvider);
     final newTracks = ref.watch(newThisWeekTracksProvider);
+    final recommendedTracks = ref.watch(filteredRecommendedTracksProvider);
     final rising = ref.watch(risingTracksProvider);
     final creators = ref.watch(exploreCreatorsProvider);
     final catalog = ref.watch(visibleExploreTracksProvider);
@@ -69,9 +73,14 @@ class ExploreView extends ConsumerWidget {
             ),
           ),
 
-          // 4. New This Week grid
-          _sectionHeader(newThisWeekTitle),
-          _trackCardGrid(context, newTracks),
+          // 4. Hero Grid: Personalized "Recommended For You" when on For You tab, else "New This Week"
+          if (activeTab == ExploreTab.forYou) ...[
+            _sectionHeader(recommendedForYouTitle),
+            _trackCardGrid(context, recommendedTracks.take(6).toList()),
+          ] else ...[
+            _sectionHeader(newThisWeekTitle),
+            _trackCardGrid(context, newTracks),
+          ],
 
           // 5. Rising tracks (2-col split matrix on desktop, dense list mobile)
           _sectionHeader(risingTitle),

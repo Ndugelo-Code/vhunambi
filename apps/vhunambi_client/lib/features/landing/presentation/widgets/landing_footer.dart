@@ -113,7 +113,15 @@ class _FooterLinks extends StatelessWidget {
           children: [
             for (final link in links)
               InkWell(
-                onTap: () {},
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$link: https://vhunambi.com/${link.toLowerCase().replaceAll(' ', '-')}'),
+                      backgroundColor: AppColors.surfaceModal,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
                 child: Text(
                   link,
                   style: AppTypography.bodySmall.copyWith(

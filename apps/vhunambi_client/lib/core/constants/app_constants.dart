@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Global application constants and configuration
 abstract final class AppConstants {
   static const String appName = 'VHUNAMBI';
@@ -7,7 +5,7 @@ abstract final class AppConstants {
   static const String defaultOrigin = 'https://vhunambi.com';
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: kDebugMode ? 'http://localhost:3000/v1' : 'https://api.vhunambi.com/v1',
+    defaultValue: 'https://vhunambi-api.zaniaexplore.co.za/v1',
   );
 
   // Storage Keys

@@ -380,12 +380,14 @@ class _OverflowMenu extends ConsumerWidget {
         LibrarySortOrder.newestFirst => Icons.schedule_rounded,
         LibrarySortOrder.oldestFirst => Icons.history_rounded,
         LibrarySortOrder.titleAscending => Icons.sort_by_alpha_rounded,
+        LibrarySortOrder.mostPlayed => Icons.local_fire_department_rounded,
       };
 
   static String _sortLabel(LibrarySortOrder order) => switch (order) {
         LibrarySortOrder.newestFirst => 'Newest first',
         LibrarySortOrder.oldestFirst => 'Oldest first',
         LibrarySortOrder.titleAscending => 'Title A–Z',
+        LibrarySortOrder.mostPlayed => 'Most played',
       };
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
@@ -43,28 +44,41 @@ class MobileMiniPlayer extends ConsumerWidget {
           ),
 
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  // Leading 40x40px Album Art
-                  GestureDetector(
-                    onTap: onExpand,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        gradient: AppGradients.forGenre(track.genre),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.piano_rounded,
-                        color: Colors.white,
-                        size: 22,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragEnd: (details) {
+                // `primaryVelocity` is nullable on some drag terminations.
+                final velocity = details.primaryVelocity ?? 0;
+                if (velocity < -250) {
+                  HapticFeedback.lightImpact();
+                  notifier.skipNext();
+                } else if (velocity > 250) {
+                  HapticFeedback.lightImpact();
+                  notifier.skipPrevious();
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    // Leading 40x40px Album Art
+                    GestureDetector(
+                      onTap: onExpand,
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          gradient: AppGradients.forGenre(track.genre),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.piano_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
+                    const SizedBox(width: 10),
 
                   // Metadata Stack
                   Expanded(
@@ -145,6 +159,7 @@ class MobileMiniPlayer extends ConsumerWidget {
                     onPressed: notifier.dismiss,
                   ),
                 ],
+              ),
               ),
             ),
           ),

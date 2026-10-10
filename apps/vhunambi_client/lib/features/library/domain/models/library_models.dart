@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/models/track.dart';
+import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
 
 /// Library & User Asset Vault domain taxonomy.
 /// Reference: docs/foundation_blueprints/04_LIBRARY_VAULT_SPEC.md
@@ -34,6 +35,7 @@ enum LibrarySortOrder {
   newestFirst,
   oldestFirst,
   titleAscending,
+  mostPlayed,
 }
 
 /// Local vs. cloud presence filter backing the `🎛️ Filter` control (Blueprint 04 §3.2).
@@ -81,6 +83,16 @@ class LibraryTrack {
   /// True for standalone instrumental beats listed in the `🛍️ Beats` tab.
   final bool isInstrumental;
 
+  /// Lifetime play count for the personal jukebox stat badge (default `0`).
+  final int playCount;
+
+  /// Quick heart / favourite flag toggled from the vault list and player.
+  final bool isFavorite;
+
+  /// Optional full bracketed stanza text (`[Intro]`, `[Verse 1]`, `[Chorus]…`)
+  /// powering the cockpit lyrics reading mode (Mission 14).
+  final String? lyrics;
+
   const LibraryTrack({
     required this.id,
     required this.title,
@@ -97,6 +109,9 @@ class LibraryTrack {
     this.deletedAt,
     this.syncStatus = TrackSyncStatus.cloudOnly,
     this.isInstrumental = false,
+    this.playCount = 0,
+    this.isFavorite = false,
+    this.lyrics,
   });
 
   /// True when a local audio copy exists inside the device vault directory.
@@ -104,11 +119,35 @@ class LibraryTrack {
 
   Duration get duration => Duration(seconds: durationSeconds);
 
+  /// Converts this vaulted library track into SongMetadataDna for the Content Studio.
+  SongMetadataDna toSongMetadataDna() {
+    return SongMetadataDna.fromTrackInfo(
+      id: id,
+      title: title,
+      genre: genre,
+      language: language,
+      durationSec: durationSeconds,
+      lyrics: lyrics,
+      coverUrl: coverImageUrl,
+    );
+  }
+
   /// `mm:ss` rendering contract (REQ-LIB-05).
   String get formattedDuration {
     final minutes = durationSeconds ~/ 60;
     final seconds = (durationSeconds % 60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
+  }
+
+  /// Compact lifetime play label, e.g. `0 plays`, `12 plays`, `1.4k plays`.
+  String get playCountLabel {
+    if (playCount >= 1000000) {
+      return '${(playCount / 1000000).toStringAsFixed(1)}M plays';
+    }
+    if (playCount >= 1000) {
+      return '${(playCount / 1000).toStringAsFixed(1)}k plays';
+    }
+    return '$playCount ${playCount == 1 ? 'play' : 'plays'}';
   }
 
   /// Human readable creation timestamp, e.g. `Created 2 hours ago`.
@@ -158,6 +197,9 @@ class LibraryTrack {
     bool clearDeletedAt = false,
     TrackSyncStatus? syncStatus,
     bool? isInstrumental,
+    int? playCount,
+    bool? isFavorite,
+    String? lyrics,
   }) {
     return LibraryTrack(
       id: id ?? this.id,
@@ -177,6 +219,9 @@ class LibraryTrack {
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
       syncStatus: syncStatus ?? this.syncStatus,
       isInstrumental: isInstrumental ?? this.isInstrumental,
+      playCount: playCount ?? this.playCount,
+      isFavorite: isFavorite ?? this.isFavorite,
+      lyrics: lyrics ?? this.lyrics,
     );
   }
 
@@ -191,6 +236,7 @@ class LibraryTrack {
       duration: duration,
       audioUrl: localAudioFilePath ?? remoteAudioUrl,
       coverUrl: coverImageUrl,
+      playCount: playCount,
     );
   }
 
@@ -212,7 +258,10 @@ class LibraryTrack {
         other.isDeleted == isDeleted &&
         other.deletedAt == deletedAt &&
         other.syncStatus == syncStatus &&
-        other.isInstrumental == isInstrumental;
+        other.isInstrumental == isInstrumental &&
+        other.playCount == playCount &&
+        other.isFavorite == isFavorite &&
+        other.lyrics == lyrics;
   }
 
   @override
@@ -232,6 +281,9 @@ class LibraryTrack {
         deletedAt,
         syncStatus,
         isInstrumental,
+        playCount,
+        isFavorite,
+        lyrics,
       );
 
 }

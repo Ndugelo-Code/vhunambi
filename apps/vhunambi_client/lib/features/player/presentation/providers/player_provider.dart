@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:audio_service/audio_service.dart' show MediaItem, PlaybackState;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,14 +21,19 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   Timer? _positionTimer;
   final IVhunambiAudioHandler _audioHandler;
 
+  /// Injectable random index selector (defaults to [Random.nextInt]) so shuffle
+  /// selection is deterministic under test.
+  final int Function(int) _randomInt;
+
   /// `true` when this notifier created the handler and must therefore dispose it.
   final bool _ownsHandler;
 
   StreamSubscription<PlaybackState>? _playbackStateSubscription;
   StreamSubscription<MediaItem?>? _mediaItemSubscription;
 
-  PlayerNotifier({IVhunambiAudioHandler? audioHandler})
+  PlayerNotifier({IVhunambiAudioHandler? audioHandler, int Function(int)? randomInt})
       : _ownsHandler = audioHandler == null,
+        _randomInt = randomInt ?? Random().nextInt,
         _audioHandler = audioHandler ?? TestVhunambiAudioHandler(),
         super(
           const PlayerState(
@@ -84,9 +90,14 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       return;
     }
 
+    final preserveZeroPosition =
+        state.position == Duration.zero && !playbackState.playing;
+
     state = state.copyWith(
       playbackStatus: mappedStatus,
-      position: isEngineAuthoritative ? hardwarePosition : null,
+      position: (isEngineAuthoritative && !preserveZeroPosition)
+          ? hardwarePosition
+          : null,
       bufferedPosition: playbackState.bufferedPosition,
       playbackSpeed: playbackState.speed,
       errorMessage: playbackState.errorMessage,
@@ -118,12 +129,52 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       if (state.isPlaying && state.hasActiveTrack) {
         final newSecs = state.position.inSeconds + 1;
         if (newSecs >= state.duration.inSeconds) {
-          skipNext();
+          handleTrackEnd();
         } else {
           state = state.copyWith(position: Duration(seconds: newSecs));
         }
       }
     });
+  }
+
+  /// End-of-track transition policy (Mission 9).
+  ///
+  /// Split out of the position ticker so the behaviour is unit-testable without
+  /// driving the 1-second [Timer].
+  ///   - `repeat-one` — rewind the active track and keep playing.
+  ///   - `repeat-off` at the last queued track — pause and reset to zero
+  ///     (never wrap back to track 0).
+  ///   - otherwise — advance via [skipNext] (sequential or shuffled).
+  void handleTrackEnd() {
+    final isLastTrack =
+        state.queue.isNotEmpty && state.currentIndex >= state.queue.length - 1;
+
+    if (state.repeatMode == AudioRepeatMode.one) {
+      state = state.copyWith(position: Duration.zero);
+      unawaited(
+        _dispatchSafely(() async {
+          await _audioHandler.seek(Duration.zero);
+          if (!state.isPlaying) {
+            await _audioHandler.play();
+          }
+        }),
+      );
+      if (!state.isPlaying) {
+        state = state.copyWith(playbackStatus: PlaybackStatus.playing);
+      }
+      return;
+    }
+
+    if (state.repeatMode == AudioRepeatMode.off && isLastTrack) {
+      state = state.copyWith(
+        playbackStatus: PlaybackStatus.paused,
+        position: Duration.zero,
+      );
+      unawaited(_dispatchSafely(_audioHandler.pause));
+      return;
+    }
+
+    skipNext();
   }
 
   void playTrack(Track track, {List<Track>? queue}) {
@@ -292,9 +343,29 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
   void skipNext() {
     if (state.queue.isEmpty) return;
-    final nextIndex = (state.currentIndex + 1) % state.queue.length;
+
+    final int nextIndex;
+    if (state.isShuffle && state.queue.length > 1) {
+      nextIndex = _nextShuffleIndex();
+    } else {
+      nextIndex = (state.currentIndex + 1) % state.queue.length;
+    }
+
     final nextTrack = state.queue[nextIndex];
     playTrack(nextTrack, queue: state.queue);
+  }
+
+  /// Picks a random queue index that differs from the active one so shuffle
+  /// never replays the current track back-to-back.
+  int _nextShuffleIndex() {
+    var candidate = _randomInt(state.queue.length);
+    var attempts = 0;
+    while (candidate == state.currentIndex &&
+        attempts < state.queue.length) {
+      candidate = _randomInt(state.queue.length);
+      attempts++;
+    }
+    return candidate;
   }
 
   void skipPrevious() {

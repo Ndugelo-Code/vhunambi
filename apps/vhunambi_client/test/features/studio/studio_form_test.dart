@@ -98,5 +98,46 @@ void main() {
       expect(notifier.state.language, 'English');
       expect(notifier.state.prompt, isEmpty);
     });
+
+    test('toSongMetadataDna compiles lossless SongMetadataDna from wizard state', () {
+      notifier.setGenre('Amapiano');
+      notifier.setLanguage('Tshivenḓa');
+      notifier.setMood('Soulful & Nostalgic');
+      notifier.setTempo(TempoBracket.medium);
+      notifier.setVocalEnergy(VocalEnergy.mid);
+      notifier.setVocalGender(VocalGender.female);
+      notifier.updatePrompt('Mbilu yanga anthem');
+
+      final dna = notifier.state.toSongMetadataDna();
+      expect(dna.title, equals('Mbilu yanga anthem'));
+      expect(dna.genre, equals('Amapiano'));
+      expect(dna.language, equals('Tshivenḓa'));
+      expect(dna.musical.bpm, equals(112));
+      expect(dna.vocals.deliveryMode, equals('melodic'));
+      expect(dna.vocals.gender, equals('female'));
+      expect(dna.visualTheme.aspectRatio, equals('9:16'));
+    });
+
+    test('4 DNA presets configure appropriate regional and musical parameters', () {
+      notifier.applyDnaPresetPrivateSchoolPiano();
+      expect(notifier.state.genre, equals('Amapiano'));
+      expect(notifier.state.tempo, equals(TempoBracket.medium));
+      expect(notifier.state.language, equals('Tshivenḓa'));
+
+      notifier.applyDnaPresetDurbanDarkGqom();
+      expect(notifier.state.genre, equals('Gqom'));
+      expect(notifier.state.tempo, equals(TempoBracket.fast));
+      expect(notifier.state.language, equals('isiZulu'));
+
+      notifier.applyDnaPresetVendaTraditionalSoul();
+      expect(notifier.state.genre, equals('Afro-Soul'));
+      expect(notifier.state.tempo, equals(TempoBracket.slow));
+      expect(notifier.state.vocalVoices, equals(VocalVoices.choir));
+
+      notifier.applyDnaPresetLagosAfroPop();
+      expect(notifier.state.genre, equals('Afrobeats'));
+      expect(notifier.state.tempo, equals(TempoBracket.medium));
+      expect(notifier.state.vocalVoices, equals(VocalVoices.duet));
+    });
   });
 }

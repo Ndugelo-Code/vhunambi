@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../../../shared/models/track.dart';
+import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
 
 /// A finished studio master returned by the audio synthesis pipeline
 /// (`completed_track` inside a WebSocket `pipeline_event` frame, Phase 10).
@@ -14,6 +15,9 @@ class TrackEntity {
   /// Signed CDN url of the rendered MP3 master consumed by the stem downloader.
   final String masterMp3Url;
 
+  /// Optional signed CDN url of the separated stems bundle (ZIP).
+  final String? stemsUrl;
+
   final String? coverUrl;
   final String? lyrics;
 
@@ -24,6 +28,7 @@ class TrackEntity {
     this.language = 'English',
     required this.duration,
     required this.masterMp3Url,
+    this.stemsUrl,
     this.coverUrl,
     this.lyrics,
   });
@@ -39,6 +44,7 @@ class TrackEntity {
         seconds: (json['duration_seconds'] as num?)?.toInt() ?? 0,
       ),
       masterMp3Url: json['master_mp3_url'] as String? ?? '',
+      stemsUrl: json['stems_url'] as String? ?? json['stems_zip_url'] as String?,
       coverUrl: json['cover_url'] as String?,
       lyrics: json['lyrics'] as String?,
     );
@@ -51,9 +57,13 @@ class TrackEntity {
         'language': language,
         'duration_seconds': duration.inSeconds,
         'master_mp3_url': masterMp3Url,
+        'stems_url': stemsUrl,
         'cover_url': coverUrl,
         'lyrics': lyrics,
       };
+
+  /// Whether an archive of stems is available for download.
+  bool get hasStems => stemsUrl != null && stemsUrl!.isNotEmpty;
 
   /// `mm:ss` rendering contract shared with the completion notification.
   String get formattedDuration {
@@ -77,6 +87,19 @@ class TrackEntity {
     );
   }
 
+  /// Converts this finished master into canonical SongMetadataDna for the Content Studio.
+  SongMetadataDna toSongMetadataDna() {
+    return SongMetadataDna.fromTrackInfo(
+      id: id,
+      title: title,
+      genre: genre,
+      language: language,
+      durationSec: duration.inSeconds,
+      lyrics: lyrics,
+      coverUrl: coverUrl,
+    );
+  }
+
   TrackEntity copyWith({
     String? id,
     String? title,
@@ -84,6 +107,7 @@ class TrackEntity {
     String? language,
     Duration? duration,
     String? masterMp3Url,
+    String? stemsUrl,
     String? coverUrl,
     String? lyrics,
   }) {
@@ -94,6 +118,7 @@ class TrackEntity {
       language: language ?? this.language,
       duration: duration ?? this.duration,
       masterMp3Url: masterMp3Url ?? this.masterMp3Url,
+      stemsUrl: stemsUrl ?? this.stemsUrl,
       coverUrl: coverUrl ?? this.coverUrl,
       lyrics: lyrics ?? this.lyrics,
     );
@@ -110,6 +135,7 @@ class TrackEntity {
           language == other.language &&
           duration == other.duration &&
           masterMp3Url == other.masterMp3Url &&
+          stemsUrl == other.stemsUrl &&
           coverUrl == other.coverUrl &&
           lyrics == other.lyrics;
 
@@ -121,6 +147,7 @@ class TrackEntity {
         language,
         duration,
         masterMp3Url,
+        stemsUrl,
         coverUrl,
         lyrics,
       );

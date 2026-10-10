@@ -398,6 +398,198 @@ void main() {
       expect(counts[LibraryCategory.trash], 1);
     });
   });
+
+  group('Jukebox play counts, favourites & most-played sort', () {
+    test('incrementPlayCount bumps only the targeted record', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(libraryTracksProvider.notifier);
+
+      final target = container.read(libraryTracksProvider).first;
+      expect(target.playCount, 0);
+
+      notifier.incrementPlayCount(target.id);
+      notifier.incrementPlayCount(target.id);
+
+      final updated = container
+          .read(libraryTracksProvider)
+          .firstWhere((t) => t.id == target.id);
+      expect(updated.playCount, 2);
+      // Other records are untouched.
+      expect(
+        container
+            .read(libraryTracksProvider)
+            .where((t) => t.id != target.id)
+            .every((t) => t.playCount == 0),
+        isTrue,
+      );
+    });
+
+    test('incrementPlayCount is a no-op for unknown ids', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(libraryTracksProvider.notifier);
+      final before = container.read(libraryTracksProvider);
+
+      notifier.incrementPlayCount('does_not_exist');
+
+      expect(container.read(libraryTracksProvider), before);
+    });
+
+    test('toggleFavorite flips the flag and feeds favoriteTracksProvider', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(libraryTracksProvider.notifier);
+
+      expect(container.read(favoriteTracksProvider), isEmpty);
+
+      final target = container.read(libraryTracksProvider).first;
+      notifier.toggleFavorite(target.id);
+
+      expect(
+        container
+            .read(libraryTracksProvider)
+            .firstWhere((t) => t.id == target.id)
+            .isFavorite,
+        isTrue,
+      );
+      expect(
+        container.read(favoriteTracksProvider).map((t) => t.id),
+        <String>[target.id],
+      );
+
+      // Toggling again removes it from the favourites projection.
+      notifier.toggleFavorite(target.id);
+      expect(container.read(favoriteTracksProvider), isEmpty);
+    });
+
+    test('favoriteTracksProvider excludes soft-deleted favourites', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(libraryTracksProvider.notifier);
+
+      final target = container.read(libraryTracksProvider).first;
+      notifier.toggleFavorite(target.id);
+      notifier.deleteTrack(target.id);
+
+      expect(container.read(favoriteTracksProvider), isEmpty);
+    });
+
+    test('mostPlayed sort orders records by highest play count first', () {
+      // Build an explicit list so ordering is deterministic and independent of
+      // the category filter (which would otherwise exclude instrumental beats).
+      final low = _track(id: 'a', title: 'A').copyWith(playCount: 3);
+      final high = _track(id: 'b', title: 'B').copyWith(playCount: 99);
+      final mid = _track(id: 'c', title: 'C').copyWith(playCount: 12);
+
+      final sorted = filterLibraryTracks(
+        tracks: <LibraryTrack>[low, high, mid],
+        category: LibraryCategory.songs,
+        sortOrder: LibrarySortOrder.mostPlayed,
+      );
+
+      expect(sorted.map((t) => t.id), <String>['b', 'c', 'a']);
+      for (var i = 1; i < sorted.length; i++) {
+        expect(
+          sorted[i - 1].playCount >= sorted[i].playCount,
+          isTrue,
+          reason: 'mostPlayed must be non-increasing by play count',
+        );
+      }
+    });
+
+    test('playCountLabel renders compact human counts', () {
+      expect(_track().copyWith(playCount: 0).playCountLabel, '0 plays');
+      expect(_track().copyWith(playCount: 1).playCountLabel, '1 play');
+      expect(_track().copyWith(playCount: 12).playCountLabel, '12 plays');
+      expect(_track().copyWith(playCount: 1400).playCountLabel, '1.4k plays');
+      expect(
+        _track().copyWith(playCount: 2300000).playCountLabel,
+        '2.3M plays',
+      );
+    });
+
+    test('toTrack carries the play count into the player model', () {
+      final bridged = _track().copyWith(playCount: 42).toTrack();
+      expect(bridged.playCount, 42);
+    });
+
+    test('recentlyPlayed prepends the id and de-duplicates', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final history = container.read(recentlyPlayedIdsProvider.notifier);
+
+      history.register('lib_track_001');
+      history.register('lib_track_002');
+      history.register('lib_track_001'); // replay moves it back to the front
+
+      expect(
+        container.read(recentlyPlayedIdsProvider),
+        <String>['lib_track_001', 'lib_track_002'],
+      );
+    });
+
+    test('recentlyPlayed keeps at most 20 unique entries, newest first', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final history = container.read(recentlyPlayedIdsProvider.notifier);
+
+      for (var i = 0; i < 25; i++) {
+        history.register('id_$i');
+      }
+
+      final ids = container.read(recentlyPlayedIdsProvider);
+      expect(ids, hasLength(20));
+      // Newest first: the last-registered id leads, the earliest are dropped.
+      expect(ids.first, 'id_24');
+      expect(ids.last, 'id_5');
+      expect(ids.toSet().length, 20); // all unique
+    });
+
+    test('recentlyPlayed ignores blank ids', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final history = container.read(recentlyPlayedIdsProvider.notifier);
+
+      history.register('');
+      history.register('lib_track_001');
+
+      expect(container.read(recentlyPlayedIdsProvider), <String>['lib_track_001']);
+    });
+
+    test('recentlyPlayedTracks resolves ids and drops deleted records', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(libraryTracksProvider.notifier);
+      final history = container.read(recentlyPlayedIdsProvider.notifier);
+
+      final first = container.read(libraryTracksProvider).first;
+      final second = container.read(libraryTracksProvider)[1];
+
+      history.register(second.id);
+      history.register(first.id);
+      history.register('missing_id'); // unknown -> dropped on resolve
+
+      var resolved = container.read(recentlyPlayedTracksProvider);
+      expect(resolved.map((t) => t.id), <String>[first.id, second.id]);
+
+      // Soft-deleting a recently-played track removes it from the projection.
+      notifier.deleteTrack(first.id);
+      resolved = container.read(recentlyPlayedTracksProvider);
+      expect(resolved.map((t) => t.id), <String>[second.id]);
+    });
+
+    test('recentlyPlayed clear wipes the history', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final history = container.read(recentlyPlayedIdsProvider.notifier);
+
+      history.register('lib_track_001');
+      history.clear();
+
+      expect(container.read(recentlyPlayedIdsProvider), isEmpty);
+    });
+  });
 }
 
 LibraryTrack _track({

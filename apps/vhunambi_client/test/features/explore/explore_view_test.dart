@@ -271,4 +271,18 @@ void main() {
     // Rising renders as a dense single-column list on mobile.
     expect(find.byType(TrackListTile), findsNWidgets(3));
   });
+
+  testWidgets('Tapping For You tab renders personalized Recommended For You shelf',
+      (WidgetTester tester) async {
+    await _pumpExplore(tester);
+
+    expect(find.text('New This Week'), findsOneWidget);
+    expect(find.text('Recommended For You'), findsNothing);
+
+    await tester.tap(find.text('For You'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recommended For You'), findsOneWidget);
+    expect(find.text('New This Week'), findsNothing);
+  });
 }

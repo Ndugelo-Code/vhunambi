@@ -120,6 +120,26 @@ class PlaylistsNotifier extends StateNotifier<List<PlaylistEntity>> {
     }
   }
 
+  /// Reorders a playlist's tracks by moving the item at [oldIndex] to
+  /// [newIndex] and persists the new running order (Mission 7).
+  ///
+  /// The drag surfaces use `ReorderableListView.onReorderItem`, whose
+  /// `newIndex` is already adjusted for the removed item, so this is a plain
+  /// remove-then-insert. (The classic `oldIndex < newIndex` decrement belongs
+  /// to the deprecated `onReorder` callback and would double-shift here.)
+  Future<void> reorderTracksInPlaylist(
+    String playlistId,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    final playlist = _find(playlistId);
+    if (playlist == null) return;
+    if (oldIndex < 0 || oldIndex >= playlist.trackIds.length) return;
+
+    await _repository.reorderTracksInPlaylist(playlistId, oldIndex, newIndex);
+    await loadPlaylists();
+  }
+
   /// `true` when [trackId] already lives in [playlistId].
   bool containsTrack(String playlistId, String trackId) =>
       _find(playlistId)?.trackIds.contains(trackId) ?? false;

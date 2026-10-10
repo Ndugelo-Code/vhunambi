@@ -10,6 +10,7 @@ import '../../../library/presentation/providers/library_providers.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/playlist_entity.dart';
 import '../providers/playlists_provider.dart';
+import '../widgets/playlist_cover_art.dart';
 
 /// Detailed view for inspecting, playing and managing a user playlist.
 ///
@@ -228,26 +229,11 @@ class PlaylistDetailView extends ConsumerWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Artwork container
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary,
-                      borderRadius: BorderRadius.circular(12),
-                      gradient: const LinearGradient(
-                        colors: [AppColors.surfaceSecondary, AppColors.surfaceElevated],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.queue_music_rounded,
-                        size: 44,
-                        color: AppColors.brandPrimary,
-                      ),
-                    ),
+                  // Artwork
+                  PlaylistCoverArt(
+                    playlist: livePlaylist,
+                    tracks: resolvedTracks,
+                    size: 100,
                   ),
                   const SizedBox(width: AppSpacing.md),
 
@@ -361,68 +347,112 @@ class PlaylistDetailView extends ConsumerWidget {
                 ),
               )
             else
-              ListView.separated(
+              ReorderableListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
                 itemCount: resolvedTracks.length,
-                separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
+                onReorderItem: (oldIndex, newIndex) {
+                  ref
+                      .read(playlistsProvider.notifier)
+                      .reorderTracksInPlaylist(
+                        livePlaylist.id,
+                        oldIndex,
+                        newIndex,
+                      );
+                },
                 itemBuilder: (context, index) {
                   final track = resolvedTracks[index];
-                  return Material(
-                    color: AppColors.surfaceElevated,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: AppRadius.cardBorder,
-                      side: BorderSide(color: AppColors.borderSubtle),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 2),
-                      leading: SizedBox(
-                        width: 32,
-                        child: Center(
-                          child: Text(
-                            '${index + 1}',
-                            style: AppTypography.caption.copyWith(color: AppColors.textTertiary),
-                          ),
+                  return Padding(
+                    key: ValueKey<String>('playlist_track_${track.id}'),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                    child: Material(
+                      color: AppColors.surfaceElevated,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: AppRadius.cardBorder,
+                        side: BorderSide(color: AppColors.borderSubtle),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: 2,
                         ),
-                      ),
-                      title: Text(
-                        track.title,
-                        style: AppTypography.bodyLarge.copyWith(fontWeight: FontWeight.w600),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        '${track.creatorName} • ${track.genre}',
-                        style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            track.formattedDuration,
-                            style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                        leading: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: const Icon(
+                                Icons.drag_handle_rounded,
+                                color: AppColors.textTertiary,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                            SizedBox(
+                              width: 20,
+                              child: Center(
+                                child: Text(
+                                  '${index + 1}',
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.textTertiary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        title: Text(
+                          track.title,
+                          style: AppTypography.bodyLarge.copyWith(
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(width: AppSpacing.xs),
-                          IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textTertiary),
-                            tooltip: 'Remove from playlist',
-                            onPressed: () {
-                              ref
-                                  .read(playlistsProvider.notifier)
-                                  .removeTrackFromPlaylist(livePlaylist.id, track.id);
-                            },
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${track.creatorName} • ${track.genre}',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondary,
                           ),
-                        ],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              track.formattedDuration,
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                                color: AppColors.textTertiary,
+                              ),
+                              tooltip: 'Remove from playlist',
+                              onPressed: () {
+                                ref
+                                    .read(playlistsProvider.notifier)
+                                    .removeTrackFromPlaylist(
+                                      livePlaylist.id,
+                                      track.id,
+                                    );
+                              },
+                            ),
+                          ],
+                        ),
+                        onTap: () {
+                          // Play this single track within the playlist context
+                          ref.read(playerStateProvider.notifier).playTrack(
+                                track,
+                                queue: resolvedTracks,
+                              );
+                        },
                       ),
-                      onTap: () {
-                        // Play this single track within the playlist context
-                        ref.read(playerStateProvider.notifier).playTrack(
-                              track,
-                              queue: resolvedTracks,
-                            );
-                      },
                     ),
                   );
                 },

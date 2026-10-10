@@ -20,6 +20,14 @@ export interface CompiledSynthesisPrompt {
     key: string;
     timeSignature: string;
     durationSec: number;
+    /** Canonical genre key (e.g. "amapiano", "gqom") — required by handler.py song_spec */
+    genre: string;
+    /** Mood descriptor (e.g. "energetic", "melancholic") — required by handler.py song_spec */
+    mood: string;
+    /** Language identifier (e.g. "tshivenda", "zulu") — required by handler.py song_spec */
+    language: string;
+    /** Optional track title */
+    title?: string;
   };
 }
 
@@ -47,6 +55,10 @@ export function compileSongSpec(input: SongSpecInput): CompiledSynthesisPrompt {
       key,
       timeSignature: '4/4',
       durationSec,
+      genre: input.genre.toLowerCase(),
+      mood: preset.defaultMood,
+      language: input.language,
+      title: input.trackTitle || undefined,
     },
   };
 }

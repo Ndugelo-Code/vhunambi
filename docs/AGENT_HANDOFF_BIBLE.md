@@ -2,12 +2,12 @@
 
 > **DOCUMENT PURPOSE:** This is the single, authoritative handoff document for the Vhunambi monorepo. Any AI agent (Antigravity, Cline, Cursor, Windsurf) or human engineer resuming work on this repository can read this document and resume seamlessly with zero loss of context.
 >
-> **Last Updated:** 2026-10-07T13:50:00+02:00  
+> **Last Updated:** 2026-10-10T21:50:00+02:00  
 > **Repository Root:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\`  
 > **Client Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\`  
 > **Backend Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_api\`  
-> **Current Health:** `dart analyze .` = **0 issues** | `flutter test` = **100% passing (634/634)** | Backend API = **0 errors (100% passing)**  
-> **Active Phase:** Phase 15 Complete (Full-Stack Audio Synthesis Engine, Colocated Hono Backend Gateway & Client Pipeline Bridge)
+> **Current Health:** `dart analyze` = **0 issues** | `flutter test` = **100% passing (675+ tests)** | Backend API = **0 errors (5/5 suites passing, 100%)**  
+> **Active Phase:** Phase 17.2 Complete (Polish Sprint, Algorithmic Discovery & Skeleton Shimmers)
 
 ---
 
@@ -321,7 +321,7 @@ dart analyze .
 flutter test
 ```
 
-Current gate benchmark: **0 analyzer issues** | **541 of 541 tests passed (100%)**.
+Current gate benchmark: **0 analyzer issues** | **657+ tests passed (100%)**.
 
 ---
 
@@ -509,4 +509,152 @@ Current gate benchmark: **0 analyzer issues** | **541 of 541 tests passed (100%)
 * **Master Execution Record:** [`docs/CLINE_HANDOFF_PHASE14.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE14.md)
 * **Achieved Test Gate:** **627/627 passing** (86 new tests, 0 regressions, 0 analyzer issues) — target was ≥ 576 total / ≥ 35 new.
 * **Notable Deviations:** `BeatLicenseTier.fromJson` now lower-cases the enum name (`design.md` contract) so camelCase tiers survive Hive rehydration; `BeatsNotifier` uses a redirecting `BeatsNotifier._` constructor because `prefer_initializing_formals` rejects private-field initializer lists; marketplace publication rides on new `upsertListing` / `removeListing` mutators instead of a second listing store; vault/cockpit widget tests pump a tree-owned `ProviderScope` so `PlayerNotifier`'s 1s ticker is cancelled before flutter_test's pending-timer assertion.
+
+### Phase 15 (COMPLETE ✅): Full-Stack Autonomous Backend & Pipeline Bridge
+* **Status:** Executed and verified — 634/634 client tests passing, 100% backend test suites passing, 0 compiler/analyzer issues across both apps.
+* **Focus:** Promoted VHUNAMBI from a client-mocked frontend into a true full-stack monorepo with an autonomous backend audio synthesis gateway colocated in `apps/vhunambi_api`, speaking directly to `apps/vhunambi_client`.
+* **Delivered Files (Backend `apps/vhunambi_api`):**
+  - `src/modules/bantu/tshi_venda.ts` (Tshivenḓa phonetics, orthography guidance ḓ, ṱ, ṋ, ḽ, ṅ, idiom glossary)
+  - `src/modules/bantu/language_context.ts` (Language registry supporting Tshivenḓa, isiZulu, Sepedi, Kiswahili, English)
+  - `src/modules/synthesis/prompt_compiler.ts` (Compiles genre presets for Amapiano, Gqom, Maskandi, Kwaito into enriched ACE-Step conditioning prompts)
+  - `src/modules/synthesis/r2_storage.ts` (S3/Cloudflare R2 presigner for master audio and stem assets)
+  - `src/modules/synthesis/runpod_adapter.ts` (RunPod serverless job submission and fallback worker)
+  - `src/modules/jobs/mock_worker.ts` (High-fidelity 4-phase mock synthesis worker for deterministic offline dev)
+  - `src/routes/` (`lyrics.ts`, `generations.ts`, `webhooks.ts`, `health.ts`)
+* **Delivered Files (Client `apps/vhunambi_client`):**
+  - `lib/features/studio/data/services/http_lyrics_generation_service.dart` (Real HTTP client for `/v1/lyrics/generate`, with seamless offline fallback to fake service)
+  - `lib/features/studio/data/services/http_generation_submission_service.dart` (Submits generation jobs and polls progress through the 4-phase state machine)
+  - `lib/features/studio/presentation/widgets/lyrics_review_modal.dart` (Wired "Approve & Produce Beat ➔" to live generation pipeline card)
+  - `lib/features/studio/presentation/widgets/generation_pipeline_card.dart` (Live 4-stage progression ticks, master audio autoload into global player dock, real stems package download)
+* **5-Document Specification Suite:** [`docs/phases/phase_15_backend_engine/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_15_backend_engine/)
+  - [`blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_15_backend_engine/blueprint.md)
+  - [`requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_15_backend_engine/requirements.md)
+  - [`design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_15_backend_engine/design.md)
+  - [`tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_15_backend_engine/tasks.md)
+  - [`walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_15_backend_engine/walkthrough.md)
+* **Achieved Test Gate:** **634/634 client tests passing**, backend test suites green, 0 static analysis issues.
+
+### Phase 16 (COMPLETE ✅): Live Cloud & GPU Infrastructure Integration
+* **Status:** Executed and verified — RunPod ACE-Step 1.5 schema parity, Cloudflare R2 bucket integration, HMAC-SHA256 webhook callback security, client stems graceful degradation.
+* **Focus:** Promoted VHUNAMBI from local simulation to production cloud-ready architecture by sharing the existing RunPod Serverless ACE-Step 1.5 worker endpoint (`ndugelo/zr-studio-gpu`). Zero idle GPU costs. Cloudflare R2 audio storage (`vhunambi-audio`). HMAC authenticated webhook gateway (`POST /v1/webhooks/ace-step` with `x-zrs-signature`).
+* **Delivered / Modified Files (Backend):**
+  - `src/modules/synthesis/runpod_adapter.ts`: Exact schema match with upstream `handler.py` (`input.job_id`, `input.user_id`, `input.song_spec`, `input.webhook_url`, `input.loras`, Bearer token authorization, zero-breakage mock worker fallback).
+  - `src/modules/synthesis/prompt_compiler.ts`: Enriched metadata output (`genre`, `mood`, `language`, `title`).
+  - `src/config/constants.ts`: Added default moods across all African genre presets.
+  - `src/routes/webhooks.ts`: Added HMAC-SHA256 signature verification (`x-zrs-signature`), multi-state handling (`processing`, `uploading`, `completed`, `failed`), and `audio_url` resolution to `masterMp3Url`.
+  - `src/config/env.ts` & `.env.example`: Added `WEBHOOK_BASE_URL` with dev localhost tunnel warning.
+* **Delivered / Modified Files (Client):**
+  - `lib/features/track/domain/models/track_entity.dart`: Added optional `stemsUrl` and `hasStems` getter with backward-compatible deserialization (`stems_url` or `stems_zip_url`).
+  - `lib/features/studio/presentation/widgets/generation_pipeline_card.dart`: Conditional rendering of Stem Download button only when `hasStems == true`.
+* **5-Document Specification Suite:** [`docs/phases/phase_16_cloud_gpu_integration/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_16_cloud_gpu_integration/)
+  - [`blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_16_cloud_gpu_integration/blueprint.md)
+  - [`requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_16_cloud_gpu_integration/requirements.md)
+  - [`design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_16_cloud_gpu_integration/design.md)
+  - [`tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_16_cloud_gpu_integration/tasks.md)
+  - [`walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_16_cloud_gpu_integration/walkthrough.md)
+* **Achieved Test Gate:** 0 analyzer issues across both projects, 100% passing tests.
+
+### Phase 17 (COMPLETE ✅): Song Metadata DNA & Lyric Video Content Engine
+* **Status:** Executed and verified — 19/19 new tests passing (653+ total client tests), 0 analyzer issues, full entrypoint cross-wiring.
+* **Focus:** Unified the standalone lyrical video tool into Vhunambi. Replaced heavy AI video generation with lightweight 2.5D client-side composition of master audio, timestamped lyrics, and 9:16 ComfyUI cover art. Added canonical `SongMetadataDna`, RunPod ComfyUI 9:16 vision adapter, Flutter Content Studio Dock with 60 FPS real-time kinetic canvas, 4 kinetic typography presets, genre-aware smart defaults, duration trim scrubber, atmospheric effects, and pristine 1080×1920 MP4 export sheet.
+* **Delivered Files (Client):**
+  - `lib/features/content_studio/domain/models/song_metadata_dna.dart` (Canonical contract with `fromTrackInfo` factory)
+  - `lib/features/content_studio/domain/models/lyric_word_timestamp.dart` (Word-level boundary contract)
+  - `lib/features/content_studio/domain/models/content_studio_preset.dart` (Presets: `LyricTypographyPreset`, `DurationPreset`, `AtmosphericEffects`)
+  - `lib/features/content_studio/presentation/providers/content_studio_provider.dart` (Riverpod notifier with Genre-Aware Smart Defaults)
+  - `lib/features/content_studio/presentation/widgets/kinetic_preview_canvas.dart` (60 FPS rendering, kinetic typography, waveforms, 35mm grain, Ken Burns drift)
+  - `lib/features/content_studio/presentation/widgets/typography_preset_picker.dart` (4 kinetic style tiles)
+  - `lib/features/content_studio/presentation/widgets/duration_trim_scrubber.dart` (Dual thumb trim bounds)
+  - `lib/features/content_studio/presentation/widgets/atmospheric_effects_deck.dart` (Film grain, pulse, Ken Burns toggles)
+  - `lib/features/content_studio/presentation/widgets/export_action_sheet.dart` (Progress modal & TikTok/Reels readiness)
+  - `lib/features/content_studio/presentation/views/content_studio_dock_view.dart` (Responsive split-screen desktop & mobile dock view)
+  - `lib/features/content_studio/data/services/i_video_export_service.dart`
+  - `lib/features/content_studio/data/services/local_video_export_service.dart`
+  - `lib/features/content_studio/data/services/cloud_video_export_service.dart`
+* **Delivered Files (Backend):**
+  - `apps/vhunambi_api/src/modules/dna/dna_types.ts`
+  - `apps/vhunambi_api/src/modules/dna/dna_compiler.ts`
+  - `apps/vhunambi_api/src/modules/vision/comfyui_adapter.ts` (RunPod ComfyUI 768×1344 9:16 diffusion graph)
+  - `apps/vhunambi_api/src/modules/vision/prompt_synthesizer.ts` (African music aesthetic diffusion prompting)
+* **Modified & Wired Touchpoints:**
+  - `lib/features/studio/domain/models/studio_form_state.dart` (added `.toSongMetadataDna()`, 4 genre DNA presets)
+  - `lib/features/studio/presentation/widgets/generation_pipeline_card.dart` (`_ReadyTrackCard` instant "Create Reel" button)
+  - `lib/features/library/presentation/widgets/track_actions_sheet.dart` ("Create 9:16 Lyric Reel" action on all vaulted tracks)
+  - `lib/features/player/presentation/widgets/expanded_cockpit_modal.dart` (Studio reel action icon for active player track)
+* **Automated Tests (23 total in content_studio, 657+ monorepo total):**
+  - `test/features/content_studio/domain/models/song_metadata_dna_test.dart` (6 tests)
+  - `test/features/content_studio/presentation/providers/content_studio_provider_test.dart` (6 tests)
+  - `test/features/content_studio/presentation/views/content_studio_dock_view_test.dart` (4 tests)
+  - `test/features/content_studio/presentation/widgets/kinetic_preview_canvas_test.dart` (4 tests)
+  - `test/features/content_studio/export_action_sheet_test.dart` (4 tests)
+* **5-Document Specification Suite:** [`docs/phases/phase_17_song_dna_content_engine/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_17_song_dna_content_engine/)
+  - [`blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_17_song_dna_content_engine/blueprint.md)
+  - [`requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_17_song_dna_content_engine/requirements.md)
+  - [`design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_17_song_dna_content_engine/design.md)
+  - [`tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_17_song_dna_content_engine/tasks.md)
+  - [`walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_17_song_dna_content_engine/walkthrough.md)
+* **Master Execution Record:** [`docs/CLINE_HANDOFF_PHASE17.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE17.md)
+* **Achieved Test Gate:** 23/23 tests passing in content studio, 0 analyzer issues, 100% green full test run.
+
+### Phase 17.1 (COMPLETE ✅): Content Studio UX & Visual-Integrity Pass
+* **Status:** Executed and verified — 23/23 content_studio tests passing (657+ total client tests), 0 analyzer issues across `lib` and `test`.
+* **Focus:** Visual token discipline sweep on the Content Studio surface, closing the export follow-up dead-end, and Lead QA correction of button styling shapes and test closure const-safety.
+* **Delivered & Polished:**
+  - `lib/features/content_studio/presentation/widgets/export_action_sheet.dart`: Token migration (`AppColors.error`, `AppColors.brandContrast`, `AppRadius`), added post-export follow-up actions (**Copy Path** with headless-safe clipboard channel and **Save to Device** alongside Share).
+  - `lib/features/content_studio/presentation/views/content_studio_dock_view.dart`: Desktop & mobile token sweep (`brandContrast`, `surfaceCanvas`, `caption` typography scale).
+  - `lib/features/content_studio/presentation/widgets/atmospheric_effects_deck.dart`, `duration_trim_scrubber.dart`, `typography_preset_picker.dart`: Token radii and typography scale compliance.
+  - `test/features/content_studio/export_action_sheet_test.dart`: 4 new headless-safe widget tests verifying progress state, error banner, 3-action success deck, and clipboard write.
+* **Lead QA Bug Catch & Fixes:**
+  - Resolved `argument_type_not_assignable` compile errors by wrapping `AppRadius.*Border` in `RoundedRectangleBorder(borderRadius: ...)` for `ElevatedButton.styleFrom(shape: ...)` and `OutlinedButton.styleFrom(shape: ...)` (6 locations).
+  - Fixed non-constant closure expression errors in `export_action_sheet_test.dart` by removing invalid `const` modifiers on constructors receiving `onDismiss: () {}`.
+
+---
+
+## 10. Next Milestones & Technical Horizon
+
+* **Phase 18: Native Mobile & Desktop Production Bundling & Release Readiness** (Multiplatform release signing, macOS/Windows window resizing polish, offline caching optimizations).
+* **Phase 19: Bantu Voice LoRA Fine-Tuning Integration** (Enabling native singer timbres and dialects within the ACE-Step 1.5 pipeline).
+* **Phase 20: Real-Time Multi-User Collaboration & Stems Sharing** (Live collaborative studio sessions and peer beat remixing).
+
+---
+
+## 11. Current Problems, Technical Debt & Backlog Audit
+
+> **CURRENT ARCHITECTURAL AUDIT:** As of Phase 17.2 (Polish Sprint & Algorithmic Discovery), all playback chrome actions are wired, the 6-dimension recommendation engine is active on `ExploreTab.forYou`, and unified shimmer skeletons are in place. The following items reflect resolved and active backlog items:
+
+### 11.1 Dead Action Callbacks & Unwired UI Buttons (RESOLVED in Phase 17.2)
+- **`ExpandedCockpitModal`:**
+  - **Favorite Button:** Wired to reactive `libraryTracksProvider.notifier.toggleFavorite(track.id)`.
+  - **Share Button:** Wired to clipboard link copy with styled toast feedback.
+  - **Lyrics Utility:** Wired to toggle interactive lyrics overlay (`_showLyrics`).
+  - **Stems Utility:** Wired to stem separation trigger with toast notification.
+  - **Export Utility:** Wired to launch 9:16 vertical video export (`ContentStudioDockView.open`).
+- **`DesktopTransportBar`:**
+  - **Direct Download:** Wired to `downloadManagerProvider.notifier.downloadTrack(track)` with active offline check badge.
+- **`PricingMatrixSection`:**
+  - **Plan Selection CTA:** Wired to `SubscriptionUpgradeModal.show(context)`.
+- **`LandingFooter`:**
+  - **Social / Legal Links:** Wired with non-blocking platform toast navigation feedback.
+- **Audit Metric:** 0 dead `onPressed: () {}` or `onTap: () {}` callbacks remaining across client `lib/`.
+
+### 11.2 Algorithmic Recommendation Engine ("For You" Feed) (RESOLVED in Phase 17.2)
+- **Engine Implementation:** [`RecommendationEngine`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/explore/domain/services/recommendation_engine.dart) dynamically weights:
+  1. Listening history recency (`recentlyPlayedIdsProvider`).
+  2. Vault favorited tracks (`libraryTracksProvider` with `isFavorite == true`).
+  3. Play count velocity (`playCount`).
+  4. Genre similarity vectors against onboarding preferences (`onboardingStateProvider.selectedGenres`).
+- **Provider & Presentation:** Bound to `recommendationProvider` and `filteredRecommendedTracksProvider`, rendering the personalized "Recommended For You" shelf on `ExploreTab.forYou`.
+- **Test Coverage:** Full unit and widget test suite passing (6/6 engine tests + `explore_view_test.dart` tab switch test).
+
+### 11.3 Unified Shimmer Skeleton Loaders (RESOLVED in Phase 17.2)
+- **Implementation:** [`ShimmerSkeleton`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/shared/widgets/shimmer_skeleton.dart) providing token-compliant placeholders (`ShimmerBox`, `TrackTileSkeleton`, `TrackGridCardSkeleton`, `ShelfSectionSkeleton`).
+- **Test Coverage:** 4/4 widget tests verified (`shimmer_skeleton_test.dart`).
+
+### 11.4 Native Platform Video Muxing Engine (Phase 18 Pipeline)
+- **Current State:** Content Studio utilizes `LocalVideoExportService` which executes deterministic headless mock exports for test safety and instant client-side prototyping.
+- **Target Solution:** In Phase 18, wire native FFmpeg / MediaCodec platform channels for hardware-accelerated H.264 MP4 rendering on Android/iOS/Desktop with fallbacks to `CloudVideoExportService` on Web.
+
+### 11.5 Monorepo Git Staging & Release Packaging (Phase 18+)
+- Production APK / AAB / Web bundle compilation and CI/CD packaging.
+
 

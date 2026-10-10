@@ -127,6 +127,80 @@ void main() {
 
     expect(fresh.read(playlistsProvider), isEmpty);
   });
+
+  test('reorderTracksInPlaylist moves a track and persists the new order',
+      () async {
+    // Seed a 4-track playlist so the adjusted-index path is exercised.
+    repository = InMemoryPlaylistRepository(
+      seed: <PlaylistEntity>[
+        _playlist().copyWith(
+          trackIds: const <String>['trk_1', 'trk_2', 'trk_3', 'trk_4'],
+        ),
+      ],
+    );
+    container = ProviderContainer(
+      overrides: <Override>[
+        playlistRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await notifier().loadPlaylists();
+
+    // Drag trk_1 (index 0) down to index 2. `onReorderItem` already adjusts
+    // the removal, so this is a plain remove-then-insert.
+    await notifier().reorderTracksInPlaylist('pl_1', 0, 2);
+
+    expect(
+      container.read(playlistsProvider).single.trackIds,
+      <String>['trk_2', 'trk_3', 'trk_1', 'trk_4'],
+    );
+    // Persistence mirrors the in-memory order.
+    expect(
+      (await repository.getPlaylistById('pl_1'))?.trackIds,
+      <String>['trk_2', 'trk_3', 'trk_1', 'trk_4'],
+    );
+  });
+
+  test('reorderTracksInPlaylist moves a track upward', () async {
+    repository = InMemoryPlaylistRepository(
+      seed: <PlaylistEntity>[
+        _playlist().copyWith(
+          trackIds: const <String>['trk_1', 'trk_2', 'trk_3'],
+        ),
+      ],
+    );
+    container = ProviderContainer(
+      overrides: <Override>[
+        playlistRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await notifier().loadPlaylists();
+
+    // Move the last track (trk_3, index 2) up to the front.
+    await notifier().reorderTracksInPlaylist('pl_1', 2, 0);
+
+    expect(
+      container.read(playlistsProvider).single.trackIds,
+      <String>['trk_3', 'trk_1', 'trk_2'],
+    );
+  });
+
+  test('reorderTracksInPlaylist ignores unknown playlists and bad indices',
+      () async {
+    await notifier().loadPlaylists();
+
+    await notifier().reorderTracksInPlaylist('missing', 0, 1);
+    await notifier().reorderTracksInPlaylist('pl_1', 5, 0);
+    await notifier().reorderTracksInPlaylist('pl_1', -1, 0);
+
+    expect(
+      container.read(playlistsProvider).single.trackIds,
+      <String>['trk_1', 'trk_2'],
+    );
+  });
 }
 
 PlaylistEntity _playlist() => PlaylistEntity(

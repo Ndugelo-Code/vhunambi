@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { env } from '../config/env.js';
 import { compileSongSpec } from '../modules/synthesis/prompt_compiler.js';
-import { getPresignedPutUrl } from '../modules/synthesis/r2_storage.js';
 import { dispatchSynthesisJob } from '../modules/synthesis/runpod_adapter.js';
 import { createJob, getJob } from '../modules/jobs/job_store.js';
 
@@ -18,6 +17,8 @@ const SubmitGenerationSchema = z.object({
   tempoBpm: z.number().optional(),
   musicalKey: z.string().optional(),
   durationSec: z.number().default(180),
+  /** Optional user identifier — forwarded to RunPod worker as user_id */
+  userId: z.string().optional(),
 });
 
 generationRoutes.post('/', async (c) => {
@@ -43,15 +44,14 @@ generationRoutes.post('/', async (c) => {
     // 2. Compile prompt for AI synthesis model
     const compiledPrompt = compileSongSpec(input);
 
-    // 3. Pre-sign Cloudflare R2 destination URLs for master & stems
-    const audioPutUrl = await getPresignedPutUrl(`${generationId}_master.mp3`);
-    const stemsPutUrl = await getPresignedPutUrl(`${generationId}_stems.zip`);
-
-    // 4. Dispatch to RunPod Serverless GPU (or mock simulation worker)
-    const dispatchResult = await dispatchSynthesisJob(generationId, compiledPrompt, {
-      audioPutUrl,
-      stemsPutUrl,
-    });
+    // 3. Dispatch to RunPod Serverless GPU (or mock simulation worker)
+    //    The GPU worker (handler.py) uploads directly to R2 using its own credentials;
+    //    no pre-signed PUT URLs are needed from our side.
+    const dispatchResult = await dispatchSynthesisJob(
+      generationId,
+      compiledPrompt,
+      input.userId ?? 'vhunambi_user',
+    );
 
     return c.json(
       {

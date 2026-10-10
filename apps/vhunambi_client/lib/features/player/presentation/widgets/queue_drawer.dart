@@ -180,23 +180,17 @@ class _QueueDrawerHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.xxs),
-          TextButton(
+          IconButton(
             key: const Key('queue_clear'),
             onPressed: onClear,
-            style: TextButton.styleFrom(
-              minimumSize: Size.zero,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.xs,
-                vertical: AppSpacing.xxs,
-              ),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(
-              'Clear',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.brandPrimary,
-                fontWeight: FontWeight.w600,
-              ),
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Clear Queue',
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
+            icon: const Icon(
+              Icons.clear_all_rounded,
+              size: 20,
+              color: AppColors.brandPrimary,
             ),
           ),
           IconButton(

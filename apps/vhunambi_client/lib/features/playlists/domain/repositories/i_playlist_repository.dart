@@ -11,4 +11,9 @@ abstract class IPlaylistRepository {
   Future<void> deletePlaylist(String id);
   Future<void> addTrackToPlaylist(String playlistId, String trackId);
   Future<void> removeTrackFromPlaylist(String playlistId, String trackId);
+  Future<void> reorderTracksInPlaylist(
+    String playlistId,
+    int oldIndex,
+    int newIndex,
+  );
 }

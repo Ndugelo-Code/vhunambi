@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../home/presentation/widgets/subscription_upgrade_modal.dart';
 import '../../domain/models/landing_models.dart';
 import '../providers/landing_providers.dart';
 
@@ -253,7 +254,7 @@ class _PricingCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () => SubscriptionUpgradeModal.show(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: tier.isPopular
                     ? AppColors.brandPrimary

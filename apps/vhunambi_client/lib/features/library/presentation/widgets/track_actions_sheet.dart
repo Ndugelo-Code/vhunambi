@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -9,6 +10,8 @@ import '../../../playlists/presentation/widgets/add_to_playlist_sheet.dart';
 import '../providers/library_providers.dart';
 import 'library_badges.dart';
 import 'library_cover_art.dart';
+import 'track_details_modal.dart';
+import 'package:vhunambi_client/features/content_studio/presentation/views/content_studio_dock_view.dart';
 
 /// Contextual vault asset action sheet (REQ-LIB-06).
 ///
@@ -78,6 +81,12 @@ class TrackActionsSheet extends ConsumerWidget {
       notify('Playing "${track.title}" on the persistent player.');
     }
 
+    void handleSongDetails() {
+      final host = hostContext ?? context;
+      close();
+      TrackDetailsModal.show(host, track);
+    }
+
     void handleAddToPlaylist() {
       // REQ-PL-08 — hand the vault track to the searchable playlist picker.
       final host = hostContext ?? context;
@@ -108,9 +117,37 @@ class TrackActionsSheet extends ConsumerWidget {
       showLibraryLicenseDialog(host, track);
     }
 
-    void handleShare() {
+    void handleShare() async {
+      await Clipboard.setData(ClipboardData(text: track.publicShareUrl));
+      HapticFeedback.mediumImpact();
       close();
-      notify('Public preview link: ${track.publicShareUrl}');
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.surfaceModal,
+          duration: const Duration(seconds: 4),
+          content: Text(
+            'Share link copied to clipboard',
+            style: AppTypography.bodySmall.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+          action: SnackBarAction(
+            label: 'PREVIEW',
+            textColor: AppColors.brandPrimary,
+            onPressed: () => messenger.showSnackBar(
+              SnackBar(
+                backgroundColor: AppColors.surfaceModal,
+                content: Text(
+                  track.publicShareUrl,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
     void handleMoveToTrash() {
@@ -148,9 +185,22 @@ class TrackActionsSheet extends ConsumerWidget {
       notify('"${track.title}" permanently deleted.');
     }
 
+    void handleCreateLyricReel() {
+      close();
+      ContentStudioDockView.open(
+        hostContext ?? context,
+        dna: track.toSongMetadataDna(),
+        audioUrl: track.remoteAudioUrl,
+        coverArtUrl: track.coverImageUrl ??
+            'https://r2.vhunambi.com/visuals/default_9_16.png',
+      );
+    }
+
     return _TrackActionsLayout(
       track: track,
       onPlayNow: handlePlayNow,
+      onCreateLyricReel: handleCreateLyricReel,
+      onSongDetails: handleSongDetails,
       onAddToPlaylist: handleAddToPlaylist,
       onStemSeparation: handleStemSeparation,
       onDownloadOffline: handleDownloadOffline,
@@ -167,6 +217,8 @@ class TrackActionsSheet extends ConsumerWidget {
 class _TrackActionsLayout extends StatelessWidget {
   final LibraryTrack track;
   final VoidCallback onPlayNow;
+  final VoidCallback onCreateLyricReel;
+  final VoidCallback onSongDetails;
   final VoidCallback onAddToPlaylist;
   final VoidCallback onStemSeparation;
   final VoidCallback onDownloadOffline;
@@ -180,6 +232,8 @@ class _TrackActionsLayout extends StatelessWidget {
   const _TrackActionsLayout({
     required this.track,
     required this.onPlayNow,
+    required this.onCreateLyricReel,
+    required this.onSongDetails,
     required this.onAddToPlaylist,
     required this.onStemSeparation,
     required this.onDownloadOffline,
@@ -266,6 +320,18 @@ class _TrackActionsLayout extends StatelessWidget {
                   label: 'Play Now',
                   subtitle: 'Load into the persistent player and start playback',
                   onTap: onPlayNow,
+                ),
+                _ActionTile(
+                  icon: Icons.movie_creation_rounded,
+                  label: 'Create 9:16 Lyric Reel',
+                  subtitle: 'Launch kinetic typography studio & export reel',
+                  onTap: onCreateLyricReel,
+                ),
+                _ActionTile(
+                  icon: Icons.info_outline_rounded,
+                  label: 'Song Details',
+                  subtitle: 'Genre, language, plays, storage & license',
+                  onTap: onSongDetails,
                 ),
                 _ActionTile(
                   icon: Icons.playlist_add_rounded,

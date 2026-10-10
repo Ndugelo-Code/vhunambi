@@ -4,6 +4,7 @@ import 'core/theme/app_theme.dart';
 import 'core/utils/responsive_utils.dart';
 import 'features/explore/presentation/views/explore_view.dart';
 import 'features/home/presentation/views/home_dashboard_view.dart';
+import 'features/library/presentation/providers/library_providers.dart';
 import 'features/library/presentation/views/library_view.dart';
 import 'features/marketplace/presentation/views/marketplace_view.dart';
 import 'features/onboarding/presentation/views/splash_view.dart';
@@ -74,6 +75,18 @@ class _RootShellState extends ConsumerState<RootShell> {
     final isDesktop = ResponsiveUtils.isDesktop(context);
     final hasActiveTrack = ref.watch(
       playerStateProvider.select((s) => s.hasActiveTrack),
+    );
+
+    // Jukebox play-count tracking: whenever the persistent player advances to a
+    // new active track, register a play against the matching vault record.
+    // Covers playTrack / skipNext / skipPrevious / playPlaylist uniformly.
+    ref.listen<String?>(
+      playerStateProvider.select((s) => s.currentTrack?.id),
+      (previousId, currentId) {
+        if (currentId == null || currentId == previousId) return;
+        ref.read(libraryTracksProvider.notifier).incrementPlayCount(currentId);
+        ref.read(recentlyPlayedIdsProvider.notifier).register(currentId);
+      },
     );
 
     return Scaffold(

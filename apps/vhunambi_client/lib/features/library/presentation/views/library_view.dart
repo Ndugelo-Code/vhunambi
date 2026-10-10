@@ -11,6 +11,7 @@ import '../../domain/models/library_models.dart';
 import '../providers/library_providers.dart';
 import '../widgets/library_app_bar.dart';
 import '../widgets/library_category_rail.dart';
+import '../widgets/library_cover_art.dart';
 import '../widgets/library_empty_state.dart';
 import '../widgets/library_track_grid_card.dart';
 import '../widgets/library_track_tile.dart';
@@ -63,6 +64,9 @@ class LibraryView extends ConsumerWidget {
                           viewMode: viewMode,
                           resultCount: tracks.length,
                         ),
+                      if (category == LibraryCategory.songs &&
+                          searchQuery.trim().isEmpty)
+                        const _RecentlyPlayedShelf(),
                       Expanded(
                         child: tracks.isEmpty
                             ? LibraryEmptyState(
@@ -79,6 +83,67 @@ class LibraryView extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Recently Played horizontal shelf (Mission 11).
+///
+/// Renders one-tap 44px cover cards for the user's most recently played songs,
+/// resolving live vault records (deleted ids are dropped by the provider).
+/// Hidden automatically when there is no history yet.
+class _RecentlyPlayedShelf extends ConsumerWidget {
+  const _RecentlyPlayedShelf();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recent = ref.watch(recentlyPlayedTracksProvider);
+    if (recent.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            AppSpacing.xs,
+          ),
+          child: Text(
+            'Recently Played',
+            style: AppTypography.bodyLarge.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 56,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            itemCount: recent.length,
+            separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+            itemBuilder: (context, index) {
+              final track = recent[index];
+              return SizedBox(
+                width: 44,
+                height: 44,
+                child: Tooltip(
+                  message: track.title,
+                  child: InkWell(
+                    borderRadius: AppRadius.thumbBorder,
+                    onTap: () => playLibraryTrack(ref, track),
+                    child: LibraryCoverArt(track: track, size: 44),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+      ],
     );
   }
 }

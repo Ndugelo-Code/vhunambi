@@ -243,4 +243,64 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(GenerationPipelineCard), findsOneWidget);
   });
+
+  testWidgets('ready track without stemsUrl hides the Stems download button',
+      (tester) async {
+    final container = await _pumpCard(
+      tester,
+      socket: FakeGenerationSocketService(
+        stepDelay: Duration.zero,
+        completedTrack: _track(), // stemsUrl is null by default
+      ),
+    );
+
+    await _start(container);
+    await _advance(tester);
+
+    expect(find.text('Play Master'), findsOneWidget);
+    expect(find.byKey(const Key('pipeline_download_stems')), findsNothing);
+    expect(find.text('Stems'), findsNothing);
+  });
+
+  testWidgets('ready track with stemsUrl renders Stems button and triggers download',
+      (tester) async {
+    final trackWithStems = TrackEntity(
+      id: 'trk_stems_001',
+      title: 'rave_stems',
+      genre: 'Gqom',
+      duration: const Duration(minutes: 3, seconds: 29),
+      masterMp3Url: 'https://cdn.vhunambi.com/masters/trk_stems_001.mp3',
+      stemsUrl: 'https://cdn.vhunambi.com/stems/trk_stems_001_stems.zip',
+    );
+
+    final container = await _pumpCard(
+      tester,
+      socket: FakeGenerationSocketService(
+        stepDelay: Duration.zero,
+        completedTrack: trackWithStems,
+      ),
+    );
+
+    await _start(container);
+    await _advance(tester);
+
+    expect(find.text('Play Master'), findsOneWidget);
+    expect(find.byKey(const Key('pipeline_download_stems')), findsOneWidget);
+    expect(find.text('Stems'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('pipeline_download_stems')));
+    await tester.pump();
+
+    expect(find.textContaining('Downloading stem bundle for rave_stems'), findsOneWidget);
+  });
+
+  testWidgets('ready track renders Create Reel button', (tester) async {
+    final container = await _pumpCard(tester);
+    await _start(container);
+    await _advance(tester);
+
+    expect(find.byKey(const Key('pipeline_create_reel_btn')), findsOneWidget);
+    expect(find.text('Create Reel'), findsOneWidget);
+  });
 }
+

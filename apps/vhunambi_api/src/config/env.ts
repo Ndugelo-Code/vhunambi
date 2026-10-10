@@ -14,6 +14,12 @@ export interface AppEnv {
   R2_ENDPOINT?: string;
   R2_BUCKET: string;
   ZR_WEBHOOK_SECRET: string;
+  /** Public base URL for RunPod webhook callbacks (e.g. cloudflared tunnel URL). */
+  WEBHOOK_BASE_URL: string;
+  /** ComfyUI HTTP endpoint URL (direct pod or proxy). */
+  RUNPOD_COMFYUI_URL?: string;
+  /** ComfyUI RunPod Serverless endpoint ID. */
+  RUNPOD_COMFYUI_ENDPOINT_ID?: string;
 }
 
 export const env: AppEnv = {
@@ -21,6 +27,8 @@ export const env: AppEnv = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   RUNPOD_API_KEY: process.env.RUNPOD_API_KEY || undefined,
   RUNPOD_ENDPOINT_ID: process.env.RUNPOD_ENDPOINT_ID || undefined,
+  RUNPOD_COMFYUI_URL: process.env.RUNPOD_COMFYUI_URL || undefined,
+  RUNPOD_COMFYUI_ENDPOINT_ID: process.env.RUNPOD_COMFYUI_ENDPOINT_ID || undefined,
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || undefined,
   GROK_API_KEY: process.env.GROK_API_KEY || undefined,
   ZR_LLM_PROVIDER: (process.env.ZR_LLM_PROVIDER as 'claude' | 'grok' | 'mock') || 'mock',
@@ -29,4 +37,5 @@ export const env: AppEnv = {
   R2_ENDPOINT: process.env.R2_ENDPOINT || undefined,
   R2_BUCKET: process.env.R2_BUCKET || 'vhunambi-audio',
   ZR_WEBHOOK_SECRET: process.env.ZR_WEBHOOK_SECRET || 'dev_webhook_secret_vhunambi_2026',
+  WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL || `http://localhost:${process.env.PORT || 3000}`,
 };

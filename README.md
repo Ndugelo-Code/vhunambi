@@ -4,7 +4,7 @@
 > **Source Origin:** Production Web Client (`https://vhunambi.com`)  
 > **Target:** Cross-Platform Client (Flutter/Dart — Windows, macOS, Android, iOS)  
 > **Architecture Standard:** Dual-Agent Symbiosis ([`docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md))  
-> **Current Status:** ✅ Phase 0 – 15 Complete (Full-Stack Audio Synthesis Engine, Bantu Linguistic Modules, Live Client Bridge & Beats Vault)
+> **Current Status:** ✅ Phase 0 – 17 Complete (Full-Stack Audio Synthesis Engine, Live Cloud & RunPod GPU Bridge, Bantu Linguistic Modules, Beats Vault, Song Metadata DNA & Lyric Video Content Engine)
 
 ---
 
@@ -27,8 +27,10 @@ c:\Users\Ndugelo\VHUNAMBI\monorepo\
 │   │   ├── src/
 │   │   │   ├── modules/
 │   │   │   │   ├── bantu/                 # Bantu language context (Tshivenḓa phonetic guidelines, cultural idioms)
+│   │   │   │   ├── dna/                   # Canonical SongMetadataDna compiler & types
 │   │   │   │   ├── lyrics/                # LLM story-to-lyrics engine & bracketed stanza compiler
 │   │   │   │   ├── synthesis/             # African genre prompt compiler, Cloudflare R2 storage, RunPod adapter
+│   │   │   │   ├── vision/                # Headless RunPod ComfyUI 9:16 vision adapter & prompt synthesizer
 │   │   │   │   └── jobs/                  # Job tracking store & state machine
 │   │   │   ├── routes/                    # /v1/lyrics, /v1/generations, /v1/webhooks, /health
 │   │   │   ├── server.ts                  # Portless Hono app for modularity & testability
@@ -43,6 +45,7 @@ c:\Users\Ndugelo\VHUNAMBI\monorepo\
 │       │   │   └── constants/             # AppConstants
 │       │   ├── features/
 │       │   │   ├── beats/                 # Producer Beats Vault (/library?tab=beats) — 87 passing tests
+│       │   │   ├── content_studio/        # 9:16 Content Studio Dock (60 FPS kinetic canvas, 4 typography styles, MP4 export)
 │       │   │   ├── home/                  # Native Creator Dashboard (Tab 0)
 │       │   │   ├── onboarding/            # Native Splash Screen & 3-Step Preference Onboarding Flow
 │       │   │   ├── explore/               # Explore Feed & Discovery (/explore)
@@ -86,7 +89,16 @@ c:\Users\Ndugelo\VHUNAMBI\monorepo\
         ├── phase_06_marketplace/          # Phase 6 4-doc suite (blueprint, requirements, design, tasks)
         ├── phase_07_track_profiles/       # Phase 7 4-doc suite (blueprint, requirements, design, tasks)
         ├── phase_08_offline_cache/        # Phase 8 5-doc suite (blueprint, requirements, design, tasks, walkthrough)
-        └── phase_09_hardware_audio_bridge/# Phase 9 4-doc suite (blueprint, requirements, design, tasks)
+        ├── phase_09_hardware_audio_bridge/# Phase 9 4-doc suite (blueprint, requirements, design, tasks)
+        ├── phase_10_generation_pipeline_bridge/ # Phase 10 4-doc suite
+        ├── phase_11_notifications_drawer/ # Phase 11 4-doc suite
+        ├── phase_12_lyrics_and_playlists/ # Phase 12 5-doc suite (walkthrough included)
+        ├── phase_12_1_playlists_vault/    # Phase 12.1 5-doc suite (walkthrough included)
+        ├── phase_13_collections_bundler/  # Phase 13 5-doc suite (walkthrough included)
+        ├── phase_14_beats_vault/          # Phase 14 5-doc suite (walkthrough included)
+        ├── phase_15_backend_engine/       # Phase 15 5-doc suite (walkthrough included)
+        ├── phase_16_cloud_gpu_integration/# Phase 16 5-doc suite (walkthrough included)
+        └── phase_17_song_dna_content_engine/ # Phase 17 5-doc suite (walkthrough included)
 
 ```
 
@@ -105,6 +117,7 @@ c:\Users\Ndugelo\VHUNAMBI\monorepo\
 | **6** | **Beats Marketplace & Native App Architecture** | ✅ Complete | `/market`: beat listing grid + credit licensing flow (vault write) + filter sheet + PWA install dock. Native App Architecture: `SplashView` + 3-step `OnboardingView` (genre/language preferences) + `HomeDashboardView` on Tab 0 (greeting, prompt bar, 4 action tiles, Jump Back In mini-card, trending rail) + native `SubscriptionUpgradeModal` — **127 passing tests**. |
 | **7** | **Track Details & Creator Profiles** | ✅ Complete | `/track/:id` (1:1 art, ambient amber glow, royalty-free notice, waveform scrubber, lyrics teleprompter, 4-stem lab & FSM, cultural emoji deck, prompt attribution, comments, recommendations), `/profile/:id` (public artist profile, monogram, 5 stats, top supporters, top songs, recent activity), `/profile/me` (creator studio profile, releases manager, tip ledger, referral card) — **160 passing tests**. |
 | **8** | **Hive Local Cache & Audio Offline Sync** | ✅ Complete | Offline audio persistence, dual Hive boxes (`vaultBoxKey`, `preferencesBoxKey`), streaming downloader FSM, storage quota modal, offline badges & player integration — **207 passing tests**. |
+| **9** | **Native Hardware Audio Bridge & Media Notifications** | ✅ Complete | Native platform audio sessions (`AudioSessionManager`), system lock-screen media notification controls (`VhunambiAudioHandler`), hardware media key listener, dynamic audio source resolver — **254 passing tests**. |
 | **10** | **Generation Pipeline Real-Time WebSocket Bridge** | ✅ Complete | Real-time synthesis WebSocket bridge (`GenerationSocketService`), multi-stage Result panel (`GenerationPipelineCard`), stem download orchestrator, notifications dispatch — **321 passing tests**. |
 | **11** | **Notifications Drawer & Real-Time Alert System** | ✅ Complete | Interactive notifications drawer/popover, unread counter badge (`NotificationBellButton`), deep-link routing on alert tap, backward-compatible `notificationsProvider`. |
 | **12** | **Studio Lyrics Review Cockpit & Playlists Queue** | ✅ Complete | Subsystem A: Interactive lyrics review modal, cultural idiom injection, raw editor toggle, approve-to-beat handoff. Subsystem B: Full playlist CRUD, sliding `QueueDrawer` with reorderable upcoming queue, `AddToPlaylistSheet` — **460 passing tests**. |
@@ -112,6 +125,8 @@ c:\Users\Ndugelo\VHUNAMBI\monorepo\
 | **13** | **Collections & EP/Album Concept Bundler** | ✅ Complete | Collections tab in Library Vault (`/library?tab=collections`), `CollectionEntity`/`SplitParticipant` domain, Hive `CollectionRepository`, `CollectionsVaultView` (2/3/4-col grid + list, create/rename/delete), `CollectionDetailView` (hero header, Play All/Shuffle, reorderable tracks, split-sheet ledger), `SplitSheetModal` with clipboard export — **541 passing tests**. |
 | **14** | **Producer Beats Vault & Beatstore Listing Cockpit** | ✅ Complete | `/library?tab=beats`: `ProducerBeatEntity` / `BeatStemPackage` / `BeatSaleRecord` domain, Hive `BeatRepository`, `beatsProvider`, `BeatsVaultView`, `BeatDetailCockpitView` — **87 passing tests** (100% green). |
 | **15** | **Full-Stack Autonomous Backend & Pipeline Bridge** | ✅ Complete | Colocated `apps/vhunambi_api` (Node.js/Hono): Bantu dialect prompt compiler, story-to-lyrics LLM engine, Cloudflare R2 presigned storage, ACE-Step GPU adapter & simulation worker, `/health` observability. Client: `HttpLyricsGenerationService`, `HttpGenerationSubmissionService`, live 4-stage pipeline FSM card, master auto-play, and stem download bridge. |
+| **16** | **Live Cloud & GPU Infrastructure Integration** | ✅ Complete | RunPod Serverless ACE-Step 1.5 adapter aligned to upstream `handler.py` schema, Cloudflare R2 audio storage (`vhunambi-audio`), HMAC-SHA256 authenticated webhook gateway (`POST /v1/webhooks/ace-step`), `WEBHOOK_BASE_URL` tunnel configuration, Flutter `TrackEntity` stems degradation, and comprehensive integration test suite. |
+| **17** | **Song Metadata DNA & Lyric Video Content Engine** | ✅ Complete | Headless RunPod ComfyUI 9:16 Vision adapter (768×1344), prompt synthesizer, SongMetadataDna domain & compiler, Flutter Content Studio Dock (60 FPS kinetic preview canvas, 4 typography styles, duration trimmer, atmospheric overlays, MP4 export, genre-aware smart defaults, post-generation & vault entrypoints) — **19 passing tests** (100% green). |
 
 ---
 
@@ -135,7 +150,7 @@ cd apps/vhunambi_api
 # 1. TypeScript Build Gate (0 errors)
 pnpm build
 
-# 2. Automated Test Suite
+# 2. Automated Test Suite (5/5 suites passing)
 pnpm test
 ```
 
@@ -144,7 +159,7 @@ pnpm test
 ## 5. How to Resume Work
 
 1. Open [`docs/AGENT_HANDOFF_BIBLE.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/AGENT_HANDOFF_BIBLE.md) for complete context.
-2. Phases 0 through 14 are **executed and verified**.
-3. Phase 14 artefacts: [`docs/phases/phase_14_beats_vault/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_14_beats_vault/walkthrough.md) and the master execution record [`docs/CLINE_HANDOFF_PHASE14.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE14.md).
-4. Next milestone is **Phase 15**: specify the doc suite under `docs/phases/phase_15_<milestone>/` and produce `docs/CLINE_HANDOFF_PHASE15.md`.
+2. Phases 0 through 17 are **fully executed, verified, and passing**.
+3. Phase 17 artefacts: [`docs/phases/phase_17_song_dna_content_engine/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_17_song_dna_content_engine/walkthrough.md) and master handoff [`docs/CLINE_HANDOFF_PHASE17.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE17.md).
+4. Both workspaces are clean with zero errors across tests and static analysis.
 

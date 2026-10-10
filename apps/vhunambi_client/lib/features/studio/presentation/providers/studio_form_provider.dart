@@ -102,6 +102,70 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
     state = state.copyWith(prompt: preset);
   }
 
+  void applyDnaPresetPrivateSchoolPiano() {
+    state = state.copyWith(
+      genre: 'Amapiano',
+      region: 'South Africa',
+      language: 'Tshivenḓa',
+      mood: 'Soulful & Nostalgic',
+      tempo: TempoBracket.medium,
+      vocalVoices: VocalVoices.solo,
+      vocalGender: VocalGender.female,
+      vocalMode: VocalMode.melodic,
+      vocalEnergy: VocalEnergy.mid,
+      prompt:
+          'Soulful private school piano with delicate jazz chords, warm rhodes, deep log drum basslines, and emotive female vocals.',
+    );
+  }
+
+  void applyDnaPresetDurbanDarkGqom() {
+    state = state.copyWith(
+      genre: 'Gqom',
+      region: 'South Africa',
+      language: 'isiZulu',
+      mood: 'Dark & Intense',
+      tempo: TempoBracket.fast,
+      vocalVoices: VocalVoices.solo,
+      vocalGender: VocalGender.male,
+      vocalMode: VocalMode.spokenWord,
+      vocalEnergy: VocalEnergy.intense,
+      prompt:
+          'Underground Durban club banger with heavy 808 sub hits, metallic claps, repetitive vocal chants, and dark hypnotic tension.',
+    );
+  }
+
+  void applyDnaPresetVendaTraditionalSoul() {
+    state = state.copyWith(
+      genre: 'Afro-Soul',
+      region: 'Limpopo',
+      language: 'Tshivenḓa',
+      mood: 'Peaceful & Spiritual',
+      tempo: TempoBracket.slow,
+      vocalVoices: VocalVoices.choir,
+      vocalGender: VocalGender.mixed,
+      vocalMode: VocalMode.choir,
+      vocalEnergy: VocalEnergy.soft,
+      prompt:
+          'Traditional acoustic storytelling layered with warm vocal harmonies, polyrhythmic percussion, and spiritual African call-and-response.',
+    );
+  }
+
+  void applyDnaPresetLagosAfroPop() {
+    state = state.copyWith(
+      genre: 'Afrobeats',
+      region: 'Nigeria',
+      language: 'English',
+      mood: 'Uplifting & Vibrant',
+      tempo: TempoBracket.medium,
+      vocalVoices: VocalVoices.duet,
+      vocalGender: VocalGender.mixed,
+      vocalMode: VocalMode.melodic,
+      vocalEnergy: VocalEnergy.mid,
+      prompt:
+          'Sunny Afrobeats anthem with bright electric guitar plucks, upbeat percussion groove, and catchy melodic duet vocals.',
+    );
+  }
+
   void inspireMe() {
     final random = Random();
     final seed = _inspirationSeeds[random.nextInt(_inspirationSeeds.length)];

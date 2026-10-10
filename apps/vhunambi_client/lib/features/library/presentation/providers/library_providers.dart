@@ -49,10 +49,66 @@ final libraryCategoryCountsProvider =
   };
 });
 
+/// Every hearted vault record, newest first (favourites rail / quick filter).
+final favoriteTracksProvider = Provider<List<LibraryTrack>>((ref) {
+  final favorites = ref
+      .watch(libraryTracksProvider)
+      .where((track) => track.isFavorite && !track.isDeleted)
+      .toList()
+    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  return List.unmodifiable(favorites);
+});
+
+/// Recently-played vault ids, newest first, capped at [_recentlyPlayedLimit
+/// unique entries (Mission 11).
+final recentlyPlayedIdsProvider =
+    StateNotifierProvider<RecentlyPlayedNotifier, List<String>>((ref) {
+  return RecentlyPlayedNotifier();
+});
+
+/// Resolves [recentlyPlayedIdsProvider] into live vault records, dropping ids
+/// that no longer exist or have been soft-deleted.
+final recentlyPlayedTracksProvider = Provider<List<LibraryTrack>>((ref) {
+  final ids = ref.watch(recentlyPlayedIdsProvider);
+  final byId = {
+    for (final track in ref.watch(libraryTracksProvider)) track.id: track,
+  };
+  return [
+    for (final id in ids)
+      if (byId[id] case final track? when !track.isDeleted) track,
+  ];
+});
+
 /// Pushes a vault asset into the global persistent player and starts playback.
 /// Backs the `▶ Play Now` action (REQ-LIB-06).
 void playLibraryTrack(WidgetRef ref, LibraryTrack track) {
   ref.read(playerStateProvider.notifier).playTrack(track.toTrack());
+}
+
+/// Maximum number of unique ids retained by [RecentlyPlayedNotifier].
+const int _recentlyPlayedLimit = 20;
+
+/// Tracks the most-recently-played vault ids, newest first (Mission 11).
+///
+/// [register] de-duplicates, moves the id to the front and trims to
+/// [_recentlyPlayedLimit] entries.
+class RecentlyPlayedNotifier extends StateNotifier<List<String>> {
+  RecentlyPlayedNotifier() : super(const <String>[]);
+
+  /// Records a play of [trackId]: de-dupe, prepend, cap the history length.
+  void register(String trackId) {
+    if (trackId.isEmpty) return;
+    final next = <String>[
+      trackId,
+      ...state.where((id) => id != trackId),
+    ];
+    state = next.length > _recentlyPlayedLimit
+        ? next.sublist(0, _recentlyPlayedLimit)
+        : next;
+  }
+
+  /// Clears the entire recently-played history.
+  void clear() => state = const <String>[];
 }
 
 class LibraryTracksNotifier extends StateNotifier<List<LibraryTrack>> {
@@ -88,6 +144,28 @@ class LibraryTracksNotifier extends StateNotifier<List<LibraryTrack>> {
   /// Permanently wipes the record (30-day Trash grace period is enforced by the cloud).
   void purgeTrackPermanently(String id) {
     state = state.where((track) => track.id != id).toList(growable: false);
+  }
+
+  /// Bumps the lifetime play count by one (jukebox stat badge / Most Played sort).
+  void incrementPlayCount(String id) {
+    state = [
+      for (final track in state)
+        if (track.id == id)
+          track.copyWith(playCount: track.playCount + 1)
+        else
+          track,
+    ];
+  }
+
+  /// Flips the quick heart / favourite flag for a vault record.
+  void toggleFavorite(String id) {
+    state = [
+      for (final track in state)
+        if (track.id == id)
+          track.copyWith(isFavorite: !track.isFavorite)
+        else
+          track,
+    ];
   }
 
   /// Updates the offline cache integrity state of a record.
@@ -156,6 +234,7 @@ List<LibraryTrack> filterLibraryTracks({
       LibrarySortOrder.oldestFirst => a.createdAt.compareTo(b.createdAt),
       LibrarySortOrder.titleAscending =>
         a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      LibrarySortOrder.mostPlayed => b.playCount.compareTo(a.playCount),
     },
   );
 
@@ -208,6 +287,9 @@ List<LibraryTrack> _seedTracks() {
       localAudioFilePath: '$vaultAudio/grateful-in-the-light.mp3',
       createdAt: now.subtract(const Duration(hours: 2)),
       syncStatus: TrackSyncStatus.cachedLocally,
+      playCount: 0,
+      lyrics:
+          '[Intro]\nYebo! Woza!\n\n[Verse 1]\nWalking through the morning mist where memories stay\nListening to the elders teaching us the ancient way\n\n[Chorus]\nThis is our song, this is our sacred beat\nVhunambi rising strong on every township street\n\n[Outro]\nShisa!',
     ),
     LibraryTrack(
       id: 'lib_track_002',

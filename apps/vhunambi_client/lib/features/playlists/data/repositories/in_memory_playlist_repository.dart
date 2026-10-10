@@ -59,4 +59,25 @@ class InMemoryPlaylistRepository implements IPlaylistRepository {
       updatedAt: DateTime.now(),
     );
   }
+
+  @override
+  Future<void> reorderTracksInPlaylist(
+    String playlistId,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    final playlist = _playlists[playlistId];
+    if (playlist == null) return;
+    if (oldIndex < 0 || oldIndex >= playlist.trackIds.length) return;
+
+    final trackIds = List<String>.of(playlist.trackIds);
+    final item = trackIds.removeAt(oldIndex);
+    final clampedIndex = newIndex.clamp(0, trackIds.length);
+    trackIds.insert(clampedIndex, item);
+
+    _playlists[playlistId] = playlist.copyWith(
+      trackIds: trackIds,
+      updatedAt: DateTime.now(),
+    );
+  }
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
+import 'package:vhunambi_client/features/content_studio/domain/models/lyric_word_timestamp.dart';
 
 enum LyricsMode {
   aiWrite,
@@ -124,6 +126,70 @@ class StudioFormState {
 
     if (words.isEmpty) return '$genre Sketch';
     return '${words[0].toUpperCase()}${words.substring(1)}';
+  }
+
+  /// Compiles current wizard state into an immutable canonical [SongMetadataDna].
+  SongMetadataDna toSongMetadataDna({
+    String? id,
+    List<LyricWordTimestamp> alignment = const [],
+  }) {
+    final bpm = switch (tempo) {
+      TempoBracket.slow => 85,
+      TempoBracket.medium => 112,
+      TempoBracket.fast => 124,
+      TempoBracket.veryFast => 135,
+    };
+
+    final energyStr = switch (vocalEnergy) {
+      VocalEnergy.soft => 'soft',
+      VocalEnergy.mid => 'mid',
+      VocalEnergy.intense => 'intense',
+    };
+
+    final genderStr = switch (vocalGender) {
+      VocalGender.male => 'male',
+      VocalGender.female => 'female',
+      VocalGender.mixed => 'duet',
+    };
+
+    final modeStr = switch (vocalMode) {
+      VocalMode.auto => 'melodic',
+      VocalMode.melodic => 'melodic',
+      VocalMode.rap => 'rap',
+      VocalMode.spokenWord => 'spokenWord',
+      VocalMode.choir => 'choir',
+    };
+
+    return SongMetadataDna(
+      id: id ?? 'dna_${DateTime.now().millisecondsSinceEpoch}',
+      title: resolvedTitle,
+      genre: genre,
+      language: language,
+      culturalContext: CulturalContextDna(
+        region: region,
+        idioms: const [],
+        phoneticGuidelines: '',
+      ),
+      musical: MusicalDna(
+        bpm: bpm,
+        key: 'F# Minor',
+        energyBracket: energyStr,
+        durationSec: durationSeconds,
+      ),
+      vocals: VocalsDna(
+        deliveryMode: modeStr,
+        gender: genderStr,
+        energy: energyStr,
+      ),
+      visualTheme: VisualThemeDna(
+        mood: mood,
+        comfyPrompt:
+            '$genre album cover art, $mood aesthetic, cinematic studio lighting, 8k resolution, 9:16 vertical ratio',
+        seed: DateTime.now().millisecondsSinceEpoch % 100000000,
+        aspectRatio: '9:16',
+      ),
+      alignment: alignment,
+    );
   }
 
   StudioFormState copyWith({

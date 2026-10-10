@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -61,11 +62,30 @@ class LibraryTrackTile extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      '${track.creatorName} • ${track.formattedDuration} • ${track.createdAgoLabel}',
-                      style: AppTypography.bodySmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${track.creatorName} • ${track.formattedDuration} • ${track.createdAgoLabel}',
+                            style: AppTypography.bodySmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Icon(
+                          Icons.headphones_rounded,
+                          size: 12,
+                          color: AppColors.textTertiary,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          track.playCountLabel,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -73,6 +93,31 @@ class LibraryTrackTile extends ConsumerWidget {
               const SizedBox(width: AppSpacing.sm),
               SyncStatusBadge(track: track),
               const SizedBox(width: AppSpacing.xxs),
+              SizedBox(
+                width: 34,
+                height: 34,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  iconSize: 18,
+                  tooltip: track.isFavorite
+                      ? 'Remove from favourites'
+                      : 'Add to favourites',
+                  icon: Icon(
+                    track.isFavorite
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    color: track.isFavorite
+                        ? AppColors.brandPrimary
+                        : AppColors.textTertiary,
+                  ),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    ref
+                        .read(libraryTracksProvider.notifier)
+                        .toggleFavorite(track.id);
+                  },
+                ),
+              ),
               SizedBox(
                 width: 34,
                 height: 34,

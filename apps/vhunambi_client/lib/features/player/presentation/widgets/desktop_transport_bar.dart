@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../library/domain/models/library_models.dart';
+import '../../../library/presentation/providers/library_providers.dart';
+import '../../../offline/presentation/providers/offline_providers.dart';
 import '../../../playlists/presentation/widgets/add_to_playlist_sheet.dart';
 import '../../domain/models/player_state.dart';
 import '../providers/player_provider.dart';
@@ -151,13 +155,29 @@ class DesktopTransportBar extends ConsumerWidget {
 
                   // 4. Utility Strip
                   IconButton(
+                    key: const Key('transport_shuffle_button'),
+                    icon: Icon(
+                      Icons.shuffle_rounded,
+                      color: playerState.isShuffle
+                          ? AppColors.brandPrimary
+                          : AppColors.textSecondary,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      notifier.toggleShuffle();
+                    },
+                    tooltip: 'Shuffle',
+                  ),
+
+                  IconButton(
                     icon: Icon(
                       playerState.repeatMode == AudioRepeatMode.one
                           ? Icons.repeat_one_rounded
                           : Icons.repeat_rounded,
                       color: playerState.repeatMode != AudioRepeatMode.off
                           ? AppColors.brandPrimary
-                          : AppColors.textSecondary,
+                          : AppColors.textTertiary,
                       size: 20,
                     ),
                     onPressed: notifier.cycleRepeatMode,
@@ -176,10 +196,98 @@ class DesktopTransportBar extends ConsumerWidget {
                     ],
                   ),
 
-                  IconButton(
-                    icon: const Icon(Icons.download_rounded, color: AppColors.textSecondary, size: 20),
-                    onPressed: () {},
-                    tooltip: 'Direct Audio Download',
+                  Builder(
+                    builder: (context) {
+                      final libraryTrack = ref
+                          .watch(libraryTracksProvider)
+                          .cast<LibraryTrack?>()
+                          .firstWhere(
+                            (t) => t?.id == track.id,
+                            orElse: () => null,
+                          );
+                      final isDownloading = ref.watch(downloadManagerProvider)[track.id]?.isActive ?? false;
+                      final isOffline = libraryTrack?.isOfflineAvailable ?? false;
+
+                      return IconButton(
+                        key: const Key('transport_download_button'),
+                        icon: isDownloading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.brandPrimary,
+                                ),
+                              )
+                            : Icon(
+                                isOffline ? Icons.offline_pin_rounded : Icons.download_rounded,
+                                color: isOffline ? AppColors.brandPrimary : AppColors.textSecondary,
+                                size: 20,
+                              ),
+                        onPressed: () {
+                          if (libraryTrack != null) {
+                            if (!isOffline && !isDownloading) {
+                              ref.read(downloadManagerProvider.notifier).downloadTrack(libraryTrack);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Downloading "${track.title}" for offline playback...'),
+                                  backgroundColor: AppColors.surfaceModal,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            } else if (isOffline) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('"${track.title}" is saved offline in your vault.'),
+                                  backgroundColor: AppColors.surfaceModal,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Add "${track.title}" to library to enable offline download.'),
+                                backgroundColor: AppColors.surfaceModal,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                        tooltip: isOffline
+                            ? 'Saved Offline'
+                            : (isDownloading ? 'Downloading...' : 'Direct Audio Download'),
+                      );
+                    },
+                  ),
+
+                  Builder(
+                    builder: (context) {
+                      final isFavorite = ref
+                          .watch(libraryTracksProvider)
+                          .any((t) => t.id == track.id && t.isFavorite);
+                      return IconButton(
+                        key: const Key('transport_favorite_button'),
+                        icon: Icon(
+                          isFavorite
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          color: isFavorite
+                              ? AppColors.brandPrimary
+                              : AppColors.textSecondary,
+                          size: 20,
+                        ),
+                        tooltip: isFavorite
+                            ? 'Remove from favourites'
+                            : 'Add to favourites',
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          ref
+                              .read(libraryTracksProvider.notifier)
+                              .toggleFavorite(track.id);
+                        },
+                      );
+                    },
                   ),
 
                   IconButton(

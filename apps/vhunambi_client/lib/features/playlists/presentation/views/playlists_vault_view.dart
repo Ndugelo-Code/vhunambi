@@ -5,11 +5,13 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../shared/models/track.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../library/presentation/widgets/library_empty_state.dart';
 import '../../domain/models/playlist_entity.dart';
 import '../providers/playlists_provider.dart';
+import '../widgets/playlist_cover_art.dart';
 import 'playlist_detail_view.dart';
 
 /// The Playlists tab view in User Library Vault (`/library?tab=playlists`).
@@ -46,6 +48,17 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
         },
       ),
     );
+  }
+
+  /// Resolves a playlist's track ids into live vault [Track]s for the cover
+  /// collage (Mission 10). Unknown ids are skipped.
+  List<Track> _resolveTracks(PlaylistEntity playlist) {
+    final byId = {
+      for (final t in ref.read(libraryTracksProvider)) t.id: t.toTrack(),
+    };
+    return [
+      for (final id in playlist.trackIds) ?byId[id],
+    ];
   }
 
   void _showRenameDialog(PlaylistEntity playlist) {
@@ -222,6 +235,7 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
                         final playlist = filteredPlaylists[index];
                         return _PlaylistGridCard(
                           playlist: playlist,
+                          tracks: _resolveTracks(playlist),
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -247,6 +261,7 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
                         final playlist = filteredPlaylists[index];
                         return _PlaylistListTile(
                           playlist: playlist,
+                          tracks: _resolveTracks(playlist),
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -267,12 +282,14 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
 
 class _PlaylistGridCard extends StatelessWidget {
   final PlaylistEntity playlist;
+  final List<Track> tracks;
   final VoidCallback onTap;
   final VoidCallback onRename;
   final VoidCallback onDelete;
 
   const _PlaylistGridCard({
     required this.playlist,
+    required this.tracks,
     required this.onTap,
     required this.onRename,
     required this.onDelete,
@@ -297,23 +314,11 @@ class _PlaylistGridCard extends StatelessWidget {
             children: [
               // Cover Artwork
               Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceSecondary,
-                    borderRadius: BorderRadius.circular(10),
-                    gradient: const LinearGradient(
-                      colors: [AppColors.surfaceSecondary, AppColors.surfaceElevated],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.queue_music_rounded,
-                      size: 40,
-                      color: AppColors.brandPrimary.withAlpha(200),
-                    ),
+                child: Center(
+                  child: PlaylistCoverArt(
+                    playlist: playlist,
+                    tracks: tracks,
+                    size: 120,
                   ),
                 ),
               ),
@@ -381,12 +386,14 @@ class _PlaylistGridCard extends StatelessWidget {
 
 class _PlaylistListTile extends StatelessWidget {
   final PlaylistEntity playlist;
+  final List<Track> tracks;
   final VoidCallback onTap;
   final VoidCallback onRename;
   final VoidCallback onDelete;
 
   const _PlaylistListTile({
     required this.playlist,
+    required this.tracks,
     required this.onTap,
     required this.onRename,
     required this.onDelete,
@@ -403,21 +410,10 @@ class _PlaylistListTile extends StatelessWidget {
       child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceSecondary,
-            borderRadius: BorderRadius.circular(8),
-            gradient: const LinearGradient(
-              colors: [AppColors.surfaceSecondary, AppColors.surfaceElevated],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: const Center(
-            child: Icon(Icons.queue_music_rounded, color: AppColors.brandPrimary),
-          ),
+        leading: PlaylistCoverArt(
+          playlist: playlist,
+          tracks: tracks,
+          size: 48,
         ),
         title: Text(
           playlist.title,
