@@ -347,11 +347,17 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       color: playerState.isShuffle ? AppColors.brandPrimary : AppColors.textSecondary,
                       size: 24,
                     ),
-                    onPressed: notifier.toggleShuffle,
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      notifier.toggleShuffle();
+                    },
                   ),
                   IconButton(
                     icon: const Icon(Icons.skip_previous_rounded, size: 36, color: Colors.white),
-                    onPressed: notifier.skipPrevious,
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      notifier.skipPrevious();
+                    },
                   ),
                   // Primary 64x64px Play/Pause Orb
                   Container(
@@ -376,12 +382,18 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                         size: 36,
                         color: AppColors.brandContrast,
                       ),
-                      onPressed: notifier.togglePlayPause,
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        notifier.togglePlayPause();
+                      },
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.skip_next_rounded, size: 36, color: Colors.white),
-                    onPressed: notifier.skipNext,
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      notifier.skipNext();
+                    },
                   ),
                   IconButton(
                     icon: Icon(
@@ -393,7 +405,10 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                           : AppColors.textTertiary,
                       size: 24,
                     ),
-                    onPressed: notifier.cycleRepeatMode,
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      notifier.cycleRepeatMode();
+                    },
                   ),
                 ],
               ),
@@ -678,7 +693,10 @@ class _UtilityItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

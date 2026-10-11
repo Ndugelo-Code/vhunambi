@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -64,7 +65,10 @@ class StudioActionBar extends ConsumerWidget {
               ),
               Switch(
                 value: state.isPublic,
-                onChanged: notifier.togglePublic,
+                onChanged: (val) {
+                  HapticFeedback.selectionClick();
+                  notifier.togglePublic(val);
+                },
                 activeThumbColor: AppColors.brandPrimary,
                 activeTrackColor: AppColors.brandPrimary.withAlpha(80),
                 inactiveThumbColor: AppColors.textSecondary,
@@ -137,6 +141,7 @@ class StudioActionBar extends ConsumerWidget {
   /// REQ-LYR-01/02 — AI lyrics mode pauses in `generatingLyrics`, drafts the
   /// stanzas, then opens the review cockpit before beat production.
   Future<void> _handleGenerate(BuildContext context, WidgetRef ref) async {
+    HapticFeedback.heavyImpact();
     final formNotifier = ref.read(studioFormProvider.notifier);
     final formState = ref.read(studioFormProvider);
     final reviewLyrics =

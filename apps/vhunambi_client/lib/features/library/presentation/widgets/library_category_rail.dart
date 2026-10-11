@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -65,6 +66,7 @@ class LibraryCategoryRail extends ConsumerWidget {
               isActive: _specs[index].category == activeCategory,
               count: counts[_specs[index].category] ?? 0,
               onTap: () {
+                HapticFeedback.selectionClick();
                 ref.read(libraryCategoryProvider.notifier).state =
                     _specs[index].category;
                 // Reset the vault query so the new category reveals its own records.

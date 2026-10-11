@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
@@ -52,6 +53,7 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
   }
 
   void _submitQuickPrompt([String? presetText]) {
+    HapticFeedback.mediumImpact();
     final text = presetText ?? _promptController.text.trim();
     if (text.isNotEmpty) {
       ref.read(studioFormProvider.notifier).updatePrompt(text);

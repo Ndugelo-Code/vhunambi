@@ -117,7 +117,10 @@ class MobileMiniPlayer extends ConsumerWidget {
                     icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 22),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                    onPressed: notifier.skipPrevious,
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      notifier.skipPrevious();
+                    },
                   ),
                   const SizedBox(width: 4),
 
@@ -138,7 +141,10 @@ class MobileMiniPlayer extends ConsumerWidget {
                         size: 20,
                       ),
                       padding: EdgeInsets.zero,
-                      onPressed: notifier.togglePlayPause,
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        notifier.togglePlayPause();
+                      },
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -147,7 +153,10 @@ class MobileMiniPlayer extends ConsumerWidget {
                     icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 22),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                    onPressed: notifier.skipNext,
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      notifier.skipNext();
+                    },
                   ),
                   const SizedBox(width: 2),
 
@@ -156,7 +165,10 @@ class MobileMiniPlayer extends ConsumerWidget {
                     icon: const Icon(Icons.close_rounded, color: AppColors.textTertiary, size: 18),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                    onPressed: notifier.dismiss,
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      notifier.dismiss();
+                    },
                   ),
                 ],
               ),
