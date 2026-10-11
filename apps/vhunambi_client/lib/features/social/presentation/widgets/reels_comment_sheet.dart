@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -58,6 +59,7 @@ class _ReelsCommentSheetState extends ConsumerState<ReelsCommentSheet> {
   void _submit() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    HapticFeedback.mediumImpact();
     ref.read(reelsCommentsProvider.notifier).addComment(
           clipId: widget.clip.id,
           text: text,
@@ -134,12 +136,15 @@ class _ReelsCommentSheetState extends ConsumerState<ReelsCommentSheet> {
                         const SizedBox(height: AppSpacing.sm),
                     itemBuilder: (context, i) => _CommentTile(
                       comment: comments[i],
-                      onLike: () => ref
-                          .read(reelsCommentsProvider.notifier)
-                          .toggleCommentLike(
-                            clipId: widget.clip.id,
-                            commentId: comments[i].id,
-                          ),
+                      onLike: () {
+                        HapticFeedback.lightImpact();
+                        ref
+                            .read(reelsCommentsProvider.notifier)
+                            .toggleCommentLike(
+                              clipId: widget.clip.id,
+                              commentId: comments[i].id,
+                            );
+                      },
                     ),
                   ),
           ),
@@ -336,7 +341,10 @@ class _ReactionChip extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
         borderRadius: AppRadius.pillBorder,
         child: Container(
           alignment: Alignment.center,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -34,11 +35,9 @@ class MpcSlicerDeck extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(state.sourceTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                           style: AppTypography.titleMedium
                               .copyWith(fontWeight: FontWeight.bold)),
-                      Text('${state.bpm} BPM • 8-Pad Slicer',
+                      Text('${state.bpm} BPM · 8 AI Transient Slices',
                           style: AppTypography.caption
                               .copyWith(color: AppColors.textSecondary)),
                     ],
@@ -48,20 +47,25 @@ class MpcSlicerDeck extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
 
-            // Time-stretch
+            // Time-stretch slider
             Row(
               children: [
-                Text('Stretch: ${state.timeStretchRatio.toStringAsFixed(1)}x',
-                    style: AppTypography.caption
-                        .copyWith(color: AppColors.textSecondary)),
+                Text(
+                  'Stretch: ${state.timeStretchRatio.toStringAsFixed(1)}x',
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textSecondary),
+                ),
                 Expanded(
                   child: Slider(
-                    value: state.timeStretchRatio.clamp(0.5, 2.0),
+                    value: state.timeStretchRatio,
                     min: 0.5,
                     max: 2.0,
                     activeColor: AppColors.brandPrimary,
                     inactiveColor: AppColors.surfaceSecondary,
-                    onChanged: notifier.setTimeStretch,
+                    onChanged: (v) {
+                      HapticFeedback.selectionClick();
+                      notifier.setTimeStretch(v);
+                    },
                   ),
                 ),
               ],
@@ -83,7 +87,10 @@ class MpcSlicerDeck extends ConsumerWidget {
                 return _MpcPad(
                   pad: pad,
                   isSelected: i == state.selectedPadIndex,
-                  onTap: () => notifier.triggerPad(i),
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    notifier.triggerPad(i);
+                  },
                 );
               },
             ),
@@ -97,6 +104,7 @@ class MpcSlicerDeck extends ConsumerWidget {
             ElevatedButton.icon(
               key: const Key('mpc_send_to_mixer'),
               onPressed: () async {
+                HapticFeedback.heavyImpact();
                 await notifier.bounceChops();
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -122,6 +130,7 @@ class MpcSlicerDeck extends ConsumerWidget {
             OutlinedButton.icon(
               key: const Key('mpc_send_to_studio'),
               onPressed: () {
+                HapticFeedback.mediumImpact();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Chop kit routed into Studio prompt context 🎙️'),
@@ -146,7 +155,6 @@ class MpcSlicerDeck extends ConsumerWidget {
     );
   }
 }
-
 
 class _MpcPad extends StatelessWidget {
   final MpcPadEntity pad;
@@ -259,7 +267,10 @@ class _ModulationDeck extends ConsumerWidget {
                   label: '${pad.pitchShiftSemitones} st',
                   activeColor: AppColors.badgeCyan,
                   inactiveColor: AppColors.surfaceSecondary,
-                  onChanged: (v) => notifier.setPitchShift(pad.index, v.round()),
+                  onChanged: (v) {
+                    HapticFeedback.selectionClick();
+                    notifier.setPitchShift(pad.index, v.round());
+                  },
                 ),
               ),
             ],
@@ -279,7 +290,10 @@ class _ModulationDeck extends ConsumerWidget {
                   max: 1.5,
                   activeColor: AppColors.brandPrimary,
                   inactiveColor: AppColors.surfaceSecondary,
-                  onChanged: (v) => notifier.setPadVolume(pad.index, v),
+                  onChanged: (v) {
+                    HapticFeedback.selectionClick();
+                    notifier.setPadVolume(pad.index, v);
+                  },
                 ),
               ),
             ],
@@ -294,7 +308,10 @@ class _ModulationDeck extends ConsumerWidget {
                 key: const Key('mpc_reverse_toggle'),
                 value: pad.isReversed,
                 activeThumbColor: AppColors.coinGold,
-                onChanged: (_) => notifier.toggleReverse(pad.index),
+                onChanged: (_) {
+                  HapticFeedback.lightImpact();
+                  notifier.toggleReverse(pad.index);
+                },
               ),
             ],
           ),

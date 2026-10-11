@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -41,6 +42,7 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
   }
 
   Future<void> _send() async {
+    HapticFeedback.mediumImpact();
     final wallet = ref.read(creatorWalletProvider.notifier);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -147,7 +149,10 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
               return _GiftCard(
                 gift: gift,
                 isActive: gift.id == _selected.id,
-                onTap: () => setState(() => _selected = gift),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _selected = gift);
+                },
               );
             },
           ),

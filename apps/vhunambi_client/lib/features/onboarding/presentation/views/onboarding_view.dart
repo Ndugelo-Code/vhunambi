@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
@@ -41,6 +42,7 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
   ];
 
   void _finishOnboarding() {
+    HapticFeedback.mediumImpact();
     ref.read(onboardingStateProvider.notifier).completeOnboarding();
     if (widget.onFinish != null) {
       widget.onFinish!();
@@ -59,6 +61,7 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
 
   void _nextPage() {
     if (_currentPage < 2) {
+      HapticFeedback.lightImpact();
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOutCubic,
@@ -87,6 +90,7 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                 onPressed: () {
+                  HapticFeedback.lightImpact();
                   _pageController.previousPage(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOutCubic,
@@ -96,7 +100,10 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
             : null,
         actions: [
           TextButton(
-            onPressed: _finishOnboarding,
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              _finishOnboarding();
+            },
             child: Text(
               'Skip',
               style: AppTypography.bodySmall.copyWith(
@@ -292,7 +299,10 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
               return FilterChip(
                 label: Text(genre),
                 selected: isSelected,
-                onSelected: (_) => notifier.toggleGenre(genre),
+                onSelected: (_) {
+                  HapticFeedback.selectionClick();
+                  notifier.toggleGenre(genre);
+                },
                 selectedColor: AppColors.brandPrimary,
                 backgroundColor: AppColors.surfaceElevated,
                 checkmarkColor: AppColors.brandContrast,
@@ -327,7 +337,10 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
               return FilterChip(
                 label: Text(language),
                 selected: isSelected,
-                onSelected: (_) => notifier.toggleLanguage(language),
+                onSelected: (_) {
+                  HapticFeedback.selectionClick();
+                  notifier.toggleLanguage(language);
+                },
                 selectedColor: AppColors.brandPrimary,
                 backgroundColor: AppColors.surfaceElevated,
                 checkmarkColor: AppColors.brandContrast,

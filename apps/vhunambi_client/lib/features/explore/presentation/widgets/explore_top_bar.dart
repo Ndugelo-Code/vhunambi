@@ -283,6 +283,10 @@ class _ExploreSearchFieldState extends ConsumerState<_ExploreSearchField> {
           LogicalKeyboardKey.keyK,
           control: true,
         ): () => _focusNode.requestFocus(),
+        const SingleActivator(
+          LogicalKeyboardKey.keyK,
+          meta: true,
+        ): () => _focusNode.requestFocus(),
       },
       child: field,
     );

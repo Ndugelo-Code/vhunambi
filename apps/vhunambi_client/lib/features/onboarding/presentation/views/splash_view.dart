@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -23,9 +24,10 @@ class SplashView extends ConsumerStatefulWidget {
 }
 
 class _SplashViewState extends ConsumerState<SplashView>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   Timer? _timer;
   late AnimationController _animController;
+  late AnimationController _pulseController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
 
@@ -36,6 +38,11 @@ class _SplashViewState extends ConsumerState<SplashView>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
 
     _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
@@ -52,6 +59,7 @@ class _SplashViewState extends ConsumerState<SplashView>
 
   void _onSplashComplete() {
     if (!mounted) return;
+    HapticFeedback.lightImpact();
 
     if (widget.onFinished != null) {
       widget.onFinished!();
@@ -78,6 +86,7 @@ class _SplashViewState extends ConsumerState<SplashView>
   void dispose() {
     _timer?.cancel();
     _animController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -96,40 +105,84 @@ class _SplashViewState extends ConsumerState<SplashView>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Brand Emblem with Ambient Pulse Glow
-                    Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.brandPrimary.withAlpha(120),
-                          width: 2,
+                    // Brand Emblem with Ambient Soundwave Pulse Glow Rings
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Outer acoustic soundwave ring
+                        AnimatedBuilder(
+                          animation: _pulseController,
+                          builder: (context, _) {
+                            final p = _pulseController.value;
+                            return Container(
+                              width: 88 + (44 * p),
+                              height: 88 + (44 * p),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.brandPrimary
+                                      .withAlpha(((1.0 - p) * 90).toInt()),
+                                  width: 1.5,
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.brandPrimary.withAlpha(45),
-                            blurRadius: 36,
-                            spreadRadius: 8,
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: 58,
-                          height: 58,
-                          decoration: const BoxDecoration(
-                            color: AppColors.brandPrimary,
+                        // Inner acoustic soundwave ring
+                        AnimatedBuilder(
+                          animation: _pulseController,
+                          builder: (context, _) {
+                            final p = ((_pulseController.value + 0.5) % 1.0);
+                            return Container(
+                              width: 88 + (28 * p),
+                              height: 88 + (28 * p),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.brandPrimary
+                                      .withAlpha(((1.0 - p) * 70).toInt()),
+                                  width: 1.2,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        // Central Brand Emblem
+                        Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceElevated,
                             shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.brandPrimary.withAlpha(120),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.brandPrimary.withAlpha(50),
+                                blurRadius: 36,
+                                spreadRadius: 8,
+                              ),
+                            ],
                           ),
-                          child: const Icon(
-                            Icons.music_note_rounded,
-                            color: AppColors.brandContrast,
-                            size: 34,
+                          child: Center(
+                            child: Container(
+                              width: 58,
+                              height: 58,
+                              decoration: const BoxDecoration(
+                                color: AppColors.brandPrimary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.music_note_rounded,
+                                color: AppColors.brandContrast,
+                                size: 34,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                     const SizedBox(height: 28),
 

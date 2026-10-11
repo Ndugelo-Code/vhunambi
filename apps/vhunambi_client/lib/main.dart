@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/responsive_utils.dart';
@@ -70,6 +71,43 @@ class _RootShellState extends ConsumerState<RootShell> {
         MarketplaceView(onNavigateToLibrary: _openLibrary),
       ];
 
+  bool _isTypingInTextField() {
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus == null || primaryFocus.context == null) return false;
+    return primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>() !=
+        null;
+  }
+
+  void _handleSpaceShortcut() {
+    if (_isTypingInTextField()) return;
+    ref.read(playerStateProvider.notifier).togglePlayPause();
+  }
+
+  void _handleSeekBackwardShortcut() {
+    if (_isTypingInTextField()) return;
+    final player = ref.read(playerStateProvider);
+    if (!player.hasActiveTrack) return;
+    final target = player.position - const Duration(seconds: 5);
+    ref.read(playerStateProvider.notifier).seek(
+          target < Duration.zero ? Duration.zero : target,
+        );
+  }
+
+  void _handleSeekForwardShortcut() {
+    if (_isTypingInTextField()) return;
+    final player = ref.read(playerStateProvider);
+    if (!player.hasActiveTrack) return;
+    final target = player.position + const Duration(seconds: 5);
+    final max = player.duration;
+    ref.read(playerStateProvider.notifier).seek(
+          target > max ? max : target,
+        );
+  }
+
+  void _handleSearchShortcut() {
+    setState(() => _currentIndex = 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
@@ -89,7 +127,7 @@ class _RootShellState extends ConsumerState<RootShell> {
       },
     );
 
-    return Scaffold(
+    final shell = Scaffold(
       body: Stack(
         children: [
           IndexedStack(
@@ -146,6 +184,24 @@ class _RootShellState extends ConsumerState<RootShell> {
                 ),
               ],
             ),
+    );
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.space): _handleSpaceShortcut,
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            _handleSearchShortcut,
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            _handleSearchShortcut,
+        const SingleActivator(LogicalKeyboardKey.arrowLeft):
+            _handleSeekBackwardShortcut,
+        const SingleActivator(LogicalKeyboardKey.arrowRight):
+            _handleSeekForwardShortcut,
+      },
+      child: Focus(
+        autofocus: true,
+        child: shell,
+      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -51,8 +52,10 @@ class StemMixerDeck extends ConsumerWidget {
                 ),
                 TextButton(
                   key: const Key('mixer_reset_btn'),
-                  onPressed: () =>
-                      ref.read(stemMixerProvider.notifier).resetMix(),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    ref.read(stemMixerProvider.notifier).resetMix();
+                  },
                   child: Text('Reset',
                       style: AppTypography.bodySmall
                           .copyWith(color: AppColors.brandPrimary)),
@@ -134,7 +137,10 @@ class _ChannelStrip extends ConsumerWidget {
                 max: 1.5,
                 activeColor: AppColors.brandPrimary,
                 inactiveColor: AppColors.surfaceSecondary,
-                onChanged: (v) => notifier.setChannelGain(type, v),
+                onChanged: (v) {
+                  HapticFeedback.selectionClick();
+                  notifier.setChannelGain(type, v);
+                },
               ),
             ),
           ),
@@ -145,7 +151,10 @@ class _ChannelStrip extends ConsumerWidget {
             max: 1.0,
             activeColor: AppColors.badgeCyan,
             inactiveColor: AppColors.surfaceSecondary,
-            onChanged: (v) => notifier.setChannelPan(type, v),
+            onChanged: (v) {
+              HapticFeedback.selectionClick();
+              notifier.setChannelPan(type, v);
+            },
           ),
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -164,7 +173,10 @@ class _ChannelStrip extends ConsumerWidget {
                 label: 'M',
                 active: channel.isMuted,
                 activeColor: AppColors.error,
-                onTap: () => notifier.toggleMute(type),
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  notifier.toggleMute(type);
+                },
               ),
               const SizedBox(width: 6),
               _MsButton(
@@ -172,7 +184,10 @@ class _ChannelStrip extends ConsumerWidget {
                 label: 'S',
                 active: channel.isSolo,
                 activeColor: AppColors.coinGold,
-                onTap: () => notifier.toggleSolo(type),
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  notifier.toggleSolo(type);
+                },
               ),
             ],
           ),
@@ -288,7 +303,10 @@ class _MasterDspSection extends ConsumerWidget {
                         .copyWith(color: AppColors.textPrimary)),
                 backgroundColor: AppColors.surfaceSecondary,
                 side: const BorderSide(color: AppColors.borderSubtle),
-                onPressed: () => notifier.applyPreset(preset),
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  notifier.applyPreset(preset);
+                },
               ),
           ],
         ),
@@ -298,6 +316,7 @@ class _MasterDspSection extends ConsumerWidget {
           onPressed: state.isBouncing
               ? null
               : () async {
+                  HapticFeedback.heavyImpact();
                   final path = await notifier.bounceMasterMix();
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -356,7 +375,10 @@ class _DspSlider extends StatelessWidget {
             max: max,
             activeColor: AppColors.coinGold,
             inactiveColor: AppColors.surfaceSecondary,
-            onChanged: onChanged,
+            onChanged: (v) {
+              HapticFeedback.selectionClick();
+              onChanged(v);
+            },
           ),
         ),
       ],
