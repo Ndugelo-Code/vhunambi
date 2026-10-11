@@ -43,6 +43,12 @@ class PublishedClip {
   /// The number of times the current user has loved this clip in multi-tap bursts.
   final int userReactionCount;
 
+  /// Optional ID of the parent reel this clip was remixed from (REQ-RMX-03).
+  final String? remixedFromClipId;
+
+  /// Optional lineage attribution text (e.g., '🔁 Remixed from @makhadzi\'s "Makhado Sunrise"').
+  final String? remixAttribution;
+
   final DateTime publishedAt;
 
   const PublishedClip({
@@ -67,10 +73,17 @@ class PublishedClip {
     this.isLikedByMe = false,
     this.isSavedByMe = false,
     this.userReactionCount = 0,
+    this.remixedFromClipId,
+    this.remixAttribution,
     required this.publishedAt,
   });
 
+  /// Whether this clip was created as a remix of another creator's reel.
+  bool get isRemix => remixedFromClipId != null && remixedFromClipId!.isNotEmpty;
+
   PublishedClip copyWith({
+    String? id,
+    String? title,
     int? playCount,
     int? likeCount,
     int? commentCount,
@@ -78,16 +91,18 @@ class PublishedClip {
     bool? isLikedByMe,
     bool? isSavedByMe,
     int? userReactionCount,
+    String? remixedFromClipId,
+    String? remixAttribution,
   }) {
     return PublishedClip(
-      id: id,
+      id: id ?? this.id,
       trackId: trackId,
       creatorId: creatorId,
       creatorUsername: creatorUsername,
       creatorDisplayName: creatorDisplayName,
       creatorAvatarUrl: creatorAvatarUrl,
       isCreatorVerified: isCreatorVerified,
-      title: title,
+      title: title ?? this.title,
       caption: caption,
       tags: tags,
       genre: genre,
@@ -101,6 +116,8 @@ class PublishedClip {
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
       isSavedByMe: isSavedByMe ?? this.isSavedByMe,
       userReactionCount: userReactionCount ?? this.userReactionCount,
+      remixedFromClipId: remixedFromClipId ?? this.remixedFromClipId,
+      remixAttribution: remixAttribution ?? this.remixAttribution,
       publishedAt: publishedAt,
     );
   }
@@ -127,6 +144,8 @@ class PublishedClip {
         'isLikedByMe': isLikedByMe,
         'isSavedByMe': isSavedByMe,
         'userReactionCount': userReactionCount,
+        if (remixedFromClipId != null) 'remixedFromClipId': remixedFromClipId,
+        if (remixAttribution != null) 'remixAttribution': remixAttribution,
         'publishedAt': publishedAt.toIso8601String(),
       };
 
@@ -156,6 +175,8 @@ class PublishedClip {
       isLikedByMe: (json['isLikedByMe'] as bool?) ?? false,
       isSavedByMe: (json['isSavedByMe'] as bool?) ?? false,
       userReactionCount: (json['userReactionCount'] as num?)?.toInt() ?? 0,
+      remixedFromClipId: json['remixedFromClipId'] as String?,
+      remixAttribution: json['remixAttribution'] as String?,
       publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? '') ??
           DateTime.now(),
     );
