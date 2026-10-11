@@ -354,18 +354,23 @@ class _CreateAction extends StatelessWidget {
     if (compact) {
       return InkWell(
         onTap: onPressed,
-        borderRadius: AppRadius.thumbBorder,
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: const BoxDecoration(
-            color: AppColors.brandPrimary,
-            borderRadius: AppRadius.thumbBorder,
-          ),
-          child: const Icon(
-            Icons.add_rounded,
-            size: 20,
-            color: AppColors.brandContrast,
+        borderRadius: BorderRadius.circular(22),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          child: Center(
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: AppColors.brandPrimary,
+                borderRadius: AppRadius.thumbBorder,
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                size: 20,
+                color: AppColors.brandContrast,
+              ),
+            ),
           ),
         ),
       );
@@ -374,6 +379,7 @@ class _CreateAction extends StatelessWidget {
     return ElevatedButton.icon(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
+        minimumSize: const Size(0, 44),
         backgroundColor: AppColors.brandPrimary,
         foregroundColor: AppColors.brandContrast,
         elevation: 0,

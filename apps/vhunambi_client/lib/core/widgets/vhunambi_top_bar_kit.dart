@@ -1,3 +1,4 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
@@ -32,6 +33,10 @@ abstract final class VhunambiTopBarMetrics {
 /// interactive content to a constant [toolbarHeight] so it never squishes.
 ///
 /// Replaces the `Container(height: X) + SafeArea(bottom: false)` anti-pattern.
+///
+/// Dimension 5: Supports frosted glassmorphism via [enableBlur], applying a
+/// modern 2026 backdrop filter blur with translucent canvas background and
+/// subtle hairline border.
 class VhunambiTopBarSurface extends StatelessWidget {
   /// The interactive row. Provide it already horizontally padded if desired.
   final Widget child;
@@ -42,32 +47,67 @@ class VhunambiTopBarSurface extends StatelessWidget {
   /// Custom decoration; defaults to the canvas surface + bottom hairline.
   final BoxDecoration? decoration;
 
+  /// Whether to render a 2026 frosted-glass backdrop blur (defaults to true).
+  final bool enableBlur;
+
+  /// Blur intensity when [enableBlur] is active. Defaults to 16.0.
+  final double blurSigma;
+
+  /// Opacity of the background canvas surface when frosted glass is enabled.
+  /// Defaults to 0.85 to let ambient content subtly show through.
+  final double surfaceOpacity;
+
   const VhunambiTopBarSurface({
     super.key,
     required this.child,
     this.toolbarHeight,
     this.decoration,
+    this.enableBlur = true,
+    this.blurSigma = 16.0,
+    this.surfaceOpacity = 0.85,
   });
 
   @override
   Widget build(BuildContext context) {
     final bar = toolbarHeight ?? VhunambiTopBarMetrics.toolbarHeight(context);
-    return Container(
-      width: double.infinity,
-      decoration:
-          decoration ??
-          const BoxDecoration(
-            color: AppColors.surfaceCanvas,
-            border: Border(
-              bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
+    final content = Padding(
+      padding: EdgeInsets.only(top: VhunambiTopBarMetrics.topInset(context)),
+      child: SizedBox(
+        height: bar,
+        width: double.infinity,
+        child: child,
+      ),
+    );
+
+    if (!enableBlur) {
+      return Container(
+        width: double.infinity,
+        decoration: decoration ??
+            const BoxDecoration(
+              color: AppColors.surfaceCanvas,
+              border: Border(
+                bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
+              ),
             ),
+        child: content,
+      );
+    }
+
+    final effectiveDecoration = decoration ??
+        BoxDecoration(
+          color: AppColors.surfaceCanvas.withValues(alpha: surfaceOpacity),
+          border: const Border(
+            bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
           ),
-      child: Padding(
-        padding: EdgeInsets.only(top: VhunambiTopBarMetrics.topInset(context)),
-        child: SizedBox(
-          height: bar,
+        );
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+        child: Container(
           width: double.infinity,
-          child: child,
+          decoration: effectiveDecoration,
+          child: content,
         ),
       ),
     );

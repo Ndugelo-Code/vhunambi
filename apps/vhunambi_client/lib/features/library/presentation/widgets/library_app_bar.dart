@@ -85,12 +85,6 @@ class LibraryAppBar extends ConsumerWidget {
         const SizedBox(width: AppSpacing.xxs),
         const NotificationBellButton(),
         const SizedBox(width: AppSpacing.xxs),
-        _HeaderIconButton(
-          icon: Icons.storage_rounded,
-          tooltip: 'Vault Storage Quota',
-          onPressed: () => VaultStorageModal.show(context),
-        ),
-        const SizedBox(width: AppSpacing.xxs),
         const _OverflowMenu(),
         const SizedBox(width: AppSpacing.xs),
         _CreateButton(onPressed: onCreateRequested, isCompact: true),
@@ -102,9 +96,7 @@ class LibraryAppBar extends ConsumerWidget {
     return Row(
       children: [
         if (showBackChevron) ...[
-          _HeaderIconButton(
-            icon: Icons.chevron_left_rounded,
-            tooltip: 'Back',
+          VhunambiBackButton(
             onPressed: () => Navigator.of(context).maybePop(),
           ),
           const SizedBox(width: AppSpacing.xxs),
@@ -191,9 +183,8 @@ class _HeaderIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 34,
-      height: 34,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
       child: IconButton(
         padding: EdgeInsets.zero,
         iconSize: 20,
@@ -217,18 +208,23 @@ class _CreateButton extends StatelessWidget {
     if (isCompact) {
       return InkWell(
         onTap: onPressed,
-        borderRadius: AppRadius.thumbBorder,
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: const BoxDecoration(
-            color: AppColors.brandPrimary,
-            borderRadius: AppRadius.thumbBorder,
-          ),
-          child: const Icon(
-            Icons.auto_awesome,
-            size: 18,
-            color: AppColors.brandContrast,
+        borderRadius: BorderRadius.circular(22),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          child: Center(
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: AppColors.brandPrimary,
+                borderRadius: AppRadius.thumbBorder,
+              ),
+              child: const Icon(
+                Icons.auto_awesome,
+                size: 18,
+                color: AppColors.brandContrast,
+              ),
+            ),
           ),
         ),
       );
@@ -237,6 +233,7 @@ class _CreateButton extends StatelessWidget {
     return ElevatedButton.icon(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
+        minimumSize: const Size(0, 44),
         backgroundColor: AppColors.brandPrimary,
         foregroundColor: AppColors.brandContrast,
         elevation: 0,
@@ -274,6 +271,7 @@ class _AnalyticsButton extends ConsumerWidget {
       onTap: () => _showVaultAnalytics(context, ref),
       borderRadius: AppRadius.pillBorder,
       child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.sm,
           vertical: 6,
@@ -306,7 +304,7 @@ class _AnalyticsButton extends ConsumerWidget {
   }
 }
 
-/// Header overflow control (`⋮`) exposing the vault ordering options.
+/// Header overflow control (`⋮`) exposing the vault ordering options and tools.
 class _OverflowMenu extends ConsumerWidget {
   const _OverflowMenu();
 
@@ -314,10 +312,9 @@ class _OverflowMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final activeOrder = ref.watch(librarySortProvider);
 
-    return SizedBox(
-      width: 34,
-      height: 34,
-      child: PopupMenuButton<LibrarySortOrder>(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      child: PopupMenuButton<Object>(
         padding: EdgeInsets.zero,
         iconSize: 20,
         tooltip: 'Library options',
@@ -330,11 +327,18 @@ class _OverflowMenu extends ConsumerWidget {
           Icons.more_vert_rounded,
           color: AppColors.textSecondary,
         ),
-        onSelected: (order) =>
-            ref.read(librarySortProvider.notifier).state = order,
-        itemBuilder: (_) => [
+        onSelected: (value) {
+          if (value is LibrarySortOrder) {
+            ref.read(librarySortProvider.notifier).state = value;
+          } else if (value == 'storage') {
+            VaultStorageModal.show(context);
+          } else if (value == 'analytics') {
+            _showVaultAnalytics(context, ref);
+          }
+        },
+        itemBuilder: (context) => [
           for (final order in LibrarySortOrder.values)
-            PopupMenuItem<LibrarySortOrder>(
+            PopupMenuItem<Object>(
               value: order,
               height: 40,
               child: Row(
@@ -367,6 +371,49 @@ class _OverflowMenu extends ConsumerWidget {
                 ],
               ),
             ),
+          const PopupMenuDivider(),
+          PopupMenuItem<Object>(
+            value: 'storage',
+            height: 40,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.storage_rounded,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  'Vault Storage Quota',
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuItem<Object>(
+            value: 'analytics',
+            height: 40,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.analytics_outlined,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  'Vault Analytics',
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
