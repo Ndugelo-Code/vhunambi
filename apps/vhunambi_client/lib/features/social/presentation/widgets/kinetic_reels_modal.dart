@@ -9,6 +9,7 @@ import '../../domain/models/published_clip.dart';
 import '../providers/social_feed_provider.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import 'reels_comment_sheet.dart';
+import 'creator_tipping_sheet.dart';
 
 /// Full-screen vertical "Kinetic Reels" feed (REQ-SOC-11).
 ///
@@ -272,10 +273,11 @@ class _ActionRail extends ConsumerWidget {
         ),
         const SizedBox(height: 18),
         _RailButton(
+          key: const Key('reel_tip_btn'),
           icon: Icons.monetization_on_rounded,
           color: AppColors.coinGold,
           label: 'Tip',
-          onTap: () {},
+          onTap: () => CreatorTippingSheet.show(context, clip: clip),
         ),
         const SizedBox(height: 18),
         _RailButton(

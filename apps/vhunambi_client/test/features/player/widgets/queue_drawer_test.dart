@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
+import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
+import 'package:vhunambi_client/features/offline/data/services/offline_storage_service.dart';
+import 'package:vhunambi_client/features/offline/presentation/providers/offline_providers.dart';
 import 'package:vhunambi_client/features/player/data/services/vhunambi_audio_handler.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/audio_bridge_providers.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
@@ -165,6 +168,35 @@ void main() {
   });
 }
 
+class _FakeOfflineStorageService implements IOfflineStorageService {
+  @override
+  Future<void> init() async {}
+  @override
+  Future<void> saveTrackMetadata({
+    required LibraryTrack track,
+    required String localPath,
+    required int fileSizeBytes,
+  }) async {}
+  @override
+  Future<Map<String, dynamic>?> getTrackMetadata(String trackId) async => null;
+  @override
+  Future<List<Map<String, dynamic>>> getAllCachedMetadata() async => [];
+  @override
+  Future<void> removeTrackMetadata(String trackId) async {}
+  @override
+  Future<void> clearAllMetadata() async {}
+  @override
+  Future<int> getTotalCachedSizeBytes() async => 0;
+  @override
+  Future<bool> isTrackCachedLocally(String trackId) async => false;
+  @override
+  Future<String> resolveVaultAudioDirectory() async => '';
+  @override
+  Future<void> savePreference(String key, dynamic value) async {}
+  @override
+  Future<dynamic> getPreference(String key) async => null;
+}
+
 /// Seeds a live 3-track queue on a tracked audio handler.
 Future<ProviderContainer> _seedContainer(
   WidgetTester tester, {
@@ -182,6 +214,7 @@ Future<ProviderContainer> _seedContainer(
   final container = ProviderContainer(
     overrides: <Override>[
       audioHandlerProvider.overrideWithValue(handler),
+      offlineStorageServiceProvider.overrideWithValue(_FakeOfflineStorageService()),
     ],
   );
 

@@ -8,7 +8,9 @@ import '../../../notifications/presentation/widgets/notification_bell_button.dar
 import '../../domain/models/studio_form_state.dart';
 import '../providers/studio_form_provider.dart';
 import '../widgets/advanced_options_accordion.dart';
+import '../widgets/bantu_voice_deck.dart';
 import '../widgets/generation_pipeline_card.dart';
+import '../widgets/live_phonetic_alignment_preview.dart';
 import '../widgets/multilingual_language_selector.dart';
 import '../widgets/prompt_input_box.dart';
 import '../widgets/reference_audio_dropzone.dart';
@@ -61,6 +63,14 @@ class StudioView extends ConsumerWidget {
 
                   // African Multilingual Selector
                   const MultilingualLanguageSelector(),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Bantu Voice LoRA Engine (Phase 20)
+                  const BantuVoiceDeck(),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Live Phonetic Alignment Preview (Phase 20)
+                  const LivePhoneticAlignmentPreview(),
                   const SizedBox(height: AppSpacing.md),
 
                   // Advanced Options Accordion

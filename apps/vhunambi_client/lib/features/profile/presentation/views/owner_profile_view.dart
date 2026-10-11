@@ -12,6 +12,7 @@ import '../providers/profile_providers.dart';
 import '../widgets/profile_referral_card.dart';
 import '../widgets/releases_manager_card.dart';
 import '../widgets/tip_history_ledger.dart';
+import '../widgets/creator_wallet_deck.dart';
 import '../../../social/presentation/providers/creator_clips_provider.dart';
 import '../../../social/presentation/widgets/creator_reel_thumbnail_card.dart';
 import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
@@ -333,6 +334,11 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
 
                   // 4b. My Clips & Reels (Phase 18 · REQ-SOC-07)
                   const _OwnerReelsShelf(),
+
+                  const SizedBox(height: 14),
+
+                  // 4c. Creator Wallet & Cultural Gifting (Phase 20)
+                  const CreatorWalletDeck(),
 
                   const SizedBox(height: 14),
 
