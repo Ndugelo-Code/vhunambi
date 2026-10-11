@@ -16,6 +16,8 @@ import '../providers/player_provider.dart';
 import 'queue_drawer.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
 import 'package:vhunambi_client/features/content_studio/presentation/views/content_studio_dock_view.dart';
+import 'package:vhunambi_client/features/social/domain/models/video_export_job.dart';
+import 'package:vhunambi_client/features/social/presentation/widgets/video_export_modal.dart';
 
 /// True when the active player [trackId] is hearted in the vault.
 bool _isFavorite(WidgetRef ref, String trackId) {
@@ -455,6 +457,21 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       icon: Icons.movie_creation_outlined,
                       label: 'Export Reel',
                       onTap: () => _openContentStudio(context, track),
+                    ),
+                    _UtilityItem(
+                      key: const Key('player_mux_btn'),
+                      icon: Icons.bolt_rounded,
+                      label: 'Native Muxer',
+                      onTap: () => VideoExportModal.show(
+                        context,
+                        job: VideoExportJob(
+                          id: 'job_${track.id}',
+                          title: track.title,
+                          creatorHandle: '@${track.creatorName}',
+                          genre: track.genre,
+                          audioPath: track.audioUrl ?? '',
+                        ),
+                      ),
                     ),
                     _UtilityItem(
                       icon: Icons.queue_music_rounded,

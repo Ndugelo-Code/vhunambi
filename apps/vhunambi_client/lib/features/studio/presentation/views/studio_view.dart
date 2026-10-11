@@ -9,8 +9,10 @@ import '../../domain/models/studio_form_state.dart';
 import '../providers/studio_form_provider.dart';
 import '../widgets/advanced_options_accordion.dart';
 import '../widgets/bantu_voice_deck.dart';
+import '../widgets/crate_browser_deck.dart';
 import '../widgets/generation_pipeline_card.dart';
 import '../widgets/live_phonetic_alignment_preview.dart';
+import '../widgets/mpc_slicer_deck.dart';
 import '../widgets/multilingual_language_selector.dart';
 import '../widgets/prompt_input_box.dart';
 import '../widgets/reference_audio_dropzone.dart';
@@ -71,6 +73,26 @@ class StudioView extends ConsumerWidget {
 
                   // Live Phonetic Alignment Preview (Phase 20)
                   const LivePhoneticAlignmentPreview(),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Heritage Crate & MPC Slicer (Phase 22)
+                  OutlinedButton.icon(
+                    key: const Key('studio_open_crate_btn'),
+                    onPressed: () => _openHeritageStudio(context),
+                    icon: const Icon(Icons.album_rounded,
+                        color: AppColors.coinGold),
+                    label: Text(
+                      'Heritage Crate & MPC Slicer',
+                      style: AppTypography.bodyLarge
+                          .copyWith(color: AppColors.textPrimary),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.borderSubtle),
+                      minimumSize: const Size.fromHeight(48),
+                      shape: const RoundedRectangleBorder(
+                          borderRadius: AppRadius.inputBorder),
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.md),
 
                   // Advanced Options Accordion
@@ -180,6 +202,56 @@ class _StudioAppBar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Opens the Heritage Crate Digging browser & 8-Pad MPC Slicer sheet.
+void _openHeritageStudio(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.surfaceCanvas,
+    shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
+    builder: (_) => const FractionallySizedBox(
+      heightFactor: 0.9,
+      child: _HeritageStudioSheet(),
+    ),
+  );
+}
+
+/// Toggles between the crate browser and the MPC slicer once a sample is
+/// chopped (Phase 22).
+class _HeritageStudioSheet extends StatefulWidget {
+  const _HeritageStudioSheet();
+
+  @override
+  State<_HeritageStudioSheet> createState() => _HeritageStudioSheetState();
+}
+
+class _HeritageStudioSheetState extends State<_HeritageStudioSheet> {
+  bool _showSlicer = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: _showSlicer
+          ? Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => setState(() => _showSlicer = false),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                    label: const Text('Back to Crate'),
+                  ),
+                ),
+                const Expanded(child: MpcSlicerDeck()),
+              ],
+            )
+          : CrateBrowserDeck(
+              onChop: (_) => setState(() => _showSlicer = true),
+            ),
     );
   }
 }

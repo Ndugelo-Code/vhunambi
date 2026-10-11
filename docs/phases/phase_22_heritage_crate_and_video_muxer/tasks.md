@@ -2,7 +2,7 @@
 
 > **Phase:** 22  
 > **Codename:** `heritage-crate-and-video-muxer`  
-> **Status:** 🟡 READY FOR IMPLEMENTATION  
+> **Status:** 🟢 COMPLETED  
 > **Target Apps:** `apps/vhunambi_client`  
 > **Standard:** Dual-Agent Pair Programming Standard ([`docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md))  
 
@@ -37,19 +37,19 @@
 - [x] **Verification**: Unit tests in `test/features/social/video_export_provider_test.dart` (5/5 tests passing).
 
 ### T4: UI Presentation — Heritage Crate Browser & 8-Pad MPC Slicer Deck (Cline)
-- [ ] Implement `CrateBrowserDeck` in `lib/features/studio/presentation/widgets/crate_browser_deck.dart` (spinning vinyl disk, category pills, sample audition, chop trigger).
-- [ ] Implement `MpcSlicerDeck` in `lib/features/studio/presentation/widgets/mpc_slicer_deck.dart` (4×2 tactile pads, pitch slider, reverse switch, "Send to Stem Mixer" / "Record into Studio" action buttons).
-- [ ] Mount in `StudioView` drawer or tab.
-- [ ] **Verification**: Widget tests in `test/features/studio/widgets/crate_browser_deck_test.dart` and `mpc_slicer_deck_test.dart`.
+- [x] Implement `CrateBrowserDeck` in `lib/features/studio/presentation/widgets/crate_browser_deck.dart` (spinning vinyl disk, category pills, sample audition, chop trigger).
+- [x] Implement `MpcSlicerDeck` in `lib/features/studio/presentation/widgets/mpc_slicer_deck.dart` (4×2 tactile pads, pitch slider, reverse switch, "Send to Stem Mixer" / "Record into Studio" action buttons).
+- [x] Mount in `StudioView` drawer (`_openHeritageStudio`).
+- [x] **Verification**: Widget tests in `test/features/studio/widgets/crate_browser_deck_test.dart` (4/4 tests passing) and `mpc_slicer_deck_test.dart` (5/5 tests passing).
 
 ### T5: UI Presentation — Video Export Modal & Direct Social Share Rail (Cline)
-- [ ] Implement `VideoExportModal` in `lib/features/social/presentation/widgets/video_export_modal.dart` (9:16 vs 1:1 selector, FPS toggle, render progress bar, viral caption copy box).
-- [ ] Implement `SocialShareRail` with 1-tap buttons for TikTok, Instagram Reels, YouTube Shorts, and Save to Gallery.
-- [ ] Mount trigger in `ContentStudioDockView` / `ExpandedCockpitModal`.
-- [ ] **Verification**: Widget tests in `test/features/social/widgets/video_export_modal_test.dart`.
+- [x] Implement `VideoExportModal` in `lib/features/social/presentation/widgets/video_export_modal.dart` (9:16 vs 1:1 selector, FPS toggle, render progress bar, viral caption copy box).
+- [x] Implement `SocialShareRail` with 1-tap buttons for TikTok, Instagram Reels, YouTube Shorts, and Save to Gallery.
+- [x] Mount trigger in `ExpandedCockpitModal` (`player_mux_btn`).
+- [x] **Verification**: Widget tests in `test/features/social/widgets/video_export_modal_test.dart` (3/3 tests passing).
 
 ### T6: Quality Gates, Static Analysis & Documentation (Lead)
-- [ ] Run `dart analyze apps/vhunambi_client` ensuring 0 issues (`No issues found!`).
-- [ ] Run all targeted `flutter test` suites ensuring 100% pass rate.
-- [ ] Update `docs/AGENT_HANDOFF_BIBLE.md` and `README.md`.
-- [ ] Atomic git commit on `main`.
+- [x] Run `dart analyze apps/vhunambi_client` ensuring 0 issues (`No issues found!`).
+- [x] Run all targeted `flutter test` suites ensuring 100% pass rate.
+- [x] Update `docs/AGENT_HANDOFF_BIBLE.md` and `README.md`.
+- [x] Atomic git commit on `main`.
