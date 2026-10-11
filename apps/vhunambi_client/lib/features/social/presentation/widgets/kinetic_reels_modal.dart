@@ -7,9 +7,12 @@ import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/published_clip.dart';
 import '../providers/social_feed_provider.dart';
+import '../providers/stem_remix_provider.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
+import '../../../player/presentation/widgets/stem_mixer_deck.dart';
 import 'reels_comment_sheet.dart';
 import 'creator_tipping_sheet.dart';
+import 'remix_attribution_badge.dart';
 
 /// Full-screen vertical "Kinetic Reels" feed (REQ-SOC-11).
 ///
@@ -211,6 +214,10 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
                   ],
                 ],
               ),
+              if (clip.isRemix) ...[
+                const SizedBox(height: 6),
+                RemixAttributionBadge(clip: clip),
+              ],
               const SizedBox(height: 6),
               if (clip.caption.isNotEmpty)
                 Text(clip.caption,
@@ -286,6 +293,27 @@ class _ActionRail extends ConsumerWidget {
           color: AppColors.textPrimary,
           label: 'Share',
           onTap: onShare,
+        ),
+        const SizedBox(height: 18),
+        _RailButton(
+          key: const Key('reel_remix_btn'),
+          icon: Icons.alt_route_rounded,
+          color: AppColors.badgeCyan,
+          label: 'Remix',
+          onTap: () {
+            ref.read(stemRemixProvider.notifier).initiateRemix(clip);
+            showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: AppColors.surfaceElevated,
+              shape: const RoundedRectangleBorder(
+                  borderRadius: AppRadius.modalBorder),
+              builder: (ctx) => FractionallySizedBox(
+                heightFactor: 0.85,
+                child: StemMixerDeck(title: 'Remixing: ${clip.title}'),
+              ),
+            );
+          },
         ),
       ],
     );

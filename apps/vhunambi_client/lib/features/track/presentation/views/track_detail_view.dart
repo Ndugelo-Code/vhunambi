@@ -9,6 +9,7 @@ import '../../../library/domain/models/library_models.dart';
 import '../../../offline/domain/models/offline_models.dart';
 import '../../../offline/presentation/providers/offline_providers.dart';
 import '../../../player/presentation/providers/player_provider.dart';
+import '../../../player/presentation/widgets/stem_mixer_deck.dart';
 import '../../../profile/presentation/views/artist_profile_view.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import '../../domain/models/track_detail_models.dart';
@@ -427,6 +428,38 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                         SnackBar(content: Text('Downloading stem: "${stem.name}.wav"...')),
                       );
                     },
+                  ),
+
+                  // 7b. Open Pocket Stem Mixer (Phase 21)
+                  const SizedBox(height: AppSpacing.sm),
+                  OutlinedButton.icon(
+                    key: const Key('track_open_mixer_btn'),
+                    onPressed: () {
+                      showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: AppColors.surfaceElevated,
+                        shape: const RoundedRectangleBorder(
+                            borderRadius: AppRadius.modalBorder),
+                        builder: (ctx) => FractionallySizedBox(
+                          heightFactor: 0.9,
+                          child: StemMixerDeck(title: track.title),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.tune_rounded,
+                        color: AppColors.brandPrimary),
+                    label: Text(
+                      'Open Pocket Stem Mixer',
+                      style: AppTypography.bodyLarge
+                          .copyWith(color: AppColors.brandPrimary),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.brandPrimary),
+                      minimumSize: const Size.fromHeight(48),
+                      shape: const RoundedRectangleBorder(
+                          borderRadius: AppRadius.inputBorder),
+                    ),
                   ),
 
                   // 8. Generative Prompt Attribution Card

@@ -8,6 +8,7 @@ import '../../../../core/utils/responsive_utils.dart';
 import '../../domain/models/published_clip.dart';
 import '../providers/trending_reels_provider.dart';
 import 'kinetic_reels_modal.dart';
+import 'remix_attribution_badge.dart';
 
 /// A single 9:16 trending reel card for the horizontal discovery shelf
 /// (REQ-TRD-01). Image-only — tapping opens the zero-video reels feed.
@@ -105,6 +106,10 @@ class TrendingReelCard extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    if (clip.isRemix) ...[
+                      const SizedBox(height: 3),
+                      RemixAttributionBadge(clip: clip),
+                    ],
                     const SizedBox(height: 4),
                     FittedBox(
                       fit: BoxFit.scaleDown,
