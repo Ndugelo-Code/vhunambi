@@ -13,6 +13,7 @@ export interface GenerationJob {
   stemsZipUrl?: string;
   durationSec?: number;
   errorMessage?: string;
+  providerTaskId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

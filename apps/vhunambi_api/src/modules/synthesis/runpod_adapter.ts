@@ -92,3 +92,80 @@ export async function dispatchSynthesisJob(
   simulateSynthesisPipeline(generationId);
   return { jobId: `mock_${generationId}`, isMock: true };
 }
+
+export interface RunPodJobStatusResult {
+  status: 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'UNKNOWN';
+  audioUrl?: string;
+  stemsZipUrl?: string;
+  error?: string;
+  progress?: number;
+}
+
+/**
+ * Query the live status of a job on RunPod Serverless GPU endpoint.
+ * Acts as an active fallback when webhook callbacks cannot reach the server.
+ */
+export async function checkRunPodJobStatus(jobId: string): Promise<RunPodJobStatusResult> {
+  if (!env.RUNPOD_API_KEY || !env.RUNPOD_ENDPOINT_ID) {
+    return { status: 'UNKNOWN' };
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.runpod.ai/v2/${env.RUNPOD_ENDPOINT_ID}/status/${jobId}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${env.RUNPOD_API_KEY}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      return { status: 'UNKNOWN' };
+    }
+
+    const data = (await response.json()) as {
+      id: string;
+      status: string;
+      output?: {
+        audio_url?: string;
+        stems_zip_url?: string;
+        error?: string;
+        status?: string;
+      };
+      error?: string;
+    };
+
+    const statusUpper = data.status?.toUpperCase() || 'UNKNOWN';
+
+    if (statusUpper === 'COMPLETED') {
+      return {
+        status: 'COMPLETED',
+        audioUrl: data.output?.audio_url,
+        stemsZipUrl: data.output?.stems_zip_url,
+      };
+    } else if (statusUpper === 'FAILED') {
+      return {
+        status: 'FAILED',
+        error: data.error || data.output?.error || 'RunPod GPU job failed',
+      };
+    } else if (statusUpper === 'IN_PROGRESS') {
+      return {
+        status: 'IN_PROGRESS',
+        progress: 60,
+      };
+    } else if (statusUpper === 'IN_QUEUE') {
+      return {
+        status: 'IN_QUEUE',
+        progress: 20,
+      };
+    }
+
+    return { status: 'UNKNOWN' };
+  } catch (err) {
+    console.warn(`[RunPod] Error querying status for ${jobId}:`, err);
+    return { status: 'UNKNOWN' };
+  }
+}
+

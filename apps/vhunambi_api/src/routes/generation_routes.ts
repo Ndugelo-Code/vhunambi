@@ -3,8 +3,15 @@ import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { env } from '../config/env.js';
 import { compileSongSpec } from '../modules/synthesis/prompt_compiler.js';
-import { dispatchSynthesisJob } from '../modules/synthesis/runpod_adapter.js';
-import { createJob, getJob } from '../modules/jobs/job_store.js';
+import { dispatchSynthesisJob, checkRunPodJobStatus } from '../modules/synthesis/runpod_adapter.js';
+import {
+  createJob,
+  getJob,
+  setJobProviderTaskId,
+  updateJobProgress,
+  completeJob,
+  failJob,
+} from '../modules/jobs/job_store.js';
 
 export const generationRoutes = new Hono();
 
@@ -45,13 +52,14 @@ generationRoutes.post('/', async (c) => {
     const compiledPrompt = compileSongSpec(input);
 
     // 3. Dispatch to RunPod Serverless GPU (or mock simulation worker)
-    //    The GPU worker (handler.py) uploads directly to R2 using its own credentials;
-    //    no pre-signed PUT URLs are needed from our side.
     const dispatchResult = await dispatchSynthesisJob(
       generationId,
       compiledPrompt,
       input.userId ?? 'vhunambi_user',
     );
+
+    // Record providerTaskId for fallback active polling
+    setJobProviderTaskId(generationId, dispatchResult.jobId);
 
     return c.json(
       {
@@ -80,6 +88,29 @@ generationRoutes.get('/:id', async (c) => {
     return c.json({ error: 'NOT_FOUND', message: `Generation job ${id} not found` }, 404);
   }
 
+  // Active sync from RunPod if job is still in flight and has a real providerTaskId
+  if (
+    (job.status === 'queued' || job.status === 'running') &&
+    job.providerTaskId &&
+    !job.providerTaskId.startsWith('mock_')
+  ) {
+    const liveStatus = await checkRunPodJobStatus(job.providerTaskId);
+    if (liveStatus.status === 'COMPLETED' && liveStatus.audioUrl) {
+      completeJob(id, {
+        masterMp3Url: liveStatus.audioUrl,
+        stemsZipUrl: liveStatus.stemsZipUrl,
+      });
+    } else if (liveStatus.status === 'FAILED') {
+      failJob(id, liveStatus.error || 'RunPod GPU job failed');
+    } else if (liveStatus.status === 'IN_PROGRESS') {
+      updateJobProgress(id, {
+        status: 'running',
+        step: 'synthesizing',
+        progressPct: liveStatus.progress ?? 60,
+      });
+    }
+  }
+
   return c.json({
     generationId: job.generationId,
     trackTitle: job.trackTitle,
@@ -95,3 +126,4 @@ generationRoutes.get('/:id', async (c) => {
     updatedAt: job.updatedAt.toISOString(),
   });
 });
+

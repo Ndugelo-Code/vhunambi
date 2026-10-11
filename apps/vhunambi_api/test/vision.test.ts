@@ -110,6 +110,28 @@ async function runVisionTests() {
   assert.ok(fullPrompt.includes('9:16'));
   console.log('     ✅ synthesizeVisionPrompt executes successfully');
 
+  // 5. Test POST /v1/vision/generate HTTP route
+  console.log('  5. Testing POST /v1/vision/generate HTTP route...');
+  const { app } = await import('../src/server.js');
+  const routeRes = await app.request('/v1/vision/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: 'Makhado Sunset',
+      genre: 'Amapiano',
+      language: 've',
+      mood: 'Soulful & Euphoric',
+    }),
+  });
+
+  assert.strictEqual(routeRes.status, 201);
+  const routeData = (await routeRes.json()) as any;
+  assert.strictEqual(routeData.success, true);
+  assert.strictEqual(routeData.width, 768);
+  assert.strictEqual(routeData.height, 1344);
+  assert.ok(routeData.promptText.includes('9:16'));
+  console.log('     ✅ POST /v1/vision/generate route validated successfully');
+
   console.log('🎉 ALL VISION ENGINE TESTS PASSED!\n');
 }
 

@@ -216,6 +216,57 @@ async function runPhase16Tests() {
     env.ZR_WEBHOOK_SECRET = originalSecret;
   }
 
+  // Test 5: Active RunPod status polling fallback on GET /v1/generations/:id
+  console.log('  5. Testing active RunPod status polling fallback on GET /v1/generations/:id...');
+  const pollGenId = `poll_test_${Date.now()}`;
+  createJob({
+    generationId: pollGenId,
+    trackTitle: 'Poll Sync Track',
+    genre: 'Maskandi',
+    language: 'zu',
+    providerTaskId: 'runpod_poll_task_789',
+  });
+
+  const pollOriginalKey = env.RUNPOD_API_KEY;
+  const pollOriginalEndpoint = env.RUNPOD_ENDPOINT_ID;
+  try {
+    env.RUNPOD_API_KEY = 'mock_key_poll';
+    env.RUNPOD_ENDPOINT_ID = 'mock_endpoint_poll';
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('/status/runpod_poll_task_789')) {
+        return new Response(
+          JSON.stringify({
+            id: 'runpod_poll_task_789',
+            status: 'COMPLETED',
+            output: {
+              audio_url: 'https://r2.vhunambi.com/audio/poll_sync_master.wav',
+              stems_zip_url: 'https://r2.vhunambi.com/audio/poll_sync_stems.zip',
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response('Not Found', { status: 404 });
+    }) as typeof fetch;
+
+    const { generationRoutes } = await import('../src/routes/generation_routes.js');
+    const getRes = await generationRoutes.request(`/${pollGenId}`);
+    assert.strictEqual(getRes.status, 200);
+    const getData = (await getRes.json()) as any;
+    assert.strictEqual(getData.status, 'succeeded');
+    assert.strictEqual(getData.masterMp3Url, 'https://r2.vhunambi.com/audio/poll_sync_master.wav');
+    assert.strictEqual(getData.stemsZipUrl, 'https://r2.vhunambi.com/audio/poll_sync_stems.zip');
+
+    globalThis.fetch = originalFetch;
+    console.log('     ✅ active RunPod status polling fallback synchronizes job state flawlessly');
+  } finally {
+    env.RUNPOD_API_KEY = pollOriginalKey;
+    env.RUNPOD_ENDPOINT_ID = pollOriginalEndpoint;
+  }
+
   console.log('\n🎉 ALL PHASE 16 TESTS PASSED! Cloud & GPU Bridge Verified.\n');
 }
 

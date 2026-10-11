@@ -7,12 +7,14 @@ export function createJob(params: {
   trackTitle: string;
   genre: string;
   language: string;
+  providerTaskId?: string;
 }): GenerationJob {
   const job: GenerationJob = {
     generationId: params.generationId,
     trackTitle: params.trackTitle,
     genre: params.genre,
     language: params.language,
+    providerTaskId: params.providerTaskId,
     status: 'queued',
     step: 'queued',
     progressPct: 10,
@@ -22,6 +24,13 @@ export function createJob(params: {
 
   jobs.set(params.generationId, job);
   return job;
+}
+
+export function setJobProviderTaskId(generationId: string, providerTaskId: string): void {
+  const job = jobs.get(generationId);
+  if (!job) return;
+  job.providerTaskId = providerTaskId;
+  job.updatedAt = new Date();
 }
 
 export function getJob(generationId: string): GenerationJob | undefined {
