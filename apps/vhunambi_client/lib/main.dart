@@ -50,14 +50,37 @@ class RootShell extends ConsumerStatefulWidget {
 class _RootShellState extends ConsumerState<RootShell> {
   int _currentIndex = 1; // Default to Explore view
 
+  /// Per-session tab navigation history. The last entry is the visible tab;
+  /// system back pops this stack before the OS is allowed to exit the shell.
+  final List<int> _tabHistory = <int>[1];
+
+  /// Switches the visible tab and records it in the back-history stack so a
+  /// system-back gesture unwinds tab jumps (e.g. Home ➔ Studio ➔ back).
+  void _switchTab(int index) {
+    if (index == _currentIndex) return;
+    setState(() {
+      _tabHistory.add(index);
+      _currentIndex = index;
+    });
+  }
+
   /// Routes the vault `✨ Create` action into the Studio cockpit (tab index 2).
-  void _openStudio() => setState(() => _currentIndex = 2);
+  void _openStudio() => _switchTab(2);
 
   /// Routes the dashboard into the Marketplace tab (index 4).
-  void _openMarket() => setState(() => _currentIndex = 4);
+  void _openMarket() => _switchTab(4);
 
   /// Routes the marketplace seller callout into the Library vault (index 3).
-  void _openLibrary() => setState(() => _currentIndex = 3);
+  void _openLibrary() => _switchTab(3);
+
+  /// Pops the tab-history stack in response to a system back gesture.
+  void _handleSystemBack() {
+    if (_tabHistory.length <= 1) return;
+    setState(() {
+      _tabHistory.removeLast();
+      _currentIndex = _tabHistory.last;
+    });
+  }
 
   List<Widget> _buildPages() => [
         HomeDashboardView(
@@ -155,7 +178,7 @@ class _RootShellState extends ConsumerState<RootShell> {
           ? null
           : BottomNavigationBar(
               currentIndex: _currentIndex,
-              onTap: (index) => setState(() => _currentIndex = index),
+              onTap: _switchTab,
               items: const [
                 BottomNavigationBarItem(
                   icon: Icon(Icons.home_outlined),
@@ -186,21 +209,29 @@ class _RootShellState extends ConsumerState<RootShell> {
             ),
     );
 
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.space): _handleSpaceShortcut,
-        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-            _handleSearchShortcut,
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-            _handleSearchShortcut,
-        const SingleActivator(LogicalKeyboardKey.arrowLeft):
-            _handleSeekBackwardShortcut,
-        const SingleActivator(LogicalKeyboardKey.arrowRight):
-            _handleSeekForwardShortcut,
+    return PopScope(
+      // Let the OS exit the app only from the root of the tab history;
+      // otherwise intercept the back gesture to unwind tab jumps first.
+      canPop: _tabHistory.length <= 1,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _handleSystemBack();
       },
-      child: Focus(
-        autofocus: true,
-        child: shell,
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.space): _handleSpaceShortcut,
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+              _handleSearchShortcut,
+          const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+              _handleSearchShortcut,
+          const SingleActivator(LogicalKeyboardKey.arrowLeft):
+              _handleSeekBackwardShortcut,
+          const SingleActivator(LogicalKeyboardKey.arrowRight):
+              _handleSeekForwardShortcut,
+        },
+        child: Focus(
+          autofocus: true,
+          child: shell,
+        ),
       ),
     );
   }

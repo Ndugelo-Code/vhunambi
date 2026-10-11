@@ -3,11 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../providers/marketplace_providers.dart';
 
-/// Responsive marketplace top bar: back chevron, brand emblem, centered search
-/// pill, credit balance chip and notification bell (REQ-MKT-01).
+/// Responsive marketplace top bar: brand emblem, centered search pill, credit
+/// balance chip and notification bell (REQ-MKT-01).
+///
+/// Root tab inside `RootShell` — the top-left shows the brand monogram (no
+/// back chevron; Marketplace is never pushed onto the Navigator stack).
 class MarketplaceTopBar extends StatelessWidget {
   static const String searchHint = 'Search beats or producers...';
   static const double desktopHeight = 68;
@@ -19,65 +23,53 @@ class MarketplaceTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width > 1024;
 
-    return Container(
-      height: isDesktop ? desktopHeight : mobileHeight,
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceCanvas,
-        border: Border(
-          bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
+    // Root tab: brand monogram anchors the top-left (no dead back chevron —
+    // Marketplace is an IndexedStack sibling inside RootShell, never pushed).
+    return VhunambiTopBarSurface(
+      toolbarHeight: isDesktop ? desktopHeight : mobileHeight,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: isDesktop ? AppSpacing.md : AppSpacing.sm,
         ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isDesktop ? AppSpacing.md : AppSpacing.sm,
-          ),
-          child: Row(
-            children: [
-              _TopBarIconButton(
-                icon: Icons.chevron_left_rounded,
-                tooltip: 'Back',
-                onPressed: () => Navigator.of(context).maybePop(),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: AppColors.brandPrimary,
+                shape: BoxShape.circle,
               ),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: AppColors.brandPrimary,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.music_note_rounded,
-                  size: 18,
-                  color: AppColors.brandContrast,
+              child: const Icon(
+                Icons.music_note_rounded,
+                size: 18,
+                color: AppColors.brandContrast,
+              ),
+            ),
+            if (isDesktop) ...[
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                'VHUNAMBI',
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
                 ),
               ),
-              if (isDesktop) ...[
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  'VHUNAMBI',
-                  style: AppTypography.titleMedium.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ],
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 520),
-                    child: const _MarketplaceSearchField(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              const _CreditChip(),
-              const SizedBox(width: AppSpacing.xxs),
-              const NotificationBellButton(),
             ],
-          ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: const _MarketplaceSearchField(),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            const _CreditChip(),
+            const SizedBox(width: AppSpacing.xxs),
+            const NotificationBellButton(),
+          ],
         ),
       ),
     );
@@ -205,33 +197,6 @@ class _CreditChip extends ConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TopBarIconButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  const _TopBarIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 34,
-      height: 34,
-      child: IconButton(
-        padding: EdgeInsets.zero,
-        iconSize: 20,
-        tooltip: tooltip,
-        icon: Icon(icon, color: AppColors.textSecondary),
-        onPressed: onPressed,
       ),
     );
   }

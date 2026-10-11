@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../providers/studio_form_provider.dart';
@@ -30,7 +31,9 @@ class StudioView extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(isDesktop ? 64 : 56),
+        preferredSize: Size.fromHeight(
+          VhunambiTopBarMetrics.totalHeight(context),
+        ),
         child: const _StudioAppBar(),
       ),
       body: SingleChildScrollView(
@@ -117,34 +120,26 @@ class _StudioAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceCanvas,
-        border: Border(
-          bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Row(
-            children: [
-              // Brand Emblem
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: AppColors.brandPrimary,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.music_note_rounded,
-                  size: 20,
-                  color: AppColors.brandContrast,
-                ),
+    return VhunambiTopBarSurface(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: Row(
+          children: [
+            // Brand Emblem
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: AppColors.brandPrimary,
+                shape: BoxShape.circle,
               ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.music_note_rounded,
+                size: 20,
+                color: AppColors.brandContrast,
+              ),
+            ),
               const SizedBox(width: AppSpacing.xs),
               Text(
                 'VHUNAMBI',
@@ -201,7 +196,6 @@ class _StudioAppBar extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }

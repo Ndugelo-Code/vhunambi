@@ -5,6 +5,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/profile_models.dart';
@@ -146,10 +147,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
+        leading: const VhunambiBackButton(color: Colors.white),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/producer_beat_entity.dart';
 import '../beat_format.dart';
@@ -31,6 +32,7 @@ class BeatDetailCockpitView extends ConsumerWidget {
         backgroundColor: AppColors.surfaceCanvas,
         appBar: AppBar(
           backgroundColor: AppColors.surfaceCanvas,
+          leading: const VhunambiBackButton(tooltip: 'Back to Vault'),
           title: Text('Beat unavailable', style: AppTypography.titleMedium),
         ),
         body: Center(
@@ -49,12 +51,10 @@ class BeatDetailCockpitView extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: AppColors.surfaceCanvas,
         elevation: 0,
-        leading: IconButton(
-          key: const Key('cockpit_back'),
+        leading: const VhunambiBackButton(
+          key: Key('cockpit_back'),
           tooltip: 'Back to Vault',
-          icon: const Icon(Icons.arrow_back_rounded),
           color: AppColors.textPrimary,
-          onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: Text(
           beat.title,

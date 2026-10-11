@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../../../offline/presentation/widgets/vault_storage_modal.dart';
 import '../../domain/models/library_models.dart';
@@ -26,19 +27,14 @@ class LibraryAppBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceCanvas,
-        border: Border(
-          bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: isDesktop ? _desktopRow(context) : _mobileRow(context),
-        ),
+    // Root tab: no back chevron on either breakpoint (Library is an
+    // IndexedStack sibling, never pushed). Geometry is inset-aware so the row
+    // never squishes on notched devices.
+    return VhunambiTopBarSurface(
+      toolbarHeight: isDesktop ? 64 : 56,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: isDesktop ? _desktopRow(context) : _mobileRow(context),
       ),
     );
   }
@@ -46,7 +42,7 @@ class LibraryAppBar extends ConsumerWidget {
   Widget _desktopRow(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _brandGroup(context, showBackChevron: true)),
+        Expanded(child: _brandGroup(context, showBackChevron: false)),
         Text('My Library', style: AppTypography.bodyMuted),
         Expanded(
           child: Align(

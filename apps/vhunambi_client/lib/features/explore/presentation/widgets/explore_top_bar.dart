@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../providers/explore_providers.dart';
 
@@ -76,50 +77,39 @@ class MobileExploreTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: barHeight,
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceCanvas,
-        border: Border(
-          bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          child: Row(
-            children: [
-              _HeaderIconButton(
-                icon: Icons.chevron_left_rounded,
-                tooltip: 'Back',
-                onPressed: () => Navigator.of(context).maybePop(),
+    return VhunambiTopBarSurface(
+      toolbarHeight: barHeight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+        child: Row(
+          children: [
+            // Root tab: the brand monogram anchors the top-left. Explore is an
+            // IndexedStack sibling inside RootShell (never pushed), so a back
+            // chevron here would be a dead tap — it has been removed.
+            Container(
+              width: 28,
+              height: 28,
+              decoration: const BoxDecoration(
+                color: AppColors.brandPrimary,
+                shape: BoxShape.circle,
               ),
-              Container(
-                width: 28,
-                height: 28,
-                decoration: const BoxDecoration(
-                  color: AppColors.brandPrimary,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.music_note_rounded,
-                  size: 16,
-                  color: AppColors.brandContrast,
-                ),
+              child: const Icon(
+                Icons.music_note_rounded,
+                size: 16,
+                color: AppColors.brandContrast,
               ),
-              const SizedBox(width: AppSpacing.xs),
-              const Expanded(
-                child: _ExploreSearchField(
-                  hint: searchHint,
-                  showShortcutBadge: false,
-                  enableShortcut: false,
-                ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            const Expanded(
+              child: _ExploreSearchField(
+                hint: searchHint,
+                showShortcutBadge: false,
+                enableShortcut: false,
               ),
-              const SizedBox(width: AppSpacing.xs),
-              _CreateAction(onPressed: onCreateRequested, compact: true),
-            ],
-          ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            _CreateAction(onPressed: onCreateRequested, compact: true),
+          ],
         ),
       ),
     );
@@ -325,33 +315,6 @@ class _CreditPill extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HeaderIconButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  const _HeaderIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 34,
-      height: 34,
-      child: IconButton(
-        padding: EdgeInsets.zero,
-        iconSize: 20,
-        tooltip: tooltip,
-        icon: Icon(icon, color: AppColors.textSecondary),
-        onPressed: onPressed,
       ),
     );
   }

@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../providers/marketplace_providers.dart';
 import '../widgets/beat_card.dart';
 import '../widgets/beat_license_modal.dart';
@@ -35,8 +36,14 @@ class MarketplaceView extends ConsumerWidget {
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(
           isDesktop
-              ? MarketplaceTopBar.desktopHeight
-              : MarketplaceTopBar.mobileHeight,
+              ? VhunambiTopBarMetrics.totalHeight(
+                  context,
+                  toolbarHeight: MarketplaceTopBar.desktopHeight,
+                )
+              : VhunambiTopBarMetrics.totalHeight(
+                  context,
+                  toolbarHeight: MarketplaceTopBar.mobileHeight,
+                ),
         ),
         child: const MarketplaceTopBar(),
       ),

@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../beats/presentation/views/beats_vault_view.dart';
 import '../../../collections/presentation/views/collections_vault_view.dart';
 import '../../../playlists/presentation/views/playlists_vault_view.dart';
@@ -26,7 +27,6 @@ class LibraryView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDesktop = ResponsiveUtils.isDesktop(context);
     final isMobile = ResponsiveUtils.isMobile(context);
     final category = ref.watch(libraryCategoryProvider);
     final viewMode = ref.watch(libraryViewModeProvider);
@@ -39,7 +39,9 @@ class LibraryView extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(isDesktop ? 64 : 56),
+        preferredSize: Size.fromHeight(
+          VhunambiTopBarMetrics.totalHeight(context),
+        ),
         child: LibraryAppBar(onCreateRequested: onCreateRequested),
       ),
       body: Column(

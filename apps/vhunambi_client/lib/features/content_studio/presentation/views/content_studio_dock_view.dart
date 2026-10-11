@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../domain/models/song_metadata_dna.dart';
 import '../providers/content_studio_provider.dart';
 import '../widgets/kinetic_preview_canvas.dart';
@@ -126,10 +127,7 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
       appBar: AppBar(
         backgroundColor: AppColors.surfaceElevated,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: const VhunambiBackButton(color: AppColors.textPrimary),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
@@ -144,10 +145,7 @@ class CollectionDetailView extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: AppColors.surfaceCanvas,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: const VhunambiBackButton(),
         title: Text(
           liveCollection.title,
           style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),

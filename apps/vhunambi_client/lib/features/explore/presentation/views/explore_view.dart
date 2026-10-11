@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../domain/models/explore_models.dart';
 import '../providers/explore_providers.dart';
@@ -53,7 +54,10 @@ class ExploreView extends ConsumerWidget {
         preferredSize: Size.fromHeight(
           isDesktop
               ? DesktopExploreTopBar.barHeight
-              : MobileExploreTopBar.barHeight,
+              : VhunambiTopBarMetrics.totalHeight(
+                  context,
+                  toolbarHeight: MobileExploreTopBar.barHeight,
+                ),
         ),
         child: isDesktop
             ? DesktopExploreTopBar(onCreateRequested: onCreateRequested)
