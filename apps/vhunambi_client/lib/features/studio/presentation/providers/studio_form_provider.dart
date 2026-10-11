@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/studio_form_state.dart';
+import '../../domain/models/bantu_voice_profile.dart';
 
 final studioFormProvider =
     StateNotifierProvider<StudioFormNotifier, StudioFormState>((ref) {
@@ -100,6 +101,14 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
 
   void applyPromptPreset(String preset) {
     state = state.copyWith(prompt: preset);
+  }
+
+  void setBantuVoiceProfile(BantuVoiceProfile profile) {
+    state = state.copyWith(selectedVoiceProfile: profile);
+  }
+
+  void updateDialectInflection(DialectInflectionConfig inflection) {
+    state = state.copyWith(dialectInflection: inflection);
   }
 
   void applyDnaPresetPrivateSchoolPiano() {

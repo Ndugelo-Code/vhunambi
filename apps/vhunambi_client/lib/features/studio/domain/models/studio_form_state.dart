@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/lyric_word_timestamp.dart';
+import 'bantu_voice_profile.dart';
 
 enum LyricsMode {
   aiWrite,
@@ -84,6 +85,12 @@ class StudioFormState {
   final double generationProgress;
   final String? errorMessage;
 
+  /// Selected Bantu singer timbre profile for African vocal synthesis (REQ-VOX-01).
+  final BantuVoiceProfile selectedVoiceProfile;
+
+  /// Fine-grained dialect inflection shaping (vowels, vibrato, choir backing) (REQ-VOX-02).
+  final DialectInflectionConfig dialectInflection;
+
   const StudioFormState({
     this.prompt = '',
     this.referenceAudioPath,
@@ -107,6 +114,18 @@ class StudioFormState {
     this.phase = GenerationPhase.idle,
     this.generationProgress = 0.0,
     this.errorMessage,
+    this.selectedVoiceProfile = const BantuVoiceProfile(
+      id: 'venda_folk_elder',
+      name: 'Venda Folk Elder',
+      language: 'Tshivenḓa',
+      region: 'Limpopo / Makhado',
+      timbreDescription:
+          'Deep resonant chest timbre with natural dental articulation and ancestral oral storytelling cadence.',
+      iconEmoji: '👴',
+      loraScale: 0.90,
+      characteristicAdLibs: ['Ndi zwone!', 'Aa!', 'Kha ri tshimbile!', 'Vhukuma!'],
+    ),
+    this.dialectInflection = const DialectInflectionConfig(),
   });
 
   /// Title used for the pipeline card and the completion notification.
@@ -180,6 +199,13 @@ class StudioFormState {
         deliveryMode: modeStr,
         gender: genderStr,
         energy: energyStr,
+        loras: [
+          {
+            'profileId': selectedVoiceProfile.id,
+            'loraScale': selectedVoiceProfile.loraScale,
+            'dialectInflection': dialectInflection.toJson(),
+          }
+        ],
       ),
       visualTheme: VisualThemeDna(
         mood: mood,
@@ -215,6 +241,8 @@ class StudioFormState {
     GenerationPhase? phase,
     double? generationProgress,
     String? errorMessage,
+    BantuVoiceProfile? selectedVoiceProfile,
+    DialectInflectionConfig? dialectInflection,
   }) {
     return StudioFormState(
       prompt: prompt ?? this.prompt,
@@ -239,6 +267,8 @@ class StudioFormState {
       phase: phase ?? this.phase,
       generationProgress: generationProgress ?? this.generationProgress,
       errorMessage: errorMessage,
+      selectedVoiceProfile: selectedVoiceProfile ?? this.selectedVoiceProfile,
+      dialectInflection: dialectInflection ?? this.dialectInflection,
     );
   }
 

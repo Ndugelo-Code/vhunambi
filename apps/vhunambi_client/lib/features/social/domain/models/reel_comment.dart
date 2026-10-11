@@ -22,6 +22,12 @@ class ReelComment {
   /// (honest community badge, e.g. 5x ❤️).
   final int userReelLoves;
 
+  /// Optional cultural gift emoji attached to this comment (REQ-GFT-03).
+  final String? giftEmoji;
+
+  /// Optional cultural gift name attached to this comment (REQ-GFT-03).
+  final String? giftName;
+
   final DateTime createdAt;
 
   const ReelComment({
@@ -36,6 +42,8 @@ class ReelComment {
     this.likeCount = 0,
     this.isLikedByMe = false,
     this.userReelLoves = 0,
+    this.giftEmoji,
+    this.giftName,
     required this.createdAt,
   });
 
@@ -51,6 +59,8 @@ class ReelComment {
     int? likeCount,
     bool? isLikedByMe,
     int? userReelLoves,
+    String? giftEmoji,
+    String? giftName,
     DateTime? createdAt,
   }) {
     return ReelComment(
@@ -65,6 +75,8 @@ class ReelComment {
       likeCount: likeCount ?? this.likeCount,
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
       userReelLoves: userReelLoves ?? this.userReelLoves,
+      giftEmoji: giftEmoji ?? this.giftEmoji,
+      giftName: giftName ?? this.giftName,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -81,6 +93,8 @@ class ReelComment {
         'likeCount': likeCount,
         'isLikedByMe': isLikedByMe,
         'userReelLoves': userReelLoves,
+        if (giftEmoji != null) 'giftEmoji': giftEmoji,
+        if (giftName != null) 'giftName': giftName,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -97,6 +111,8 @@ class ReelComment {
       likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
       isLikedByMe: (json['isLikedByMe'] as bool?) ?? false,
       userReelLoves: (json['userReelLoves'] as num?)?.toInt() ?? 0,
+      giftEmoji: json['giftEmoji'] as String?,
+      giftName: json['giftName'] as String?,
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
     );

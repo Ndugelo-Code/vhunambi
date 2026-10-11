@@ -41,6 +41,8 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
     int userReelLoves = 0,
     String username = 'ndugelo_musician',
     String displayName = 'Ndugelo Musician',
+    String? giftEmoji,
+    String? giftName,
   }) {
     if (text.trim().isEmpty) return;
 
@@ -52,6 +54,8 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
       displayName: displayName,
       text: text.trim(),
       userReelLoves: userReelLoves,
+      giftEmoji: giftEmoji,
+      giftName: giftName,
       createdAt: DateTime.now(),
     );
 
