@@ -90,6 +90,7 @@ class ArtistProfileEntity {
   final String username;
   final String displayName;
   final String monogram;
+  final String? avatarUrl;
   final String bio;
   final bool isVerified;
   final int songCount;
@@ -109,6 +110,7 @@ class ArtistProfileEntity {
     required this.username,
     required this.displayName,
     required this.monogram,
+    this.avatarUrl,
     this.bio = '',
     this.isVerified = true,
     this.songCount = 0,
@@ -138,6 +140,8 @@ class ArtistProfileEntity {
       tipHistory.where((tip) => !tip.isReceived).toList();
 
   ArtistProfileEntity copyWith({
+    String? avatarUrl,
+    bool clearAvatar = false,
     bool? isFollowing,
     bool? tipsEnabled,
     int? followerCount,
@@ -149,6 +153,7 @@ class ArtistProfileEntity {
       username: username,
       displayName: displayName,
       monogram: monogram,
+      avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
       bio: bio,
       isVerified: isVerified,
       songCount: songCount,

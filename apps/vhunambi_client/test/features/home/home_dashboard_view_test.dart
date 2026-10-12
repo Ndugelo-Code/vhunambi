@@ -26,10 +26,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Top Header
-      expect(find.text('ND'), findsOneWidget);
+      // Top Header: Profile avatar button, authentic greeting, streak, credit chip
+      expect(find.byKey(const Key('home_avatar_btn')), findsOneWidget);
+      expect(find.byKey(const Key('home_greeting_text')), findsOneWidget);
       expect(find.text('2 Streak'), findsOneWidget);
       expect(find.text('10 left'), findsOneWidget);
+      expect(find.text('Ndugelo Musician'), findsNothing);
 
       // Quick Creation Card
       expect(find.text('What are you feeling today?'), findsOneWidget);

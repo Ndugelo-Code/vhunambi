@@ -11,9 +11,13 @@ import '../../../../shared/models/track.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
 import '../../../onboarding/presentation/providers/onboarding_providers.dart';
 import '../../../player/presentation/providers/player_provider.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../profile/presentation/views/owner_profile_view.dart';
+import '../../../profile/presentation/widgets/avatar_customization_modal.dart';
+import '../../../profile/presentation/widgets/creator_avatar.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import '../../../track/presentation/views/track_detail_view.dart';
+import '../utils/african_greeting_resolver.dart';
 import '../widgets/subscription_upgrade_modal.dart';
 import '../../../social/presentation/widgets/trending_reels_shelf.dart';
 
@@ -42,17 +46,6 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
     super.dispose();
   }
 
-  String _getTimeGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Ndi matsheloni (Good morning)';
-    } else if (hour < 17) {
-      return 'Masiari (Good afternoon)';
-    } else {
-      return 'Madekwana (Good evening)';
-    }
-  }
-
   void _submitQuickPrompt([String? presetText]) {
     HapticFeedback.mediumImpact();
     final text = presetText ?? _promptController.text.trim();
@@ -68,10 +61,18 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
     final hasActiveTrack =
         ref.watch(playerStateProvider.select((s) => s.hasActiveTrack));
     final onboardingState = ref.watch(onboardingStateProvider);
+    final ownerProfile = ref.watch(ownerProfileProvider);
     final exploreTracks = ref.watch(exploreTracksProvider);
     final isPlaying = ref.watch(playerStateProvider.select((s) => s.isPlaying));
     final activeTrackId =
         ref.watch(playerStateProvider.select((s) => s.currentTrack?.id));
+
+    final userLanguage = onboardingState.selectedLanguages.isNotEmpty
+        ? onboardingState.selectedLanguages.first
+        : 'Tshivenḓa';
+    final greetingText =
+        AfricanGreetingResolver.getGreeting(language: userLanguage);
+    final timeGlyph = AfricanGreetingResolver.getTimeGlyph();
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -89,8 +90,14 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
                 ),
                 child: Row(
                   children: [
-                    // Creator Monogram Avatar
-                    GestureDetector(
+                    // Creator Profile Avatar / Icon (44x44px HIG target)
+                    CreatorAvatar(
+                      avatarKey: const Key('home_avatar_btn'),
+                      avatarUrl: ownerProfile.avatarUrl,
+                      monogram: ownerProfile.monogram.isNotEmpty
+                          ? ownerProfile.monogram
+                          : 'ND',
+                      size: 44,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -98,49 +105,25 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
                           ),
                         );
                       },
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppColors.brandPrimary.withAlpha(30),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.brandPrimary,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'ND',
-                            style: AppTypography.titleMedium.copyWith(
-                              color: AppColors.brandPrimary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
+                      onLongPress: () {
+                        AvatarCustomizationModal.show(context);
+                      },
                     ),
                     const SizedBox(width: 12),
 
-                    // Greeting Column
+                    // Authentic African Greeting (No name, No English subtitles)
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _getTimeGreeting(),
-                            style: AppTypography.caption.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            'Ndugelo Musician',
-                            style: AppTypography.titleMedium.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        '$greetingText $timeGlyph',
+                        key: const Key('home_greeting_text'),
+                        style: (isDesktop
+                                ? AppTypography.titleLarge
+                                : AppTypography.titleMedium)
+                            .copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
 

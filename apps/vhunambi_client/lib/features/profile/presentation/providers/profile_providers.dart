@@ -50,6 +50,15 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
     state = state.copyWith(tipsEnabled: !state.tipsEnabled);
   }
 
+  /// Updates the creator's profile picture or AI-synthesized avatar.
+  void updateAvatar(String? url) {
+    if (url == null || url.isEmpty) {
+      state = state.copyWith(clearAvatar: true);
+    } else {
+      state = state.copyWith(avatarUrl: url);
+    }
+  }
+
   /// Adds an Album, EP, or Single to the artist discography (REQ-TRK-15).
   void addRelease(MusicReleaseEntity release) {
     state = state.copyWith(

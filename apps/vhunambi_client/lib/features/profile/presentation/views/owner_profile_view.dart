@@ -17,6 +17,8 @@ import '../widgets/creator_wallet_deck.dart';
 import '../../../social/presentation/providers/creator_clips_provider.dart';
 import '../../../social/presentation/widgets/creator_reel_thumbnail_card.dart';
 import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
+import '../widgets/avatar_customization_modal.dart';
+import '../widgets/creator_avatar.dart';
 
 /// Account Owner Creator Studio Profile View (`/profile/me`) (REQ-TRK-15, REQ-TRK-16).
 class OwnerProfileView extends ConsumerStatefulWidget {
@@ -183,25 +185,17 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                   // 1. Owner Profile Scaffolding Row
                   Row(
                     children: [
-                      // Monogram Circle
-                      Container(
-                        width: 68,
-                        height: 68,
-                        decoration: BoxDecoration(
-                          color: AppColors.brandPrimary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.borderSubtle, width: 2),
-                        ),
-                        child: Center(
-                          child: Text(
-                            profile.monogram,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.brandContrast,
-                            ),
-                          ),
-                        ),
+                      // Creator Profile Avatar with AI Edit Badge
+                      CreatorAvatar(
+                        avatarKey: const Key('owner_avatar_button'),
+                        avatarUrl: profile.avatarUrl,
+                        monogram: profile.monogram,
+                        size: 68,
+                        borderWidth: 2,
+                        showEditBadge: true,
+                        onTap: () {
+                          AvatarCustomizationModal.show(context);
+                        },
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -235,6 +229,13 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
+                      _buildActionPill(
+                        icon: Icons.auto_awesome_rounded,
+                        label: 'Change Avatar ✨',
+                        onTap: () {
+                          AvatarCustomizationModal.show(context);
+                        },
+                      ),
                       _buildActionPill(
                         icon: Icons.edit_rounded,
                         label: 'Edit Profile',
