@@ -4,7 +4,7 @@
 > **Source Origin:** Production Web Client (`https://vhunambi.com`)  
 > **Target:** Cross-Platform Client (Flutter/Dart — Windows, macOS, Android, iOS)  
 > **Architecture Standard:** Dual-Agent Symbiosis ([`docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md))  
-> **Current Status:** ✅ Phase 0 – 22 Complete + Full-Stack UI/UX Modernization Sprint (Top Bar, Bottom Dock, Studio Cockpit, Track Details, Explore Feed — 44px HIG Compliance, Frosted Surfaces & Coordinated Dock Metrics) — **805 Tests Passing · 0 Analyzer Warnings**
+> **Current Status:** ✅ Phase 0 – 22 Complete + Full-Stack UI/UX Modernization Sprint (M1–M6: Top Bar, Bottom Dock, Studio Cockpit, Track Details, Explore Feed, Home Header & Indigenous Greetings — 44px HIG Compliance, Frosted Surfaces & AI Avatar Customization) — **813 Tests Passing · 0 Analyzer Warnings**
 
 ---
 
@@ -158,7 +158,7 @@ c:\Users\Ndugelo\VHUNAMBI\monorepo\
 | **20** | **Bantu Voice LoRA Engine & Creator Cultural Micro-Gifting** | ✅ Complete | Track A: 5 native African singer timbres (👴 Venda Elder, 🎤 Soweto Soul, ⚡ Durban Gqom, 🌿 Maskandi Bard, ✨ Limpopo Queen), 4 dialect inflection sliders, and `LivePhoneticAlignmentPreview`. Track B: `CreatorTippingSheet` on reel action rail, 4 cultural micro-gifts (🐚 Cowrie, 🥁 Drum, 🎹 Log Drum Trophy, 👑 Crown), auto-posted supporter announcements, and `CreatorWalletDeck` with ZAR cashout rails (Ozow, Capitec Pay, EFT). |
 | **21** | **Audio-Stem Social Remixing & Pocket 4-Channel Stem Mixer** | ✅ Complete | Track A: "Remix This Reel" creation branching on `KineticReelsModal` action rail, `StemRemixContext` stem extraction, and `RemixAttributionBadge` lineage pill. Track B: `StemMixerDeck` pocket 4-channel DAW console (Vocals 🎤, Drums 🥁, Log Drum 🎹, Melody 🎸), vertical gain faders, pan sliders, M/S buttons, 4-parameter Master Bus DSP with Amapiano/Maskandi/Duet presets, and 1-Tap Master Mix Bounce to `/vault/bounces/`. |
 | **22** | **Heritage Crate Digging & Native Hardware Video Muxer** | ✅ Complete | Track A: `CrateBrowserDeck` with 3D-inspired spinning vinyl and 6 authentic indigenous African instruments (Mbira, Kora, Talking Drum, Marimba, Uhadi Bow, Venda Chants), plus 8-Pad AI `MpcSlicerDeck` with transient beat-slicing, semitone pitch modulation (−12..+12), reverse playback, and chop kit bounce. Track B: `VideoExportModal` hardware video renderer (1080×1920 9:16 and 1080×1080 1:1 @ 60 FPS), holographic animated watermark toggle, viral caption generator (`#Amapiano #Vhunambi #Afrobeats`), and 1-Tap `SocialShareRail` for TikTok, Instagram Reels, YouTube Shorts, and Camera Roll. |
-| **M1–M5** | **Full-Stack UI/UX Modernization Sprint** | ✅ Complete | **Audit-Then-Improve** dual-agent protocol applied to 5 core systems: Top Bar Navigation (frosted surfaces, `VhunambiTopBarMetrics`, scroll-aware title), Bottom Dock & Audio Transport (`VhunambiBottomDockMetrics`, drag-to-expand, unified scroll insets), Studio AI Cockpit (`IndexedStack` zero-unmount switcher, frosted heritage modal), Track Details (frosted app bar, frosted stem mixer modal), Explore Discovery Feed (44px responsive touch geometry, viewport-safe layout). **805/805 tests · 0 analyzer warnings**. See [`docs/VHUNAMBI_MODERNIZATION_CHRONICLE.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/VHUNAMBI_MODERNIZATION_CHRONICLE.md). |
+| **M1–M6** | **Full-Stack UI/UX Modernization Sprint** | ✅ Complete | **Audit-Then-Improve** dual-agent protocol applied to 6 core systems: Top Bar Navigation (frosted surfaces, `VhunambiTopBarMetrics`), Bottom Dock & Audio Transport (`VhunambiBottomDockMetrics`), Studio AI Cockpit (`IndexedStack`), Track Details, Explore Discovery Feed (44px touch geometry), and Home Header & Indigenous Greetings (`AfricanGreetingResolver`, `CreatorAvatar`, `AvatarCustomizationModal`). **813/813 tests · 0 analyzer warnings**. See [`docs/VHUNAMBI_MODERNIZATION_CHRONICLE.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/VHUNAMBI_MODERNIZATION_CHRONICLE.md). |
 
 ---
 
@@ -171,7 +171,7 @@ cd apps/vhunambi_client
 # 1. Static Analysis Gate (0 issues)
 flutter analyze apps/vhunambi_client
 
-# 2. Automated Test Suite (805 passing)
+# 2. Automated Test Suite (813 passing)
 flutter test
 ```
 

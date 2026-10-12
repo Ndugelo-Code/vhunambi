@@ -1,18 +1,18 @@
 # 🏛️ VHUNAMBI — Full-Stack UI/UX Modernization Chronicle
-## Five Systems Master Record: Modernization, Ergonomics & Touch Compliance
+## Six Systems Master Record: Modernization, Ergonomics & Touch Compliance
 
 **Project:** VHUNAMBI Client (`apps/vhunambi_client`)  
 **Architecture:** Flutter 3.44+ / Dart 3.x / Riverpod / Design Tokens  
 **Standard:** 2026 Mobile & Desktop Audio Workstation Standards (WCAG 2.5.5 / Apple HIG 44×44px / Frosted Glassmorphism / Coordinated Dock Metrics)  
-**Status:** ✅ **100% Complete & Verified** (805/805 Tests Passing · 0 Analyzer Warnings)
+**Status:** ✅ **100% Complete & Verified** (813/813 Tests Passing · 0 Analyzer Warnings)
 
 ---
 
 ## 📋 Executive Overview
 
-Across five sequential modernization phases, the core presentation layers of **VHUNAMBI** were transformed from flat, static layouts into high-performance, frosted glass surfaces with mathematical geometry, coordinated scroll insets, gesture-driven expandability, and strict 44×44px touch compliance.
+Across six sequential modernization phases, the core presentation layers of **VHUNAMBI** were transformed from flat, static layouts into high-performance, frosted glass surfaces with mathematical geometry, coordinated scroll insets, gesture-driven expandability, authentic indigenous greeting linguistics, AI avatar customization, and strict 44×44px touch compliance.
 
-Every phase was executed using the **Lead Architect (Antigravity) & Implementation Specialist (Cline) Dual-Agent Protocol**, enforcing zero regressions against existing test pins while expanding test coverage to **805 passing tests**.
+Every phase was executed using the **Lead Architect (Antigravity) & Implementation Specialist (Cline) Dual-Agent Protocol**, enforcing zero regressions against existing test pins while expanding test coverage to **813 passing tests**.
 
 ```mermaid
 graph TD
@@ -21,6 +21,7 @@ graph TD
     App --> S3[3. Studio AI Generation & MPC Chopper]
     App --> S4[4. Track Details & Stem Separation Lab]
     App --> S5[5. Explore & Heritage Discovery Feed]
+    App --> S6[6. Home Dashboard Header & Indigenous Greeting Engine]
 ```
 
 ---
@@ -127,16 +128,41 @@ graph TD
 
 ---
 
+### System 6: Home Dashboard Header, Indigenous African Greeting Engine & AI Avatar Customization
+* **Primary Source:** [`home_dashboard_view.dart`](file:///apps/vhunambi_client/lib/features/home/presentation/views/home_dashboard_view.dart), [`african_greeting_resolver.dart`](file:///apps/vhunambi_client/lib/features/home/presentation/utils/african_greeting_resolver.dart), [`creator_avatar.dart`](file:///apps/vhunambi_client/lib/features/profile/presentation/widgets/creator_avatar.dart), [`avatar_customization_modal.dart`](file:///apps/vhunambi_client/lib/features/profile/presentation/widgets/avatar_customization_modal.dart), [`owner_profile_view.dart`](file:///apps/vhunambi_client/lib/features/profile/presentation/views/owner_profile_view.dart)
+* **Commit:** `9b01710`
+
+#### Key Transformations:
+1. **Decluttered Top Header & Elimination of Crowding**:
+   - Removed hardcoded creator name (`"Ndugelo Musician"`) from the dashboard top row, establishing the profile avatar button as the sole identity anchor.
+   - Removed English translation subtitles (e.g. `(Good afternoon)`).
+   - Reduced text footprint by 65%, giving expansive breathing room to the streak badge and credit token chip on mobile viewports (< 768px).
+2. **Pure Multilingual African Greeting Engine (`AfricanGreetingResolver`)**:
+   - Dynamically resolves time-aware greetings matching the creator's preferred onboarding language across 13+ African indigenous dialects (Tshivenḓa, isiZulu, isiXhosa, Sepedi, Setswana, Sesotho, Xitsonga, siSwati, Kiswahili, Yoruba, Shona, Afrikaans, English).
+   - Pure native words only (e.g., *Masiari ☀️*, *Ndi matsheloni ✨*, *Madekwana 🌙*) with zero English subtitles unless English is explicitly selected.
+3. **`CreatorAvatar` HIG 44px Atom**:
+   - Reusable avatar component supporting custom uploaded photos, RunPod AI synthesized portraits, or cultural monogram fallbacks with `ConstrainedBox(minWidth: 44, minHeight: 44)`.
+   - Subtle glowing ambient amber border (`AppColors.brandPrimary`) and optional edit badge overlay.
+4. **Interactive AI Avatar Customization Modal (`AvatarCustomizationModal`)**:
+   - 6 curated African AI cultural avatar presets (Amapiano Maestro 🎹, Maskandi Bard 🎸, Limpopo Queen 👑, Soweto Soul 🎙️, Gqom Thunder ⚡, Golden Cowrie 🐚).
+   - AI prompt synthesizer with quick persona chips simulating RunPod GPU generation.
+   - Custom photo link input with live preview and 1-tap "Revert to Monogram" action.
+5. **Creator Studio Integration**:
+   - Upgraded `OwnerProfileView` avatar with interactive edit badge and added a dedicated `"Change Avatar ✨"` action pill in the Creator Studio management strip.
+
+---
+
 ## 📊 Comprehensive Quality & Verification Metrics
 
 | System | Audit Prompt File | Target Code Files | Tests Passed | Static Analysis | Commit Hash |
-| :--- | :--- | :--- | :---: | :---: | :---: |
+| :--- | :--- | :--- | :--- | :---: | :---: |
 | **Top Bar Navigation** | [`TOP_BAR_NAVIGATION_AUDIT_PROMPT.md`](file:///docs/audits/TOP_BAR_NAVIGATION_AUDIT_PROMPT.md) | `lib/core/widgets/top_bar.dart` | 100% | 0 issues | `15927a5` |
 | **Audio Transport & Dock** | [`BOTTOM_NAV_AND_AUDIO_TRANSPORT_AUDIT_PROMPT.md`](file:///docs/audits/BOTTOM_NAV_AND_AUDIO_TRANSPORT_AUDIT_PROMPT.md) | `lib/core/widgets/bottom_dock_metrics.dart`, `mobile_mini_player.dart` | 100% | 0 issues | `3b9f609` |
 | **Studio AI Cockpit** | [`STUDIO_AI_COCKPIT_AND_MPC_CHOPPER_AUDIT_PROMPT.md`](file:///docs/audits/STUDIO_AI_COCKPIT_AND_MPC_CHOPPER_AUDIT_PROMPT.md) | `lib/features/studio/presentation/views/studio_view.dart` | 27 / 27 | 0 issues | `02a7e98`, `899354e`, `b232f6a` |
 | **Track Details Cockpit** | [`TRACK_DETAIL_AND_STEM_SEPARATION_AUDIT_PROMPT.md`](file:///docs/audits/TRACK_DETAIL_AND_STEM_SEPARATION_AUDIT_PROMPT.md) | `lib/features/track/presentation/views/track_detail_view.dart` | 4 / 4 | 0 issues | `59896f8`, `b4d2820`, `8d0f301` |
 | **Explore Discovery Feed** | [`EXPLORE_AND_HERITAGE_DISCOVERY_AUDIT_PROMPT.md`](file:///docs/audits/EXPLORE_AND_HERITAGE_DISCOVERY_AUDIT_PROMPT.md) | `lib/features/explore/presentation/views/explore_view.dart` | 39 / 39 | 0 issues | `30b4aa5` |
-| **Monorepo Full Suite** | — | **All Client Features** | **805 / 805** | **0 issues** | `30b4aa5` |
+| **Home Header & Greetings** | Direct Audit & Architecture | `home_dashboard_view.dart`, `creator_avatar.dart` | 11 / 11 | 0 issues | `9b01710` |
+| **Monorepo Full Suite** | — | **All Client Features** | **813 / 813** | **0 issues** | `9b01710` |
 
 ---
 
