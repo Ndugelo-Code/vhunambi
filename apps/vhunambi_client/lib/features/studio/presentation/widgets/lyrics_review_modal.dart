@@ -467,7 +467,7 @@ class _CulturalIdiomsRail extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xxs),
         SizedBox(
-          height: 38,
+          height: 44,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: idioms.length,
