@@ -33,6 +33,8 @@ class TrackActionsBar extends StatelessWidget {
             onTap: onToggleLike,
             borderRadius: AppRadius.pillBorder,
             child: Container(
+              constraints: const BoxConstraints(minHeight: 44),
+              alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: track.isLiked
@@ -41,8 +43,8 @@ class TrackActionsBar extends StatelessWidget {
                 borderRadius: AppRadius.pillBorder,
                 border: Border.all(
                   color: track.isLiked
-                      ? AppColors.brandPrimary
-                      : AppColors.borderSubtle,
+                    ? AppColors.brandPrimary
+                    : AppColors.borderSubtle,
                 ),
               ),
               child: Row(
@@ -70,6 +72,8 @@ class TrackActionsBar extends StatelessWidget {
 
           // 2. Play Count Pill
           Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: AppColors.surfaceElevated,
@@ -105,6 +109,7 @@ class TrackActionsBar extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: AppRadius.pillBorder,
               ),
+              minimumSize: const Size(0, 44),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               elevation: 0,
             ),
@@ -125,6 +130,7 @@ class TrackActionsBar extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: AppRadius.pillBorder,
               ),
+              minimumSize: const Size(0, 44),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               elevation: 0,
             ),

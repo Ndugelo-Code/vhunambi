@@ -157,8 +157,8 @@ class MoreLikeThisShelf extends StatelessWidget {
             // Play Trigger Button
             IconButton(
               iconSize: 26,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(9),
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
               icon: const Icon(
                 Icons.play_circle_fill_rounded,
                 color: AppColors.brandPrimary,

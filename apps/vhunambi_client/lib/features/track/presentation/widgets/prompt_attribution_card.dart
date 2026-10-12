@@ -81,6 +81,7 @@ class PromptAttributionCard extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.pillBorder,
                 ),
+                minimumSize: const Size(0, 44),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 10,

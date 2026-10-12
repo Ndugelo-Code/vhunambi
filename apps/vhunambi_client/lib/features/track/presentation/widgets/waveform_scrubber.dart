@@ -44,7 +44,7 @@ class WaveformScrubber extends StatelessWidget {
               IconButton(
                 iconSize: 42,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 icon: Icon(
                   isPlaying
                       ? Icons.pause_circle_filled_rounded

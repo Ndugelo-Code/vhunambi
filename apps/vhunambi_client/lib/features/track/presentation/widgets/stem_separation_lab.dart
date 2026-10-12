@@ -224,7 +224,9 @@ class StemSeparationLab extends StatelessWidget {
             onTap: () => onToggleSoloStem(stem.id),
             borderRadius: BorderRadius.circular(6),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: stem.isSoloed
                     ? AppColors.brandPrimary
@@ -249,13 +251,13 @@ class StemSeparationLab extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
 
           // Mute Button
           IconButton(
             iconSize: 20,
-            padding: const EdgeInsets.all(4),
-            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(10),
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             icon: Icon(
               stem.isMuted
                   ? Icons.volume_off_rounded
@@ -267,13 +269,13 @@ class StemSeparationLab extends StatelessWidget {
             onPressed: () => onToggleMuteStem(stem.id),
           ),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
 
           // Download Stem Trigger
           IconButton(
             iconSize: 20,
-            padding: const EdgeInsets.all(4),
-            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(10),
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             icon: const Icon(
               Icons.download_rounded,
               color: AppColors.textSecondary,

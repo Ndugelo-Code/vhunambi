@@ -31,7 +31,7 @@ class UtilityToolDock extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
-      height: 40,
+      height: 44,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -87,7 +87,9 @@ class UtilityToolDock extends StatelessWidget {
         onTap: onTap,
         borderRadius: AppRadius.pillBorder,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          constraints: const BoxConstraints(minHeight: 44),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: AppColors.surfaceElevated,
             borderRadius: AppRadius.pillBorder,

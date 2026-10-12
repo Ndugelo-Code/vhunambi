@@ -233,8 +233,8 @@ class _CommentsSectionState extends State<CommentsSection> {
           // Like Comment Button
           IconButton(
             iconSize: 16,
-            padding: const EdgeInsets.all(4),
-            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(12),
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             icon: Icon(
               comment.isLiked
                   ? Icons.favorite_rounded
