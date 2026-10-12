@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
+import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../offline/domain/models/offline_models.dart';
@@ -43,19 +46,42 @@ class TrackDetailView extends ConsumerStatefulWidget {
 
 class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _lyricsKey = GlobalKey();
+  final GlobalKey _commentsKey = GlobalKey();
+  final ValueNotifier<bool> _showStickyTitle = ValueNotifier<bool>(false);
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  /// Reveals the sticky app-bar title once the hero artwork scrolls away.
+  void _onScroll() {
+    final shouldShow = _scrollController.offset > 240;
+    if (shouldShow != _showStickyTitle.value) {
+      _showStickyTitle.value = shouldShow;
+    }
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _showStickyTitle.dispose();
     super.dispose();
   }
 
-  void _scrollTo(double offset) {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        offset,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeInOut,
+  /// Precision section navigation — scrolls the target widget into view
+  /// regardless of screen density, font scale, or dynamic content height.
+  void _scrollToSection(GlobalKey key) {
+    final targetContext = key.currentContext;
+    if (targetContext != null) {
+      Scrollable.ensureVisible(
+        targetContext,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOutCubic,
+        alignment: 0.1,
       );
     }
   }
@@ -259,42 +285,11 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceCanvas,
-        elevation: 0,
-        leading: const VhunambiBackButton(color: Colors.white),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.music_note_rounded,
-              color: AppColors.brandPrimary,
-              size: 20,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'VHUNAMBI',
-              style: AppTypography.titleMedium.copyWith(
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ],
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(
+          VhunambiTopBarMetrics.totalHeight(context),
         ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share_rounded, color: Colors.white),
-            onPressed: () {
-              Clipboard.setData(
-                ClipboardData(text: 'https://vhunambi.com/track/${track.id}'),
-              );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Track link copied to clipboard! 🔗')),
-              );
-            },
-          ),
-        ],
+        child: _TrackDetailAppBar(track: track, showStickyTitle: _showStickyTitle),
       ),
       body: SafeArea(
         child: Center(
@@ -356,9 +351,9 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                         SnackBar(content: Text('Radio station started: ${track.genre}')),
                       );
                     },
-                    onJumpToLyrics: () => _scrollTo(520),
+                    onJumpToLyrics: () => _scrollToSection(_lyricsKey),
                     onVariation: () => _handleRemix(track),
-                    onJumpToComments: () => _scrollTo(1100),
+                    onJumpToComments: () => _scrollToSection(_commentsKey),
                     onEmbed: () => _copyEmbedCode(track),
                   ),
 
@@ -401,7 +396,7 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                   ),
 
                   // 6. Synchronized Lyrics Teleprompter
-                  LyricsTeleprompter(track: track),
+                  LyricsTeleprompter(key: _lyricsKey, track: track),
 
                   // 7. 4-Stem Separation Lab
                   StemSeparationLab(
@@ -436,12 +431,10 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                       showModalBottomSheet<void>(
                         context: context,
                         isScrollControlled: true,
-                        backgroundColor: AppColors.surfaceElevated,
-                        shape: const RoundedRectangleBorder(
-                            borderRadius: AppRadius.modalBorder),
+                        backgroundColor: Colors.transparent,
                         builder: (ctx) => FractionallySizedBox(
                           heightFactor: 0.9,
-                          child: StemMixerDeck(title: track.title),
+                          child: _FrostedStemMixerSheet(title: track.title),
                         ),
                       );
                     },
@@ -468,6 +461,7 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
 
                   // 9. Discussion Thread & Comment Composer
                   CommentsSection(
+                    key: _commentsKey,
                     comments: comments,
                     onAddComment: (content) {
                       ref
@@ -507,10 +501,207 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                           );
                     },
                   ),
+
+                  // Bottom dock clearance so the floating transport never
+                  // occludes the final recommendation cards.
+                  SizedBox(
+                    height: VhunambiBottomDockMetrics.scrollInset(
+                      hasActiveTrack: playerState.hasActiveTrack,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Frosted, scroll-aware top bar for the track cockpit.
+///
+/// Defaults to the brand mark; once the hero artwork scrolls away it
+/// cross-fades to the track title + creator so context is never lost.
+class _TrackDetailAppBar extends StatelessWidget {
+  final TrackDetailEntity track;
+  final ValueNotifier<bool> showStickyTitle;
+
+  const _TrackDetailAppBar({
+    required this.track,
+    required this.showStickyTitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          color: AppColors.surfaceCanvas.withAlpha(200),
+          child: Padding(
+            padding: EdgeInsets.only(
+              top: VhunambiTopBarMetrics.topInset(context),
+            ),
+            child: SizedBox(
+              height: 56,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                child: Row(
+                  children: [
+                    const VhunambiBackButton(color: Colors.white),
+                    Expanded(
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: showStickyTitle,
+                        builder: (context, showTitle, _) {
+                          return AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: showTitle
+                                ? _StickyTrackTitle(
+                                    key: const ValueKey('sticky-title'),
+                                    track: track,
+                                  )
+                                : const _BrandMark(
+                                    key: ValueKey('brand-mark'),
+                                  ),
+                          );
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.share_rounded, color: Colors.white),
+                      tooltip: 'Share',
+                      onPressed: () {
+                        Clipboard.setData(
+                          ClipboardData(
+                            text: 'https://vhunambi.com/track/${track.id}',
+                          ),
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Track link copied to clipboard! 🔗'),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BrandMark extends StatelessWidget {
+  const _BrandMark({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.music_note_rounded,
+          color: AppColors.brandPrimary,
+          size: 20,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          'VHUNAMBI',
+          style: AppTypography.titleMedium.copyWith(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StickyTrackTitle extends StatelessWidget {
+  final TrackDetailEntity track;
+  const _StickyTrackTitle({super.key, required this.track});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          track.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.titleMedium.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          track.creatorName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.caption.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Frosted Pocket Stem Mixer modal — elevated surfaceModal surface with a
+/// pill drag-handle and a canonical close affordance (audit DEF-TRK-04).
+class _FrostedStemMixerSheet extends StatelessWidget {
+  final String? title;
+  const _FrostedStemMixerSheet({this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceModal,
+        borderRadius: AppRadius.modalBorder,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(120),
+            blurRadius: 30,
+            offset: const Offset(0, -6),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            // Pill drag-handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.borderSubtle,
+                  borderRadius: BorderRadius.circular(9999),
+                ),
+              ),
+            ),
+            // Canonical close affordance
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: AppSpacing.xs),
+                child: VhunambiBackButton(
+                  color: AppColors.textPrimary,
+                  tooltip: 'Close Mixer',
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Expanded(child: StemMixerDeck(title: title)),
+          ],
         ),
       ),
     );
