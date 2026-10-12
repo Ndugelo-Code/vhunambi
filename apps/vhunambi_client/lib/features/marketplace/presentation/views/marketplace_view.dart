@@ -5,7 +5,9 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
+import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../providers/marketplace_providers.dart';
+import '../../../player/presentation/providers/player_provider.dart';
 import '../widgets/beat_card.dart';
 import '../widgets/beat_license_modal.dart';
 import '../widgets/marketplace_empty_state.dart';
@@ -30,6 +32,8 @@ class MarketplaceView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
     final beats = ref.watch(filteredBeatsProvider);
+    final hasActiveTrack =
+        ref.watch(playerStateProvider.select((s) => s.hasActiveTrack));
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -98,7 +102,13 @@ class MarketplaceView extends ConsumerWidget {
                   ),
                 ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: VhunambiBottomDockMetrics.scrollInset(
+                    hasActiveTrack: hasActiveTrack,
+                  ),
+                ),
+              ),
             ],
           ),
 

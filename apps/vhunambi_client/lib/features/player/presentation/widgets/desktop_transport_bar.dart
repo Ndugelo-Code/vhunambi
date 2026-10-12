@@ -125,8 +125,8 @@ class DesktopTransportBar extends ConsumerWidget {
                   const SizedBox(width: 6),
 
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 44,
+                    height: 44,
                     decoration: const BoxDecoration(
                       color: AppColors.brandPrimary,
                       shape: BoxShape.circle,
@@ -140,6 +140,7 @@ class DesktopTransportBar extends ConsumerWidget {
                         size: 24,
                       ),
                       padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                       onPressed: notifier.togglePlayPause,
                       tooltip: playerState.isPlaying ? 'Pause' : 'Play',
                     ),

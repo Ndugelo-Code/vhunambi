@@ -30,11 +30,48 @@ class ExpandedCockpitModal extends ConsumerStatefulWidget {
   const ExpandedCockpitModal({super.key});
 
   static void show(BuildContext context) {
-    showModalBottomSheet(
+    final height = MediaQuery.sizeOf(context).height;
+    // Organic expand: scale/fade/rise out of the pill while the shared
+    // artwork Hero flies up. showGeneralDialog gives barrier + tap-to-dismiss.
+    showGeneralDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const ExpandedCockpitModal(),
+      useRootNavigator: false,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss now playing',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 340),
+      pageBuilder: (context, _, _) => Align(
+        alignment: Alignment.bottomCenter,
+        child: SizedBox(
+          height: height * 0.88,
+          child: const ExpandedCockpitModal(),
+        ),
+      ),
+      transitionBuilder: (context, anim, _, child) {
+        final pop = CurvedAnimation(
+          parent: anim,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeIn,
+        );
+        final rise = CurvedAnimation(
+          parent: anim,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeIn,
+        );
+        return FadeTransition(
+          opacity: anim,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.08),
+              end: Offset.zero,
+            ).animate(rise),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.92, end: 1.0).animate(pop),
+              child: child,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -173,24 +210,27 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                     : Center(
                         child: AspectRatio(
                           aspectRatio: 1,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: AppGradients.forGenre(track.genre),
-                              borderRadius: BorderRadius.circular(24),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.brandPrimary.withAlpha(80),
-                                  blurRadius: 40,
-                                  spreadRadius: -8,
-                                  offset: const Offset(0, 12),
+                          child: Hero(
+                            tag: 'now_playing_art_${track.id}',
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: AppGradients.forGenre(track.genre),
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.brandPrimary.withAlpha(80),
+                                    blurRadius: 40,
+                                    spreadRadius: -8,
+                                    offset: const Offset(0, 12),
+                                  ),
+                                ],
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.piano_rounded,
+                                  size: 72,
+                                  color: Colors.white,
                                 ),
-                              ],
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.piano_rounded,
-                                size: 72,
-                                color: Colors.white,
                               ),
                             ),
                           ),

@@ -5,6 +5,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
+import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../domain/models/explore_models.dart';
 import '../providers/explore_providers.dart';
@@ -18,6 +19,7 @@ import '../widgets/explore_top_bar.dart';
 import '../widgets/genre_radio_tile.dart';
 import '../widgets/track_card.dart';
 import '../widgets/track_list_tile.dart';
+import '../../../player/presentation/providers/player_provider.dart';
 import '../../../social/presentation/widgets/trending_reels_shelf.dart';
 
 /// Explore Feed & Music Discovery (`/explore`) — mounted at tab index 1 of
@@ -47,6 +49,8 @@ class ExploreView extends ConsumerWidget {
     final catalog = ref.watch(visibleExploreTracksProvider);
     final hasResults = ref.watch(filteredExploreTracksProvider).isNotEmpty;
     final hasMore = ref.watch(hasMoreExploreTracksProvider);
+    final hasActiveTrack =
+        ref.watch(playerStateProvider.select((s) => s.hasActiveTrack));
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -175,7 +179,13 @@ class ExploreView extends ConsumerWidget {
           if (hasResults && hasMore)
             const SliverToBoxAdapter(child: _LoadMoreButton()),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 110)),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: VhunambiBottomDockMetrics.scrollInset(
+                hasActiveTrack: hasActiveTrack,
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -5,9 +5,11 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
+import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../../../beats/presentation/views/beats_vault_view.dart';
 import '../../../collections/presentation/views/collections_vault_view.dart';
 import '../../../playlists/presentation/views/playlists_vault_view.dart';
+import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/library_models.dart';
 import '../providers/library_providers.dart';
 import '../widgets/library_app_bar.dart';
@@ -150,20 +152,24 @@ class _RecentlyPlayedShelf extends ConsumerWidget {
   }
 }
 
-class _VaultList extends StatelessWidget {
+class _VaultList extends ConsumerWidget {
   final List<LibraryTrack> tracks;
   final bool isMobile;
 
   const _VaultList({required this.tracks, required this.isMobile});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bottomInset = VhunambiBottomDockMetrics.scrollInset(
+      hasActiveTrack:
+          ref.watch(playerStateProvider.select((s) => s.hasActiveTrack)),
+    );
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         AppSpacing.md,
         AppSpacing.xxs,
         AppSpacing.md,
-        110,
+        bottomInset,
       ),
       itemCount: tracks.length,
       separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
@@ -175,19 +181,23 @@ class _VaultList extends StatelessWidget {
   }
 }
 
-class _VaultGrid extends StatelessWidget {
+class _VaultGrid extends ConsumerWidget {
   final List<LibraryTrack> tracks;
 
   const _VaultGrid({required this.tracks});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bottomInset = VhunambiBottomDockMetrics.scrollInset(
+      hasActiveTrack:
+          ref.watch(playerStateProvider.select((s) => s.hasActiveTrack)),
+    );
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         AppSpacing.md,
         AppSpacing.xxs,
         AppSpacing.md,
-        110,
+        bottomInset,
       ),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: ResponsiveUtils.gridColumns(context),

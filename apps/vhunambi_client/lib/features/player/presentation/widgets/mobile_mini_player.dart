@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../providers/player_provider.dart';
 
 class MobileMiniPlayer extends ConsumerWidget {
@@ -25,17 +26,14 @@ class MobileMiniPlayer extends ConsumerWidget {
 
     final notifier = ref.read(playerStateProvider.notifier);
 
-    return Container(
-      height: 60,
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceElevated,
-        border: Border(
-          top: BorderSide(color: AppColors.borderSubtle, width: 1),
-        ),
-      ),
+    // Floating frosted "island" pill with an ambient glow sampled from the
+    // track's genre gradient. Dismiss is a swipe-down gesture (not a button),
+    // freeing horizontal room so every transport control keeps a 44x44 target.
+    return VhunambiFloatingTransportSurface(
+      glow: AppGradients.forGenre(track.genre).colors.first,
       child: Column(
         children: [
-          // 2px Top Progress Line
+          // 2px progress line (non-interactive on mobile; scrub in the cockpit).
           LinearProgressIndicator(
             value: playerState.progressRatio,
             minHeight: 2,
@@ -57,24 +55,41 @@ class MobileMiniPlayer extends ConsumerWidget {
                   notifier.skipPrevious();
                 }
               },
+              // Vertical fling → drag up to expand the cockpit, drag down to
+              // dismiss the player (replaces the old 28x28 dismiss button).
+              // The gesture arena disambiguates by dominant axis, so this does
+              // not conflict with the horizontal swipe-to-skip above.
+              onVerticalDragEnd: (details) {
+                final velocity = details.primaryVelocity ?? 0;
+                if (velocity < -250) {
+                  HapticFeedback.lightImpact();
+                  onExpand?.call();
+                } else if (velocity > 250) {
+                  HapticFeedback.lightImpact();
+                  notifier.dismiss();
+                }
+              },
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
-                    // Leading 40x40px Album Art
+                    // Leading 44x44 album art (tap to expand).
                     GestureDetector(
                       onTap: onExpand,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          gradient: AppGradients.forGenre(track.genre),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.piano_rounded,
-                          color: Colors.white,
-                          size: 22,
+                      child: Hero(
+                        tag: 'now_playing_art_${track.id}',
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: AppGradients.forGenre(track.genre),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.piano_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
                         ),
                       ),
                     ),
@@ -112,22 +127,21 @@ class MobileMiniPlayer extends ConsumerWidget {
                     ),
                   ),
 
-                  // Transport Controls
+                  // Skip previous — 44x44 hit target.
                   IconButton(
                     icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 22),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                     onPressed: () {
                       HapticFeedback.lightImpact();
                       notifier.skipPrevious();
                     },
                   ),
-                  const SizedBox(width: 4),
 
-                  // Play/Pause Orb
+                  // Play/Pause orb — 44x44 hit target.
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: 44,
+                    height: 44,
                     decoration: const BoxDecoration(
                       color: AppColors.brandPrimary,
                       shape: BoxShape.circle,
@@ -138,36 +152,24 @@ class MobileMiniPlayer extends ConsumerWidget {
                             ? Icons.pause_rounded
                             : Icons.play_arrow_rounded,
                         color: AppColors.brandContrast,
-                        size: 20,
+                        size: 22,
                       ),
                       padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                       onPressed: () {
                         HapticFeedback.mediumImpact();
                         notifier.togglePlayPause();
                       },
                     ),
                   ),
-                  const SizedBox(width: 4),
-
+                  // Skip next — 44x44 hit target.
                   IconButton(
                     icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 22),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                     onPressed: () {
                       HapticFeedback.lightImpact();
                       notifier.skipNext();
-                    },
-                  ),
-                  const SizedBox(width: 2),
-
-                  // Dismiss Button
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.textTertiary, size: 18),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      notifier.dismiss();
                     },
                   ),
                 ],

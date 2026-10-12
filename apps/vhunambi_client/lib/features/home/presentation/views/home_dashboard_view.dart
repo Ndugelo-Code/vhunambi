@@ -6,6 +6,7 @@ import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
 import '../../../onboarding/presentation/providers/onboarding_providers.dart';
@@ -64,6 +65,8 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
+    final hasActiveTrack =
+        ref.watch(playerStateProvider.select((s) => s.hasActiveTrack));
     final onboardingState = ref.watch(onboardingStateProvider);
     final exploreTracks = ref.watch(exploreTracksProvider);
     final isPlaying = ref.watch(playerStateProvider.select((s) => s.isPlaying));
@@ -563,7 +566,9 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
                   isDesktop ? 32 : 16,
                   28,
                   isDesktop ? 32 : 16,
-                  100,
+                  VhunambiBottomDockMetrics.scrollInset(
+                    hasActiveTrack: hasActiveTrack,
+                  ),
                 ),
                 child: Container(
                   padding: const EdgeInsets.all(18),
