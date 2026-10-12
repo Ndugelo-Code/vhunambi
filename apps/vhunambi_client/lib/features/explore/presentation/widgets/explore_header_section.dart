@@ -89,6 +89,8 @@ class _TabPill extends StatelessWidget {
       onTap: onTap,
       borderRadius: AppRadius.pillBorder,
       child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
+        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.xs,

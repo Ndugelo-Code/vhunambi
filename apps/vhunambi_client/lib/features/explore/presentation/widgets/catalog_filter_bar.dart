@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/responsive_utils.dart';
 import '../../domain/models/explore_models.dart';
 import '../providers/explore_providers.dart';
 
@@ -32,9 +33,9 @@ class CatalogFilterBar extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
-        AppSpacing.lg,
-        AppSpacing.md,
         AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.xs,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,28 +63,34 @@ class CatalogFilterBar extends ConsumerWidget {
                 InkWell(
                   onTap: () => clearExploreFilters(ref),
                   borderRadius: AppRadius.pillBorder,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.close_rounded,
-                        size: 14,
-                        color: AppColors.brandPrimary,
-                      ),
-                      const SizedBox(width: AppSpacing.xxs),
-                      Text(
-                        'Clear filters',
-                        style: AppTypography.caption.copyWith(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                      vertical: AppSpacing.xxs,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.close_rounded,
+                          size: 14,
                           color: AppColors.brandPrimary,
-                          fontWeight: FontWeight.w600,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: AppSpacing.xxs),
+                        Text(
+                          'Clear filters',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.brandPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
 
           // 1. Genre filter pill rail
           SingleChildScrollView(
@@ -114,7 +121,7 @@ class CatalogFilterBar extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
 
           // 2. Mood chip wrap + 3. Language selector
           Wrap(
@@ -136,7 +143,7 @@ class CatalogFilterBar extends ConsumerWidget {
               _LanguageDropdown(activeLanguage: activeLanguage),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
 
           // 4. Sorting pills
           Row(
@@ -232,9 +239,13 @@ class _LanguageDropdown extends ConsumerWidget {
           ),
       ],
       child: Container(
-        padding: const EdgeInsets.symmetric(
+        constraints: BoxConstraints(
+          minHeight: ResponsiveUtils.isMobile(context) ? 44 : 28,
+        ),
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(
           horizontal: AppSpacing.sm,
-          vertical: 6,
+          vertical: ResponsiveUtils.isMobile(context) ? 8 : 6,
         ),
         decoration: BoxDecoration(
           color: AppColors.surfaceSecondary,
@@ -291,11 +302,19 @@ class _FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = ResponsiveUtils.isMobile(context);
     return InkWell(
       onTap: onTap,
       borderRadius: AppRadius.pillBorder,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        constraints: BoxConstraints(
+          minHeight: isMobile ? 44 : 28,
+        ),
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: isMobile ? 8 : 6,
+        ),
         decoration: BoxDecoration(
           color: isActive ? AppColors.brandPrimary : inactiveSurface,
           borderRadius: AppRadius.pillBorder,

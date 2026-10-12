@@ -58,6 +58,7 @@ class AfricanChartsBanner extends StatelessWidget {
     final cta = ElevatedButton(
       onPressed: onViewCharts,
       style: ElevatedButton.styleFrom(
+        minimumSize: const Size(0, 44),
         backgroundColor: AppColors.textPrimary,
         foregroundColor: AppColors.brandContrast,
         elevation: 0,

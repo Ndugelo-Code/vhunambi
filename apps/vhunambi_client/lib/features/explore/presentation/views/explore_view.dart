@@ -211,7 +211,7 @@ class ExploreView extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.md,
-          AppSpacing.xl,
+          AppSpacing.lg,
           AppSpacing.md,
           AppSpacing.sm,
         ),
@@ -256,6 +256,8 @@ class _LoadMoreButton extends ConsumerWidget {
           onTap: () => loadMoreExploreTracks(ref),
           borderRadius: AppRadius.pillBorder,
           child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.xxl,
               vertical: AppSpacing.sm,

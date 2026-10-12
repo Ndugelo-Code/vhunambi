@@ -17,7 +17,7 @@ class ExploreEmptyState extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
-        vertical: AppSpacing.section,
+        vertical: AppSpacing.lg,
       ),
       child: Center(
         child: ConstrainedBox(

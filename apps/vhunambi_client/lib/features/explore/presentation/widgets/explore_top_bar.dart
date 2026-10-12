@@ -207,7 +207,7 @@ class _ExploreSearchFieldState extends ConsumerState<_ExploreSearchField> {
     });
 
     final field = Container(
-      height: 42,
+      height: 44,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.surfaceElevated,

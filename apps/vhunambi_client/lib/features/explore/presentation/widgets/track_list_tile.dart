@@ -106,17 +106,22 @@ class TrackListTile extends ConsumerWidget {
           InkWell(
             onTap: handlePlayPause,
             borderRadius: AppRadius.pillBorder,
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: const BoxDecoration(
-                color: AppColors.brandPrimary,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                size: 20,
-                color: AppColors.brandContrast,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              child: Center(
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: AppColors.brandPrimary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    size: 20,
+                    color: AppColors.brandContrast,
+                  ),
+                ),
               ),
             ),
           ),
