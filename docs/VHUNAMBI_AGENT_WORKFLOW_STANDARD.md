@@ -141,3 +141,19 @@ Every completed phase must satisfy this non-negotiable definition of done:
 - [x] **Design Token Strictness**: Zero hardcoded hex values; 100% of surfaces, text styles, and radii resolve through `AppColors`, `AppTypography`, and `AppRadius`.
 - [x] **Collision Safety**: Zero enum or type collisions with Flutter 3.44 core libraries (`AudioRepeatMode`).
 - [x] **Responsive Parity**: Views adapt seamlessly across Mobile (< 768px) and Desktop (> 1024px) viewports matching SSOT Blueprints.
+
+---
+
+## 6. The "Audit-Then-Improve" Modernization Protocol
+
+For full-stack UI/UX refactoring, accessibility sweeps, and component modernizations, the engineering flow utilizes the **Audit-Then-Improve Dual-Agent Protocol**:
+
+- **Detailed Standard**: [`docs/DUAL_AGENT_AUDIT_IMPROVE_WORKFLOW.md`](file:///docs/DUAL_AGENT_AUDIT_IMPROVE_WORKFLOW.md)
+- **Modernization Chronicle**: [`docs/VHUNAMBI_MODERNIZATION_CHRONICLE.md`](file:///docs/VHUNAMBI_MODERNIZATION_CHRONICLE.md)
+- **Audit Briefs & Prompts**: Stored under `docs/audits/` (e.g., [`docs/audits/TOP_BAR_NAVIGATION_AUDIT_PROMPT.md`](file:///docs/audits/TOP_BAR_NAVIGATION_AUDIT_PROMPT.md), [`docs/audits/EXPLORE_AND_HERITAGE_DISCOVERY_AUDIT_PROMPT.md`](file:///docs/audits/EXPLORE_AND_HERITAGE_DISCOVERY_AUDIT_PROMPT.md)).
+
+### Core Dynamic:
+1. **Antigravity (Lead Architect & QA)**: Pre-flights code, identifies rigid test pins, and formulates audit prompts.
+2. **Cline (Auditor & Implementer)**: Performs deep read-only source inspection, measures touch gaps, and implements phased widget modernizations.
+3. **Antigravity (Gatekeeper & Finalizer)**: Validates static analysis (`flutter analyze`), runs test suites, calibrates layout math/viewport culling, commits verified code, and maintains master documentation.
+
