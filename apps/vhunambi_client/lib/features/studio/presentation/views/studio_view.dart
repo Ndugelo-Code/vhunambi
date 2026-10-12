@@ -312,11 +312,42 @@ void _openHeritageStudio(BuildContext context) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppColors.surfaceCanvas,
-    shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
-    builder: (_) => const FractionallySizedBox(
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black54,
+    builder: (_) => FractionallySizedBox(
       heightFactor: 0.9,
-      child: _HeritageStudioSheet(),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.surfaceModal,
+          borderRadius: AppRadius.modalBorder,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black54,
+              blurRadius: 32,
+              offset: Offset(0, -8),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: AppRadius.modalBorder,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              // Drag Handle
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.borderSubtle,
+                  borderRadius: BorderRadius.circular(9999),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Expanded(child: _HeritageStudioSheet()),
+            ],
+          ),
+        ),
+      ),
     ),
   );
 }
@@ -336,23 +367,43 @@ class _HeritageStudioSheetState extends State<_HeritageStudioSheet> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: _showSlicer
-          ? Column(
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => setState(() => _showSlicer = false),
-                    icon: const Icon(Icons.arrow_back_rounded, size: 16),
-                    label: const Text('Back to Crate'),
+      top: false,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        child: _showSlicer
+            ? Column(
+                key: const ValueKey('heritage_slicer_view'),
+                children: [
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                    child: Row(
+                      children: [
+                        VhunambiBackButton(
+                          onPressed: () => setState(() => _showSlicer = false),
+                          tooltip: 'Back to Crate',
+                        ),
+                        const SizedBox(width: AppSpacing.xxs),
+                        Text(
+                          'Back to Crate',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const Expanded(child: MpcSlicerDeck()),
-              ],
-            )
-          : CrateBrowserDeck(
-              onChop: (_) => setState(() => _showSlicer = true),
-            ),
+                  const Expanded(child: MpcSlicerDeck()),
+                ],
+              )
+            : CrateBrowserDeck(
+                key: const ValueKey('heritage_crate_view'),
+                onChop: (_) => setState(() => _showSlicer = true),
+              ),
+      ),
     );
   }
 }

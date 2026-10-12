@@ -179,9 +179,11 @@ class _MultilingualLanguageSelectorState
           borderRadius: AppRadius.pillBorder,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
+            constraints: const BoxConstraints(minHeight: 44),
+            alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.sm,
-              vertical: 6,
+              vertical: 8,
             ),
             decoration: BoxDecoration(
               color: isSelected

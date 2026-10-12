@@ -71,7 +71,7 @@ class CrateBrowserDeck extends ConsumerWidget {
 
           // Category rail
           SizedBox(
-            height: 40,
+            height: 44,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: HeritageCrateCategory.values.length,
@@ -216,6 +216,7 @@ class _CategoryChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: AppRadius.pillBorder,
       child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(

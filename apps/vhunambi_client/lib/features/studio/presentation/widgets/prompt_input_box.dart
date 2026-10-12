@@ -129,9 +129,11 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
                 },
                 borderRadius: AppRadius.pillBorder,
                 child: Container(
+                  constraints: const BoxConstraints(minHeight: 44),
+                  alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.sm,
-                    vertical: 6,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceSecondary,
@@ -154,9 +156,11 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
               },
               borderRadius: AppRadius.pillBorder,
               child: Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                alignment: Alignment.center,
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.sm,
-                  vertical: 6,
+                  vertical: 8,
                 ),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceSecondary,

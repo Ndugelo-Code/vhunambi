@@ -340,9 +340,11 @@ class _AdvancedOptionsAccordionState
                         onTap: () => notifier.setMood(cleanName),
                         borderRadius: AppRadius.pillBorder,
                         child: Container(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          alignment: Alignment.center,
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.sm,
-                            vertical: 5,
+                            vertical: 8,
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
@@ -553,9 +555,11 @@ class _AdvancedOptionsAccordionState
                         onTap: () => notifier.toggleAutoTitle(true),
                         borderRadius: AppRadius.pillBorder,
                         child: Container(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          alignment: Alignment.center,
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.md,
-                            vertical: 6,
+                            vertical: 8,
                           ),
                           decoration: BoxDecoration(
                             color: state.isAutoTitle
@@ -586,9 +590,11 @@ class _AdvancedOptionsAccordionState
                         onTap: () => notifier.toggleAutoTitle(false),
                         borderRadius: AppRadius.pillBorder,
                         child: Container(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          alignment: Alignment.center,
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.md,
-                            vertical: 6,
+                            vertical: 8,
                           ),
                           decoration: BoxDecoration(
                             color: !state.isAutoTitle
@@ -662,9 +668,11 @@ class _AdvancedOptionsAccordionState
       borderRadius: AppRadius.pillBorder,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
+        constraints: const BoxConstraints(minHeight: 44),
+        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
-          vertical: 6,
+          vertical: 8,
         ),
         decoration: BoxDecoration(
           color: isSelected
@@ -751,9 +759,11 @@ class _AdvancedOptionsAccordionState
       borderRadius: AppRadius.pillBorder,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
+        constraints: const BoxConstraints(minHeight: 44),
+        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
-          vertical: 6,
+          vertical: 8,
         ),
         decoration: BoxDecoration(
           color: isSelected
