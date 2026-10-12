@@ -5,7 +5,9 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
+import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
+import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../providers/studio_form_provider.dart';
 import '../widgets/advanced_options_accordion.dart';
@@ -20,13 +22,110 @@ import '../widgets/reference_audio_dropzone.dart';
 import '../widgets/regional_genre_selector.dart';
 import '../widgets/studio_action_bar.dart';
 
-class StudioView extends ConsumerWidget {
+class StudioView extends ConsumerStatefulWidget {
   const StudioView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StudioView> createState() => _StudioViewState();
+}
+
+class _StudioViewState extends ConsumerState<StudioView> {
+  int _mode = 0;
+
+  static const List<String> _modeLabels = ['Compose', 'Voice', 'Crate & MPC'];
+
+  Widget _modeSwitcher() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.xs,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 840),
+          child: Row(
+            children: [
+              for (var i = 0; i < _modeLabels.length; i++) ...[
+                if (i > 0) const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() => _mode = i),
+                    borderRadius: AppRadius.pillBorder,
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: i == _mode
+                            ? AppColors.brandPrimary
+                            : AppColors.surfaceSecondary,
+                        borderRadius: AppRadius.pillBorder,
+                        border: Border.all(
+                          color: i == _mode
+                              ? AppColors.brandPrimary
+                              : AppColors.borderSubtle,
+                        ),
+                      ),
+                      child: Text(
+                        _modeLabels[i],
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: i == _mode
+                              ? AppColors.brandContrast
+                              : AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tabScroll(bool isDesktop, List<Widget> children) {
+    return SingleChildScrollView(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 840),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isDesktop ? AppSpacing.xl : AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i > 0) const SizedBox(height: AppSpacing.md),
+                  children[i],
+                ],
+                const SizedBox(height: AppSpacing.lg),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
     final phase = ref.watch(studioFormProvider.select((s) => s.phase));
+    final hasActiveTrack =
+        ref.watch(playerStateProvider.select((s) => s.hasActiveTrack));
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -36,80 +135,88 @@ class StudioView extends ConsumerWidget {
         ),
         child: const _StudioAppBar(),
       ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 840),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: isDesktop ? AppSpacing.xl : AppSpacing.md,
-                vertical: AppSpacing.md,
+      body: Column(
+        children: [
+          _modeSwitcher(),
+          if (phase != GenerationPhase.idle)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                AppSpacing.sm,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Real-time Pipeline Progress if generating
-                  if (phase != GenerationPhase.idle) ...[
-                    const GenerationPipelineCard(),
-                    const SizedBox(height: AppSpacing.md),
-                  ],
-
-                  // Top Input Cockpit
-                  const PromptInputBox(),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Reference Audio Dropzone
-                  const ReferenceAudioDropzone(),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Regional Genre Selector
-                  const RegionalGenreSelector(),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // African Multilingual Selector
-                  const MultilingualLanguageSelector(),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Bantu Voice LoRA Engine (Phase 20)
-                  const BantuVoiceDeck(),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Live Phonetic Alignment Preview (Phase 20)
-                  const LivePhoneticAlignmentPreview(),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Heritage Crate & MPC Slicer (Phase 22)
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: 840),
+                  child: GenerationPipelineCard(),
+                ),
+              ),
+            ),
+          Expanded(
+            child: IndexedStack(
+              index: _mode,
+              children: [
+                _tabScroll(isDesktop, const [
+                  PromptInputBox(),
+                  ReferenceAudioDropzone(),
+                  RegionalGenreSelector(),
+                  MultilingualLanguageSelector(),
+                  AdvancedOptionsAccordion(),
+                ]),
+                _tabScroll(isDesktop, const [
+                  BantuVoiceDeck(),
+                  LivePhoneticAlignmentPreview(),
+                ]),
+                _tabScroll(isDesktop, [
                   OutlinedButton.icon(
                     key: const Key('studio_open_crate_btn'),
                     onPressed: () => _openHeritageStudio(context),
-                    icon: const Icon(Icons.album_rounded,
-                        color: AppColors.coinGold),
+                    icon: const Icon(
+                      Icons.album_rounded,
+                      color: AppColors.coinGold,
+                    ),
                     label: Text(
                       'Heritage Crate & MPC Slicer',
-                      style: AppTypography.bodyLarge
-                          .copyWith(color: AppColors.textPrimary),
+                      style: AppTypography.bodyLarge.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppColors.borderSubtle),
                       minimumSize: const Size.fromHeight(48),
                       shape: const RoundedRectangleBorder(
-                          borderRadius: AppRadius.inputBorder),
+                        borderRadius: AppRadius.inputBorder,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Advanced Options Accordion
-                  const AdvancedOptionsAccordion(),
-                  const SizedBox(height: AppSpacing.xl),
-
-                  // Sticky Action Deck
-                  const StudioActionBar(),
-                  const SizedBox(height: 80), // Padding above bottom dock
-                ],
+                ]),
+              ],
+            ),
+          ),
+          Container(
+            decoration: const BoxDecoration(
+              color: AppColors.surfaceElevated,
+              border: Border(
+                top: BorderSide(color: AppColors.borderSubtle, width: 1),
+              ),
+            ),
+            padding: EdgeInsets.fromLTRB(
+              isDesktop ? AppSpacing.xl : AppSpacing.md,
+              AppSpacing.sm,
+              isDesktop ? AppSpacing.xl : AppSpacing.md,
+              VhunambiBottomDockMetrics.scrollInset(
+                hasActiveTrack: hasActiveTrack,
+              ),
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 840),
+                child: StudioActionBar(),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
