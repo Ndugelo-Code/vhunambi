@@ -20,6 +20,8 @@ import '../../../track/presentation/views/track_detail_view.dart';
 import '../utils/african_greeting_resolver.dart';
 import '../widgets/subscription_upgrade_modal.dart';
 import '../../../social/presentation/widgets/trending_reels_shelf.dart';
+import '../../../creator_dna/presentation/widgets/dna_insight_card.dart';
+import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 
 class HomeDashboardView extends ConsumerStatefulWidget {
   final VoidCallback? onNavigateToStudio;
@@ -188,6 +190,30 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
                     ),
                   ],
                 ),
+              ),
+            ),
+
+            // 1b. Creator DNA Insight Card (T6.6 — REQ-DNA-HOME-01/02)
+            SliverToBoxAdapter(
+              child: Builder(
+                builder: (context) {
+                  final dna = ref.watch(creatorDnaProvider);
+                  if (dna.dnaInsightCardDismissed || dna.strengthPercent == 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      isDesktop ? 32 : 16,
+                      0,
+                      isDesktop ? 32 : 16,
+                      8,
+                    ),
+                    child: const DnaInsightCard(
+                      key: Key('home_dna_insight_card'),
+                      animatedMeter: true,
+                    ),
+                  );
+                },
               ),
             ),
 

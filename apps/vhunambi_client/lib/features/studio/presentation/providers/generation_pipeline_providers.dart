@@ -10,6 +10,8 @@ import '../../data/services/generation_socket_service.dart';
 import '../../data/services/http_generation_submission_service.dart';
 import '../../domain/services/i_generation_socket_service.dart';
 import 'stem_download_provider.dart';
+import '../../../creator_dna/domain/models/behavior_event.dart';
+import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 
 /// The notification list now lives in the Phase 11 alert centre; imported for
 /// local use and re-exported so existing Phase 10 imports keep compiling
@@ -117,6 +119,20 @@ class GenerationPipelineNotifier
           genre: genre,
           currentStep: PipelineStep.startingUp,
         );
+
+    // T6.8: Record generation telemetry for Creator DNA (REQ-DNA-CAP-03).
+    try {
+      _ref.read(creatorDnaProvider.notifier).recordEvent(
+        BehaviorEvent.generationSubmit(
+          genre: genre,
+          language: language,
+          tempo: musicalKey,
+          mood: null,
+        ),
+      );
+    } catch (_) {
+      // Telemetry is best-effort; never block generation on provider failure.
+    }
 
     // 4. Stream live progress via HTTP polling
     unawaited(_subscription?.cancel());

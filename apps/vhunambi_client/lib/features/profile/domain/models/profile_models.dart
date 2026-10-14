@@ -25,6 +25,23 @@ class SupporterEntity {
       _ => 'Fan',
     };
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'handle': handle,
+        'totalCreditsTipped': totalCreditsTipped,
+        'rank': rank,
+      };
+
+  factory SupporterEntity.fromJson(Map<String, dynamic> json) =>
+      SupporterEntity(
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        handle: json['handle'] as String? ?? '',
+        totalCreditsTipped: json['totalCreditsTipped'] as int? ?? 0,
+        rank: json['rank'] as int? ?? 1,
+      );
 }
 
 /// Single credit tip transaction in the creator ledger (REQ-TRK-16).
@@ -49,6 +66,30 @@ class TipRecordEntity {
     required this.timestamp,
     required this.isReceived,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'senderName': senderName,
+        'senderHandle': senderHandle,
+        'recipientName': recipientName,
+        'amountCredits': amountCredits,
+        'trackTitle': trackTitle,
+        'timestamp': timestamp.toIso8601String(),
+        'isReceived': isReceived,
+      };
+
+  factory TipRecordEntity.fromJson(Map<String, dynamic> json) =>
+      TipRecordEntity(
+        id: json['id'] as String? ?? '',
+        senderName: json['senderName'] as String? ?? '',
+        senderHandle: json['senderHandle'] as String? ?? '',
+        recipientName: json['recipientName'] as String? ?? '',
+        amountCredits: json['amountCredits'] as int? ?? 0,
+        trackTitle: json['trackTitle'] as String? ?? '',
+        timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
+            DateTime.now(),
+        isReceived: json['isReceived'] as bool? ?? true,
+      );
 }
 
 /// Discography bundle classification (REQ-TRK-15).
@@ -81,6 +122,29 @@ class MusicReleaseEntity {
   }
 
   String get releaseYear => '${releaseDate.year}';
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'releaseType': releaseType.name,
+        'trackCount': trackCount,
+        'releaseDate': releaseDate.toIso8601String(),
+        'genre': genre,
+      };
+
+  factory MusicReleaseEntity.fromJson(Map<String, dynamic> json) =>
+      MusicReleaseEntity(
+        id: json['id'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        releaseType: ReleaseType.values.firstWhere(
+          (e) => e.name == json['releaseType'],
+          orElse: () => ReleaseType.single,
+        ),
+        trackCount: json['trackCount'] as int? ?? 1,
+        releaseDate: DateTime.tryParse(json['releaseDate'] as String? ?? '') ??
+            DateTime.now(),
+        genre: json['genre'] as String? ?? '',
+      );
 }
 
 /// Artist / creator identity used by both profile routes (design.md §1.3).
@@ -169,4 +233,62 @@ class ArtistProfileEntity {
       tipHistory: tipHistory ?? this.tipHistory,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'username': username,
+        'displayName': displayName,
+        'monogram': monogram,
+        'avatarUrl': avatarUrl,
+        'bio': bio,
+        'isVerified': isVerified,
+        'songCount': songCount,
+        'likeCount': likeCount,
+        'playCount': playCount,
+        'followerCount': followerCount,
+        'dayStreak': dayStreak,
+        'isFollowing': isFollowing,
+        'tipsEnabled': tipsEnabled,
+        'topGenres': topGenres,
+        'topSupporters': topSupporters.map((s) => s.toJson()).toList(),
+        'releases': releases.map((r) => r.toJson()).toList(),
+        'tipHistory': tipHistory.map((t) => t.toJson()).toList(),
+      };
+
+  factory ArtistProfileEntity.fromJson(Map<String, dynamic> json) =>
+      ArtistProfileEntity(
+        id: json['id'] as String? ?? '',
+        username: json['username'] as String? ?? '',
+        displayName: json['displayName'] as String? ?? '',
+        monogram: json['monogram'] as String? ?? '',
+        avatarUrl: json['avatarUrl'] as String?,
+        bio: json['bio'] as String? ?? '',
+        isVerified: json['isVerified'] as bool? ?? true,
+        songCount: json['songCount'] as int? ?? 0,
+        likeCount: json['likeCount'] as int? ?? 0,
+        playCount: json['playCount'] as int? ?? 0,
+        followerCount: json['followerCount'] as int? ?? 0,
+        dayStreak: json['dayStreak'] as int? ?? 1,
+        isFollowing: json['isFollowing'] as bool? ?? false,
+        tipsEnabled: json['tipsEnabled'] as bool? ?? true,
+        topGenres: (json['topGenres'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const [],
+        topSupporters: (json['topSupporters'] as List<dynamic>?)
+                ?.map((e) => SupporterEntity.fromJson(
+                    Map<String, dynamic>.from(e as Map)))
+                .toList() ??
+            const [],
+        releases: (json['releases'] as List<dynamic>?)
+                ?.map((e) => MusicReleaseEntity.fromJson(
+                    Map<String, dynamic>.from(e as Map)))
+                .toList() ??
+            const [],
+        tipHistory: (json['tipHistory'] as List<dynamic>?)
+                ?.map((e) => TipRecordEntity.fromJson(
+                    Map<String, dynamic>.from(e as Map)))
+                .toList() ??
+            const [],
+      );
 }

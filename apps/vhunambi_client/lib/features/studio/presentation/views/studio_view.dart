@@ -21,6 +21,7 @@ import '../widgets/prompt_input_box.dart';
 import '../widgets/reference_audio_dropzone.dart';
 import '../widgets/regional_genre_selector.dart';
 import '../widgets/studio_action_bar.dart';
+import '../../../creator_dna/presentation/providers/dna_studio_defaults_provider.dart';
 
 class StudioView extends ConsumerStatefulWidget {
   const StudioView({super.key});
@@ -31,6 +32,34 @@ class StudioView extends ConsumerStatefulWidget {
 
 class _StudioViewState extends ConsumerState<StudioView> {
   int _mode = 0;
+
+  /// Guards DNA pre-fill so it only applies once per session (T6.10).
+  bool _dnaApplied = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Defer so that the ProviderContainer has initialised before we read.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _applyDnaDefaults());
+  }
+
+  /// Applies Creator DNA defaults to the Studio form on first mount when the
+  /// user has not already interacted with the form (T6.10 — REQ-DNA-STU-01/02).
+  void _applyDnaDefaults() {
+    if (_dnaApplied || !mounted) return;
+    final defaults = ref.read(dnaStudioDefaultsProvider);
+    if (!defaults.hasDnaDefaults) return;
+    _dnaApplied = true;
+    final notifier = ref.read(studioFormProvider.notifier);
+    // Only pre-fill when the form is still at its untouched default values so
+    // we never override deliberate user edits from a prior session.
+    final form = ref.read(studioFormProvider);
+    if (form.prompt.isEmpty) notifier.setGenre(defaults.genre);
+    if (form.language == 'English') notifier.setLanguage(defaults.language);
+    if (form.tempo == TempoBracket.medium) notifier.setTempo(defaults.tempo);
+    if (form.vocalEnergy == VocalEnergy.mid) notifier.setVocalEnergy(defaults.vocalEnergy);
+    if (form.mood == 'Uplifting') notifier.setMood(defaults.mood);
+  }
 
   static const List<String> _modeLabels = ['Compose', 'Voice', 'Crate & MPC'];
 
@@ -157,12 +186,14 @@ class _StudioViewState extends ConsumerState<StudioView> {
             child: IndexedStack(
               index: _mode,
               children: [
-                _tabScroll(isDesktop, const [
-                  PromptInputBox(),
-                  ReferenceAudioDropzone(),
-                  RegionalGenreSelector(),
-                  MultilingualLanguageSelector(),
-                  AdvancedOptionsAccordion(),
+                _tabScroll(isDesktop, [
+                  // T6.10: DNA suggestion banner (REQ-DNA-STU-03)
+                  _DnaSuggestionChip(),
+                  const PromptInputBox(),
+                  const ReferenceAudioDropzone(),
+                  const RegionalGenreSelector(),
+                  const MultilingualLanguageSelector(),
+                  const AdvancedOptionsAccordion(),
                 ]),
                 _tabScroll(isDesktop, const [
                   BantuVoiceDeck(),
@@ -303,6 +334,50 @@ class _StudioAppBar extends StatelessWidget {
             ],
           ),
         ),
+    );
+  }
+}
+
+/// DNA suggestion banner rendered at the top of the Compose tab (T6.10 \u2014 REQ-DNA-STU-03).
+///
+/// Shows the user's top DNA genre pre-fill hint. Renders nothing when DNA is
+/// uninitialized so the compose tab stays clean for new users.
+class _DnaSuggestionChip extends ConsumerWidget {
+  const _DnaSuggestionChip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final defaults = ref.watch(dnaStudioDefaultsProvider);
+    if (!defaults.hasDnaDefaults) return const SizedBox.shrink();
+
+    return Container(
+      key: const Key('dna_studio_suggestion_chip'),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.brandPrimary.withAlpha(20),
+        borderRadius: AppRadius.pillBorder,
+        border: Border.all(color: AppColors.brandPrimary.withAlpha(80)),
+      ),
+      child: Row(
+        children: [
+          const Text('🧬', style: TextStyle(fontSize: 14)),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              'DNA suggests: ${defaults.genre} • ${defaults.language}',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.brandPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

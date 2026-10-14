@@ -1,5 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/cache/profile_cache.dart';
+import '../../data/repositories/profile_repository_impl.dart';
 import '../../domain/models/profile_models.dart';
+import '../../domain/models/profile_operation_state.dart';
+import '../../domain/repositories/profile_repository.dart';
+import 'profile_operation_notifier.dart';
 
 /// Public artist profile provider family for `/profile/:id` (REQ-TRK-12).
 final artistProfileFamilyProvider = StateNotifierProvider.family<
@@ -13,6 +18,46 @@ final ownerProfileProvider =
   return ArtistProfileNotifier('me');
 });
 
+/// Global profile repository provider.
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  return ProfileRepositoryImpl();
+});
+
+/// Global profile cache provider.
+final profileCacheProvider = Provider<ProfileCache>((ref) {
+  return ProfileCache();
+});
+
+/// Companion resilience provider for async operation tracking on `/profile/:id`.
+final profileOperationProvider = StateNotifierProvider.family<
+    ProfileOperationNotifier, ProfileOperationState, String>((ref, artistId) {
+  return ProfileOperationNotifier(
+    artistId: artistId,
+    repository: ref.watch(profileRepositoryProvider),
+    cache: ref.watch(profileCacheProvider),
+    profileNotifier: ref.watch(artistProfileFamilyProvider(artistId).notifier),
+  );
+});
+
+/// Companion resilience provider for async operation tracking on `/profile/me`.
+final ownerProfileOperationProvider = StateNotifierProvider<
+    ProfileOperationNotifier, ProfileOperationState>((ref) {
+  return ProfileOperationNotifier(
+    artistId: 'me',
+    repository: ref.watch(profileRepositoryProvider),
+    cache: ref.watch(profileCacheProvider),
+    profileNotifier: ref.watch(ownerProfileProvider.notifier),
+  );
+});
+
+/// Manages local optimistic state updates for an artist profile entity.
+///
+/// **Migration Notice**:
+/// In accordance with Phase 1 Resilient Profile Architecture:
+/// - To perform network-aware mutations with retry, rollback, and caching, invoke operations
+///   via [ProfileOperationNotifier] using `ref.read(profileOperationProvider(artistId).notifier)`.
+/// - Direct unhandled mutations on this class remain backward-compatible for existing synchronous tests
+///   and fallback scenarios.
 class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
   final String artistId;
 
@@ -63,6 +108,19 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
   void addRelease(MusicReleaseEntity release) {
     state = state.copyWith(
       releases: [release, ...state.releases],
+    );
+  }
+
+  /// Seeds or updates the profile state from a cached or fresh entity.
+  void seedFromCache(ArtistProfileEntity cached) {
+    state = cached;
+  }
+
+  /// Rolls back an optimistic follow toggle.
+  void rollbackFollow(bool wasFollowing, int previousFollowerCount) {
+    state = state.copyWith(
+      isFollowing: wasFollowing,
+      followerCount: previousFollowerCount,
     );
   }
 }

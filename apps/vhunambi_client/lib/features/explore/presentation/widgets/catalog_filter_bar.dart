@@ -6,6 +6,8 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../domain/models/explore_models.dart';
 import '../providers/explore_providers.dart';
+import '../../../creator_dna/domain/models/behavior_event.dart';
+import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 
 /// Catalog filter engine: genre rail, mood chip wrap, language selector and
 /// sorting pills (REQ-EXP-08 / Blueprint 01 §5 Section F).
@@ -115,6 +117,13 @@ class CatalogFilterBar extends ConsumerWidget {
                       ref.read(exploreGenreFilterProvider.notifier).state =
                           genre;
                       resetExploreCatalogCursor(ref);
+                      // T6.9: Record genre filter telemetry for Creator DNA
+                      // (REQ-DNA-CAP-03). Best-effort, never blocks UI.
+                      try {
+                        ref.read(creatorDnaProvider.notifier).recordEvent(
+                          BehaviorEvent.genreFilterTap(genre),
+                        );
+                      } catch (_) {}
                     },
                   ),
                 ],

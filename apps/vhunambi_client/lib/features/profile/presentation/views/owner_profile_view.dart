@@ -19,6 +19,13 @@ import '../../../social/presentation/widgets/creator_reel_thumbnail_card.dart';
 import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
 import '../widgets/avatar_customization_modal.dart';
 import '../widgets/creator_avatar.dart';
+import '../../domain/models/profile_operation_type.dart';
+import '../../domain/models/profile_operation_state.dart';
+import '../widgets/error/error_boundary.dart';
+import '../widgets/loading/loading_overlay.dart';
+import '../widgets/loading/profile_skeleton_screen.dart';
+import '../widgets/offline/offline_indicator.dart';
+import '../../../creator_dna/presentation/widgets/creator_dna_profile_card.dart';
 
 /// Account Owner Creator Studio Profile View (`/profile/me`) (REQ-TRK-15, REQ-TRK-16).
 class OwnerProfileView extends ConsumerStatefulWidget {
@@ -113,7 +120,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                   onPressed: () {
                     final title = titleController.text.trim();
                     if (title.isNotEmpty) {
-                      ref.read(ownerProfileProvider.notifier).addRelease(
+                      ref.read(ownerProfileOperationProvider.notifier).addRelease(
                             MusicReleaseEntity(
                               id: 'rel_${DateTime.now().millisecondsSinceEpoch}',
                               title: title,
@@ -143,6 +150,50 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
   Widget build(BuildContext context) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
     final profile = ref.watch(ownerProfileProvider);
+    final opState = ref.watch(ownerProfileOperationProvider);
+
+    // Listen for mutation error notifications
+    ref.listen<ProfileOperationState>(ownerProfileOperationProvider, (prev, curr) {
+      for (final type in [
+        ProfileOperationType.avatarUpdate,
+        ProfileOperationType.createRelease,
+        ProfileOperationType.visibilityToggle,
+      ]) {
+        final err = curr.errorFor(type);
+        if (err != null && prev?.errorFor(type) != err) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(err.message),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    });
+
+    if (opState.isLoading(ProfileOperationType.fetch) && opState.cachedProfile == null) {
+      return const ProfileSkeletonScreen();
+    }
+
+    final fetchError = opState.errorFor(ProfileOperationType.fetch);
+    if (fetchError != null && opState.cachedProfile == null) {
+      return Scaffold(
+        backgroundColor: AppColors.surfaceCanvas,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: const VhunambiBackButton(color: Colors.white),
+        ),
+        body: ErrorBoundary(
+          message: fetchError.message,
+          onRetry: () => ref.read(ownerProfileOperationProvider.notifier).fetchProfile(),
+        ),
+      );
+    }
+
+    final isMutating = opState.isLoading(ProfileOperationType.createRelease) ||
+        opState.isLoading(ProfileOperationType.avatarUpdate) ||
+        opState.isLoading(ProfileOperationType.visibilityToggle);
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -170,18 +221,33 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
         ),
         centerTitle: true,
       ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 860),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: isDesktop ? 32 : 16,
-                vertical: 16,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+      body: LoadingOverlay(
+        isLoading: isMutating,
+        message: 'Updating studio...',
+        child: RefreshIndicator(
+          color: AppColors.brandPrimary,
+          backgroundColor: AppColors.surfaceModal,
+          onRefresh: () => ref.read(ownerProfileOperationProvider.notifier).fetchProfile(),
+          child: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 860),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isDesktop ? 32 : 16,
+                    vertical: 16,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (opState.isOffline) ...[
+                        OfflineIndicator(
+                          cacheTimestamp: opState.cachedProfile?.timestamp,
+                          onRefresh: () => ref.read(ownerProfileOperationProvider.notifier).fetchProfile(),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                   // 1. Owner Profile Scaffolding Row
                   Row(
                     children: [
@@ -290,6 +356,11 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
 
                   const SizedBox(height: 24),
 
+                  // 3b. Creator DNA Profile Card (Phase 2 — REQ-DNA-HOME-01)
+                  const CreatorDnaProfileCard(isOwner: true),
+
+                  const SizedBox(height: 24),
+
                   // 4. Your Songs Shelf with Public/Private Visibility Switch
                   Row(
                     children: [
@@ -352,7 +423,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                     tipHistory: profile.tipHistory,
                     tipsEnabled: profile.tipsEnabled,
                     onToggleTips: (val) {
-                      ref.read(ownerProfileProvider.notifier).toggleTipsEnabled();
+                      ref.read(ownerProfileOperationProvider.notifier).toggleTipsEnabled();
                     },
                   ),
 
@@ -366,6 +437,8 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
           ),
         ),
       ),
+    ),
+    ),
     );
   }
 
@@ -374,29 +447,32 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
     required String label,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: AppRadius.pillBorder,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceElevated,
-          borderRadius: AppRadius.pillBorder,
-          border: Border.all(color: AppColors.borderSubtle),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: AppColors.brandPrimary),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: AppTypography.caption.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.pillBorder,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceElevated,
+            borderRadius: AppRadius.pillBorder,
+            border: Border.all(color: AppColors.borderSubtle),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: AppColors.brandPrimary),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: AppTypography.caption.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

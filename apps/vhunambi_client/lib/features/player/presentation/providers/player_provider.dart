@@ -8,9 +8,23 @@ import '../../../playlists/domain/models/playlist_entity.dart';
 import '../../data/services/vhunambi_audio_handler.dart';
 import '../../domain/models/player_state.dart';
 import 'audio_bridge_providers.dart';
+import '../../../creator_dna/domain/models/behavior_event.dart';
+import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 
 final playerStateProvider = StateNotifierProvider<PlayerNotifier, PlayerState>((ref) {
-  return PlayerNotifier(audioHandler: ref.watch(audioHandlerProvider));
+  final notifier = PlayerNotifier(
+    audioHandler: ref.watch(audioHandlerProvider),
+    // Wire DNA telemetry callback: fires on playback events without coupling
+    // PlayerNotifier to Riverpod Ref directly (T6.7 — REQ-DNA-CAP-01/03).
+    trackPlayTelemetry: (event) {
+      try {
+        ref.read(creatorDnaProvider.notifier).recordEvent(event);
+      } catch (_) {
+        // Telemetry is best-effort; never block playback on provider failure.
+      }
+    },
+  );
+  return notifier;
 });
 
 class PlayerNotifier extends StateNotifier<PlayerState> {
@@ -31,8 +45,15 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   StreamSubscription<PlaybackState>? _playbackStateSubscription;
   StreamSubscription<MediaItem?>? _mediaItemSubscription;
 
-  PlayerNotifier({IVhunambiAudioHandler? audioHandler, int Function(int)? randomInt})
-      : _ownsHandler = audioHandler == null,
+  /// Optional callback fired on playback telemetry events (T6.7).
+  /// Injected by the provider factory; null in headless tests — no-op.
+  final void Function(BehaviorEvent)? trackPlayTelemetry;
+
+  PlayerNotifier({
+    IVhunambiAudioHandler? audioHandler,
+    int Function(int)? randomInt,
+    this.trackPlayTelemetry,
+  })  : _ownsHandler = audioHandler == null,
         _randomInt = randomInt ?? Random().nextInt,
         _audioHandler = audioHandler ?? TestVhunambiAudioHandler(),
         super(
@@ -148,6 +169,22 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   void handleTrackEnd() {
     final isLastTrack =
         state.queue.isNotEmpty && state.currentIndex >= state.queue.length - 1;
+
+    // T6.7: Emit >80% completion telemetry event before advancing.
+    final track = state.currentTrack;
+    if (track != null && trackPlayTelemetry != null) {
+      final listenRatio = state.duration.inSeconds > 0
+          ? (state.position.inSeconds * 100 ~/ state.duration.inSeconds)
+          : 100;
+      trackPlayTelemetry!(
+        BehaviorEvent.trackPlay(
+          trackId: track.id,
+          genreHint: track.genre,
+          languageHint: track.language,
+          listenRatioPercent: listenRatio,
+        ),
+      );
+    }
 
     if (state.repeatMode == AudioRepeatMode.one) {
       state = state.copyWith(position: Duration.zero);

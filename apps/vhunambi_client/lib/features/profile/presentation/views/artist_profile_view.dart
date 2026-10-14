@@ -16,6 +16,12 @@ import '../../../social/presentation/widgets/creator_reel_thumbnail_card.dart';
 import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
 import '../providers/profile_providers.dart';
 import '../../domain/models/profile_models.dart';
+import '../../domain/models/profile_operation_type.dart';
+import '../../domain/models/profile_operation_state.dart';
+import '../widgets/error/error_boundary.dart';
+import '../widgets/loading/loading_overlay.dart';
+import '../widgets/loading/profile_skeleton_screen.dart';
+import '../widgets/offline/offline_indicator.dart';
 import '../widgets/profile_banner_header.dart';
 import '../widgets/profile_stats_grid.dart';
 import '../widgets/top_supporters_leaderboard.dart';
@@ -80,7 +86,7 @@ class ArtistProfileView extends ConsumerWidget {
                       backgroundColor: AppColors.surfaceElevated,
                       foregroundColor: AppColors.coinGold,
                       side: BorderSide(color: AppColors.coinGold.withAlpha(90)),
-                      shape: RoundedRectangleBorder(
+                      shape: const RoundedRectangleBorder(
                         borderRadius: AppRadius.pillBorder,
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -90,7 +96,7 @@ class ArtistProfileView extends ConsumerWidget {
                     ),
                     onPressed: () {
                       ref
-                          .read(artistProfileFamilyProvider(artistId).notifier)
+                          .read(profileOperationProvider(artistId).notifier)
                           .tipArtist(credits);
                       Navigator.of(context).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -117,109 +123,180 @@ class ArtistProfileView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(artistProfileFamilyProvider(artistId));
+    final opState = ref.watch(profileOperationProvider(artistId));
     final clips =
         ref.watch(creatorClipsFamilyProvider('creator_${profile.id}'));
+
+    // Listen for mutation errors to display snackbars
+    ref.listen<ProfileOperationState>(profileOperationProvider(artistId), (previous, current) {
+      final followError = current.errorFor(ProfileOperationType.follow);
+      if (followError != null && previous?.errorFor(ProfileOperationType.follow) != followError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(followError.message),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      final tipError = current.errorFor(ProfileOperationType.tip);
+      if (tipError != null && previous?.errorFor(ProfileOperationType.tip) != tipError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tipError.message),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    });
+
+    // Initial fetch loading state
+    if (opState.isLoading(ProfileOperationType.fetch) && opState.cachedProfile == null) {
+      return const ProfileSkeletonScreen();
+    }
+
+    // Initial fetch error state
+    final fetchError = opState.errorFor(ProfileOperationType.fetch);
+    if (fetchError != null && opState.cachedProfile == null) {
+      return Scaffold(
+        backgroundColor: AppColors.surfaceCanvas,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: const VhunambiBackButton(color: Colors.white),
+        ),
+        body: ErrorBoundary(
+          message: fetchError.message,
+          onRetry: () => ref
+              .read(profileOperationProvider(artistId).notifier)
+              .fetchProfile(),
+        ),
+      );
+    }
+
+    final isMutating = opState.isLoading(ProfileOperationType.follow) ||
+        opState.isLoading(ProfileOperationType.tip);
+    final mutationMessage = opState.isLoading(ProfileOperationType.follow)
+        ? 'Updating follow status...'
+        : 'Processing tip...';
 
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: const VhunambiBackButton(color: Colors.white),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.music_note_rounded,
-              color: AppColors.brandPrimary,
-              size: 20,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'VHUNAMBI',
-              style: AppTypography.titleMedium.copyWith(
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
+        backgroundColor: AppColors.surfaceCanvas,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: const VhunambiBackButton(color: Colors.white),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.music_note_rounded,
+                color: AppColors.brandPrimary,
+                size: 20,
               ),
+              const SizedBox(width: 6),
+              Text(
+                'VHUNAMBI',
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.share_rounded, color: Colors.white),
+              onPressed: () {
+                final url = 'https://vhunambi.com/profile/${profile.username}';
+                Clipboard.setData(ClipboardData(text: url));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profile link copied! 🔗')),
+                );
+              },
             ),
           ],
         ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share_rounded, color: Colors.white),
-            onPressed: () {
-              final url = 'https://vhunambi.com/profile/${profile.username}';
-              Clipboard.setData(ClipboardData(text: url));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profile link copied! 🔗')),
-              );
-            },
-          ),
-        ],
-      ),
-        body: NestedScrollView(
-          headerSliverBuilder: (context, _) => [
-            SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  ProfileBannerHeader(
-                    profile: profile,
-                    onToggleFollow: () => ref
-                        .read(artistProfileFamilyProvider(artistId).notifier)
-                        .toggleFollow(),
-                    onTipArtist: () =>
-                        _showTipDialog(context, ref, profile.displayName),
-                    onShare: () {
-                      Clipboard.setData(ClipboardData(
-                        text:
-                            'https://vhunambi.com/profile/${profile.username}',
-                      ));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Profile link copied! 🔗')),
-                      );
-                    },
-                    onReport: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Report submitted for review')),
-                      );
-                    },
+        body: LoadingOverlay(
+          isLoading: isMutating,
+          message: mutationMessage,
+          child: RefreshIndicator(
+            color: AppColors.brandPrimary,
+            backgroundColor: AppColors.surfaceModal,
+            onRefresh: () => ref
+                .read(profileOperationProvider(artistId).notifier)
+                .fetchProfile(),
+            child: NestedScrollView(
+              headerSliverBuilder: (context, _) => [
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      if (opState.isOffline)
+                        OfflineIndicator(
+                          cacheTimestamp: opState.cachedProfile?.timestamp,
+                          onRefresh: () => ref
+                              .read(profileOperationProvider(artistId).notifier)
+                              .fetchProfile(),
+                        ),
+                      ProfileBannerHeader(
+                        profile: profile,
+                        onToggleFollow: () => ref
+                            .read(profileOperationProvider(artistId).notifier)
+                            .toggleFollow(),
+                        onTipArtist: () =>
+                            _showTipDialog(context, ref, profile.displayName),
+                        onShare: () {
+                          Clipboard.setData(ClipboardData(
+                            text:
+                                'https://vhunambi.com/profile/${profile.username}',
+                          ));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Profile link copied! 🔗')),
+                          );
+                        },
+                        onReport: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Report submitted for review')),
+                          );
+                        },
+                      ),
+                      ProfileStatsGrid(profile: profile),
+                    ],
                   ),
-                  ProfileStatsGrid(profile: profile),
+                ),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _ProfileTabBarDelegate(
+                    const TabBar(
+                      labelColor: AppColors.brandPrimary,
+                      indicatorColor: AppColors.brandPrimary,
+                      unselectedLabelColor: AppColors.textSecondary,
+                      tabs: [
+                        Tab(icon: Icon(Icons.movie_filter_rounded), text: 'Clips'),
+                        Tab(icon: Icon(Icons.album_rounded), text: 'Music'),
+                        Tab(icon: Icon(Icons.storefront_rounded), text: 'Beats'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              body: TabBarView(
+                children: [
+                  _reelsGrid(context, ref, clips),
+                  _discographyTab(context, ref, profile),
+                  _beatsCommunityTab(
+                    context,
+                    ref,
+                    profile,
+                    () => _showTipDialog(context, ref, profile.displayName),
+                  ),
                 ],
               ),
             ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _ProfileTabBarDelegate(
-                const TabBar(
-                  labelColor: AppColors.brandPrimary,
-                  indicatorColor: AppColors.brandPrimary,
-                  unselectedLabelColor: AppColors.textSecondary,
-                  tabs: [
-                    Tab(icon: Icon(Icons.movie_filter_rounded), text: 'Clips'),
-                    Tab(icon: Icon(Icons.album_rounded), text: 'Music'),
-                    Tab(icon: Icon(Icons.storefront_rounded), text: 'Beats'),
-                  ],
-                ),
-              ),
-            ),
-          ],
-          body: TabBarView(
-            children: [
-              _reelsGrid(context, ref, clips),
-              _discographyTab(context, ref, profile),
-              _beatsCommunityTab(
-                context,
-                ref,
-                profile,
-                () => _showTipDialog(context, ref, profile.displayName),
-              ),
-            ],
           ),
         ),
       ),

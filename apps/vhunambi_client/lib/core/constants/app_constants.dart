@@ -15,6 +15,8 @@ abstract final class AppConstants {
   static const String playlistsBoxKey = 'vhunambi_playlists';
   static const String collectionsBoxKey = 'vhunambi_collections';
   static const String beatsBoxKey = 'vhunambi_beats';
+  static const String profileBoxKey = 'vhunambi_profiles';
+  static const String creatorDnaBoxKey = 'vhunambi_creator_dna';
 
   // Library & User Asset Vault (Blueprint 04)
   static const String vaultBoxKey = 'library_tracks';

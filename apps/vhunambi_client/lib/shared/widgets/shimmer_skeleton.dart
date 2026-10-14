@@ -58,7 +58,9 @@ class _ShimmerBoxState extends State<ShimmerBox>
       ),
     );
 
-    if (_opacity != null) {
+    final disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (_opacity != null && !disableAnimations) {
       return FadeTransition(
         opacity: _opacity!,
         child: box,

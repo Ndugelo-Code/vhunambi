@@ -4,6 +4,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../domain/models/profile_models.dart';
+import 'loading/async_image_with_fallback.dart';
 
 /// Ambient Cover Banner, Monogram Avatar & Artist Action Strip (REQ-TRK-12).
 class ProfileBannerHeader extends StatelessWidget {
@@ -81,7 +82,7 @@ class ProfileBannerHeader extends StatelessWidget {
               ),
             ),
 
-            // 2. 84px Monogram Avatar with 4px Cutout Border
+            // 2. 84px AsyncImageWithFallback Avatar with 4px Cutout Border
             Positioned(
               bottom: -42,
               left: isDesktop ? 32 : 16,
@@ -89,7 +90,6 @@ class ProfileBannerHeader extends StatelessWidget {
                 width: 84,
                 height: 84,
                 decoration: BoxDecoration(
-                  color: AppColors.brandPrimary,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: AppColors.surfaceCanvas,
@@ -103,16 +103,11 @@ class ProfileBannerHeader extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Center(
-                  child: Text(
-                    profile.monogram,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.brandContrast,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
+                child: AsyncImageWithFallback(
+                  imageUrl: profile.avatarUrl,
+                  monogram: profile.monogram,
+                  size: 76,
+                  borderRadius: BorderRadius.circular(38),
                 ),
               ),
             ),
@@ -198,75 +193,93 @@ class ProfileBannerHeader extends StatelessWidget {
                 runSpacing: 10,
                 children: [
                   // Follow / Following Button
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: profile.isFollowing
-                          ? AppColors.surfaceElevated
-                          : AppColors.brandPrimary,
-                      foregroundColor: profile.isFollowing
-                          ? Colors.white
-                          : AppColors.brandContrast,
-                      side: profile.isFollowing
-                          ? const BorderSide(color: AppColors.borderSubtle)
-                          : BorderSide.none,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.pillBorder,
+                  Semantics(
+                    label: profile.isFollowing
+                        ? 'Unfollow ${profile.displayName}'
+                        : 'Follow ${profile.displayName}',
+                    button: true,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: profile.isFollowing
+                            ? AppColors.surfaceElevated
+                            : AppColors.brandPrimary,
+                        foregroundColor: profile.isFollowing
+                            ? Colors.white
+                            : AppColors.brandContrast,
+                        side: profile.isFollowing
+                            ? const BorderSide(color: AppColors.borderSubtle)
+                            : BorderSide.none,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: AppRadius.pillBorder,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 12,
+                        ),
+                        elevation: 0,
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 22,
-                        vertical: 12,
+                      onPressed: onToggleFollow,
+                      child: Text(
+                        profile.isFollowing ? 'Following' : 'Follow',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      elevation: 0,
-                    ),
-                    onPressed: onToggleFollow,
-                    child: Text(
-                      profile.isFollowing ? 'Following' : 'Follow',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
 
                   // Tip Artist Button
                   if (profile.tipsEnabled)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.surfaceElevated,
-                        foregroundColor: AppColors.coinGold,
-                        side: BorderSide(color: AppColors.coinGold.withAlpha(90)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.pillBorder,
+                    Semantics(
+                      label: 'Tip ${profile.displayName} with credits',
+                      button: true,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.surfaceElevated,
+                          foregroundColor: AppColors.coinGold,
+                          side: BorderSide(color: AppColors.coinGold.withAlpha(90)),
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: AppRadius.pillBorder,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                          elevation: 0,
                         ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 12,
+                        onPressed: onTipArtist,
+                        icon: const Icon(Icons.monetization_on_rounded, size: 18),
+                        label: const Text(
+                          'Tip Artist',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        elevation: 0,
-                      ),
-                      onPressed: onTipArtist,
-                      icon: const Icon(Icons.monetization_on_rounded, size: 18),
-                      label: const Text(
-                        'Tip Artist',
-                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
 
                   // Share Button
-                  IconButton(
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.surfaceElevated,
-                      side: const BorderSide(color: AppColors.borderSubtle),
+                  Semantics(
+                    label: 'Share ${profile.displayName}\'s profile',
+                    button: true,
+                    child: IconButton(
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.surfaceElevated,
+                        side: const BorderSide(color: AppColors.borderSubtle),
+                      ),
+                      icon: const Icon(Icons.share_rounded, size: 18, color: Colors.white),
+                      onPressed: onShare,
                     ),
-                    icon: const Icon(Icons.share_rounded, size: 18, color: Colors.white),
-                    onPressed: onShare,
                   ),
 
                   // Report Button
-                  IconButton(
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.surfaceElevated,
-                      side: const BorderSide(color: AppColors.borderSubtle),
+                  Semantics(
+                    label: 'Report ${profile.displayName}\'s profile',
+                    button: true,
+                    child: IconButton(
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.surfaceElevated,
+                        side: const BorderSide(color: AppColors.borderSubtle),
+                      ),
+                      icon: const Icon(Icons.flag_outlined, size: 18, color: AppColors.textSecondary),
+                      onPressed: onReport,
                     ),
-                    icon: const Icon(Icons.flag_outlined, size: 18, color: AppColors.textSecondary),
-                    onPressed: onReport,
                   ),
                 ],
               ),

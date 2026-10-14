@@ -81,14 +81,17 @@ class ProfileStatsGrid extends StatelessWidget {
     required Color color,
     required double width,
   }) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+    return Semantics(
+      label: '$value $label',
+      readOnly: true,
+      child: Container(
+        width: width,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceElevated,
+          borderRadius: AppRadius.cardBorder,
+          border: Border.all(color: AppColors.borderSubtle),
+        ),
       child: Column(
         children: [
           Icon(icon, size: 20, color: color),
@@ -110,6 +113,7 @@ class ProfileStatsGrid extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 
