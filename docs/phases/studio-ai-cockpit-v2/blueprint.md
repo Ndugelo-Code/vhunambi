@@ -334,7 +334,63 @@ Each sample is a 3-second clip (from the Heritage Crate or bundled assets) that 
 
 ---
 
-## 9. Verification Gates
+## 9. Feature 6: Kinetic Physics, Haptic Choreography & Micro-Interactions ("The Sensory Playground")
+
+To elevate the Studio from a capable web-form into an irresistible, physical hardware-grade DAW & AI synthesizer, the cockpit incorporates a comprehensive **Kinetic Physics and Haptic Choreography System**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       STUDIO TACTILE SENSORY MATRIX                        │
+├──────────────────────┬────────────────────────┬─────────────────────────────┤
+│ Interaction          │ Physical Motion        │ Haptic Feedback             │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 🚀 Fire Generation   │ Button Scale 0.94      │ Heavy Impact (Thump)        │
+│                      │ Spring back with Back  │ Double Pulse on Queued      │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 🎛️ Deck Tab Switch   │ Sliding Pill Indicator │ Medium Impact (Crisp Click) │
+│                      │ 12px Parallax Fade     │                             │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 🎹 MPC / Sound Tap   │ Instant Depress        │ Heavy/Medium Impact         │
+│                      │ Glowing Pad Ripple     │                             │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 🎚️ Sliders & Dials   │ Floating Spring Value  │ Selection Click             │
+│                      │ Detent Snap Resistance │ (Every step tick)           │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 💡 AI Prompt Glow    │ Breathing Radial Aura  │ Light Impact on Complete    │
+│                      │ Gradient Shimmer       │                             │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 🏷️ Option Chips      │ Micro Bouncy Scale     │ Selection Click             │
+│                      │ (0.96 -> 1.0 Spring)   │                             │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 🔄 Session Restore   │ Banner Elastic Drop-in │ Medium Impact (Success)     │
+└──────────────────────┴────────────────────────┴─────────────────────────────┘
+```
+
+### 9.1 The `StudioHaptics` Engine
+A unified, resilient haptics dispatcher that wraps `HapticFeedback` with:
+- **Platform Safety**: Silent no-op on Web (`kIsWeb`) or unhandled platforms without throwing exceptions.
+- **Accessibility Respect**: Checks system reduced motion or vibration preferences (`MediaQuery.of(context).disableAnimations`).
+- **Semantic Methods**: `ignitionThump()`, `deckSwitch()`, `sliderTick()`, `chipSnap()`, `successPulse()`.
+
+### 9.2 `TactilePressable` (Elastic Micro-Interactions)
+A universal micro-interaction wrapper widget applied to all interactive controls:
+- **Physics**: Pointer down animates scale to `0.96` over 80ms (`Curves.easeInOut`). Pointer up/cancel springs back to `1.0` over 220ms using `Curves.easeOutBack` (slight playful overshoot).
+- **Audio-Tactile Coupling**: Automatically fires the configured `StudioHaptics` trigger on tap down.
+- **Zero Boilerplate**: Wraps any widget without interfering with layouts or hit test bounds.
+
+### 9.3 Fluid Deck Switcher & Tab Transitions
+Replaces the static tab switch with an **Elastic Tab Track**:
+- Active tab pill uses an animated sliding pill with spring easing (`Curves.easeOutCubic`, 240ms).
+- Content area features a smooth cross-fade with a subtle 8-12px horizontal directional slide.
+- Switching between `Compose`, `Voice`, and `Crate & MPC` feels like sliding between physical synthesizer decks.
+
+### 9.4 Dynamic Pulsing Aura & Kinetic Sliders
+- **Aura**: The `PromptInputBox` and `PromptIntelligenceOverlay` are encircled by a gentle animated gradient aura (`AppColors.brandPrimary.withOpacity(0.25)`) that breathes rhythmically (1.5s sine cycle) while AI refinement or audio generation is active.
+- **Kinetic Slider**: Sliders in `AdvancedOptionsAccordion` display a floating bubble indicator that springs above the thumb while dragged, emitting fine `selectionClick()` ticks at standard detents.
+
+---
+
+## 10. Verification Gates
 
 | Gate | Command | Pass Criteria |
 |---|---|---|
@@ -342,11 +398,12 @@ Each sample is a 3-second clip (from the Heritage Crate or bundled assets) that 
 | Studio provider tests | `flutter test test/features/studio/` | All pass |
 | New session tests | `flutter test test/features/studio/session/` | All pass |
 | Guided lyrics tests | `flutter test test/features/studio/lyrics/` | All pass |
-| Full regression | `flutter test` | ≥ 845 + new tests, 0 failures |
+| Tactile & haptics tests | `flutter test test/features/studio/tactile/` | All pass |
+| Full regression | `flutter test` | ≥ 935 + new tests, 0 failures |
 
 ---
 
-## 10. Design Constraints (Non-Negotiable)
+## 11. Design Constraints (Non-Negotiable)
 
 1. **Zero regressions** on all existing `studioFormProvider`, `lyricsReviewProvider`, `generationPipelineProvider` test suites
 2. **`IndexedStack` preserved** — 3-tab layout stays, new features slot into existing tabs
@@ -355,3 +412,5 @@ Each sample is a 3-second clip (from the Heritage Crate or bundled assets) that 
 5. **44×44px ergonomics** — all new option chips, guided composer controls, language switcher buttons
 6. **No token violations** — zero raw hex, all colors from `AppColors`, all type from `AppTypography`
 7. **DNA integration is read-only** — studio reads from `creatorDnaProvider` for pre-fill, never writes back directly (DNA writes happen via behavior events only)
+8. **Platform-safe haptics** — all haptic invocations must degrade gracefully on Web and unsupported platforms with zero exceptions
+

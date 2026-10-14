@@ -912,3 +912,381 @@ const Map<String, Map<String, List<AtmosphereDescriptor>>> kGenreAtmosphereLibra
   // Maskandi, Afrobeats, Kwaito, Gospel, R&B, Hip Hop — all 18 genres
 };
 ```
+
+---
+
+## 7. Kinetic Physics & Haptic Architecture
+
+### 7.1 `StudioHaptics` Service
+
+**File:** `lib/features/studio/presentation/utils/studio_haptics.dart`
+
+```dart
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
+/// Centralized, platform-safe haptic dispatcher for Studio micro-interactions.
+///
+/// Automatically no-ops on Web and unsupported platforms to prevent crashes.
+class StudioHaptics {
+  StudioHaptics._();
+
+  static bool _enabled = true;
+
+  /// Globally toggle haptics (e.g., from settings or reduced motion preferences).
+  static void setEnabled(bool enabled) => _enabled = enabled;
+
+  /// Heavy impact: Triggered when firing generative models, stem splitting, or MPC slicing.
+  static void ignitionThump() {
+    if (!_enabled || kIsWeb) return;
+    try {
+      HapticFeedback.heavyImpact();
+    } catch (_) {}
+  }
+
+  /// Medium crisp impact: Triggered on deck/tab changes, accordion toggles, or stanza additions.
+  static void deckSwitch() {
+    if (!_enabled || kIsWeb) return;
+    try {
+      HapticFeedback.mediumImpact();
+    } catch (_) {}
+  }
+
+  /// Light crisp impact: Triggered on option chip selection, language toggle, or card tap.
+  static void chipSnap() {
+    if (!_enabled || kIsWeb) return;
+    try {
+      HapticFeedback.lightImpact();
+    } catch (_) {}
+  }
+
+  /// Selection click: Triggered on slider scrubbing, detent snaps, and fine value increments.
+  static void sliderTick() {
+    if (!_enabled || kIsWeb) return;
+    try {
+      HapticFeedback.selectionClick();
+    } catch (_) {}
+  }
+
+  /// Success pulse: Triggered on ghost session restore or prompt auto-refinement.
+  static void successPulse() {
+    if (!_enabled || kIsWeb) return;
+    try {
+      HapticFeedback.mediumImpact();
+      Future.delayed(const Duration(milliseconds: 100), () {
+        try {
+          HapticFeedback.lightImpact();
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
+}
+```
+
+### 7.2 `TactilePressable` Widget
+
+**File:** `lib/features/studio/presentation/widgets/tactile_pressable.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import '../utils/studio_haptics.dart';
+
+enum TactileHapticType { none, light, medium, heavy, selection }
+
+/// Drop-in micro-interaction wrapper providing spring-down scale and haptic feedback.
+class TactilePressable extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final TactileHapticType hapticType;
+  final double pressedScale;
+  final Duration pressDuration;
+  final Duration releaseDuration;
+
+  const TactilePressable({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.onLongPress,
+    this.hapticType = TactileHapticType.light,
+    this.pressedScale = 0.96,
+    this.pressDuration = const Duration(milliseconds: 80),
+    this.releaseDuration = const Duration(milliseconds: 220),
+  });
+
+  @override
+  State<TactilePressable> createState() => _TactilePressableState();
+}
+
+class _TactilePressableState extends State<TactilePressable>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: widget.pressDuration,
+      reverseDuration: widget.releaseDuration,
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: widget.pressedScale,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+        reverseCurve: Curves.easeOutBack,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _triggerHaptic() {
+    switch (widget.hapticType) {
+      case TactileHapticType.light:
+        StudioHaptics.chipSnap();
+        break;
+      case TactileHapticType.medium:
+        StudioHaptics.deckSwitch();
+        break;
+      case TactileHapticType.heavy:
+        StudioHaptics.ignitionThump();
+        break;
+      case TactileHapticType.selection:
+        StudioHaptics.sliderTick();
+        break;
+      case TactileHapticType.none:
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final disableAnimations = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+
+    if (disableAnimations) {
+      return GestureDetector(
+        onTap: () {
+          _triggerHaptic();
+          widget.onTap?.call();
+        },
+        onLongPress: widget.onLongPress,
+        behavior: HitTestBehavior.opaque,
+        child: widget.child,
+      );
+    }
+
+    return GestureDetector(
+      onTapDown: (_) {
+        _triggerHaptic();
+        _controller.forward();
+      },
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      behavior: HitTestBehavior.opaque,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: widget.child,
+      ),
+    );
+  }
+}
+```
+
+### 7.3 `FluidDeckSwitcher` (Elastic Tab Bar)
+
+**File:** `lib/features/studio/presentation/widgets/fluid_deck_switcher.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_radius.dart';
+import '../../../../core/constants/app_typography.dart';
+import '../utils/studio_haptics.dart';
+
+/// Kinetic tab navigation with sliding pill and tactile feedback.
+class FluidDeckSwitcher extends StatelessWidget {
+  final int activeIndex;
+  final List<String> tabLabels;
+  final ValueChanged<int> onTabSelected;
+
+  const FluidDeckSwitcher({
+    super.key,
+    required this.activeIndex,
+    required this.tabLabels,
+    required this.onTabSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: AppRadius.pillBorder,
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tabWidth = (constraints.maxWidth - 8) / tabLabels.length;
+          return Stack(
+            children: [
+              // Sliding active pill
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                left: activeIndex * tabWidth,
+                top: 0,
+                bottom: 0,
+                width: tabWidth,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.brandPrimary,
+                    borderRadius: AppRadius.pillBorder,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.brandPrimary.withOpacity(0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Tab labels
+              Row(
+                children: List.generate(tabLabels.length, (index) {
+                  final isSelected = index == activeIndex;
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        if (index != activeIndex) {
+                          StudioHaptics.deckSwitch();
+                          onTabSelected(index);
+                        }
+                      },
+                      child: Center(
+                        child: AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 180),
+                          style: AppTypography.labelLarge.copyWith(
+                            color: isSelected
+                                ? AppColors.brandContrast
+                                : AppColors.textSecondary,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                          child: Text(
+                            tabLabels[index],
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+### 7.4 `PulsingAuraContainer`
+
+**File:** `lib/features/studio/presentation/widgets/pulsing_aura_container.dart`
+
+```dart
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
+
+/// Animated container with breathing glow aura for AI refinement or generation.
+class PulsingAuraContainer extends StatefulWidget {
+  final Widget child;
+  final bool isPulsing;
+  final BorderRadius borderRadius;
+
+  const PulsingAuraContainer({
+    super.key,
+    required this.child,
+    this.isPulsing = false,
+    this.borderRadius = const BorderRadius.all(Radius.circular(16)),
+  });
+
+  @override
+  State<PulsingAuraContainer> createState() => _PulsingAuraContainerState();
+}
+
+class _PulsingAuraContainerState extends State<PulsingAuraContainer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    if (widget.isPulsing) _controller.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(PulsingAuraContainer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isPulsing && !oldWidget.isPulsing) {
+      _controller.repeat(reverse: true);
+    } else if (!widget.isPulsing && oldWidget.isPulsing) {
+      _controller.stop();
+      _controller.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.isPulsing) return widget.child;
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final glowOpacity = 0.15 + 0.25 * math.sin(_controller.value * math.pi);
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: widget.borderRadius,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.brandPrimary.withOpacity(glowOpacity),
+                blurRadius: 16 + 8 * _controller.value,
+                spreadRadius: 2 + 2 * _controller.value,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+```
+

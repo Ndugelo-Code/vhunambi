@@ -246,7 +246,41 @@ The `GenreAtmosphereSampleDeck` SHALL be collapsed by default (showing only the 
 
 ---
 
-## Part 7: Non-Functional Requirements
+## Part 8: Kinetic Fluidity, Haptic Choreography & Micro-Interactions Requirements
+
+### REQ-KIN-01 — Platform-Safe Haptic Engine (`StudioHaptics`)
+The system SHALL provide a centralized `StudioHaptics` service that invokes `HapticFeedback` methods based on semantic interaction categories:
+- `ignitionThump()`: Heavy impact (`HapticFeedback.heavyImpact()`) when initiating audio generation, stem bouncing, or MPC slicing.
+- `deckSwitch()`: Medium crisp impact (`HapticFeedback.mediumImpact()`) on tab changes between Compose, Voice, and Crate & MPC.
+- `chipSnap()` / `optionSelect()`: Light crisp impact (`HapticFeedback.lightImpact()`) on option chip selection, stanza addition, or language change.
+- `sliderTick()`: Selection click (`HapticFeedback.selectionClick()`) on BPM, tempo, or slider detent adjustments.
+- `successPulse()`: Double-tick or success notification on ghost session recovery.
+All methods SHALL check `!kIsWeb` and catch any `PlatformException` or `MissingPluginException` silently to ensure zero crashes in headless tests, web browsers, or unsupported desktop environments.
+
+### REQ-KIN-02 — Elastic Micro-Interactions (`TactilePressable`)
+The system SHALL provide a universal `TactilePressable` widget wrapper that animates child scale to `0.96` over 80ms (`Curves.easeInOut`) upon pointer down, and springs back to `1.0` over 220ms (`Curves.easeOutBack`) upon pointer up or cancel. The widget SHALL automatically trigger the designated `StudioHaptics` call on tap.
+
+### REQ-KIN-03 — Fluid Deck / Tab Transitions
+WHEN switching tabs in `StudioView` (Compose, Voice, Crate & MPC), the tab navigation rail SHALL render a sliding active pill indicator that translates horizontally with `Curves.easeOutCubic` over 240ms. The content switch SHALL execute a smooth cross-fade with a subtle 10px directional slide.
+
+### REQ-KIN-04 — Dynamic Breathing Aura
+The `PromptInputBox` and `PromptIntelligenceOverlay` SHALL be enveloped by an animated breathing gradient aura (`AppColors.brandPrimary.withOpacity(0.25)`) that pulses in luminosity using an oscillating sine curve (1.5s period) whenever prompt enhancement is active or audio generation is in progress.
+
+### REQ-KIN-05 — Kinetic Accordion Expansion
+WHEN expanding or collapsing `AdvancedOptionsAccordion` or `GenreAtmosphereSampleDeck`, the chevron indicator SHALL smoothly rotate 180 degrees using `AnimatedRotation(turns: isExpanded ? 0.5 : 0.0, duration: Duration(milliseconds: 240), curve: Curves.easeOutCubic)`. Content expansion SHALL use `AnimatedSize` with `Curves.easeOutCubic`.
+
+### REQ-KIN-06 — Kinetic Sliders with Floating Badges
+All sliders for acoustic parameters (tempo, duration, volume) SHALL render a floating value pill badge above the slider thumb that springs into view (`scale: 0.0` → `1.0` with `Curves.easeOutBack`) during active drag and emits `HapticFeedback.selectionClick()` on every discrete step change.
+
+### REQ-KIN-07 — Bouncing Rails & Magnetic Snapping
+All horizontal scrolling lists (`GenreAtmosphereSampleDeck`, option preview chips, atmosphere suggestions) SHALL use `BouncingScrollPhysics()` with subtle magnetic centering when a card is tapped.
+
+### REQ-KIN-08 — Reduced Motion & Accessibility Safeguard
+WHEN `MediaQuery.of(context).disableAnimations == true`, all spring physics and breathing aura animations SHALL be disabled, falling back to instantaneous state transitions and static border styling.
+
+---
+
+## Part 9: Non-Functional Requirements
 
 ### REQ-NFR-01 — Debounce Safety
 All debounced auto-saves SHALL be implemented with a `Timer` that is cancelled on `dispose()` to prevent setState-after-dispose crashes.
@@ -258,7 +292,7 @@ All debounced auto-saves SHALL be implemented with a `Timer` that is cancelled o
 `OptionPreviewCard` overlays built with `OverlayEntry` SHALL always call `overlay.remove()` in the animation completion callback AND `dispose()`. Widget tests SHALL verify the overlay is removed after `[Got It]` is tapped.
 
 ### REQ-NFR-04 — Zero Regression Gate
-All 845+ existing tests SHALL remain green. No changes to `StudioFormState`'s `const StudioFormState()` constructor default values are allowed — new fields must have backward-compatible defaults.
+All 911+ existing tests SHALL remain green. No changes to `StudioFormState`'s `const StudioFormState()` constructor default values are allowed — new fields must have backward-compatible defaults.
 
 ### REQ-NFR-05 — Token Compliance
 All new widgets SHALL use only `AppColors.*`, `AppTypography.*`, `AppRadius.*`, and `AppSpacing.*` tokens. The `GenreAtmosphereSampleDeck` and `GuidedLyricsComposer` SHALL use `AppColors.surfaceElevated` as card background and `AppColors.borderSubtle` as card border — matching the existing `RegionalGenreSelector` visual language.
@@ -281,3 +315,6 @@ All new widgets SHALL use only `AppColors.*`, `AppTypography.*`, `AppRadius.*`, 
 | REQ-GLC-07 | `lyrics_review_modal.dart` | existing + extend | Widget |
 | REQ-BLS-04 | `bantu_translation_service.dart` | `bantu_translation_service_test.dart` | Unit |
 | REQ-SMP-01 | `genre_atmosphere_sample_deck.dart` | `genre_atmosphere_sample_deck_test.dart` | Widget |
+| REQ-KIN-01 | `studio_haptics.dart` | `studio_haptics_test.dart` | Unit |
+| REQ-KIN-02 | `tactile_pressable.dart` | `tactile_pressable_test.dart` | Widget |
+

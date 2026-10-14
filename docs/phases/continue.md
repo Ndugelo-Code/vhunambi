@@ -108,6 +108,7 @@ MANDATORY RULES:
 3. PROMPT INTELLIGENCE: Pure Dart `StudioPromptIntelligence` service that uses DNA signals to refine prompts.
 4. PRESERVE 3-TAB STUDIO: Preserve `Compose`, `Voice`, and `Crate & MPC` tabs in `StudioView`.
 5. 44×44px HIT BOUNDS & ZERO RAW HEX: Follow `AppColors` and WCAG AA hit bounds.
+6. KINETIC FLUIDITY & HAPTICS: Implement `StudioHaptics` and `TactilePressable` for physical hardware-grade bounce, tab transitions, and haptic clicks.
 
 VERIFICATION COMMANDS:
 cd apps/vhunambi_client
@@ -115,3 +116,4 @@ flutter analyze
 flutter test test/features/studio/
 flutter test
 ```
+

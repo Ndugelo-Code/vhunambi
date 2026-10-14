@@ -23,6 +23,7 @@ Phase 4 ("The Crown Jewel") elevates the music creation workbench in `StudioView
 3. **Blind Option Selection** ➔ **Option Preview System**: Standardized text and audio micro-previews (`OptionPreviewDescriptor`) anchored to complex acoustic settings (tempo brackets, vocal modes, audio stems).
 4. **Unguided Custom Lyrics** ➔ **Guided Lyrics Composer**: Sequential section-by-section authoring scaffold (Intro, Verse 1, Chorus, Verse 2, Bridge, Outro) with genre-aware stanza suggestions.
 5. **Locked Language** ➔ **Bantu Lyrics Language Switcher**: 1-tap translation between African languages (isiZulu, Tshivenḓa, Sesotho, Xhosa, Swahili, Shona) while preserving rhyming structure.
+6. **Static UI Inertia** ➔ **Kinetic Fluidity & Haptic Choreography**: Elastic spring micro-interactions (`TactilePressable`), platform-safe haptic dispatcher (`StudioHaptics`), fluid deck switcher (`FluidDeckSwitcher`), and breathing generative glow (`PulsingAuraContainer`). The Studio feels like a physical, tactile African groovebox!
 
 ---
 
@@ -57,9 +58,10 @@ Phase 4 relies directly on the architectural assets completed in Phase 1, Phase 
    }
    ```
    If Hive is not initialized, seamlessly fall back to an in-memory draft so tests never crash.
-4. **Design Tokens Only:** Zero raw hex values. Always map colors through `AppColors.*` (`surfaceCanvas`, `surfaceElevated`, `brandPrimary`, `accentGold`, `textPrimary`, etc.).
-5. **Ergonomic 44×44px Touch Targets:** Every chip, button, slider thumb, and modal trigger must satisfy the 44×44px minimum hit bounds.
-6. **Zero Regressions:** All baseline tests (≥ 935) must stay 100% green.
+4. **Platform-Safe Haptics:** Centralize all haptic calls in `StudioHaptics`. Check `!kIsWeb` and catch all platform exceptions silently. Respect `MediaQuery.of(context).disableAnimations`.
+5. **Design Tokens Only:** Zero raw hex values. Always map colors through `AppColors.*` (`surfaceCanvas`, `surfaceElevated`, `brandPrimary`, `accentGold`, `textPrimary`, etc.).
+6. **Ergonomic 44×44px Touch Targets:** Every chip, button, slider thumb, and modal trigger must satisfy the 44×44px minimum hit bounds.
+7. **Zero Regressions:** All baseline tests (≥ 935) must stay 100% green.
 
 ---
 
@@ -125,6 +127,17 @@ Phase 4 relies directly on the architectural assets completed in Phase 1, Phase 
   );
   ```
 
+### Track F: Kinetic Fluidity & Haptic Choreography ("The Sensory Playground")
+1. **`lib/features/studio/presentation/utils/studio_haptics.dart`** (new):
+   - Platform-safe methods: `ignitionThump()`, `deckSwitch()`, `chipSnap()`, `sliderTick()`, `successPulse()`.
+2. **`lib/features/studio/presentation/widgets/tactile_pressable.dart`** (new):
+   - Micro-interaction wrapper: scale down to `0.96` on touch down, spring back to `1.0` with `Curves.easeOutBack`.
+   - Fires haptic trigger on tap. Wraps Generate button, sample cards, and option chips.
+3. **`lib/features/studio/presentation/widgets/fluid_deck_switcher.dart`** (new):
+   - Sliding pill tab indicator (`Curves.easeOutCubic`, 240ms) with `StudioHaptics.deckSwitch()`.
+4. **`lib/features/studio/presentation/widgets/pulsing_aura_container.dart`** (new):
+   - Animated breathing gradient glow (`AppColors.brandPrimary`) around prompt box during AI enhancement and generation.
+
 ---
 
 ## 5. Verification Commands
@@ -138,3 +151,4 @@ flutter test
 
 - `flutter analyze` MUST return: **No issues found!**
 - `flutter test` MUST report: **≥ 970 tests passed (0 failures, 0 regressions)**.
+

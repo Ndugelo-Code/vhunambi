@@ -286,13 +286,58 @@ git status                   # Must report: clean working tree
 
 ---
 
-## Track H: Final Verification
+## Track H: Kinetic Fluidity, Haptic Choreography & Micro-Interactions
+
+- [ ] **T8.1** — Create `StudioHaptics` utility *(new)*
+  - File: `lib/features/studio/presentation/utils/studio_haptics.dart`
+  - Implement: `ignitionThump()`, `deckSwitch()`, `chipSnap()`, `sliderTick()`, `successPulse()`, `setEnabled(bool)`
+  - Catch all exceptions, check `!kIsWeb`
+  - _Requirements: REQ-KIN-01_
+
+- [ ] **T8.2** — Create `TactilePressable` widget *(new)*
+  - File: `lib/features/studio/presentation/widgets/tactile_pressable.dart`
+  - Spring-down to `0.96` (`Curves.easeInOut`), spring-back to `1.0` (`Curves.easeOutBack`)
+  - Automated haptic trigger on tap down
+  - Fallback to instant tap when `MediaQuery.disableAnimations` is true
+  - _Requirements: REQ-KIN-02, REQ-KIN-08_
+
+- [ ] **T8.3** — Create `FluidDeckSwitcher` widget *(new)*
+  - File: `lib/features/studio/presentation/widgets/fluid_deck_switcher.dart`
+  - Kinetic sliding pill indicator with `Curves.easeOutCubic` (240ms)
+  - Calls `StudioHaptics.deckSwitch()` on tab select
+  - _Requirements: REQ-KIN-03_
+
+- [ ] **T8.4** — Create `PulsingAuraContainer` widget *(new)*
+  - File: `lib/features/studio/presentation/widgets/pulsing_aura_container.dart`
+  - Sine-oscillating gradient glow (`AppColors.brandPrimary.withOpacity(...)`)
+  - Active when `isPulsing == true`, stops cleanly on dispose
+  - _Requirements: REQ-KIN-04_
+
+- [ ] **T8.5** — Wire Tactile micro-interactions into Studio widgets *(modify)*
+  - `StudioActionBar`: Wrap Generate button in `TactilePressable(hapticType: TactileHapticType.heavy)`
+  - `OptionPreviewChip`: Wrap in `TactilePressable(hapticType: TactileHapticType.light)`
+  - `GenreAtmosphereSampleDeck`: Wrap sample cards and header in `TactilePressable`
+  - `StudioSessionRecoveryBanner`: Wrap Restore button in `TactilePressable`
+  - _Requirements: REQ-KIN-02, REQ-KIN-05_
+
+- [ ] **T8.6** — Unit & Widget tests for Kinetic suite *(new)*
+  - File: `test/features/studio/presentation/widgets/tactile_pressable_test.dart`
+  - Test: Scale animation reaches 0.96 on pointer down and 1.0 on pointer up
+  - Test: Tapping triggers callback and doesn't crash on web or headless VM
+  - Test: When `disableAnimations == true`, renders standard GestureDetector without ScaleTransition
+  - File: `test/features/studio/presentation/utils/studio_haptics_test.dart`
+  - Test: Calling all haptic methods executes cleanly without throwing in headless test runner
+  - _Requirements: REQ-KIN-01, REQ-KIN-02, REQ-KIN-08_
+
+---
+
+## Track I: Final Verification
 
 ```powershell
 cd apps/vhunambi_client
 
 # Gate 1: Static analysis (must be 0 issues)
-dart analyze lib test
+flutter analyze
 
 # Gate 2: New domain model tests
 flutter test test/features/studio/domain/
@@ -301,15 +346,16 @@ flutter test test/features/studio/domain/
 flutter test test/features/studio/data/
 flutter test test/features/studio/presentation/providers/studio_session_provider_test.dart
 
-# Gate 4: Widget tests
-flutter test test/features/studio/presentation/widgets/
+# Gate 4: Kinetic & haptics suite
+flutter test test/features/studio/presentation/widgets/tactile_pressable_test.dart
+flutter test test/features/studio/presentation/utils/studio_haptics_test.dart
 
 # Gate 5: Existing studio suite (zero regressions)
 flutter test test/features/studio/
 
 # Gate 6: Full regression suite
 flutter test
-# ✅ Must report: ≥ 882 tests passed, 0 failures, 0 errors
+# ✅ Must report: ≥ 970 tests passed, 0 failures, 0 errors
 ```
 
 ---
@@ -325,3 +371,5 @@ flutter test
 | `IndexedStack` viewport culling | Adding `GenreAtmosphereSampleDeck` to Compose tab may push content below test viewport | Use `skipOffstage: false` in test finders for elements in non-visible stack pages. Sample deck accordion is collapsed by default, minimizing height impact. |
 | `GuidedLyricsComposer` timer leaks | 1500ms hint debounce timer not cancelled on modal close | `Timer` is stored in `State.dispose()` — always cancel on widget dispose. Test: pump widget → dispose → verify no pending timers. |
 | Session recovery banner scroll offset | Banner shifts `PromptInputBox` down; existing tests that `find.byKey(Key('prompt_input_box'))` and then `tap` may fail if the tap is off-screen | Session recovery state defaults to `none` in test ProviderContainers. No banner renders in existing tests. |
+| Haptic exceptions in CI / headless tests | Calling `HapticFeedback` in headless tests can throw `MissingPluginException` | `StudioHaptics` wraps all calls in `try/catch` and checks `!kIsWeb`. Safe in headless CI runners. |
+
