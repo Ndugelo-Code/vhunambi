@@ -1,128 +1,117 @@
 # 🏛️ Vhunambi Modernization · Master Phase Continuation & Handoff Record
 
-> **Status:** ✅ **100% Calibrated & Feasibility Cleared — Ready for Cline Execution**  
+> **Status:** ✅ **Phase 1 & Phase 2 COMPLETED & PUSHED TO REMOTE (Commit `5fd4388`) — Ready for Cline Execution of Phase 3 & 4**  
 > **Date:** October 2026  
 > **Lead Architect:** Antigravity (Chief Systems Architect)  
 > **Monorepo Root:** `c:\Users\Ndugelo\VHUNAMBI\monorepo`  
 > **Client Workspace:** `apps/vhunambi_client`  
-> **Baseline Health:** `dart analyze lib test` = **0 issues** | `flutter test` = **100% passing (813+ tests)**  
+> **Baseline Health:** `flutter analyze` = **0 issues** | `flutter test` = **100% passing (911/911 tests)**  
 > **Governing Standards:**
+> - [SYNTHESIS_AND_SEQUENCE.md](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/SYNTHESIS_AND_SEQUENCE.md) (The 4-System Master Sequence)
 > - [VHUNAMBI_AGENT_WORKFLOW_STANDARD.md](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md) (Dual-Agent Symbiosis Protocol)
 > - [AGENT_HANDOFF_BIBLE.md](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/AGENT_HANDOFF_BIBLE.md) (Master State & Non-Negotiable Invariants)
-> - [VHUNAMBI_MODERNIZATION_CHRONICLE.md](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/VHUNAMBI_MODERNIZATION_CHRONICLE.md) (Systems M1–M6 Complete)
 
 ---
 
-## 1. Executive Summary: Calibration Completed
+## 1. Executive Summary & Current Milestone
 
-The specifications for the next two major modernization systems have been **fully aligned, sanitized, and certified** against the Vhunambi Codebase Architecture:
+The Vhunambi client modernization has completed **Phase 1** and **Phase 2** with 100% architectural fidelity, verified against a 911-test zero-regression gate, and successfully pushed to `origin/main`:
 
-1. **System M7: Notifications Modernization** ([docs/phases/notifications-modernization/](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/notifications-modernization/))
-   - Category-driven, accessible notifications center with offline persistence, swipe gestures, and top-bar/popover coexistence.
-2. **System M8: Profile UX Enhancement** ([docs/phases/profile-ux-enhancement/](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/profile-ux-enhancement/))
-   - Resilient creator profile cockpit with companion async operation state, skeleton loading screens, and 44×44px WCAG 2.1 AA touch ergonomics.
-
-**Feasibility Rating:** Upgraded from **70% Ready** to **100% Ready (Zero Architectural Traps Remaining)**.
-
----
-
-## 2. Architectural Traps Resolved & Verified
-
-All **6 critical architectural traps** previously identified in the draft documentation have been resolved across both 4-document specification suites:
-
-| # | Trap Identified in Drafts | Architectural Violation | Implemented Resolution & Standard |
-| :--- | :--- | :--- | :--- |
-| **1** | **`build_runner` / `@HiveType` Codegen** | Proposed running code generation and adding generator dependencies, violating Vhunambi's zero-codegen policy. | **Replaced with hand-rolled JSON serialization** (`toJson` / `fromJson`) and untyped Hive box (`AppConstants.notificationsBoxKey`) with automatic in-memory fallback for headless test safety. |
-| **2** | **6-Tab Bottom Navigation Collision** | Proposed adding a 6th bottom nav tab, breaking mobile ergonomics and tab navigation test pins. | **Strictly preserved canonical 5-Tab RootShell** (`0: Home`, `1: Explore`, `2: Create`, `3: Library`, `4: Market`). `NotificationsView` is routed via `NotificationBellButton` or `"View All Alerts ➔"` in `NotificationsPopover`. |
-| **3** | **Deprecating `NotificationsPopover`** | Proposed removing `NotificationsPopover`, which would break 8+ passing tests in `notifications_popover_test.dart` and `notification_bell_button_test.dart`. | **Preserved dual-surface coexistence**: `NotificationsPopover` handles quick contextual previews; `NotificationsView` provides the full-screen management center. |
-| **4** | **`ArtistProfileNotifier` Provider Wrapper** | Proposed wrapping state with a breaking `ProfileState`, which would break 10+ profile widgets and `profile_notifier_test.dart`. | **Preserved `ArtistProfileEntity` return type** on `artistProfileFamilyProvider` and `ownerProfileProvider`. Async operations and error boundaries are managed via companion provider `profileOperationProvider` (`ProfileOperationState`). |
-| **5** | **Reinventing Shimmer Skeletons** | Proposed hardcoded `#141418` containers and ad-hoc animation controllers. | **Composed existing token-disciplined shimmer engine** (`ShimmerBox` and `TrackTileSkeleton` from `lib/shared/widgets/shimmer_skeleton.dart`) with zero unmanaged animation timers. |
-| **6** | **Missing `blueprint.md` Specifications** | Both phase folders lacked the mandatory structural blueprint required by the 4-Document Standard. | **Authored complete `blueprint.md` documents** for both phases, complete with ASCII wireframes, system topology diagrams, safe-area metrics (`VhunambiTopBarMetrics`, `VhunambiBottomDockMetrics`), and state transition machines. |
+| Phase | System Codename | Subsystem | Status | Verified Test Count |
+|---|---|---|---|---|
+| **Phase 1** | `profile-ux-enhancement` (M7) | Resilient Creator Profile Cockpit, `profileOperationProvider`, Error Boundaries, Shimmer Skeletons, 44×44px hit bounds | ✅ **COMPLETE** | 877 / 877 tests |
+| **Phase 2** | `creator-dna-adaptive-intelligence` (M9) | 6-Slide Onboarding Seed, On-Device Taste Engine (`creatorDnaProvider`), Profile DNA Card, Adaptive Catalog Ranking | ✅ **COMPLETE** | 911 / 911 tests (+34 new tests) |
+| **Phase 3** | `notifications-modernization` (M8) | 4-Category Accessible Notifications Center, Offline Hive Persistence, DNA-Ranked Algorithmic Priority | 🟡 **READY FOR CLINE** | Target: ≥ 935 tests |
+| **Phase 4** | `studio-ai-cockpit-v2` (M10) | Ghost Session Recovery, Prompt Intelligence, Option Previews, Guided Bantu Lyrics, Bidirectional Telemetry | ⚪ **QUEUED FOR CLINE** | Target: ≥ 970 tests |
 
 ---
 
-## 3. Specification Suites Single Source of Truth
+## 2. Invariants & Guardrails Established in Phase 1 & 2
 
-Both phase directories now strictly comply with the **4-Document Specification Suite** mandate:
+Cline must preserve these foundational patterns established by Antigravity:
 
-### System M7: Notifications Modernization
-- 📐 [Blueprint](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/notifications-modernization/blueprint.md) — Architectural invariants, safe area metrics, component hierarchy, lifecycle state models.
-- 📋 [Requirements](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/notifications-modernization/requirements.md) — 43 traceable requirements with 44×44px touch targets and accessibility bindings.
-- 🛠️ [Design](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/notifications-modernization/design.md) — Concrete Dart models (`NotificationEntity`, `NotificationCategory`, etc.), Riverpod providers, and widget APIs.
-- 📝 [Tasks](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/notifications-modernization/tasks.md) — Sequenced implementation tracks (Data Layer, State Layer, UI Layer, Test Suite).
-
-### System M8: Profile UX Enhancement
-- 📐 [Blueprint](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/profile-ux-enhancement/blueprint.md) — Dual-route architecture (`/profile/:id` and `/profile/me`), layout geometry, companion provider pattern.
-- 📋 [Requirements](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/profile-ux-enhancement/requirements.md) — Resilient error handling, retry policies, shimmer loading states, and WCAG AA accessibility.
-- 🛠️ [Design](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/profile-ux-enhancement/design.md) — `OperationResult`, `NetworkErrorHandler`, `ProfileOperationNotifier`, and `ProfileSkeletonScreen`.
-- 📝 [Tasks](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/profile-ux-enhancement/tasks.md) — Granular tasks with zero breaking changes to existing `ArtistProfileEntity` consumers.
-
----
-
-## 4. Execution Roadmap & Next Steps
-
-Implementation can proceed immediately in either of two modes:
-
-### Mode A: Lead Architect Direct Execution (Antigravity)
-Begin foundational domain entity updates and repository implementations directly:
-1. Register `AppConstants.notificationsBoxKey` in `lib/core/constants/app_constants.dart`.
-2. Extend `NotificationEntity` in `lib/features/notifications/domain/entities/notification_entity.dart` with categories, types, priorities, and hand-rolled JSON serialization.
-3. Implement `NotificationRepository` with untyped Hive box and in-memory fallback.
-4. Build `NotificationsView` and wire navigation.
-
-### Mode B: Delegation to Cline (Dual-Agent Symbiosis)
-To delegate the high-volume implementation tracks to Cline, copy and paste the Master Handoff Prompts below:
+1. **`creatorDnaProvider` Intelligence**:
+   - Live in `lib/features/creator_dna/presentation/providers/creator_dna_provider.dart`.
+   - In Phase 3, Cline will use `creatorDna.topGenres` to rank algorithmic notifications.
+   - In Phase 4, Cline will wire `creatorDna.notifier.recordEvent(BehaviorEvent.generationSubmit(...))` to complete the feedback loop.
+2. **Safe Untyped Hive Pattern**:
+   - Zero `build_runner` or `@HiveType` codegen anywhere.
+   - Storage classes must use:
+     ```dart
+     if (!kIsWeb && Hive.isBoxOpen(boxKey)) {
+       _box = Hive.box(boxKey);
+     }
+     ```
+     With automatic in-memory fallback so headless VM unit tests run cleanly without Hive initialization errors.
+3. **Canonical 5-Tab RootShell**:
+   - Never add a 6th bottom nav tab. RootShell is strictly 5 tabs (`0: Home, 1: Explore, 2: Create, 3: Library, 4: Market`).
+4. **Token Discipline & Touch Ergonomics**:
+   - 100% design token discipline via `AppColors.*` and `AppTypography.*`.
+   - Universal 44×44px minimum interactive touch bounds.
 
 ---
 
-## 5. Master Handoff Prompts for Cline
+## 3. Authoritative Handoff Documents for Cline
 
-### 📬 Prompt for System M7 (Notifications Modernization)
+Cline should be directed directly to these two standalone handoff documents:
+
+1. **Phase 3 Master Handoff:**
+   - 📄 [CLINE_HANDOFF_PHASE_NOTIFICATIONS.md](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE_NOTIFICATIONS.md)
+   - Spec suite: `docs/phases/notifications-modernization/`
+2. **Phase 4 Master Handoff:**
+   - 📄 [CLINE_HANDOFF_PHASE_STUDIO_COCKPIT.md](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE_STUDIO_COCKPIT.md)
+   - Spec suite: `docs/phases/studio-ai-cockpit-v2/`
+
+---
+
+## 4. Master Prompts for Cline
+
+### 📬 Prompt 1: Phase 3 (Notifications Modernization)
 ```markdown
-You are the Implementation Specialist (Cline) pairing with the Chief Architect (Antigravity) on the Vhunambi Monorepo.
+You are the Implementation Specialist (Cline) pairing with the Chief Systems Architect (Antigravity) on the Vhunambi Monorepo.
 
-TASK: Execute System M7 (Notifications Modernization) per the calibrated 4-document specification suite in `docs/phases/notifications-modernization/`.
+TASK: Execute Phase 3 (Notifications Modernization — System M8) per the authoritative handoff guide:
+`docs/CLINE_HANDOFF_PHASE_NOTIFICATIONS.md`
 
-MANDATORY ARCHITECTURAL RULES:
-1. ZERO CODEGEN: Do NOT add `build_runner` or `@HiveType`. Use hand-rolled `toJson()` and `fromJson()` with an untyped Hive box (`Box? _box`) and automatic in-memory fallback using `AppConstants.notificationsBoxKey`.
-2. PRESERVE 5 TABS: Do NOT add a 6th bottom navigation tab to `RootShell`. `NotificationsView` is a dedicated route navigated to via `NotificationBellButton` or `"View All Alerts ➔"` in `NotificationsPopover`.
-3. PRESERVE `NotificationsPopover`: Existing tests in `test/features/notifications/presentation/widgets/notifications_popover_test.dart` and `notification_bell_button_test.dart` must pass with zero regressions.
-4. DESIGN TOKENS: Zero raw hex colors. All colors must resolve via `AppColors` tokens (`brandPrimary`, `accentElectric`, `accentGold`, `accentSuccess`, etc.).
-5. TOUCH ERGONOMICS: All interactive controls must have minimum 44×44px hit bounds.
+PRE-FLIGHT BASELINE:
+- Current workspace: `apps/vhunambi_client`
+- Baseline tests: 911 / 911 passing (100%)
+- Static analysis: 0 errors, 0 warnings
 
-SPECIFICATION DOCUMENTS:
-- `docs/phases/notifications-modernization/blueprint.md`
-- `docs/phases/notifications-modernization/requirements.md`
-- `docs/phases/notifications-modernization/design.md`
-- `docs/phases/notifications-modernization/tasks.md`
+MANDATORY RULES:
+1. ZERO CODEGEN: Do NOT run `build_runner` or use `@HiveType`. Use hand-rolled `toJson()`/`fromJson()` and untyped Hive box `AppConstants.notificationsBoxKey` with in-memory fallback.
+2. PRESERVE 5-TAB ROOTSHELL: Do NOT add a 6th bottom navigation tab.
+3. DUAL-SURFACE COEXISTENCE: Preserve `NotificationsPopover` in its entirety (existing tests in `notifications_popover_test.dart` and `notification_bell_button_test.dart` must pass). Add `"View All Alerts in Center ➔"` button pushing `NotificationsView`.
+4. WIRE CREATOR DNA: In `NotificationCategory.algorithmic`, use `ref.watch(creatorDnaProvider)` to rank alerts matching the user's top genres higher.
+5. 44×44px HIT BOUNDS: Ensure all filter chips, action pills, dismiss icons, and search clear buttons satisfy 44×44px touch ergonomics.
 
-STARTING COMMAND:
+VERIFICATION COMMANDS:
 cd apps/vhunambi_client
-dart analyze lib test
-flutter test test/features/notifications/...
+flutter analyze
+flutter test test/features/notifications/
+flutter test
 ```
 
-### 👤 Prompt for System M8 (Profile UX Enhancement)
+### 🎙️ Prompt 2: Phase 4 (Studio AI Cockpit v2)
 ```markdown
-You are the Implementation Specialist (Cline) pairing with the Chief Architect (Antigravity) on the Vhunambi Monorepo.
+You are the Implementation Specialist (Cline) pairing with the Chief Systems Architect (Antigravity) on the Vhunambi Monorepo.
 
-TASK: Execute System M8 (Profile UX Enhancement) per the calibrated 4-document specification suite in `docs/phases/profile-ux-enhancement/`.
+TASK: Execute Phase 4 (Studio AI Cockpit v2 — System M10) per the authoritative handoff guide:
+`docs/CLINE_HANDOFF_PHASE_STUDIO_COCKPIT.md`
 
-MANDATORY ARCHITECTURAL RULES:
-1. PRESERVE `ArtistProfileEntity` RETURN TYPE: `artistProfileFamilyProvider` and `ownerProfileProvider` MUST continue emitting `ArtistProfileEntity`. Do NOT wrap or change this return type. Manage async network states via the companion provider `profileOperationProvider` (`ProfileOperationState`).
-2. REUSE SHIMMER ENGINE: Compose `ShimmerBox` and `TrackTileSkeleton` from `lib/shared/widgets/shimmer_skeleton.dart`. NEVER hardcode `#141418` or ad-hoc animation loops.
-3. DESIGN TOKENS: Zero raw hex colors. Use `AppColors` tokens (`surfaceCanvas`, `surfaceElevated`, `brandPrimary`, `error`, etc.).
-4. TOUCH ERGONOMICS: Ensure 44×44px minimum hit targets on all action buttons, chips, and toggles.
-5. ZERO REGRESSIONS: All existing tests in `test/features/profile/presentation/providers/profile_notifier_test.dart` must continue to pass cleanly.
+PRE-FLIGHT BASELINE:
+- Post-Phase 3 baseline: ≥ 935 tests passing
 
-SPECIFICATION DOCUMENTS:
-- `docs/phases/profile-ux-enhancement/blueprint.md`
-- `docs/phases/profile-ux-enhancement/requirements.md`
-- `docs/phases/profile-ux-enhancement/design.md`
-- `docs/phases/profile-ux-enhancement/tasks.md`
+MANDATORY RULES:
+1. GHOST SESSION PERSISTENCE: Save studio form drafts in untyped Hive box `AppConstants.studioSessionBoxKey` with 800ms debounce and headless in-memory fallback.
+2. CLOSE THE TELEMETRY LOOP: When generation submits in `GenerationPipelineNotifier`, call `ref.read(creatorDnaProvider.notifier).recordEvent(BehaviorEvent.generationSubmit(...))`.
+3. PROMPT INTELLIGENCE: Pure Dart `StudioPromptIntelligence` service that uses DNA signals to refine prompts.
+4. PRESERVE 3-TAB STUDIO: Preserve `Compose`, `Voice`, and `Crate & MPC` tabs in `StudioView`.
+5. 44×44px HIT BOUNDS & ZERO RAW HEX: Follow `AppColors` and WCAG AA hit bounds.
 
-STARTING COMMAND:
+VERIFICATION COMMANDS:
 cd apps/vhunambi_client
-dart analyze lib test
-flutter test test/features/profile/...
+flutter analyze
+flutter test test/features/studio/
+flutter test
 ```
