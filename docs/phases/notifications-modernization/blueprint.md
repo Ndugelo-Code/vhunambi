@@ -199,8 +199,68 @@ class NotificationRepository implements INotificationRepository {
 
 ---
 
-## 8. Verification Gates
+## 8. Kinetic Physics, Haptic Choreography & Micro-Interactions ("The Sensory Station")
+
+To ensure the Notifications Center feels responsive, dynamic, and tactile rather than a static inbox list, the subsystem incorporates a dedicated **Kinetic Physics and Haptic Choreography System**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    NOTIFICATIONS TACTILE SENSORY MATRIX                    │
+├──────────────────────┬────────────────────────┬─────────────────────────────┤
+│ Interaction          │ Physical Motion        │ Haptic Feedback             │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 🔔 Bell Trigger Tap  │ 3-cycle Ring Wobble    │ Double Tick (Light Impact)  │
+│                      │ (±14° spring rotation) │                             │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 🗑️ Swipe to Dismiss  │ Card Elastic Slide     │ Medium Impact Snap          │
+│                      │ Trash Icon Scale 1.2   │ (On 80px dismiss threshold) │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 🏷️ Category Chip Tap │ Sliding Indicator Pill │ Selection Click             │
+│                      │ Badge Pop (1.0 -> 1.2) │ (Every tab switch)          │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ ✓ Mark All As Read   │ Unread Glowing Dots    │ Celebratory Dual Pulse      │
+│                      │ Smooth Fade Out (300ms)│ (Medium + Light Pulse)      │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 📥 Card Tap (Route)  │ Scale down to 0.98     │ Crisp Selection Click       │
+│                      │ Spring back with Back  │                             │
+├──────────────────────┼────────────────────────┼─────────────────────────────┤
+│ 🔍 Search Field Tap  │ Container Glow Expand  │ Light Tick on Focus         │
+│                      │ Clear '✕' Spring Pop   │                             │
+└──────────────────────┴────────────────────────┴─────────────────────────────┘
+```
+
+### 8.1 The `NotificationsHaptics` Engine
+Centralized, platform-safe haptic dispatcher:
+- **Platform Safety**: Silently no-ops on Web (`kIsWeb`) or unsupported desktop platforms without throwing exceptions.
+- **Accessibility Respect**: Automatically checks `MediaQuery.of(context).disableAnimations` and disables vibrations if requested by the user.
+- **Semantic Methods**:
+  - `bellRing()`: Light double impact on bell trigger.
+  - `dismissSnap()`: Medium crisp impact when swipe exceeds 80px dismiss threshold.
+  - `categorySwitch()`: Selection click on category chip change.
+  - `markAllReadPulse()`: Dual celebratory pulse when all alerts are cleared.
+  - `itemTap()`: Crisp click when opening a notification deep link.
+
+### 8.2 Elastic Swipe-to-Dismiss Architecture
+Implemented via `Dismissible` with tactile feedback:
+- Dragging horizontally reveals a red/brand delete background with an elastic trash icon that scales from `0.8` to `1.2` (`Curves.easeOutBack`) as the finger moves.
+- Crossing the 80px threshold fires `NotificationsHaptics.dismissSnap()`.
+- Upon release past threshold, the item animates closed using vertical collapse (`SizeTransition`, 220ms), with an instant SnackBar offering `[Undo]`.
+
+### 8.3 Fluid Category Rail (`NotificationCategoryRail`)
+- Categories (`All`, `Social (🟣)`, `Activity (⚡)`, `System (🟡)`, `Discovery (🟢)`) render on an animated track with a sliding indicator pill.
+- Unread count badges bounce (`scale: 1.0` -> `1.25` -> `1.0` with `Curves.easeOutBack`) whenever the unread count in that category increments or decrements.
+
+### 8.4 Wobbling Bell Trigger (`NotificationBellButton`)
+- Features an `AnimationController` driving a 3-cycle dampened sine rotation (`±14°` over 320ms).
+- Wobble triggers when:
+  1. The user taps the bell icon.
+  2. A new high-priority or urgent notification arrives via `notificationsProvider`.
+
+---
+
+## 9. Verification Gates
 
 1. `dart analyze apps/vhunambi_client` -> **0 issues**.
-2. `flutter test test/features/notifications/...` -> **100% passing (existing 35 tests + all new tests)**.
-3. Full monorepo regression gate: `flutter test` -> **813+ passing tests**.
+2. `flutter test test/features/notifications/...` -> **100% passing (all existing tests + new repository, view, widget, and kinetic tests)**.
+3. Full monorepo regression gate: `flutter test` -> **≥ 935 passing tests (zero regressions on 911 baseline)**.
+

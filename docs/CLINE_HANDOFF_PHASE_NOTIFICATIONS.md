@@ -27,6 +27,7 @@ Phase 3 transforms VHUNAMBI's notification subsystem from a simple 360px popup i
 3. **Dedicated View (`NotificationsView`)** — Full-screen responsive notifications center with search bar, category filter tabs, bulk mark-as-read, swipe-to-dismiss, and safe-area dock integration (`VhunambiTopBarMetrics` / `VhunambiBottomDockMetrics`).
 4. **Creator DNA Intelligence Integration** — Uses Phase 2's `creatorDnaProvider` to sort `NotificationCategory.algorithmic` alerts based on the user's top genres and sound signature.
 5. **Dual-Surface Coexistence** — Preserves `NotificationsPopover` in its entirety. Tapping `NotificationBellButton` continues to show the quick popover; clicking `"View All Alerts ➔"` navigates to `NotificationsView`. All existing tests in `notifications_popover_test.dart` and `notification_bell_button_test.dart` MUST continue to pass cleanly.
+6. **Kinetic Fluidity & Tactile Haptic Choreography ("The Sensory Station")** — Platform-safe `NotificationsHaptics`, elastic swipe-to-dismiss with 80px snap feedback, 3-cycle ringing wobble on `NotificationBellButton`, sliding category pill with bouncing unread count badges, and smooth fade-out of glowing unread dots on bulk mark read.
 
 ---
 
@@ -56,9 +57,10 @@ Before starting Phase 3, the Chief Architect completed and locked in Phase 1 & P
 1. **Canonical 5-Tab RootShell**: Do **NOT** add a 6th bottom navigation tab. `RootShell` in `lib/main.dart` strictly maintains its 5 canonical destinations (`0: Home`, `1: Explore`, `2: Create`, `3: Library`, `4: Market`). `NotificationsView` is pushed onto the navigator stack via `Navigator.of(context).push(...)`.
 2. **Zero Code Generation:** Never run `build_runner` or introduce `@HiveType` / `@HiveField`. Use clean Map-based JSON serialization.
 3. **Zero Raw Hex Colors:** Always resolve colors through `AppColors.*` (`surfaceCanvas`, `surfaceElevated`, `brandPrimary`, `accentElectric`, `accentGold`, `accentSuccess`, etc.).
-4. **Ergonomic 44×44px Touch Targets:** Every filter chip, action button, search clear icon, and dismiss target must satisfy `BoxConstraints(minHeight: 44, minWidth: 44)` or `EdgeInsets` giving 44×44px hit bounds per WCAG 2.1 AA.
-5. **Headless Test Safety:** In-memory fallback allows all widget and unit tests to pass in CI without Hive path initialization errors.
-6. **Zero Regressions:** All 911 baseline tests must stay green.
+4. **Platform-Safe Haptics:** Centralize all haptics in `NotificationsHaptics`. Check `!kIsWeb` and catch all exceptions silently. Respect `MediaQuery.of(context).disableAnimations`.
+5. **Ergonomic 44×44px Touch Targets:** Every filter chip, action button, search clear icon, and dismiss target must satisfy `BoxConstraints(minHeight: 44, minWidth: 44)` or `EdgeInsets` giving 44×44px hit bounds per WCAG 2.1 AA.
+6. **Headless Test Safety:** In-memory fallback allows all widget and unit tests to pass in CI without Hive path initialization errors.
+7. **Zero Regressions:** All 911 baseline tests must stay green.
 
 ---
 
@@ -96,16 +98,18 @@ Before starting Phase 3, the Chief Architect completed and locked in Phase 1 & P
 ### Step 4: UI Components
 1. **`lib/features/notifications/presentation/widgets/notification_category_rail.dart`** (new)
    - Horizontal scrolling chip row for `All`, `Social (🟣)`, `Activity (⚡)`, `System (🟡)`, `Discovery (🟢)`.
+   - Kinetic sliding indicator pill (`Curves.easeOutCubic`, 240ms) and bouncing count badge (`scale: 1.0` -> `1.25` -> `1.0`).
    - Each chip has `minHeight: 44`, unread badge count, and token styling.
 2. **`lib/features/notifications/presentation/widgets/notification_item_tile.dart`** (new)
    - Swipeable card using `Dismissible(key: Key('notif_tile_${notification.id}'))`.
-   - Category icon badge, timestamp, unread dot, action buttons (min 44px height), tap-to-open deep link.
+   - 80px drag threshold triggers `NotificationsHaptics.dismissSnap()` with scaling trash icon (`0.8` -> `1.2` with `Curves.easeOutBack`).
+   - Category icon badge, timestamp, unread dot with animated 300ms fade-out, action buttons (min 44px height), tap-to-open deep link.
 3. **`lib/features/notifications/presentation/widgets/notification_search_bar.dart`** (new)
-   - Text input with search icon, clear button (`minWidth: 44, minHeight: 44`), and token styling.
+   - Text input with search icon, animated container focus border glow (`AppColors.brandPrimary.withOpacity(0.35)`), clear button (`minWidth: 44, minHeight: 44`), and token styling.
 4. **`lib/features/notifications/presentation/widgets/notification_empty_state.dart`** (new)
    - Clean illustration/icon and message when no alerts match the active filter.
 5. **`lib/features/notifications/presentation/views/notifications_view.dart`** (new)
-   - Scaffold with top app bar ("Notifications"), "Mark all read" button, Category rail, Search bar, and `ListView.builder` of `NotificationItemTile`s.
+   - Scaffold with top app bar ("Notifications"), "Mark all read" button with `NotificationsHaptics.markAllReadPulse()`, Category rail, Search bar, and `ListView.builder` of `NotificationItemTile`s.
    - Respects `VhunambiTopBarMetrics` and `VhunambiBottomDockMetrics`.
 
 ### Step 5: Dual-Surface Coexistence CTA in `NotificationsPopover`
@@ -120,7 +124,13 @@ Before starting Phase 3, the Chief Architect completed and locked in Phase 1 & P
     );
     ```
 
-### Step 6: Tests to Write
+### Step 6: Kinetic Fluidity & Haptic Choreography ("The Sensory Station")
+1. **`lib/features/notifications/presentation/utils/notifications_haptics.dart`** (new):
+   - Platform-safe methods: `bellRing()`, `dismissSnap()`, `categorySwitch()`, `markAllReadPulse()`, `itemTap()`.
+2. **`lib/features/notifications/presentation/widgets/notification_bell_button.dart`** (modify):
+   - Enhance with `WobblingNotificationBell` (3-cycle dampened sine rotation `±14°` over 320ms on tap or high-priority arrival).
+
+### Step 7: Tests to Write
 1. `test/features/notifications/data/repositories/notification_repository_test.dart` (5+ tests)
    - Test JSON serialization round-trip.
    - Test in-memory fallback when Hive is closed.
@@ -130,12 +140,14 @@ Before starting Phase 3, the Chief Architect completed and locked in Phase 1 & P
    - Test 44×44px hit bounds on chips.
 3. `test/features/notifications/presentation/widgets/notification_item_tile_test.dart` (5+ tests)
    - Test render of title, message, category badge.
-   - Test swipe-to-dismiss triggers `removeNotification`.
+   - Test swipe-to-dismiss triggers `removeNotification` and animates.
 4. `test/features/notifications/presentation/views/notifications_view_test.dart` (6+ tests)
    - Test search filtering.
    - Test "Mark all read" action.
    - Test empty state display.
-5. Test integration with `creatorDnaProvider`:
+5. `test/features/notifications/presentation/utils/notifications_haptics_test.dart` (3+ tests)
+   - Test calling all haptic methods executes cleanly without throwing in headless test runner.
+6. Test integration with `creatorDnaProvider`:
    - Test algorithmic category prioritizing DNA top genres.
 
 ---
@@ -151,3 +163,4 @@ flutter test
 
 - `flutter analyze` MUST return: **No issues found!**
 - `flutter test` MUST report: **≥ 935 tests passed (0 failures, 0 regressions)**.
+

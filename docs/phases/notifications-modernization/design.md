@@ -2734,4 +2734,309 @@ void _measurePerformance() {
 
 ---
 
-This design document provides a comprehensive technical specification for transforming VHUNAMBI's notification system from a modal popup to a full-featured, accessible notifications center. The implementation maintains backward compatibility while introducing modern features including category-based organization, offline support, accessibility compliance, and performance optimizations.
+## Kinetic Physics & Haptic Choreography Architecture
+
+### 1. `NotificationsHaptics` Service
+
+**File:** `lib/features/notifications/presentation/utils/notifications_haptics.dart`
+
+```dart
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
+/// Centralized platform-safe haptic dispatcher for notification interactions.
+class NotificationsHaptics {
+  NotificationsHaptics._();
+
+  static bool _enabled = true;
+
+  static void setEnabled(bool enabled) => _enabled = enabled;
+
+  /// Double light impact on bell trigger tap or urgent alert pulse.
+  static void bellRing() {
+    if (!_enabled || kIsWeb) return;
+    try {
+      HapticFeedback.lightImpact();
+      Future.delayed(const Duration(milliseconds: 90), () {
+        try {
+          HapticFeedback.lightImpact();
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
+  /// Crisp medium impact when swipe-to-dismiss exceeds 80px threshold.
+  static void dismissSnap() {
+    if (!_enabled || kIsWeb) return;
+    try {
+      HapticFeedback.mediumImpact();
+    } catch (_) {}
+  }
+
+  /// Selection click when toggling between category filter chips.
+  static void categorySwitch() {
+    if (!_enabled || kIsWeb) return;
+    try {
+      HapticFeedback.selectionClick();
+    } catch (_) {}
+  }
+
+  /// Celebratory dual pulse on bulk "Mark all as read".
+  static void markAllReadPulse() {
+    if (!_enabled || kIsWeb) return;
+    try {
+      HapticFeedback.mediumImpact();
+      Future.delayed(const Duration(milliseconds: 120), () {
+        try {
+          HapticFeedback.lightImpact();
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
+  /// Crisp selection click when tapping notification tile to open deep link.
+  static void itemTap() {
+    if (!_enabled || kIsWeb) return;
+    try {
+      HapticFeedback.selectionClick();
+    } catch (_) {}
+  }
+}
+```
+
+### 2. `TactileNotificationItemTile` (Swipeable & Springy)
+
+**File:** `lib/features/notifications/presentation/widgets/notification_item_tile.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_radius.dart';
+import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/constants/app_typography.dart';
+import '../../domain/models/notification_entity.dart';
+import '../utils/notifications_haptics.dart';
+
+class NotificationItemTile extends StatelessWidget {
+  final NotificationEntity notification;
+  final VoidCallback onTap;
+  final VoidCallback onDismiss;
+
+  const NotificationItemTile({
+    super.key,
+    required this.notification,
+    required this.onTap,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dismissible(
+      key: Key('notif_dismiss_${notification.id}'),
+      direction: DismissDirection.endToStart,
+      dismissThresholds: const {DismissDirection.endToStart: 0.25},
+      onUpdate: (details) {
+        if (details.reached && !details.previousReached) {
+          NotificationsHaptics.dismissSnap();
+        }
+      },
+      onDismissed: (_) => onDismiss(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.error.withOpacity(0.18),
+          borderRadius: AppRadius.cardBorder,
+        ),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: AppColors.error,
+          size: 28,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            NotificationsHaptics.itemTap();
+            onTap();
+          },
+          borderRadius: AppRadius.cardBorder,
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: notification.isRead
+                  ? AppColors.surfaceElevated
+                  : AppColors.surfaceElevated.withOpacity(0.95),
+              borderRadius: AppRadius.cardBorder,
+              border: Border.all(
+                color: notification.isRead
+                    ? AppColors.borderSubtle
+                    : AppColors.brandPrimary.withOpacity(0.35),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Unread dot with smooth animated fade
+                AnimatedOpacity(
+                  opacity: notification.isRead ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(top: 6, right: AppSpacing.sm),
+                    decoration: const BoxDecoration(
+                      color: AppColors.brandPrimary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        notification.title,
+                        style: AppTypography.titleMedium.copyWith(
+                          fontWeight: notification.isRead
+                              ? FontWeight.w500
+                              : FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        notification.message,
+                        style: AppTypography.bodyMedium.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+### 3. `WobblingNotificationBell` (Kinetic Bell Trigger)
+
+**File:** `lib/features/notifications/presentation/widgets/notification_bell_button.dart`
+
+```dart
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_typography.dart';
+import '../utils/notifications_haptics.dart';
+
+class WobblingNotificationBell extends StatefulWidget {
+  final int unreadCount;
+  final VoidCallback onTap;
+
+  const WobblingNotificationBell({
+    super.key,
+    required this.unreadCount,
+    required this.onTap,
+  });
+
+  @override
+  State<WobblingNotificationBell> createState() => _WobblingNotificationBellState();
+}
+
+class _WobblingNotificationBellState extends State<WobblingNotificationBell>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+    );
+  }
+
+  @override
+  void didUpdateWidget(WobblingNotificationBell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.unreadCount > oldWidget.unreadCount) {
+      _triggerWobble();
+    }
+  }
+
+  void _triggerWobble() {
+    NotificationsHaptics.bellRing();
+    _controller.forward(from: 0.0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        _triggerWobble();
+        widget.onTap();
+      },
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          // 3-cycle dampened sine wobble: angle oscillates between +14 and -14 deg
+          final wobble = math.sin(_controller.value * math.pi * 3) *
+              (1.0 - _controller.value) *
+              0.25;
+          return Transform.rotate(
+            angle: wobble,
+            child: child,
+          );
+        },
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(
+              Icons.notifications_none_rounded,
+              color: AppColors.textPrimary,
+              size: 26,
+            ),
+            if (widget.unreadCount > 0)
+              Positioned(
+                top: -2,
+                right: -4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: const BoxDecoration(
+                    color: AppColors.brandPrimary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    widget.unreadCount > 9 ? '9+' : '${widget.unreadCount}',
+                    style: AppTypography.labelSmall.copyWith(
+                      color: AppColors.brandContrast,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+This design document provides a comprehensive technical specification for transforming VHUNAMBI's notification system from a modal popup to a full-featured, accessible notifications center with kinetic fluidity and tactile haptics.
+

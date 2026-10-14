@@ -84,6 +84,7 @@ MANDATORY RULES:
 3. DUAL-SURFACE COEXISTENCE: Preserve `NotificationsPopover` in its entirety (existing tests in `notifications_popover_test.dart` and `notification_bell_button_test.dart` must pass). Add `"View All Alerts in Center ➔"` button pushing `NotificationsView`.
 4. WIRE CREATOR DNA: In `NotificationCategory.algorithmic`, use `ref.watch(creatorDnaProvider)` to rank alerts matching the user's top genres higher.
 5. 44×44px HIT BOUNDS: Ensure all filter chips, action pills, dismiss icons, and search clear buttons satisfy 44×44px touch ergonomics.
+6. KINETIC FLUIDITY & HAPTICS: Implement `NotificationsHaptics`, elastic swipe-to-dismiss snap, wobbling bell trigger, sliding category indicator, and unread dot fade-out.
 
 VERIFICATION COMMANDS:
 cd apps/vhunambi_client

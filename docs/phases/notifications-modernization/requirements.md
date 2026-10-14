@@ -720,3 +720,26 @@ The transformation maintains backward compatibility with existing `notifications
 9. THE generation_service SHALL include generation job metadata in notification: model used, inference time, seed
 10. IF generation fails, THEN THE generation_service SHALL create a notification with type `generationFailed` and priority `important`
 
+### Requirement 41: Kinetic Fluidity, Haptic Choreography & Micro-Interactions
+
+**User Story:** As a VHUNAMBI user, I want the notifications station to feel responsive, tactile, and physically alive, so that triaging and acting on alerts is satisfying and intuitive.
+
+#### Acceptance Criteria
+
+1. THE system SHALL provide a centralized `NotificationsHaptics` service that invokes `HapticFeedback` methods based on semantic interaction categories:
+   - `bellRing()`: Double tick on bell trigger tap (`HapticFeedback.lightImpact()`).
+   - `dismissSnap()`: Medium crisp impact (`HapticFeedback.mediumImpact()`) when swipe-to-dismiss crosses the 80px threshold.
+   - `categorySwitch()`: Selection click (`HapticFeedback.selectionClick()`) when switching between category filter chips.
+   - `markAllReadPulse()`: Celebratory dual haptic pulse on bulk "Mark all as read".
+   - `itemTap()`: Crisp click (`HapticFeedback.selectionClick()`) when tapping a notification item to navigate.
+2. ALL `NotificationsHaptics` methods SHALL check `!kIsWeb` and catch all platform exceptions silently to prevent crashes on Web or headless VM tests.
+3. WHEN the user drags a notification card to dismiss via `Dismissible`, THE system SHALL reveal a delete background where the trash icon scales up from `0.8` to `1.2` (`Curves.easeOutBack`) as the gesture approaches the 80px dismiss threshold.
+4. WHEN the swipe gesture crosses the 80px threshold, THE system SHALL invoke `NotificationsHaptics.dismissSnap()`.
+5. WHEN the notification card is dismissed, THE card SHALL animate closed with vertical collapse over 220ms (`Curves.easeInOutCubic`), and show a SnackBar with an `[Undo]` action.
+6. THE `NotificationCategoryRail` SHALL feature an active sliding indicator pill that translates horizontally over 240ms with `Curves.easeOutCubic`.
+7. WHEN the unread count in a category updates, THE category badge SHALL animate with an elastic bounce (`scale: 1.0` -> `1.25` -> `1.0` with `Curves.easeOutBack`).
+8. WHEN the user taps "Mark all as read", THE unread glowing indicator dots on all notification cards SHALL fade out smoothly over 300ms, and THE system SHALL fire `NotificationsHaptics.markAllReadPulse()`.
+9. THE `NotificationBellButton` SHALL animate an organic 3-cycle ringing wobble (`±14°` rotation over 320ms) when tapped or when a high-priority alert arrives.
+10. WHEN `MediaQuery.of(context).disableAnimations == true`, ALL spring physics and wobble animations SHALL be disabled, falling back to instantaneous transitions.
+
+

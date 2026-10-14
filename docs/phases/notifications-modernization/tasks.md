@@ -782,6 +782,43 @@ Transform the Phase 11 notification popup modal into a full-screen dedicated not
   - Prepare A/B test configuration for gradual rollout
   - Document backward compatibility guarantees
 
+- [ ] 32. Implement Kinetic Fluidity, Haptic Choreography & Micro-Interactions
+  - [ ] 32.1 Implement `NotificationsHaptics` service
+    - File: `lib/features/notifications/presentation/utils/notifications_haptics.dart`
+    - Methods: `bellRing()`, `dismissSnap()`, `categorySwitch()`, `markAllReadPulse()`, `itemTap()`
+    - Check `!kIsWeb` and wrap in silent try/catch
+    - _Requirements: 41.1, 41.2_
+  
+  - [ ] 32.2 Implement elastic swipe-to-dismiss in `NotificationItemTile`
+    - Threshold at 80px / 0.25 drag fraction
+    - Trigger `NotificationsHaptics.dismissSnap()` when threshold crossed
+    - Trash icon scales up from 0.8 to 1.2 (`Curves.easeOutBack`)
+    - Collapse vertically over 220ms on dismiss
+    - _Requirements: 41.3, 41.4, 41.5_
+
+  - [ ] 32.3 Implement kinetic sliding category pill & bouncing badges
+    - Sliding pill with `Curves.easeOutCubic` (240ms)
+    - Badge bounce (`scale: 1.0` -> `1.25` -> `1.0`) on unread count update
+    - Trigger `NotificationsHaptics.categorySwitch()` on chip tap
+    - _Requirements: 41.6, 41.7_
+
+  - [ ] 32.4 Implement ringing bell wobble on `NotificationBellButton`
+    - 3-cycle dampened sine rotation (`±14°` over 320ms) on tap and high-priority arrival
+    - Double-tick haptic on tap via `NotificationsHaptics.bellRing()`
+    - _Requirements: 41.9_
+
+  - [ ] 32.5 Implement celebratory bulk "Mark all read" glow fade
+    - Smooth fade out of unread indicator dots over 300ms
+    - Trigger `NotificationsHaptics.markAllReadPulse()`
+    - _Requirements: 41.8_
+
+  - [ ] 32.6 Write kinetic suite tests
+    - File: `test/features/notifications/presentation/utils/notifications_haptics_test.dart`
+    - Test: All haptic methods run cleanly in headless VM test runner without throwing
+    - File: `test/features/notifications/presentation/widgets/notification_item_tile_test.dart`
+    - Test: Swipe dismiss triggers callback and animates
+    - _Requirements: 41.1, 41.2, 41.10_
+
 ## Notes
 
 - **Backward Compatibility**: All existing NotificationEntity fields (id, title, message, targetTrackId, createdAt, isRead) are preserved. The update() adapter method maintains the StateProvider contract. All 24 existing tests continue to pass without modification.
