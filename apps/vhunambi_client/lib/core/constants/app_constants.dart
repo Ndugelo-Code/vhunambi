@@ -18,6 +18,9 @@ abstract final class AppConstants {
   static const String profileBoxKey = 'vhunambi_profiles';
   static const String creatorDnaBoxKey = 'vhunambi_creator_dna';
 
+  // Notifications Center (M8) — untyped Hive box for offline alert persistence.
+  static const String notificationsBoxKey = 'notifications_v1';
+
   // Library & User Asset Vault (Blueprint 04)
   static const String vaultBoxKey = 'library_tracks';
   static const String vaultAudioDirectory = 'vhunambi_vault/audio';

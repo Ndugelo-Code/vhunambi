@@ -107,13 +107,14 @@ To ensure every implementation phase is strictly **additive**—meaning no code 
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│ Phase 3: Notifications Modernization (M8) — 🟡 NEXT UP                 │
+│ Phase 3: Notifications Modernization (M8) — ✅ COMPLETED               │
 │ ➔ Category drawer, offline alerts, DNA-ranked algorithmic filtering    │
+│ ➔ 950 tests passing (+39 new tests), 0 regressions, 0 warnings/errors  │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│ Phase 4: Studio AI Cockpit v2 (M10) — ⚪ QUEUED                        │
+│ Phase 4: Studio AI Cockpit v2 (M10) — 🟡 NEXT UP                       │
 │ ➔ Ghost session recovery, prompt intelligence, guided lyrics, telemetry│
 └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -140,16 +141,18 @@ To ensure every implementation phase is strictly **additive**—meaning no code 
   - Client-side Explore ranking via `DnaExploreRanker`.
   - Contextual `DnaInsightCard` on Home Dashboard adhering to `strengthPercent > 0`.
 
-### Phase 3: Notifications Modernization (`docs/phases/notifications-modernization`)
-- **Primary Goal:** Transform the notification popover into a resilient, category-driven notification center with offline persistence.
-- **Why Third:** With `creatorDnaProvider` live from Phase 2, the algorithmic notification tab can immediately rank alerts using the user's real top genres. Furthermore, the notification center is primed before the Studio starts firing complex audio generation cycles.
+### Phase 3: Notifications Modernization (`docs/phases/notifications-modernization`) — ✅ COMPLETED
+- **Status:** Complete (950 tests passing, +39 new tests, 0 regressions).
+- **Primary Goal:** Transform the notification popover into a resilient, category-driven notification center with offline persistence and kinetic tactility.
 - **Deliverables:**
   - Dedicated `NotificationsView` route with 4 category filter tabs (Social, Studio Activity, System, Algorithmic).
-  - Algorithmic notification sorter powered by `creatorDnaProvider`.
-  - `NotificationRepository` with Hive persistence (`AppConstants.notificationsBoxKey`).
-  - Accessible dismiss swipes, bulk "Mark all read", and deep-link routers.
+  - Algorithmic notification sorter powered by `creatorDnaProvider` genre weights.
+  - `NotificationRepository` with Hive persistence (`AppConstants.notificationsBoxKey`) and safe in-memory fallback.
+  - Kinetic swipe-to-dismiss with 80px snap feedback and `SizeTransition` collapse.
+  - Reusable `NotificationsHaptics` and `WobblingNotificationBell`.
+  - Dual-surface coexistence: `NotificationsPopover` CTA `"View All Alerts in Center ➔"` pushing `NotificationsView`.
 
-### Phase 4: Studio AI Cockpit v2 (`docs/phases/studio-ai-cockpit-v2`)
+### Phase 4: Studio AI Cockpit v2 (`docs/phases/studio-ai-cockpit-v2`) — 🟡 NEXT UP
 - **Primary Goal:** Elevate the music creation workbench into an intelligent, error-proof cockpit that feeds and is fed by the rest of the app.
 - **Why Fourth (The Crown Jewel):** Studio requires DNA defaults (from Phase 2) to auto-fill BPM, mood, and genre; it requires the modernized notification center (from Phase 3) to receive generation progress; and its actions dispatch telemetry back into Phase 2, completing the loop.
 - **Deliverables:**

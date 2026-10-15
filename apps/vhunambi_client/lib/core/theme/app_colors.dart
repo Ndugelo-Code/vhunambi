@@ -35,4 +35,11 @@ abstract final class AppColors {
   // Amber Glow for Callouts & Banners
   static const Color amberGlow        = Color(0x1AF97316);
   static const Color amberInset       = Color(0xFF3A2508);
+
+  // Semantic Accent Tokens (M8 Notifications / Foundation Blueprint §1.2).
+  // Additive aliases wired to the documented design-system values so feature
+  // code can express category semantics without ever hardcoding raw hex.
+  static const Color accentElectric   = Color(0xFF8B5CF6); // Social / Electric Purple
+  static const Color accentGold       = Color(0xFFF59E0B); // System / Warm Gold
+  static const Color accentSuccess    = Color(0xFF10B981); // Algorithmic / Mint Green
 }

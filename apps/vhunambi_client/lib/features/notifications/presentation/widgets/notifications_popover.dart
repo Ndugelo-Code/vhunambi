@@ -7,6 +7,7 @@ import '../../../track/presentation/views/track_detail_view.dart';
 import '../../domain/models/notification_entity.dart';
 import '../providers/notifications_provider.dart';
 import '../utils/time_ago_utils.dart';
+import '../views/notifications_view.dart';
 
 /// Live in-app alert centre (T11.3).
 ///
@@ -148,22 +149,62 @@ class NotificationsPopover extends ConsumerWidget {
           // Footer
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                InkWell(
-                  onTap: notifier.clearAll,
-                  child: Text(
-                    'Clear all',
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.brandPrimary,
-                      fontWeight: FontWeight.w600,
+                // Dual-surface coexistence CTA → dedicated NotificationsView.
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton(
+                    key: const Key('notifications_view_all_btn'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.brandPrimary,
+                      foregroundColor: AppColors.brandContrast,
+                      elevation: 0,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: AppRadius.pillBorder,
+                      ),
+                    ),
+                    onPressed: () {
+                      // Capture the navigator before popping the dialog so the
+                      // subsequent push never targets a deactivated element.
+                      final navigator = Navigator.of(context);
+                      navigator.pop();
+                      navigator.push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const NotificationsView(),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'View All Alerts in Center ➔',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.brandContrast,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
-                InkWell(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Text('Close', style: AppTypography.caption),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    InkWell(
+                      onTap: notifier.clearAll,
+                      child: Text(
+                        'Clear all',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.brandPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Text('Close', style: AppTypography.caption),
+                    ),
+                  ],
                 ),
               ],
             ),
