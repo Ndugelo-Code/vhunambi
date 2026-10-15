@@ -5,6 +5,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../providers/studio_form_provider.dart';
+import 'guided_lyrics_composer.dart';
 
 class AdvancedOptionsAccordion extends ConsumerStatefulWidget {
   const AdvancedOptionsAccordion({super.key});
@@ -296,28 +297,75 @@ class _AdvancedOptionsAccordionState
                         ),
                       )
                     else if (state.lyricsMode == LyricsMode.myOwn)
-                      Container(
-                        margin: const EdgeInsets.only(top: AppSpacing.xs),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceSecondary,
-                          borderRadius: AppRadius.inputBorder,
-                          border: Border.all(color: AppColors.borderSubtle),
-                        ),
-                        child: TextField(
-                          controller: _customLyricsController,
-                          onChanged: notifier.setCustomLyrics,
-                          maxLines: 4,
-                          style: AppTypography.bodySmall,
-                          cursorColor: AppColors.brandPrimary,
-                          decoration: InputDecoration(
-                            hintText:
-                                'Paste or write your lyrics here (Verses, Chorus, Outro)...',
-                            hintStyle: AppTypography.caption,
-                            border: InputBorder.none,
-                            contentPadding:
-                                const EdgeInsets.all(AppSpacing.sm),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Custom Lyrics',
+                                style: AppTypography.caption.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              TextButton.icon(
+                                key: const Key('write_with_guide_btn'),
+                                onPressed: () {
+                                  GuidedLyricsComposer.show(
+                                    context,
+                                    onDone: () {
+                                      _customLyricsController.text =
+                                          ref.read(studioFormProvider).customLyrics ?? '';
+                                    },
+                                  );
+                                },
+                                icon: const Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 14,
+                                  color: AppColors.brandPrimary,
+                                ),
+                                label: Text(
+                                  'Write with Guide',
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.brandPrimary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size(44, 44),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.xs,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
+                          Container(
+                            margin: const EdgeInsets.only(top: AppSpacing.xxs),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceSecondary,
+                              borderRadius: AppRadius.inputBorder,
+                              border: Border.all(color: AppColors.borderSubtle),
+                            ),
+                            child: TextField(
+                              controller: _customLyricsController,
+                              onChanged: notifier.setCustomLyrics,
+                              maxLines: 4,
+                              style: AppTypography.bodySmall,
+                              cursorColor: AppColors.brandPrimary,
+                              decoration: InputDecoration(
+                                hintText:
+                                    'Paste or write your lyrics here (Verses, Chorus, Outro)...',
+                                hintStyle: AppTypography.caption,
+                                border: InputBorder.none,
+                                contentPadding:
+                                    const EdgeInsets.all(AppSpacing.sm),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     const SizedBox(height: AppSpacing.lg),
                   ],

@@ -21,6 +21,7 @@ import '../widgets/prompt_input_box.dart';
 import '../widgets/reference_audio_dropzone.dart';
 import '../widgets/regional_genre_selector.dart';
 import '../widgets/studio_action_bar.dart';
+import '../widgets/studio_session_recovery_banner.dart';
 import '../../../creator_dna/presentation/providers/dna_studio_defaults_provider.dart';
 
 class StudioView extends ConsumerStatefulWidget {
@@ -187,6 +188,7 @@ class _StudioViewState extends ConsumerState<StudioView> {
               index: _mode,
               children: [
                 _tabScroll(isDesktop, [
+                  const StudioSessionRecoveryBanner(),
                   // T6.10: DNA suggestion banner (REQ-DNA-STU-03)
                   _DnaSuggestionChip(),
                   const PromptInputBox(),

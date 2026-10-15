@@ -21,6 +21,9 @@ abstract final class AppConstants {
   // Notifications Center (M8) — untyped Hive box for offline alert persistence.
   static const String notificationsBoxKey = 'notifications_v1';
 
+  // Studio AI Cockpit (M10) — ghost session draft auto-save & recovery.
+  static const String studioSessionBoxKey = 'vhunambi_studio_session';
+
   // Library & User Asset Vault (Blueprint 04)
   static const String vaultBoxKey = 'library_tracks';
   static const String vaultAudioDirectory = 'vhunambi_vault/audio';

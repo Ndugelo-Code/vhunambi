@@ -10,6 +10,8 @@ import '../../data/services/generation_socket_service.dart';
 import '../../data/services/http_generation_submission_service.dart';
 import '../../domain/services/i_generation_socket_service.dart';
 import 'stem_download_provider.dart';
+import 'studio_form_provider.dart';
+import 'studio_session_provider.dart';
 import '../../../creator_dna/domain/models/behavior_event.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 
@@ -121,17 +123,31 @@ class GenerationPipelineNotifier
         );
 
     // T6.8: Record generation telemetry for Creator DNA (REQ-DNA-CAP-03).
+    // Phase 4 (M10) closes the bidirectional loop: the full studio form
+    // state enriches the event payload so genre, language, tempo, vocal
+    // energy, and mood all evolve the on-device taste vector.
     try {
+      final formState = _ref.read(studioFormProvider);
       _ref.read(creatorDnaProvider.notifier).recordEvent(
         BehaviorEvent.generationSubmit(
-          genre: genre,
-          language: language,
-          tempo: musicalKey,
-          mood: null,
+          genre: genre.isNotEmpty ? genre : formState.genre,
+          language: language.isNotEmpty ? language : formState.language,
+          tempo: musicalKey ?? formState.tempo.name,
+          vocalEnergy: formState.vocalEnergy.name,
+          mood: formState.mood,
         ),
       );
     } catch (_) {
       // Telemetry is best-effort; never block generation on provider failure.
+    }
+
+    // Ghost Session (M10 / REQ-SES-05): a successfully submitted generation
+    // consumes the in-progress draft — clear it so the recovery banner never
+    // resurfaces for a track that already shipped. Best-effort like telemetry.
+    try {
+      _ref.read(studioSessionProvider.notifier).clearSession();
+    } catch (_) {
+      // Session cleanup must never block the generation pipeline.
     }
 
     // 4. Stream live progress via HTTP polling
