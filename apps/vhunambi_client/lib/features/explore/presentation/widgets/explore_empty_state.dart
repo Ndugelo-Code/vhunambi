@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -25,10 +26,63 @@ class ExploreEmptyState extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.music_off_rounded,
-                size: 56,
-                color: AppColors.textTertiary,
+              // Heritage illustration emblem
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.borderSubtle,
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(60),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Desaturated translucent Heritage Crate artwork
+                    ClipOval(
+                      child: Opacity(
+                        opacity: 0.32,
+                        child: Image.asset(
+                          AppAssets.heritageCrateCover,
+                          width: 96,
+                          height: 96,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                    // Centered branded cue
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceModal.withAlpha(210),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.brandPrimary.withAlpha(120),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.search_off_rounded,
+                          size: 22,
+                          color: AppColors.brandPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               Text(

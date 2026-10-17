@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -182,18 +183,61 @@ class _VinylDiskWidgetState extends State<_VinylDiskWidget>
               shape: BoxShape.circle,
               color: AppColors.surfaceElevated,
               border: Border.all(color: AppColors.borderSubtle, width: 2),
-            ),
-            child: Center(
-              child: Container(
-                width: 26,
-                height: 26,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.brandPrimary,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(90),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
-                child: const Icon(Icons.music_note_rounded,
-                    size: 14, color: AppColors.brandContrast),
-              ),
+              ],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Grooved vinyl ring
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.borderSubtle.withAlpha(80),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+                // Center disc label with authentic African Heritage crate cover
+                ClipOval(
+                  child: Image.asset(
+                    AppAssets.heritageCrateCover,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.brandPrimary,
+                      ),
+                      child: const Icon(
+                        Icons.music_note_rounded,
+                        size: 14,
+                        color: AppColors.brandContrast,
+                      ),
+                    ),
+                  ),
+                ),
+                // Spindle hole
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.surfaceCanvas,
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -262,15 +306,24 @@ class _SampleTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceSecondary,
-              borderRadius: AppRadius.thumbBorder,
+          ClipRRect(
+            borderRadius: AppRadius.thumbBorder,
+            child: Image.asset(
+              AppAssets.heritageCrateCover,
+              width: 40,
+              height: 40,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceSecondary,
+                  borderRadius: AppRadius.thumbBorder,
+                ),
+                child: const Icon(Icons.graphic_eq_rounded,
+                    color: AppColors.brandPrimary, size: 20),
+              ),
             ),
-            child: const Icon(Icons.graphic_eq_rounded,
-                color: AppColors.brandPrimary, size: 20),
           ),
           const SizedBox(width: 10),
           Expanded(

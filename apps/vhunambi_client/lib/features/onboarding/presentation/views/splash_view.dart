@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -94,10 +95,39 @@ class _SplashViewState extends ConsumerState<SplashView>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
-      body: Center(
-        child: AnimatedBuilder(
-          animation: _animController,
-          builder: (context, child) {
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Ambient splash hero backdrop with subtle dark gradient vignette
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.16,
+              child: Image.asset(
+                AppAssets.splashHero,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const SizedBox.shrink(),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 0.9,
+                  colors: [
+                    AppColors.surfaceCanvas.withAlpha(120),
+                    AppColors.surfaceCanvas.withAlpha(245),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: AnimatedBuilder(
+              animation: _animController,
+              builder: (context, child) {
             return FadeTransition(
               opacity: _fadeAnimation,
               child: ScaleTransition(
@@ -174,10 +204,19 @@ class _SplashViewState extends ConsumerState<SplashView>
                                 color: AppColors.brandPrimary,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
-                                Icons.music_note_rounded,
-                                color: AppColors.brandContrast,
-                                size: 34,
+                              child: ClipOval(
+                                child: Image.asset(
+                                  AppAssets.vhunambiGlyph,
+                                  width: 58,
+                                  height: 58,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(
+                                    Icons.music_note_rounded,
+                                    color: AppColors.brandContrast,
+                                    size: 34,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -251,6 +290,8 @@ class _SplashViewState extends ConsumerState<SplashView>
           },
         ),
       ),
-    );
+    ],
+  ),
+);
   }
 }

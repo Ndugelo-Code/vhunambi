@@ -22,7 +22,8 @@ void main() {
 
       expect(find.text('VHUNAMBI'), findsOneWidget);
       expect(find.text('The talent to sing • Tshivenḓa'), findsOneWidget);
-      expect(find.byIcon(Icons.music_note_rounded), findsOneWidget);
+      // Icons.music_note_rounded is only rendered by the errorBuilder fallback
+      // when AppAssets.vhunambiGlyph fails to load — not asserted here.
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
 
       // Clean up by pumping past the timer

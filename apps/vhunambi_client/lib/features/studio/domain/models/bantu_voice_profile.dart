@@ -11,6 +11,7 @@ class BantuVoiceProfile {
   final String iconEmoji;
   final double loraScale;
   final List<String> characteristicAdLibs;
+  final String? assetPath;
 
   const BantuVoiceProfile({
     required this.id,
@@ -21,6 +22,7 @@ class BantuVoiceProfile {
     required this.iconEmoji,
     this.loraScale = 0.85,
     this.characteristicAdLibs = const [],
+    this.assetPath,
   });
 
   Map<String, dynamic> toJson() => {
@@ -32,6 +34,7 @@ class BantuVoiceProfile {
         'iconEmoji': iconEmoji,
         'loraScale': loraScale,
         'characteristicAdLibs': characteristicAdLibs,
+        if (assetPath != null) 'assetPath': assetPath,
       };
 
   factory BantuVoiceProfile.fromJson(Map<String, dynamic> json) {
@@ -47,6 +50,7 @@ class BantuVoiceProfile {
               ?.map((e) => e as String)
               .toList() ??
           const [],
+      assetPath: json['assetPath'] as String?,
     );
   }
 }
@@ -63,6 +67,7 @@ const List<BantuVoiceProfile> kBantuVoiceProfiles = [
     iconEmoji: '👴',
     loraScale: 0.90,
     characteristicAdLibs: ['Ndi zwone!', 'Aa!', 'Kha ri tshimbile!', 'Vhukuma!'],
+    assetPath: 'assets/artwork/timbre_elder.png',
   ),
   BantuVoiceProfile(
     id: 'soweto_soul_lead',
@@ -74,6 +79,7 @@ const List<BantuVoiceProfile> kBantuVoiceProfiles = [
     iconEmoji: '🎤',
     loraScale: 0.85,
     characteristicAdLibs: ['Yebo!', 'Woza!', 'Soweto vibes!', 'Helele!'],
+    assetPath: 'assets/artwork/timbre_crooner.png',
   ),
   BantuVoiceProfile(
     id: 'durban_gqom_chanter',
@@ -85,6 +91,7 @@ const List<BantuVoiceProfile> kBantuVoiceProfiles = [
     iconEmoji: '⚡',
     loraScale: 0.92,
     characteristicAdLibs: ['Shisa!', 'Wena!', 'Asambe!', 'Bashise!'],
+    assetPath: 'assets/artwork/timbre_producer.png',
   ),
   BantuVoiceProfile(
     id: 'maskandi_bard',
@@ -96,6 +103,7 @@ const List<BantuVoiceProfile> kBantuVoiceProfiles = [
     iconEmoji: '🌿',
     loraScale: 0.88,
     characteristicAdLibs: ['Musho!', 'Webaba!', 'Aw kodwa!', 'Hayi bo!'],
+    assetPath: 'assets/artwork/timbre_cantor.png',
   ),
   BantuVoiceProfile(
     id: 'limpopo_pop_queen',
@@ -107,6 +115,7 @@ const List<BantuVoiceProfile> kBantuVoiceProfiles = [
     iconEmoji: '✨',
     loraScale: 0.86,
     characteristicAdLibs: ['Ndo livhuwa!', 'Agee!', 'Ahee!', 'Makhado!'],
+    assetPath: 'assets/artwork/timbre_poet.png',
   ),
 ];
 

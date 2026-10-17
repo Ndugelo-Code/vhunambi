@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -40,10 +41,18 @@ class MarketplaceTopBar extends StatelessWidget {
                 color: AppColors.brandPrimary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.music_note_rounded,
-                size: 18,
-                color: AppColors.brandContrast,
+              child: ClipOval(
+                child: Image.asset(
+                  AppAssets.vhunambiGlyph,
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.music_note_rounded,
+                    size: 18,
+                    color: AppColors.brandContrast,
+                  ),
+                ),
               ),
             ),
             if (isDesktop) ...[

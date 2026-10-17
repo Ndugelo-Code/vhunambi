@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -55,10 +56,18 @@ class LandingFooter extends StatelessWidget {
                     color: AppColors.brandPrimary,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.music_note_rounded,
-                    size: 16,
-                    color: AppColors.brandContrast,
+                  child: ClipOval(
+                    child: Image.asset(
+                      AppAssets.vhunambiGlyph,
+                      width: 28,
+                      height: 28,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.music_note_rounded,
+                        size: 16,
+                        color: AppColors.brandContrast,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.xs),

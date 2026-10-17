@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
@@ -80,30 +81,71 @@ class AfricanChartsBanner extends StatelessWidget {
     );
 
     return Container(
-      padding: EdgeInsets.all(
-        isMobile ? AppSpacing.md : AppSpacing.xl,
-      ),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: AppGradients.africanChartsBanner,
         borderRadius: AppRadius.cardBorder,
       ),
-      child: isMobile
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                titleBlock,
-                const SizedBox(height: AppSpacing.sm),
-                cta,
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(child: titleBlock),
-                const SizedBox(width: AppSpacing.md),
-                cta,
-              ],
+      child: ClipRRect(
+        borderRadius: AppRadius.cardBorder,
+        child: Stack(
+          children: [
+            // Ambient artwork backdrop with soft fade vignette
+            Positioned(
+              right: -30,
+              top: -20,
+              bottom: -20,
+              width: isMobile ? 180 : 320,
+              child: Opacity(
+                opacity: 0.18,
+                child: Image.asset(
+                  AppAssets.heritageCrateCover,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const SizedBox.shrink(),
+                ),
+              ),
             ),
+            // Gradient overlay ensuring 100% text contrast across the banner
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withAlpha(60),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Foreground content
+            Padding(
+              padding: EdgeInsets.all(
+                isMobile ? AppSpacing.md : AppSpacing.xl,
+              ),
+              child: isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        titleBlock,
+                        const SizedBox(height: AppSpacing.sm),
+                        cta,
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: titleBlock),
+                        const SizedBox(width: AppSpacing.md),
+                        cta,
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

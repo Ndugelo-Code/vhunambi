@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -160,8 +161,8 @@ class _TimbreCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text(profile.iconEmoji, style: const TextStyle(fontSize: 20)),
-                const SizedBox(width: 6),
+                _buildTimbreAvatar(profile),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'LoRA ${profile.loraScale.toStringAsFixed(2)}',
@@ -192,6 +193,35 @@ class _TimbreCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildTimbreAvatar(BantuVoiceProfile profile) {
+    final asset = profile.assetPath ?? AppAssets.voiceTimbreForId(profile.id);
+    if (asset != null) {
+      return Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isActive ? AppColors.coinGold : AppColors.borderSubtle,
+            width: 1.5,
+          ),
+        ),
+        child: ClipOval(
+          child: Image.asset(
+            asset,
+            width: 26,
+            height: 26,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Center(
+              child: Text(profile.iconEmoji, style: const TextStyle(fontSize: 14)),
+            ),
+          ),
+        ),
+      );
+    }
+    return Text(profile.iconEmoji, style: const TextStyle(fontSize: 20));
   }
 }
 
