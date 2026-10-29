@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/content_studio_preset.dart';
 import '../../domain/models/lyric_word_timestamp.dart';
+import '../providers/master_media_object_provider.dart';
 
 /// 60 FPS real-time kinetic canvas rendering 9:16 vertical cover art,
 /// synchronized karaoke typography, atmospheric shaders, and audio-reactive waveforms.
@@ -15,6 +16,7 @@ class KineticPreviewCanvas extends StatefulWidget {
   final double playbackPositionSec;
   final bool isPlaying;
   final VoidCallback? onPlayPauseToggle;
+  final FrameModulationSnapshot? modulationSnapshot;
 
   const KineticPreviewCanvas({
     super.key,
@@ -25,6 +27,7 @@ class KineticPreviewCanvas extends StatefulWidget {
     required this.playbackPositionSec,
     required this.isPlaying,
     this.onPlayPauseToggle,
+    this.modulationSnapshot,
   });
 
   @override
@@ -70,13 +73,18 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // 1. Ken Burns Visual Cover Art Layer
+            // 1. Ken Burns Visual Cover Art Layer with Log Drum Snap-Zoom
             AnimatedBuilder(
               animation: _animController,
               builder: (context, child) {
-                final scale = widget.effects.kenBurnsMotion
+                final snapZoom = widget.modulationSnapshot?.logDrumSnapZoom ?? 0.0;
+                final bassEnergy = widget.modulationSnapshot?.effectiveBassEnergy ?? 0.0;
+                final kenBurnsScale = widget.effects.kenBurnsMotion
                     ? 1.0 + (0.06 * sin(_animController.value * 2 * pi))
                     : 1.0;
+                // Exponential camera snap-zoom on log drum drop + subtle bass pump
+                final scale = kenBurnsScale * (1.0 + (0.12 * snapZoom) + (0.03 * bassEnergy));
+
                 final dx = widget.effects.kenBurnsMotion
                     ? 8.0 * cos(_animController.value * 2 * pi)
                     : 0.0;
@@ -98,16 +106,18 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
               },
             ),
 
-            // 2. Atmospheric Vignette & Film Grain Overlay
+            // 2. Atmospheric Vignette, Film Grain & Bass Spark Particle Overlay
             CustomPaint(
               painter: _AtmosphereOverlayPainter(
                 filmGrain: widget.effects.filmGrain,
                 bassPulse: widget.effects.bassPulse,
+                bassEnergy: widget.modulationSnapshot?.effectiveBassEnergy ?? 0.0,
+                logDrumZoom: widget.modulationSnapshot?.logDrumSnapZoom ?? 0.0,
                 animValue: _animController.value,
               ),
             ),
 
-            // 3. Synced Karaoke Lyrics Layer
+            // 3. Synced Karaoke Lyrics Layer with Bantu Bloom
             Positioned(
               left: 20,
               right: 20,
@@ -216,13 +226,11 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
       );
     }
 
-    // Find currently active words around current playback position
     final currentPos = widget.playbackPositionSec;
     final activeWordIndex = widget.words.indexWhere(
       (w) => currentPos >= w.start && currentPos <= w.end,
     );
 
-    // Grab a window of 3 to 5 words centered on the active word
     final startIndex = activeWordIndex >= 0
         ? max(0, activeWordIndex - 2)
         : max(0, widget.words.indexWhere((w) => w.start > currentPos) - 2);
@@ -247,28 +255,37 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
         runSpacing: 6,
         children: displayedWords.map((word) {
           final isActive = currentPos >= word.start && currentPos <= word.end;
-          return _buildWordWidget(word.word, isActive);
+          return _buildWordWidget(word, isActive);
         }).toList(),
       ),
     );
   }
 
-  Widget _buildWordWidget(String wordText, bool isActive) {
+  Widget _buildWordWidget(LyricWordTimestamp word, bool isActive) {
+    final wordText = word.word;
+    final vocalGlow = widget.modulationSnapshot?.effectiveVocalGlow ?? 0.8;
+    final bloomRadius = (14.0 + (18.0 * vocalGlow * word.phoneticStress)).clamp(8.0, 32.0);
+    final isIdiom = word.isCulturalIdiom;
+
     switch (widget.preset) {
       case LyricTypographyPreset.kineticBounce:
         return AnimatedScale(
           duration: const Duration(milliseconds: 150),
-          scale: isActive ? 1.2 : 1.0,
+          scale: isActive ? (isIdiom ? 1.3 : 1.2) : 1.0,
           child: Text(
             wordText.toUpperCase(),
             style: AppTypography.displayMedium.copyWith(
-              color: isActive ? AppColors.brandPrimary : Colors.white70,
+              color: isActive
+                  ? (isIdiom ? AppColors.brandPrimary : const Color(0xFFFFA726))
+                  : Colors.white70,
               fontWeight: FontWeight.w900,
               shadows: isActive
                   ? [
                       Shadow(
-                        color: AppColors.brandPrimary.withValues(alpha: 0.8),
-                        blurRadius: 18,
+                        color: isIdiom
+                            ? AppColors.brandPrimary.withValues(alpha: 0.95)
+                            : AppColors.brandPrimary.withValues(alpha: 0.8),
+                        blurRadius: bloomRadius,
                       ),
                     ]
                   : null,
@@ -280,13 +297,17 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
         return Text(
           wordText,
           style: AppTypography.displayMedium.copyWith(
-            color: isActive ? const Color(0xFFFFD54F) : Colors.white70,
+            color: isActive
+                ? (isIdiom ? AppColors.brandPrimary : const Color(0xFFFFD54F))
+                : Colors.white70,
             fontWeight: FontWeight.w700,
             shadows: isActive
                 ? [
-                    const Shadow(
-                      color: Color(0xFFFFC107),
-                      blurRadius: 24,
+                    Shadow(
+                      color: isIdiom
+                          ? AppColors.brandPrimary.withValues(alpha: 0.95)
+                          : const Color(0xFFFFC107),
+                      blurRadius: bloomRadius,
                     ),
                     const Shadow(
                       color: Colors.white,
@@ -302,14 +323,18 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           decoration: isActive
               ? BoxDecoration(
-                  color: AppColors.brandPrimary.withValues(alpha: 0.3),
+                  color: isIdiom
+                      ? AppColors.brandPrimary.withValues(alpha: 0.45)
+                      : AppColors.brandPrimary.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(4),
                 )
               : null,
           child: Text(
             wordText,
             style: AppTypography.bodyLarge.copyWith(
-              color: isActive ? Colors.white : Colors.white60,
+              color: isActive
+                  ? (isIdiom ? AppColors.brandPrimary : Colors.white)
+                  : Colors.white60,
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
           ),
@@ -325,13 +350,21 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
                 color: isActive ? AppColors.brandPrimary : Colors.white70,
                 fontStyle: FontStyle.italic,
                 fontWeight: FontWeight.bold,
+                shadows: isActive && isIdiom
+                    ? [
+                        Shadow(
+                          color: AppColors.brandPrimary.withValues(alpha: 0.9),
+                          blurRadius: bloomRadius,
+                        ),
+                      ]
+                    : null,
               ),
             ),
             if (isActive)
               Container(
                 margin: const EdgeInsets.only(top: 2),
-                height: 2,
-                width: 24,
+                height: isIdiom ? 3 : 2,
+                width: isIdiom ? 32 : 24,
                 color: AppColors.brandPrimary,
               ),
           ],
@@ -340,6 +373,9 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
   }
 
   Widget _buildWaveformVisualizer() {
+    final drumsEnergy = widget.modulationSnapshot?.effectiveDrumsEnergy ?? 0.5;
+    final bassEnergy = widget.modulationSnapshot?.effectiveBassEnergy ?? 0.5;
+
     return AnimatedBuilder(
       animation: _animController,
       builder: (context, child) {
@@ -348,8 +384,9 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
           crossAxisAlignment: CrossAxisAlignment.end,
           children: List.generate(24, (index) {
             final wave = sin((_animController.value * 2 * pi) + (index * 0.4));
+            final dynamicBoost = (index < 8) ? bassEnergy : drumsEnergy;
             final height = widget.isPlaying
-                ? (12 + (32 * wave.abs()))
+                ? (12 + (32 * wave.abs() * (0.6 + 0.4 * dynamicBoost)))
                 : (8.0 + (index % 4) * 3);
 
             return Container(
@@ -369,36 +406,44 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
   }
 }
 
-/// CustomPainter for procedural film grain and bass vignette
+/// CustomPainter for procedural film grain, bass vignette, and transient spark particles
 class _AtmosphereOverlayPainter extends CustomPainter {
   final bool filmGrain;
   final bool bassPulse;
+  final double bassEnergy;
+  final double logDrumZoom;
   final double animValue;
 
   _AtmosphereOverlayPainter({
     required this.filmGrain,
     required this.bassPulse,
+    this.bassEnergy = 0.0,
+    this.logDrumZoom = 0.0,
     required this.animValue,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Radial Vignette
+    // 1. Radial Vignette with Bass Pumping
+    final pulseFactor = bassPulse || bassEnergy > 0.25;
+    final vignetteAlpha = pulseFactor ? (0.55 + 0.25 * bassEnergy).clamp(0.0, 0.85) : 0.45;
+
     final vignettePaint = Paint()
       ..shader = RadialGradient(
         center: Alignment.center,
         radius: 0.95,
         colors: [
           Colors.transparent,
-          Colors.black.withValues(alpha: bassPulse ? 0.65 : 0.45),
+          Colors.black.withValues(alpha: vignetteAlpha),
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), vignettePaint);
 
+    final random = Random((animValue * 1000).toInt());
+
     // 2. Procedural Film Grain
     if (filmGrain) {
-      final random = Random((animValue * 1000).toInt());
       final grainPaint = Paint()
         ..color = Colors.white.withValues(alpha: 0.04)
         ..strokeWidth = 1.0;
@@ -409,12 +454,30 @@ class _AtmosphereOverlayPainter extends CustomPainter {
         canvas.drawCircle(Offset(x, y), 0.75, grainPaint);
       }
     }
+
+    // 3. Transient Spark Particles on heavy log drum and bass transients (REQ-MMO-12)
+    final sparkEnergy = max(bassEnergy, logDrumZoom);
+    if (sparkEnergy > 0.35) {
+      final sparkCount = (sparkEnergy * 24).toInt();
+      final sparkPaint = Paint()
+        ..color = AppColors.brandPrimary.withValues(alpha: (sparkEnergy * 0.7).clamp(0.1, 0.75));
+
+      for (int i = 0; i < sparkCount; i++) {
+        final sx = random.nextDouble() * size.width;
+        final sy = (size.height * 0.4) + (random.nextDouble() * size.height * 0.6);
+        final radius = (1.0 + (random.nextDouble() * 2.0 * sparkEnergy)).clamp(0.5, 3.5);
+        canvas.drawCircle(Offset(sx, sy), radius, sparkPaint);
+      }
+    }
   }
 
   @override
   bool shouldRepaint(covariant _AtmosphereOverlayPainter oldDelegate) {
     return oldDelegate.animValue != animValue ||
         oldDelegate.filmGrain != filmGrain ||
-        oldDelegate.bassPulse != bassPulse;
+        oldDelegate.bassPulse != bassPulse ||
+        oldDelegate.bassEnergy != bassEnergy ||
+        oldDelegate.logDrumZoom != logDrumZoom;
   }
 }
+

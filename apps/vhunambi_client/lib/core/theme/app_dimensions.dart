@@ -17,6 +17,7 @@ abstract final class AppRadius {
   static const BorderRadius modalBorder = BorderRadius.vertical(top: Radius.circular(modal));
   static const BorderRadius cardBorder  = BorderRadius.all(Radius.circular(card));
   static const BorderRadius inputBorder = BorderRadius.all(Radius.circular(input));
+  static const BorderRadius buttonBorder = inputBorder;
   static const BorderRadius thumbBorder = BorderRadius.all(Radius.circular(thumb));
   static const BorderRadius squircleBorder = BorderRadius.all(Radius.circular(squircle));
 }

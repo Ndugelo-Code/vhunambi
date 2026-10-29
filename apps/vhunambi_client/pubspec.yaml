@@ -45,10 +45,16 @@ dependencies:
   # Local Persistence & Caching
   hive_flutter: ^1.1.0
   path_provider: ^2.1.2
+  shared_preferences: ^2.2.0
+
+  # Cover art color extraction for PillForm glow
+  palette_generator: 0.3.3+7
 
   # Network & Media
   dio: ^5.4.1
+  http: ^1.2.0
   cached_network_image: ^3.3.1
+  share_plus: ^8.0.1
 
   # Typography & Icons
   google_fonts: ^6.1.0

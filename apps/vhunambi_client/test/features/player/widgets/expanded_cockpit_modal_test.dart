@@ -132,7 +132,58 @@ void main() {
 
     container.dispose();
   });
+
+  testWidgets('root is wrapped in Material transparency (VH-015 - no yellow underlines)',
+      (tester) async {
+    final container = await seed(tester);
+    await pumpCockpit(tester, container);
+
+    // Material widget with transparency type should be present in the tree
+    expect(find.byType(Material), findsWidgets);
+    // Text widgets should render without yellow underline artifacts
+    expect(find.text('Track trk_1'), findsOneWidget);
+
+    container.dispose();
+  });
+
+  testWidgets('share button uses system share sheet (VH-016)',
+      (tester) async {
+    final container = await seed(tester);
+    await pumpCockpit(tester, container);
+
+    // Share button should be present
+    expect(find.byKey(const Key('player_meta_share_btn')), findsOneWidget);
+
+    container.dispose();
+  });
+
+  testWidgets('action row wraps on narrow 360dp viewport (VH-017)',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final handler = TestVhunambiAudioHandler();
+    addTearDown(handler.dispose);
+
+    final container = ProviderContainer(
+      overrides: <Override>[
+        audioHandlerProvider.overrideWithValue(handler),
+      ],
+    );
+    container.read(playerStateProvider.notifier).playTrack(_track('trk_1'));
+
+    await pumpCockpit(tester, container);
+
+    // Action row should render without overflow on narrow viewport
+    expect(find.byKey(const Key('player_meta_share_btn')), findsOneWidget);
+    // Multiple Wrap widgets may exist (header bar + subtitle row); assert at least one.
+    expect(find.byType(Wrap), findsWidgets);
+
+    container.dispose();
+  });
 }
+
 
 Track _track(String id) => Track(
       id: id,

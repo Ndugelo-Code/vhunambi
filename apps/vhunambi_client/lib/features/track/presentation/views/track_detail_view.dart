@@ -6,10 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../../library/domain/models/library_models.dart';
+import '../../../mastering/presentation/providers/mastering_session_provider.dart';
+import '../../../mastering/presentation/views/desktop_mastering_studio_view.dart';
+import '../../../mastering/presentation/widgets/mobile_quick_master_sheet.dart';
 import '../../../offline/domain/models/offline_models.dart';
 import '../../../offline/presentation/providers/offline_providers.dart';
 import '../../../player/presentation/providers/player_provider.dart';
@@ -442,6 +446,60 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                         color: AppColors.brandPrimary),
                     label: Text(
                       'Open Pocket Stem Mixer',
+                      style: AppTypography.bodyLarge
+                          .copyWith(color: AppColors.brandPrimary),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.brandPrimary),
+                      minimumSize: const Size.fromHeight(48),
+                      shape: const RoundedRectangleBorder(
+                          borderRadius: AppRadius.inputBorder),
+                    ),
+                  ),
+
+                  // 7c. Open Studio Master Polisher (Phase 25)
+                  const SizedBox(height: AppSpacing.sm),
+                  OutlinedButton.icon(
+                    key: const Key('track_detail_open_mastering_btn'),
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      ref
+                          .read(masteringSessionProvider.notifier)
+                          .initializeForTrack(
+                            trackId: track.id,
+                            trackTitle: track.title,
+                            genre: track.genre,
+                          );
+                      if (ResponsiveUtils.isDesktop(context)) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => DesktopMasteringStudioView(
+                              trackId: track.id,
+                              trackTitle: track.title,
+                              genre: track.genre,
+                            ),
+                          ),
+                        );
+                      } else {
+                        showModalBottomSheet<void>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (ctx) => FractionallySizedBox(
+                            heightFactor: 0.9,
+                            child: MobileQuickMasterSheet(
+                              trackId: track.id,
+                              trackTitle: track.title,
+                              genre: track.genre,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.auto_awesome_rounded,
+                        color: AppColors.brandPrimary),
+                    label: Text(
+                      '✨ Master Track (Studio Polisher)',
                       style: AppTypography.bodyLarge
                           .copyWith(color: AppColors.brandPrimary),
                     ),

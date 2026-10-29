@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vhunambi_client/features/player/domain/models/stem_mixer_state.dart';
@@ -123,11 +124,38 @@ void main() {
     });
 
     test('bounceMasterMix renders output path and updates state', () async {
-      final notifier = container.read(stemMixerProvider.notifier);
+      final tempDir = await Directory.systemTemp.createTemp('stem_test_');
+      try {
+        final notifier = StemMixerNotifier(
+          outputDirectoryResolver: () async => tempDir.path,
+        );
 
-      final path = await notifier.bounceMasterMix();
-      expect(path, contains('/vault/bounces/master_mix_'));
-      expect(container.read(stemMixerProvider).lastBouncedAudioPath, path);
+        final result = await notifier.bounceMasterMix();
+        expect(result.path, contains(tempDir.path));
+        expect(result.path, endsWith('.wav'));
+        expect(result.isSimulated, isTrue);
+        expect(File(result.path).existsSync(), isTrue);
+        expect(notifier.state.lastBouncedAudioPath, result.path);
+        expect(notifier.state.isBouncing, isFalse);
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test('bounceMasterMix rejects re-entry while isBouncing is true', () async {
+      final tempDir =
+          await Directory.systemTemp.createTemp('stem_test_reentry_');
+      try {
+        final notifier = StemMixerNotifier(
+          outputDirectoryResolver: () async => tempDir.path,
+        );
+
+        final future1 = notifier.bounceMasterMix();
+        expect(() => notifier.bounceMasterMix(), throwsA(isA<StateError>()));
+        await future1;
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
     });
   });
 }

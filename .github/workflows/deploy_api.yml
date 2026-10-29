@@ -1,0 +1,64 @@
+name: Deploy Vhunambi API Gateway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/vhunambi_api/**'
+      - '.github/workflows/deploy_api.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/vhunambi_api/**'
+
+jobs:
+  test-and-verify:
+    name: Test & Build Vhunambi API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/vhunambi_api
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm via Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript Compilation & Typecheck
+        run: pnpm build
+
+      - name: "Run Test Suite (7 Suites: Cloud GPU, MMO, Vision, DNA, Social, Lyrics, Health)"
+        run: pnpm test
+
+  docker-build:
+    name: Build & Validate Production Docker Container
+    needs: test-and-verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Production Container Image
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/vhunambi_api
+          file: apps/vhunambi_api/Dockerfile
+          push: false
+          tags: vhunambi/api-gateway:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
+import '../../../../core/design_system/tokens/design_enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/option_preview_descriptor.dart';
+import '../providers/studio_form_provider.dart';
 import '../utils/studio_haptics.dart';
 import 'tactile_pressable.dart';
 
@@ -17,7 +20,10 @@ import 'tactile_pressable.dart';
 /// main body performs the regular selection [onTap]. Existing text labels
 /// are preserved verbatim so current `find.text('Slow')`-style finders keep
 /// working.
-class OptionPreviewChip extends StatefulWidget {
+///
+/// Uses genre accent tokens from [VhunambiThemeExtension] for the selected
+/// chip state instead of legacy `AppColors.brandPrimary`.
+class OptionPreviewChip extends ConsumerStatefulWidget {
   const OptionPreviewChip({
     super.key,
     required this.optionKey,
@@ -43,10 +49,10 @@ class OptionPreviewChip extends StatefulWidget {
   OptionPreviewDescriptor? get preview => kStudioOptionPreviews[optionKey];
 
   @override
-  State<OptionPreviewChip> createState() => _OptionPreviewChipState();
+  ConsumerState<OptionPreviewChip> createState() => _OptionPreviewChipState();
 }
 
-class _OptionPreviewChipState extends State<OptionPreviewChip> {
+class _OptionPreviewChipState extends ConsumerState<OptionPreviewChip> {
   OverlayEntry? _overlayEntry;
 
   void _showPreview() {
@@ -56,14 +62,21 @@ class _OptionPreviewChipState extends State<OptionPreviewChip> {
 
     late final OverlayEntry entry;
     entry = OverlayEntry(
-      builder: (context) => _OptionPreviewCard(
-        optionKey: widget.optionKey,
-        descriptor: preview,
-        onGotIt: () {
-          _removeOverlay();
-        },
-        entryRef: entry,
-      ),
+      builder: (context) {
+        final genreString = ref.read(studioFormProvider).genre;
+        final genre = _mapStringToGenre(genreString);
+        final extension = VhunambiThemeExtension.of(context);
+        final accent = extension.genreAccent(genre);
+        return _OptionPreviewCard(
+          optionKey: widget.optionKey,
+          descriptor: preview,
+          onGotIt: () {
+            _removeOverlay();
+          },
+          entryRef: entry,
+          accent: accent,
+        );
+      },
     );
     _overlayEntry = entry;
     Overlay.of(context, rootOverlay: true).insert(entry);
@@ -89,6 +102,10 @@ class _OptionPreviewChipState extends State<OptionPreviewChip> {
   Widget build(BuildContext context) {
     final isSelected = widget.isSelected;
     final preview = widget.preview;
+    final genreString = ref.watch(studioFormProvider.select((s) => s.genre));
+    final genre = _mapStringToGenre(genreString);
+    final extension = VhunambiThemeExtension.of(context);
+    final accent = extension.genreAccent(genre);
 
     return TactilePressable(
       hapticType: TactileHapticType.light,
@@ -98,10 +115,10 @@ class _OptionPreviewChipState extends State<OptionPreviewChip> {
         constraints: const BoxConstraints(minHeight: 44),
         padding: const EdgeInsets.only(left: AppSpacing.md),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.brandPrimary : AppColors.surfaceSecondary,
+          color: isSelected ? accent : AppColors.surfaceSecondary,
           borderRadius: AppRadius.pillBorder,
           border: Border.all(
-            color: isSelected ? AppColors.brandPrimary : AppColors.borderSubtle,
+            color: isSelected ? accent : AppColors.borderSubtle,
           ),
         ),
         child: Row(
@@ -114,7 +131,7 @@ class _OptionPreviewChipState extends State<OptionPreviewChip> {
                       widget.label,
                       style: AppTypography.bodySmall.copyWith(
                         color: isSelected
-                            ? AppColors.brandContrast
+                            ? _contrastTextColor(accent)
                             : AppColors.textSecondary,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                       ),
@@ -128,7 +145,7 @@ class _OptionPreviewChipState extends State<OptionPreviewChip> {
                             fontWeight:
                                 isSelected ? FontWeight.w700 : FontWeight.w500,
                             color: isSelected
-                                ? AppColors.brandContrast
+                                ? _contrastTextColor(accent)
                                 : AppColors.textPrimary,
                           ),
                         ),
@@ -137,7 +154,7 @@ class _OptionPreviewChipState extends State<OptionPreviewChip> {
                           widget.subtitle!,
                           style: AppTypography.caption.copyWith(
                             color: isSelected
-                                ? AppColors.brandContrast
+                                ? _contrastTextColor(accent)
                                 : AppColors.textTertiary,
                           ),
                         ),
@@ -169,6 +186,37 @@ class _OptionPreviewChipState extends State<OptionPreviewChip> {
       ),
     );
   }
+
+  /// Maps a free-form [genre] string from [StudioFormState] to a
+  /// [Genre] enum for the design system token registry.
+  ///
+  /// Unknown genres fall back to [Genre.amapiano].
+  Genre _mapStringToGenre(String genre) {
+    final normalized = genre.trim().toLowerCase();
+    return switch (normalized) {
+      'amapiano' => Genre.amapiano,
+      'afro house' => Genre.afroHouse,
+      'afrohouse' => Genre.afroHouse,
+      'gqom' => Genre.gqom,
+      'kwaito' => Genre.kwaito,
+      'afro pop' => Genre.afroPop,
+      'afropop' => Genre.afroPop,
+      'afrobeats' => Genre.afroPop,
+      'afro beats' => Genre.afroPop,
+      'maskandi' => Genre.maskandi,
+      'hip hop' => Genre.hipHop,
+      'hiphop' => Genre.hipHop,
+      'gospel' => Genre.gospel,
+      _ => Genre.amapiano,
+    };
+  }
+}
+
+/// Returns a high-contrast text color (black or white) for [background]
+/// based on its relative luminance, ensuring WCAG AA readability.
+Color _contrastTextColor(Color background) {
+  final luminance = background.computeLuminance();
+  return luminance > 0.5 ? Colors.black : Colors.white;
 }
 
 /// Themed micro-preview card surfaced through the [Overlay] (M10 / REQ-OPT-03).
@@ -178,12 +226,14 @@ class _OptionPreviewCard extends StatelessWidget {
     required this.descriptor,
     required this.onGotIt,
     required this.entryRef,
+    required this.accent,
   });
 
   final String optionKey;
   final OptionPreviewDescriptor descriptor;
   final VoidCallback onGotIt;
   final OverlayEntry entryRef;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -215,9 +265,9 @@ class _OptionPreviewCard extends StatelessWidget {
                   color: AppColors.surfaceModal,
                   borderRadius: AppRadius.cardBorder,
                   border: Border.all(color: AppColors.borderActive),
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
-                      color: AppColors.brandPrimary,
+                      color: accent,
                       blurRadius: 0,
                       spreadRadius: 0,
                       offset: Offset(0, 0),
@@ -236,7 +286,9 @@ class _OptionPreviewCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             descriptor.title,
-                            style: AppTypography.titleMedium,
+                            style: AppTypography.titleMedium.copyWith(
+                              color: _contrastTextColor(accent),
+                            ),
                           ),
                         ),
                       ],
@@ -283,13 +335,13 @@ class _OptionPreviewCard extends StatelessWidget {
                           if (entryRef.mounted) onGotIt();
                         },
                         style: TextButton.styleFrom(
-                          foregroundColor: AppColors.brandPrimary,
+                          foregroundColor: accent,
                           minimumSize: const Size.fromHeight(44),
                         ),
                         child: Text(
                           'Got It',
                           style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.brandPrimary,
+                            color: accent,
                             fontWeight: FontWeight.w700,
                           ),
                         ),

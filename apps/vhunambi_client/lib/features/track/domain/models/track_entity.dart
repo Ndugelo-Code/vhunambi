@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import '../../../../shared/models/track.dart';
+import 'package:vhunambi_client/features/content_studio/domain/models/master_media_object.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
+import 'package:vhunambi_client/features/player/domain/models/stem_mixer_state.dart';
 
 /// A finished studio master returned by the audio synthesis pipeline
 /// (`completed_track` inside a WebSocket `pipeline_event` frame, Phase 10).
@@ -18,6 +20,9 @@ class TrackEntity {
   /// Optional signed CDN url of the separated stems bundle (ZIP).
   final String? stemsUrl;
 
+  /// Map of individual separated stems (vocals, drums, bass, melodic) for Pocket DAW live mixing.
+  final Map<StemType, String>? stemUrls;
+
   final String? coverUrl;
   final String? lyrics;
 
@@ -29,12 +34,24 @@ class TrackEntity {
     required this.duration,
     required this.masterMp3Url,
     this.stemsUrl,
+    this.stemUrls,
     this.coverUrl,
     this.lyrics,
   });
 
   /// Tolerant decoder: a malformed frame must never crash the pipeline socket.
   factory TrackEntity.fromJson(Map<String, dynamic> json) {
+    Map<StemType, String>? parsedStemUrls;
+    final rawStems = json['stem_urls'] ?? json['stemUrls'];
+    if (rawStems is Map) {
+      parsedStemUrls = <StemType, String>{};
+      rawStems.forEach((key, val) {
+        if (val != null) {
+          parsedStemUrls![stemTypeFromWireString(key.toString())] = val.toString();
+        }
+      });
+    }
+
     return TrackEntity(
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? 'Untitled',
@@ -45,6 +62,7 @@ class TrackEntity {
       ),
       masterMp3Url: json['master_mp3_url'] as String? ?? '',
       stemsUrl: json['stems_url'] as String? ?? json['stems_zip_url'] as String?,
+      stemUrls: parsedStemUrls,
       coverUrl: json['cover_url'] as String?,
       lyrics: json['lyrics'] as String?,
     );
@@ -58,12 +76,28 @@ class TrackEntity {
         'duration_seconds': duration.inSeconds,
         'master_mp3_url': masterMp3Url,
         'stems_url': stemsUrl,
+        if (stemUrls != null)
+          'stem_urls': stemUrls!.map(
+            (k, v) => MapEntry(stemTypeToWireString(k), v),
+          ),
         'cover_url': coverUrl,
         'lyrics': lyrics,
       };
 
   /// Whether an archive of stems is available for download.
   bool get hasStems => stemsUrl != null && stemsUrl!.isNotEmpty;
+
+  /// Whether all 4 isolated stems are available for true multi-stem Pocket DAW auditioning.
+  bool get hasRealStems =>
+      stemUrls != null &&
+      stemUrls!.containsKey(StemType.vocals) &&
+      stemUrls!.containsKey(StemType.drums) &&
+      stemUrls!.containsKey(StemType.bass) &&
+      stemUrls!.containsKey(StemType.melody) &&
+      (stemUrls![StemType.vocals]?.isNotEmpty ?? false) &&
+      (stemUrls![StemType.drums]?.isNotEmpty ?? false) &&
+      (stemUrls![StemType.bass]?.isNotEmpty ?? false) &&
+      (stemUrls![StemType.melody]?.isNotEmpty ?? false);
 
   /// `mm:ss` rendering contract shared with the completion notification.
   String get formattedDuration {
@@ -84,6 +118,7 @@ class TrackEntity {
       audioUrl: masterMp3Url,
       coverUrl: coverUrl,
       isNew: true,
+      stemUrls: stemUrls,
     );
   }
 

@@ -1,15 +1,20 @@
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vhunambi_client/core/design_system/models/generation_request_notifier.dart';
+import 'package:vhunambi_client/core/design_system/tokens/design_enums.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../../domain/models/bantu_voice_profile.dart';
 
 final studioFormProvider =
     StateNotifierProvider<StudioFormNotifier, StudioFormState>((ref) {
-  return StudioFormNotifier();
+  return StudioFormNotifier(ref.read(generationRequestProvider.notifier));
 });
 
 class StudioFormNotifier extends StateNotifier<StudioFormState> {
-  StudioFormNotifier() : super(const StudioFormState());
+  StudioFormNotifier([this._generationRequestNotifier])
+      : super(const StudioFormState());
+
+  final GenerationRequestNotifier? _generationRequestNotifier;
 
   static final List<String> _inspirationSeeds = [
     'A high-energy Amapiano anthem with driving log drums and soulful Tshivenḓa vocal harmonies celebrating heritage and resilience.',
@@ -26,6 +31,8 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
 
   void setGenre(String genre) {
     state = state.copyWith(genre: genre);
+    // Sync with GenerationRequestNotifier (design system state)
+    _generationRequestNotifier?.setGenre(_mapStringToGenre(genre));
   }
 
   void setRegion(String region) {
@@ -57,6 +64,8 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
 
   void setMood(String mood) {
     state = state.copyWith(mood: mood);
+    // Sync with GenerationRequestNotifier (design system state)
+    _generationRequestNotifier?.setMood(_mapStringToMood(mood));
   }
 
   void setTempo(TempoBracket tempo) {
@@ -91,12 +100,24 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
     state = state.copyWith(customTitle: title);
   }
 
+  /// VH-002: Sets track visibility to "public" or "private" (replaces
+  /// togglePublic(bool) to align with backend API schema).
+  void setVisibility(String visibility) {
+    state = state.copyWith(visibility: visibility);
+    // Sync with GenerationRequestNotifier (design system state)
+    _generationRequestNotifier?.setVisibility(visibility);
+  }
+
+  /// Backward-compatible toggle during VH-002 migration.
   void togglePublic(bool isPublic) {
-    state = state.copyWith(isPublic: isPublic);
+    setVisibility(isPublic ? 'public' : 'private');
   }
 
   void setReferenceAudio(String? path) {
-    state = state.copyWith(referenceAudioPath: path);
+    state = state.copyWith(
+      referenceAudioPath: path,
+      clearReferenceAudio: path == null,
+    );
   }
 
   void applyPromptPreset(String preset) {
@@ -226,5 +247,51 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
 
   void reset() {
     state = const StudioFormState();
+  }
+
+  /// Maps a free-form [genre] string from [StudioFormState] to a
+  /// [Genre] enum for the design system token registry.
+  ///
+  /// Unknown genres fall back to [Genre.amapiano].
+  Genre _mapStringToGenre(String genre) {
+    final normalized = genre.trim().toLowerCase();
+    return switch (normalized) {
+      'amapiano' => Genre.amapiano,
+      'afro house' => Genre.afroHouse,
+      'afrohouse' => Genre.afroHouse,
+      'gqom' => Genre.gqom,
+      'kwaito' => Genre.kwaito,
+      'afro pop' => Genre.afroPop,
+      'afropop' => Genre.afroPop,
+      'afrobeats' => Genre.afroPop,
+      'afro beats' => Genre.afroPop,
+      'maskandi' => Genre.maskandi,
+      'hip hop' => Genre.hipHop,
+      'hiphop' => Genre.hipHop,
+      'gospel' => Genre.gospel,
+      _ => Genre.amapiano,
+    };
+  }
+
+  /// Maps a free-form [mood] string from [StudioFormState] to a
+  /// [Mood] enum for the design system token registry.
+  ///
+  /// Unknown moods fall back to [Mood.joyful].
+  Mood _mapStringToMood(String mood) {
+    final normalized = mood.trim().toLowerCase();
+    return switch (normalized) {
+      'uplifting' => Mood.joyful,
+      'uplifting & vibrant' => Mood.joyful,
+      'joyful' => Mood.joyful,
+      'dark & intense' => Mood.melancholic,
+      'dark' => Mood.melancholic,
+      'melancholic' => Mood.melancholic,
+      'peaceful & spiritual' => Mood.calm,
+      'peaceful' => Mood.calm,
+      'spiritual' => Mood.calm,
+      'calm' => Mood.calm,
+      'romantic' => Mood.romantic,
+      _ => Mood.joyful,
+    };
   }
 }

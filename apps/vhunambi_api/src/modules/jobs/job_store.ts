@@ -1,4 +1,5 @@
 import { GenerationJob, JobStatus, PipelineStep } from './job_types.js';
+import { MasterMediaObjectManifest } from '../dna/dna_types.js';
 
 const jobs = new Map<string, GenerationJob>();
 
@@ -71,7 +72,10 @@ export function completeJob(
   result: {
     masterMp3Url: string;
     stemsZipUrl?: string;
+    stemUrls?: Record<string, string>;
     durationSec?: number;
+    manifestUrl?: string;
+    manifest?: MasterMediaObjectManifest;
   },
 ): void {
   const job = jobs.get(generationId);
@@ -82,6 +86,9 @@ export function completeJob(
   job.progressPct = 100;
   job.masterMp3Url = result.masterMp3Url;
   job.stemsZipUrl = result.stemsZipUrl;
+  job.stemUrls = result.stemUrls;
+  job.manifestUrl = result.manifestUrl;
+  job.manifest = result.manifest;
   job.durationSec = result.durationSec || 180;
   job.updatedAt = new Date();
 }

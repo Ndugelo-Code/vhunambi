@@ -1,15 +1,55 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import '../../data/services/stem_mix_bounce_service.dart';
+import '../../data/services/wav_file_writer_io.dart';
 import '../../domain/models/stem_mixer_state.dart';
 
 /// Manages interactive 4-channel stem mixing, muting, soloing, pan,
 /// and master bus DSP processing (REQ-MIX-01 … REQ-MIX-05).
 class StemMixerNotifier extends StateNotifier<StemMixerState> {
-  StemMixerNotifier()
-      : super(const StemMixerState(
+  final StemMixBounceService _bounceService;
+  final Future<String> Function() _outputDirectoryResolver;
+
+  StemMixerNotifier({
+    StemMixBounceService? bounceService,
+    Future<String> Function()? outputDirectoryResolver,
+  })  : _bounceService = bounceService ??
+            const StemMixBounceService(writer: writeWavToFile),
+        _outputDirectoryResolver =
+            outputDirectoryResolver ?? _defaultDirResolver,
+        super(const StemMixerState(
           channels: kDefaultStemChannels,
           activeTrackId: 'trk_active_mix',
           activeTrackTitle: 'Amapiano Sunrise Master',
         ));
+
+  static Future<String> _defaultDirResolver() async {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      final tempDir =
+          Directory('${Directory.systemTemp.path}/vhunambi_bounces');
+      if (!tempDir.existsSync()) {
+        tempDir.createSync(recursive: true);
+      }
+      return tempDir.path;
+    }
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final bounceDir = Directory('${dir.path}/bounces');
+      if (!await bounceDir.exists()) {
+        await bounceDir.create(recursive: true);
+      }
+      return bounceDir.path;
+    } catch (_) {
+      final tempDir =
+          Directory('${Directory.systemTemp.path}/vhunambi_bounces');
+      if (!await tempDir.exists()) {
+        await tempDir.create(recursive: true);
+      }
+      return tempDir.path;
+    }
+  }
 
   /// Sets gain volume for a specific stem channel (0.0 to 1.5).
   void setChannelGain(StemType type, double gain) {
@@ -123,19 +163,35 @@ class StemMixerNotifier extends StateNotifier<StemMixerState> {
   }
 
   /// Renders and bounces the current active stem balance into a master audio file (REQ-MIX-05).
-  Future<String> bounceMasterMix() async {
+  Future<BounceResult> bounceMasterMix({
+    Duration duration = const Duration(seconds: 5),
+  }) async {
+    if (state.isBouncing) {
+      throw StateError('A bounce is already in progress');
+    }
+
     state = state.copyWith(isBouncing: true);
+    try {
+      final dirPath = await _outputDirectoryResolver();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final targetPath = '$dirPath/master_mix_$timestamp.wav';
 
-    // Simulate audio rendering / DSP bounce
-    final bouncedPath =
-        '/vault/bounces/master_mix_${DateTime.now().millisecondsSinceEpoch}.wav';
+      final result = await _bounceService.bounceMixToFile(
+        mixerState: state,
+        targetPath: targetPath,
+        duration: duration,
+      );
 
-    state = state.copyWith(
-      isBouncing: false,
-      lastBouncedAudioPath: bouncedPath,
-    );
+      state = state.copyWith(
+        isBouncing: false,
+        lastBouncedAudioPath: result.path,
+      );
 
-    return bouncedPath;
+      return result;
+    } catch (e) {
+      state = state.copyWith(isBouncing: false);
+      rethrow;
+    }
   }
 }
 

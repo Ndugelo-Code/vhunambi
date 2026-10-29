@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../../../core/design_system/services/haptics_service.dart';
+import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
+import '../../../../core/design_system/tokens/design_enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -12,12 +16,14 @@ import '../../../library/presentation/providers/library_providers.dart';
 import '../../../library/presentation/widgets/track_actions_sheet.dart';
 import '../../../library/presentation/widgets/track_details_modal.dart';
 import '../../../offline/presentation/widgets/offline_indicator_badge.dart';
+import '../providers/mini_player_controller.dart';
 import '../providers/player_provider.dart';
 import 'queue_drawer.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
 import 'package:vhunambi_client/features/content_studio/presentation/views/content_studio_dock_view.dart';
 import 'package:vhunambi_client/features/social/domain/models/video_export_job.dart';
 import 'package:vhunambi_client/features/social/presentation/widgets/video_export_modal.dart';
+import 'stem_mixer_deck.dart';
 
 /// True when the active player [trackId] is hearted in the vault.
 bool _isFavorite(WidgetRef ref, String trackId) {
@@ -82,6 +88,24 @@ class ExpandedCockpitModal extends ConsumerStatefulWidget {
 
 class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
   bool _showLyrics = false;
+  late MiniPlayerController _miniPlayerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _miniPlayerController = ref.read(miniPlayerControllerProvider.notifier);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _miniPlayerController.setNowPlayingOpen(true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    Future.microtask(() => _miniPlayerController.setNowPlayingOpen(false));
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,21 +117,26 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
     }
 
     final notifier = ref.read(playerStateProvider.notifier);
+    final genre = _mapStringToGenre(track.genre);
+    final extension = VhunambiThemeExtension.of(context);
+    final accent = extension.genreAccent(genre);
 
-    return Container(
-      height: MediaQuery.sizeOf(context).height * 0.88,
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceModal,
-        borderRadius: AppRadius.modalBorder,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black54,
-            blurRadius: 30,
-            offset: Offset(0, -6),
-          ),
-        ],
-      ),
-      child: SafeArea(
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        height: MediaQuery.sizeOf(context).height * 0.88,
+        decoration: const BoxDecoration(
+          color: AppColors.surfaceModal,
+          borderRadius: AppRadius.modalBorder,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black54,
+              blurRadius: 30,
+              offset: Offset(0, -6),
+            ),
+          ],
+        ),
+        child: SafeArea(
         top: false,
         child: Column(
           children: [
@@ -126,8 +155,9 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
             // Top Header Bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   IconButton(
                     icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: Colors.white),
@@ -137,20 +167,23 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                     'Now Playing',
                     style: AppTypography.titleMedium.copyWith(color: AppColors.textSecondary),
                   ),
-                  IconButton(
-                    key: const Key('player_lyrics_toggle'),
-                    icon: Icon(
-                      _showLyrics ? Icons.album_rounded : Icons.lyrics_rounded,
-                      size: 22,
-                      color: _showLyrics
-                          ? AppColors.brandPrimary
-                          : Colors.white,
+                  Semantics(
+                    label: _showLyrics ? 'Show artwork' : 'Show lyrics',
+                    child: IconButton(
+                      key: const Key('player_lyrics_toggle'),
+                      icon: Icon(
+                        _showLyrics ? Icons.album_rounded : Icons.lyrics_rounded,
+                        size: 22,
+                        color: _showLyrics
+                            ? accent
+                            : Colors.white,
+                      ),
+                      tooltip: _showLyrics ? 'Show artwork' : 'Show lyrics',
+                      onPressed: () {
+                        HapticsService().selectionClick();
+                        setState(() => _showLyrics = !_showLyrics);
+                      },
                     ),
-                    tooltip: _showLyrics ? 'Show artwork' : 'Show lyrics',
-                    onPressed: () {
-                      HapticFeedback.selectionClick();
-                      setState(() => _showLyrics = !_showLyrics);
-                    },
                   ),
                   IconButton(
                     icon: Icon(
@@ -206,7 +239,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: _showLyrics
-                    ? _buildLyricsCard(context, ref, track)
+                    ? _buildLyricsCard(context, ref, track, accent)
                     : Center(
                         child: AspectRatio(
                           aspectRatio: 1,
@@ -218,7 +251,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                                 borderRadius: BorderRadius.circular(24),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.brandPrimary.withAlpha(80),
+                                    color: accent.withAlpha(80),
                                     blurRadius: 40,
                                     spreadRadius: -8,
                                     offset: const Offset(0, 12),
@@ -257,65 +290,58 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        Row(
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 2,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
                               track.creatorName,
                               style: AppTypography.bodyMuted.copyWith(fontSize: 15),
                             ),
-                            const SizedBox(width: 6),
-                            const Icon(Icons.verified_rounded, color: AppColors.brandPrimary, size: 16),
-                            const SizedBox(width: 8),
-                            Text('•  ${track.genre}', style: AppTypography.caption),
+                            Icon(Icons.verified_rounded, color: accent, size: 16),
+                            Text('• ${track.genre}', style: AppTypography.caption),
                             if (ref.watch(libraryTracksProvider).any(
                               (t) => t.id == track.id && t.isOfflineAvailable,
-                            )) ...[
-                              const SizedBox(width: 8),
+                            ))
                               const OfflineIndicatorBadge(isCompact: true),
-                            ],
                           ],
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    key: const Key('player_meta_favorite_btn'),
-                    icon: Icon(
-                      _isFavorite(ref, track.id)
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      color: _isFavorite(ref, track.id)
-                          ? AppColors.brandPrimary
-                          : AppColors.textSecondary,
-                      size: 26,
-                    ),
-                    tooltip: _isFavorite(ref, track.id)
+                  Semantics(
+                    label: _isFavorite(ref, track.id)
                         ? 'Remove from favourites'
                         : 'Add to favourites',
-                    onPressed: () {
-                      HapticFeedback.selectionClick();
-                      ref
-                          .read(libraryTracksProvider.notifier)
-                          .toggleFavorite(track.id);
-                    },
+                    child: IconButton(
+                      key: const Key('player_meta_favorite_btn'),
+                      icon: Icon(
+                        _isFavorite(ref, track.id)
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: _isFavorite(ref, track.id)
+                            ? accent
+                            : AppColors.textSecondary,
+                        size: 26,
+                      ),
+                      tooltip: _isFavorite(ref, track.id)
+                          ? 'Remove from favourites'
+                          : 'Add to favourites',
+                      onPressed: () {
+                        HapticsService().selectionClick();
+                        ref
+                            .read(libraryTracksProvider.notifier)
+                            .toggleFavorite(track.id);
+                      },
+                    ),
                   ),
                   IconButton(
                     key: const Key('player_meta_share_btn'),
                     icon: const Icon(Icons.ios_share_rounded, color: AppColors.textSecondary, size: 22),
                     tooltip: 'Share Track',
                     onPressed: () async {
-                      await Clipboard.setData(
-                        ClipboardData(text: 'https://vhunambi.com/track/${track.id}'),
-                      );
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Track link copied to clipboard!'),
-                            backgroundColor: AppColors.surfaceModal,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
+                      await _handleShare(context, track);
                     },
                   ),
                 ],
@@ -352,7 +378,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                               margin: const EdgeInsets.symmetric(horizontal: 1.5),
                               height: barHeight,
                               decoration: BoxDecoration(
-                                color: isElapsed ? AppColors.brandPrimary : AppColors.borderSubtle,
+                                color: isElapsed ? accent : AppColors.borderSubtle,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -381,74 +407,93 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  IconButton(
-                    icon: Icon(
-                      Icons.shuffle_rounded,
-                      color: playerState.isShuffle ? AppColors.brandPrimary : AppColors.textSecondary,
-                      size: 24,
-                    ),
-                    onPressed: () {
-                      HapticFeedback.selectionClick();
-                      notifier.toggleShuffle();
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.skip_previous_rounded, size: 36, color: Colors.white),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      notifier.skipPrevious();
-                    },
-                  ),
-                  // Primary 64x64px Play/Pause Orb
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: AppColors.brandPrimary,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.brandPrimary.withAlpha(100),
-                          blurRadius: 20,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
+                  Semantics(
+                    label: playerState.isShuffle ? 'Shuffle on' : 'Shuffle off',
                     child: IconButton(
                       icon: Icon(
-                        playerState.isPlaying
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                        size: 36,
-                        color: AppColors.brandContrast,
+                        Icons.shuffle_rounded,
+                        color: playerState.isShuffle ? accent : AppColors.textSecondary,
+                        size: 24,
                       ),
                       onPressed: () {
-                        HapticFeedback.mediumImpact();
-                        notifier.togglePlayPause();
+                        HapticsService().selectionClick();
+                        notifier.toggleShuffle();
                       },
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.skip_next_rounded, size: 36, color: Colors.white),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      notifier.skipNext();
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      playerState.repeatMode == AudioRepeatMode.one
-                          ? Icons.repeat_one_rounded
-                          : Icons.repeat_rounded,
-                      color: playerState.repeatMode != AudioRepeatMode.off
-                          ? AppColors.brandPrimary
-                          : AppColors.textTertiary,
-                      size: 24,
+                  Semantics(
+                    label: 'Skip previous track',
+                    child: IconButton(
+                      icon: const Icon(Icons.skip_previous_rounded, size: 36, color: Colors.white),
+                      onPressed: () {
+                        HapticsService().lightImpact();
+                        notifier.skipPrevious();
+                      },
                     ),
-                    onPressed: () {
-                      HapticFeedback.selectionClick();
-                      notifier.cycleRepeatMode();
-                    },
+                  ),
+                  // Primary 64x64px Play/Pause Orb
+                  Semantics(
+                    label: playerState.isPlaying ? 'Pause' : 'Play',
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: accent,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: accent.withAlpha(100),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          playerState.isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          size: 36,
+                          color: _contrastTextColor(accent),
+                        ),
+                        onPressed: () {
+                          HapticsService().mediumImpact();
+                          notifier.togglePlayPause();
+                        },
+                      ),
+                    ),
+                  ),
+                  Semantics(
+                    label: 'Skip next track',
+                    child: IconButton(
+                      icon: const Icon(Icons.skip_next_rounded, size: 36, color: Colors.white),
+                      onPressed: () {
+                        HapticsService().lightImpact();
+                        notifier.skipNext();
+                      },
+                    ),
+                  ),
+                  Semantics(
+                    label: playerState.repeatMode == AudioRepeatMode.one
+                        ? 'Repeat one'
+                        : playerState.repeatMode == AudioRepeatMode.all
+                            ? 'Repeat all'
+                            : 'Repeat off',
+                    child: IconButton(
+                      icon: Icon(
+                        playerState.repeatMode == AudioRepeatMode.one
+                            ? Icons.repeat_one_rounded
+                            : Icons.repeat_rounded,
+                        color: playerState.repeatMode != AudioRepeatMode.off
+                            ? accent
+                            : AppColors.textTertiary,
+                        size: 24,
+                      ),
+                      onPressed: () {
+                        HapticsService().selectionClick();
+                        notifier.cycleRepeatMode();
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -465,11 +510,11 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                 borderRadius: AppRadius.pillBorder,
                 border: Border.all(color: AppColors.borderSubtle),
               ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
+              child: Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                alignment: WrapAlignment.center,
+                children: [
                     _UtilityItem(
                       key: const Key('player_lyrics_btn'),
                       icon: _showLyrics ? Icons.album_rounded : Icons.lyrics_outlined,
@@ -481,11 +526,24 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       icon: Icons.tune_rounded,
                       label: 'Stems',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Stem Lab: Queued 4-stem split for "${track.title}" (Vocals, Drums, Bass, Other).'),
-                            backgroundColor: AppColors.surfaceModal,
-                            behavior: SnackBarBehavior.floating,
+                        HapticsService().selectionClick();
+                        showModalBottomSheet<void>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => Container(
+                            height: MediaQuery.sizeOf(context).height * 0.85,
+                            decoration: const BoxDecoration(
+                              color: AppColors.surfaceModal,
+                              borderRadius: AppRadius.modalBorder,
+                            ),
+                            child: SafeArea(
+                              top: false,
+                              child: StemMixerDeck(
+                                title: track.title,
+                                masterUrl: track.audioUrl,
+                              ),
+                            ),
                           ),
                         );
                       },
@@ -536,12 +594,12 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                   ],
                 ),
               ),
-            ),
 
             const SizedBox(height: 20),
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -549,7 +607,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
   ///
   /// Resolves the active track's vault record for its bracketed stanza text;
   /// falls back to a friendly empty state when none is attached.
-  Widget _buildLyricsCard(BuildContext context, WidgetRef ref, Track track) {
+  Widget _buildLyricsCard(BuildContext context, WidgetRef ref, Track track, Color accent) {
     final lyrics = ref
         .read(libraryTracksProvider)
         .cast<LibraryTrack?>()
@@ -575,10 +633,10 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.lyrics_rounded,
                   size: 18,
-                  color: AppColors.brandPrimary,
+                  color: accent,
                 ),
                 const SizedBox(width: AppSpacing.xs),
                 Expanded(
@@ -599,7 +657,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       color: AppColors.textSecondary,
                     ),
                     onPressed: () {
-                      HapticFeedback.mediumImpact();
+                      HapticsService().mediumImpact();
                       Clipboard.setData(ClipboardData(text: lyrics));
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -623,7 +681,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                 ? _LyricsEmptyState()
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(AppSpacing.md),
-                    child: _buildLyricsBody(lyrics),
+                    child: _buildLyricsBody(lyrics, accent),
                   ),
           ),
         ],
@@ -633,7 +691,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
 
   /// Renders bracketed stanza headers (`[Chorus]`) in bold brand color and
   /// lyric lines in [AppTypography.bodyLarge], preserving blank-line spacing.
-  Widget _buildLyricsBody(String lyrics) {
+  Widget _buildLyricsBody(String lyrics, Color accent) {
     final widgets = <Widget>[];
     for (final line in lyrics.split('\n')) {
       final trimmed = line.trim();
@@ -649,7 +707,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
             trimmed,
             style: isHeader
                 ? AppTypography.bodyLarge.copyWith(
-                    color: AppColors.brandPrimary,
+                    color: accent,
                     fontWeight: FontWeight.w700,
                   )
                 : AppTypography.bodyLarge.copyWith(
@@ -691,6 +749,45 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
       coverArtUrl: track.coverUrl ??
           'https://r2.vhunambi.com/visuals/default_9_16.png',
     );
+  }
+
+  /// Shares the track via the system share sheet (VH-016).
+  Future<void> _handleShare(BuildContext context, Track track) async {
+    await Share.share(
+      'Check out "${track.title}" by ${track.creatorName} on Vhunambi!\nhttps://vhunambi.com/track/${track.id}',
+      subject: track.title,
+    );
+  }
+
+  /// Maps a free-form [genre] string from [Track] to a
+  /// [Genre] enum for the design system token registry.
+  ///
+  /// Unknown genres fall back to [Genre.amapiano].
+  Genre _mapStringToGenre(String genre) {
+    final normalized = genre.trim().toLowerCase();
+    return switch (normalized) {
+      'amapiano' => Genre.amapiano,
+      'afro house' => Genre.afroHouse,
+      'afrohouse' => Genre.afroHouse,
+      'gqom' => Genre.gqom,
+      'kwaito' => Genre.kwaito,
+      'afro pop' => Genre.afroPop,
+      'afropop' => Genre.afroPop,
+      'afrobeats' => Genre.afroPop,
+      'afro beats' => Genre.afroPop,
+      'maskandi' => Genre.maskandi,
+      'hip hop' => Genre.hipHop,
+      'hiphop' => Genre.hipHop,
+      'gospel' => Genre.gospel,
+      _ => Genre.amapiano,
+    };
+  }
+
+  /// Returns a high-contrast text color (black or white) for [background]
+  /// based on its relative luminance, ensuring WCAG AA readability.
+  Color _contrastTextColor(Color background) {
+    final luminance = background.computeLuminance();
+    return luminance > 0.5 ? Colors.black : Colors.white;
   }
 }
 
@@ -734,7 +831,7 @@ class _UtilityItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        HapticFeedback.selectionClick();
+        HapticsService().selectionClick();
         onTap();
       },
       borderRadius: BorderRadius.circular(8),

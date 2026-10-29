@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_typography.dart';
 import 'core/utils/responsive_utils.dart';
 import 'core/widgets/vhunambi_bottom_dock_kit.dart';
+import 'core/design_system/design_system.dart';
 import 'features/explore/presentation/views/explore_view.dart';
 import 'features/home/presentation/views/home_dashboard_view.dart';
 import 'features/library/presentation/providers/library_providers.dart';
@@ -13,31 +17,51 @@ import 'features/library/presentation/views/library_view.dart';
 import 'features/marketplace/presentation/views/marketplace_view.dart';
 import 'features/onboarding/presentation/views/splash_view.dart';
 import 'features/player/presentation/providers/player_provider.dart';
-import 'features/player/presentation/widgets/mobile_mini_player.dart';
+import 'features/player/presentation/widgets/mini_player_host.dart';
 import 'features/player/presentation/widgets/desktop_transport_bar.dart';
 import 'features/player/presentation/widgets/expanded_cockpit_modal.dart';
 import 'features/studio/presentation/views/studio_view.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize SharedPreferences for design system state persistence.
+  final prefs = await SharedPreferences.getInstance();
+
+  // Register all genre and mood color tokens with the design system registry,
+  // then seal the registry to prevent late or duplicate registrations.
+  TokenRegistration.registerAllTokens();
+  DesignTokenRegistry.seal();
+
   runApp(
-    const ProviderScope(
-      child: VhunambiApp(),
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
+      child: const VhunambiApp(),
     ),
   );
 }
 
-class VhunambiApp extends StatelessWidget {
+class VhunambiApp extends ConsumerWidget {
   final Widget? initialHome;
 
   const VhunambiApp({super.key, this.initialHome});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       title: 'VHUNAMBI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            ?child,
+            const MiniPlayerHost(),
+          ],
+        );
+      },
       home: initialHome ?? const SplashView(),
     );
   }
@@ -61,7 +85,7 @@ class _RootShellState extends ConsumerState<RootShell> {
   /// system-back gesture unwinds tab jumps (e.g. Home ➔ Studio ➔ back).
   void _switchTab(int index) {
     if (index == _currentIndex) return;
-    HapticFeedback.selectionClick();
+    HapticsService().selectionClick();
     setState(() {
       _tabHistory.add(index);
       _currentIndex = index;
@@ -162,19 +186,15 @@ class _RootShellState extends ConsumerState<RootShell> {
             children: _buildPages(),
           ),
 
-          // Persistent Audio Transport Bar
-          if (hasActiveTrack)
+          // Persistent Audio Transport Bar (Desktop only; Mobile is hosted by global MiniPlayerHost)
+          if (hasActiveTrack && isDesktop)
             Positioned(
-              left: isDesktop ? 0 : VhunambiBottomDockMetrics.floatingMargin,
-              right: isDesktop ? 0 : VhunambiBottomDockMetrics.floatingMargin,
-              bottom: isDesktop ? 0 : VhunambiBottomDockMetrics.floatingMargin,
-              child: isDesktop
-                  ? DesktopTransportBar(
-                      onExpand: () => ExpandedCockpitModal.show(context),
-                    )
-                  : MobileMiniPlayer(
-                      onExpand: () => ExpandedCockpitModal.show(context),
-                    ),
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: DesktopTransportBar(
+                onExpand: () => ExpandedCockpitModal.show(context),
+              ),
             ),
         ],
       ),

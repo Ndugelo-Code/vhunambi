@@ -42,6 +42,8 @@ abstract final class AppTypography {
     color: AppColors.textPrimary,
   );
 
+  static TextStyle get bodyMedium => bodyLarge;
+
   static TextStyle get bodyMuted => GoogleFonts.inter(
     fontSize: 14,
     height: 20 / 14,

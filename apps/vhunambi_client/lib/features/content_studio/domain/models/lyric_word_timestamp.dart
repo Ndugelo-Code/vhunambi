@@ -8,12 +8,16 @@ class LyricWordTimestamp {
   final double start;
   final double end;
   final int stanzaIndex;
+  final double phoneticStress;
+  final bool isCulturalIdiom;
 
   const LyricWordTimestamp({
     required this.word,
     required this.start,
     required this.end,
     this.stanzaIndex = 0,
+    this.phoneticStress = 0.5,
+    this.isCulturalIdiom = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -21,6 +25,8 @@ class LyricWordTimestamp {
         'start': start,
         'end': end,
         'stanzaIndex': stanzaIndex,
+        'phoneticStress': phoneticStress,
+        'isCulturalIdiom': isCulturalIdiom,
       };
 
   factory LyricWordTimestamp.fromJson(Map<String, dynamic> json) =>
@@ -29,6 +35,8 @@ class LyricWordTimestamp {
         start: (json['start'] as num?)?.toDouble() ?? 0.0,
         end: (json['end'] as num?)?.toDouble() ?? 0.0,
         stanzaIndex: json['stanzaIndex'] as int? ?? 0,
+        phoneticStress: (json['phoneticStress'] as num?)?.toDouble() ?? 0.5,
+        isCulturalIdiom: json['isCulturalIdiom'] as bool? ?? false,
       );
 
   LyricWordTimestamp copyWith({
@@ -36,12 +44,16 @@ class LyricWordTimestamp {
     double? start,
     double? end,
     int? stanzaIndex,
+    double? phoneticStress,
+    bool? isCulturalIdiom,
   }) =>
       LyricWordTimestamp(
         word: word ?? this.word,
         start: start ?? this.start,
         end: end ?? this.end,
         stanzaIndex: stanzaIndex ?? this.stanzaIndex,
+        phoneticStress: phoneticStress ?? this.phoneticStress,
+        isCulturalIdiom: isCulturalIdiom ?? this.isCulturalIdiom,
       );
 
   @override
@@ -52,8 +64,12 @@ class LyricWordTimestamp {
           word == other.word &&
           start == other.start &&
           end == other.end &&
-          stanzaIndex == other.stanzaIndex;
+          stanzaIndex == other.stanzaIndex &&
+          phoneticStress == other.phoneticStress &&
+          isCulturalIdiom == other.isCulturalIdiom;
 
   @override
-  int get hashCode => Object.hash(word, start, end, stanzaIndex);
+  int get hashCode =>
+      Object.hash(word, start, end, stanzaIndex, phoneticStress, isCulturalIdiom);
 }
+

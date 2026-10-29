@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_typography.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vhunambi_client/core/design_system/design_system.dart';
+import 'package:vhunambi_client/core/theme/app_colors.dart';
+import 'package:vhunambi_client/core/theme/app_dimensions.dart';
+import 'package:vhunambi_client/core/theme/app_typography.dart';
+import '../../../onboarding/presentation/widgets/mood_color_chip.dart';
 
 /// Interactive sound signature selection component covering tempo feel, vocal energy, and mood.
-class SoundSignaturePicker extends StatelessWidget {
+///
+/// Uses natural language descriptors with African genre references instead of
+/// technical BPM jargon (REQ-VH009-01 through REQ-VH009-06). Internal enum
+/// values remain unchanged for backward compatibility.
+class SoundSignaturePicker extends ConsumerWidget {
   final String selectedTempo;
   final ValueChanged<String> onTempoChanged;
 
@@ -24,17 +31,52 @@ class SoundSignaturePicker extends StatelessWidget {
     required this.onMoodToggled,
   });
 
+  /// Natural language tempo options. Internal keys preserved for backward compat.
   static const List<Map<String, String>> tempoOptions = [
-    {'key': 'slow', 'label': 'Slow (70-95 BPM)', 'hint': 'Deep House / Kizomba'},
-    {'key': 'medium', 'label': 'Medium (100-118 BPM)', 'hint': 'Amapiano / Afro Pop'},
-    {'key': 'fast', 'label': 'Fast (120-135 BPM)', 'hint': 'Afro Tech / Gqom'},
-    {'key': 'hyperspeed', 'label': 'Hyperspeed (140+ BPM)', 'hint': 'Singeli / Shangaan'},
+    {
+      'key': 'slow',
+      'label': 'Laid back',
+      'hint': 'Feels like Deep House and Kizomba: slow, smooth, swaying',
+    },
+    {
+      'key': 'medium',
+      'label': 'Easy groove',
+      'hint': 'Feels like Amapiano and Afro Pop: relaxed but danceable',
+    },
+    {
+      'key': 'fast',
+      'label': 'Driving',
+      'hint': 'Feels like Afro Tech and Gqom: heads nod, floor fills',
+    },
+    {
+      'key': 'hyperspeed',
+      'label': 'Full speed',
+      'hint': 'Feels like Singeli and Shangaan: fast, frantic, high energy',
+    },
   ];
 
+  /// Natural language vocal energy options. Internal keys preserved for backward compat.
   static const List<Map<String, String>> energyOptions = [
-    {'key': 'soft', 'label': 'Soft & Intimate', 'hint': 'Smooth / Acoustic'},
-    {'key': 'balanced', 'label': 'Balanced & Melodic', 'hint': 'Natural Resonance'},
-    {'key': 'intense', 'label': 'Raw & Intense', 'hint': 'High Octane / Chants'},
+    {
+      'key': 'soft',
+      'label': 'Smooth and tender',
+      'hint': 'Like a love song: soft, close, warm voice',
+    },
+    {
+      'key': 'balanced',
+      'label': 'Easy and melodic',
+      'hint': 'Like Afro Pop and R&B: natural, singable',
+    },
+    {
+      'key': 'intense',
+      'label': 'Raw and aggressive',
+      'hint': 'Like Rap and Drill: punchy, hard-hitting delivery',
+    },
+    {
+      'key': 'loud',
+      'label': 'Loud and gritty',
+      'hint': 'Like Rock: raw, strained, big voice',
+    },
   ];
 
   static const List<String> moodOptions = [
@@ -46,8 +88,16 @@ class SoundSignaturePicker extends StatelessWidget {
     'Gritty',
   ];
 
+  /// Maps a mood string to its [Mood] enum value.
+  Mood _moodStringToEnum(String moodName) {
+    return Mood.values.firstWhere(
+      (m) => m.displayName.toLowerCase() == moodName.toLowerCase(),
+      orElse: () => Mood.energetic,
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -137,39 +187,11 @@ class SoundSignaturePicker extends StatelessWidget {
           runSpacing: AppSpacing.sm,
           children: moodOptions.map((mood) {
             final isSelected = selectedMoods.contains(mood);
-            return Semantics(
-              button: true,
-              selected: isSelected,
-              label: '$mood mood${isSelected ? ", selected" : ""}',
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  key: Key('onboarding_mood_${mood.toLowerCase()}'),
-                  onTap: () => onMoodToggled(mood),
-                  borderRadius: AppRadius.pillBorder,
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.brandPrimary.withValues(alpha: 0.2)
-                          : AppColors.surfaceElevated,
-                      borderRadius: AppRadius.pillBorder,
-                      border: Border.all(
-                        color: isSelected ? AppColors.brandPrimary : AppColors.borderSubtle,
-                        width: isSelected ? 1.5 : 1.0,
-                      ),
-                    ),
-                    child: Text(
-                      mood,
-                      style: AppTypography.bodySmall.copyWith(
-                        color: isSelected ? AppColors.brandPrimary : AppColors.textPrimary,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            return MoodColorChip(
+              key: Key('onboarding_mood_chip_$mood'),
+              mood: _moodStringToEnum(mood),
+              isSelected: isSelected,
+              onTap: () => onMoodToggled(mood),
             );
           }).toList(),
         ),

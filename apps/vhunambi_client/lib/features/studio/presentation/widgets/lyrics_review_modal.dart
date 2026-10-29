@@ -12,6 +12,7 @@ import '../../domain/models/lyrics_review_models.dart';
 import '../providers/generation_pipeline_providers.dart';
 import '../providers/lyrics_review_provider.dart';
 import '../providers/studio_form_provider.dart';
+import 'voice_clone_recorder_sheet.dart';
 
 /// Section id of the stanza editor the creator focused most recently while
 /// the cockpit has been open (`null` when none has been focused this session).
@@ -539,7 +540,8 @@ class _RawLyricsEditorState extends State<_RawLyricsEditor> {
     );
   }
 }
-/// Footer actions: regenerate, mode toggle and the synthesis handoff.
+
+/// Footer actions: regenerate, voice clone recorder, mode toggle and synthesis handoff.
 class _LyricsReviewActionBar extends ConsumerWidget {
   const _LyricsReviewActionBar({required this.draft});
 
@@ -572,6 +574,33 @@ class _LyricsReviewActionBar extends ConsumerWidget {
               'Regenerate Lyrics',
               style: AppTypography.bodySmall.copyWith(
                 color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          OutlinedButton.icon(
+            key: const Key('lyrics_review_clone_voice_btn'),
+            onPressed: () => VoiceCloneRecorderSheet.show(
+              context,
+              lyrics: draft.rebuildRawText(),
+              language: draft.language,
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.coinGold,
+              side: BorderSide(color: AppColors.coinGold.withAlpha(110)),
+              shape: const RoundedRectangleBorder(
+                borderRadius: AppRadius.pillBorder,
+              ),
+            ),
+            icon: const Icon(
+              Icons.mic_external_on_rounded,
+              size: 16,
+              color: AppColors.coinGold,
+            ),
+            label: Text(
+              'Clone My Voice (3 Lines)',
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.coinGold,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -762,4 +791,3 @@ void _showLyricsToast(BuildContext context, String message, IconData icon) {
     if (identical(_activeToastEntry, entry)) _activeToastEntry = null;
   });
 }
-

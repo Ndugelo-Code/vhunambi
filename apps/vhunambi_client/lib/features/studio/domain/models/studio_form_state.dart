@@ -3,52 +3,19 @@ import 'package:vhunambi_client/features/content_studio/domain/models/song_metad
 import 'package:vhunambi_client/features/content_studio/domain/models/lyric_word_timestamp.dart';
 import 'bantu_voice_profile.dart';
 
-enum LyricsMode {
-  aiWrite,
-  myOwn,
-  fromPhoto,
-  instrumental,
-}
+enum LyricsMode { aiWrite, myOwn, fromPhoto, instrumental }
 
-enum TempoBracket {
-  slow,
-  medium,
-  fast,
-  veryFast,
-}
+enum TempoBracket { slow, medium, fast, veryFast }
 
-enum VocalVoices {
-  solo,
-  duet,
-  choir,
-}
+enum VocalVoices { solo, duet, choir }
 
-enum VocalGender {
-  male,
-  female,
-  mixed,
-}
+enum VocalGender { male, female, mixed }
 
-enum VocalMode {
-  auto,
-  melodic,
-  rap,
-  spokenWord,
-  choir,
-}
+enum VocalMode { auto, melodic, rap, spokenWord, choir }
 
-enum VocalEnergy {
-  soft,
-  mid,
-  intense,
-}
+enum VocalEnergy { soft, mid, intense }
 
-enum SongStructure {
-  standard,
-  extended,
-  freestyle,
-  loop,
-}
+enum SongStructure { standard, extended, freestyle, loop }
 
 enum GenerationPhase {
   idle,
@@ -80,7 +47,9 @@ class StudioFormState {
   final SongStructure songStructure;
   final bool isAutoTitle;
   final String? customTitle;
-  final bool isPublic;
+
+  /// Visibility of the generated track: "public" or "private" (VH-002).
+  final String visibility;
   final GenerationPhase phase;
   final double generationProgress;
   final String? errorMessage;
@@ -110,7 +79,8 @@ class StudioFormState {
     this.songStructure = SongStructure.standard,
     this.isAutoTitle = true,
     this.customTitle,
-    this.isPublic = true,
+    bool? isPublic,
+    String? visibility,
     this.phase = GenerationPhase.idle,
     this.generationProgress = 0.0,
     this.errorMessage,
@@ -123,10 +93,18 @@ class StudioFormState {
           'Deep resonant chest timbre with natural dental articulation and ancestral oral storytelling cadence.',
       iconEmoji: '👴',
       loraScale: 0.90,
-      characteristicAdLibs: ['Ndi zwone!', 'Aa!', 'Kha ri tshimbile!', 'Vhukuma!'],
+      characteristicAdLibs: [
+        'Ndi zwone!',
+        'Aa!',
+        'Kha ri tshimbile!',
+        'Vhukuma!',
+      ],
     ),
     this.dialectInflection = const DialectInflectionConfig(),
-  });
+  }) : visibility = visibility ?? (isPublic == false ? 'private' : 'public');
+
+  /// Backward-compatible getter during VH-002 migration.
+  bool get isPublic => visibility == 'public';
 
   /// Title used for the pipeline card and the completion notification.
   ///
@@ -204,7 +182,7 @@ class StudioFormState {
             'profileId': selectedVoiceProfile.id,
             'loraScale': selectedVoiceProfile.loraScale,
             'dialectInflection': dialectInflection.toJson(),
-          }
+          },
         ],
       ),
       visualTheme: VisualThemeDna(
@@ -221,6 +199,7 @@ class StudioFormState {
   StudioFormState copyWith({
     String? prompt,
     String? referenceAudioPath,
+    bool clearReferenceAudio = false,
     String? genre,
     String? region,
     String? language,
@@ -238,6 +217,7 @@ class StudioFormState {
     bool? isAutoTitle,
     String? customTitle,
     bool? isPublic,
+    String? visibility,
     GenerationPhase? phase,
     double? generationProgress,
     String? errorMessage,
@@ -246,7 +226,9 @@ class StudioFormState {
   }) {
     return StudioFormState(
       prompt: prompt ?? this.prompt,
-      referenceAudioPath: referenceAudioPath ?? this.referenceAudioPath,
+      referenceAudioPath: clearReferenceAudio
+          ? null
+          : (referenceAudioPath ?? this.referenceAudioPath),
       genre: genre ?? this.genre,
       region: region ?? this.region,
       language: language ?? this.language,
@@ -263,7 +245,11 @@ class StudioFormState {
       songStructure: songStructure ?? this.songStructure,
       isAutoTitle: isAutoTitle ?? this.isAutoTitle,
       customTitle: customTitle ?? this.customTitle,
-      isPublic: isPublic ?? this.isPublic,
+      visibility:
+          visibility ??
+          (isPublic != null
+              ? (isPublic ? 'public' : 'private')
+              : this.visibility),
       phase: phase ?? this.phase,
       generationProgress: generationProgress ?? this.generationProgress,
       errorMessage: errorMessage,
@@ -295,34 +281,34 @@ class StudioFormState {
           songStructure == other.songStructure &&
           isAutoTitle == other.isAutoTitle &&
           customTitle == other.customTitle &&
-          isPublic == other.isPublic &&
+          visibility == other.visibility &&
           phase == other.phase &&
           generationProgress == other.generationProgress &&
           errorMessage == other.errorMessage;
 
   @override
   int get hashCode => Object.hashAll([
-        prompt,
-        referenceAudioPath,
-        genre,
-        region,
-        language,
-        isInstrumental,
-        durationSeconds,
-        lyricsMode,
-        customLyrics,
-        mood,
-        tempo,
-        vocalVoices,
-        vocalGender,
-        vocalMode,
-        vocalEnergy,
-        songStructure,
-        isAutoTitle,
-        customTitle,
-        isPublic,
-        phase,
-        generationProgress,
-        errorMessage,
-      ]);
+    prompt,
+    referenceAudioPath,
+    genre,
+    region,
+    language,
+    isInstrumental,
+    durationSeconds,
+    lyricsMode,
+    customLyrics,
+    mood,
+    tempo,
+    vocalVoices,
+    vocalGender,
+    vocalMode,
+    vocalEnergy,
+    songStructure,
+    isAutoTitle,
+    customTitle,
+    visibility,
+    phase,
+    generationProgress,
+    errorMessage,
+  ]);
 }

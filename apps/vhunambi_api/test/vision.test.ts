@@ -132,6 +132,35 @@ async function runVisionTests() {
   assert.ok(routeData.promptText.includes('9:16'));
   console.log('     ✅ POST /v1/vision/generate route validated successfully');
 
+  // 6. Test POST /v1/vision/render-video (Option 1: Server-Side Cloud Worker)
+  console.log('  6. Testing POST /v1/vision/render-video (MMO Cloud GPU pipeline)...');
+  const renderRes = await app.request('/v1/vision/render-video', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      trackId: 'trk_sunset_001',
+      title: 'Makhado Sunset',
+      resolution: '1080x1920',
+      fps: 60,
+      preset: 'kineticBounce',
+      mmoManifest: {
+        version: '2.0.0',
+        trackId: 'trk_sunset_001',
+        title: 'Makhado Sunset',
+      },
+    }),
+  });
+
+  assert.strictEqual(renderRes.status, 200);
+  const renderData = (await renderRes.json()) as any;
+  assert.strictEqual(renderData.success, true);
+  assert.strictEqual(renderData.status, 'completed');
+  assert.strictEqual(renderData.engine, 'RunPod-NVENC-GPU');
+  assert.strictEqual(renderData.fps, 60);
+  assert.ok(renderData.videoUrl.startsWith('https://r2.vhunambi.com/reels/'));
+  assert.ok(renderData.videoUrl.endsWith('.mp4'));
+  console.log('     ✅ POST /v1/vision/render-video validated successfully (60 FPS Cloud NVENC)');
+
   console.log('🎉 ALL VISION ENGINE TESTS PASSED!\n');
 }
 

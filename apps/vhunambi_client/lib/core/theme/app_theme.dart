@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../design_system/theme/vhunambi_theme_extension.dart';
 import 'app_colors.dart';
 import 'app_dimensions.dart';
 
@@ -89,6 +90,11 @@ abstract final class AppTheme {
         thickness: 1,
         space: 1,
       ),
+
+      // Design System Theme Extension
+      extensions: [
+        const VhunambiThemeExtension(),
+      ],
     );
   }
 }

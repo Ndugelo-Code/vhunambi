@@ -46,6 +46,10 @@ webhookRoutes.post('/ace-step', async (c) => {
     job_id?: string;
     status?: string;
     audio_url?: string | null;
+    master_wav_url?: string | null;
+    stems_zip_url?: string | null;
+    manifest_url?: string | null;
+    stem_urls?: Record<string, string> | null;
     error?: string | null;
     progress?: number | null;
     message?: string | null;
@@ -57,7 +61,7 @@ webhookRoutes.post('/ace-step', async (c) => {
     return c.json({ error: 'PARSE_ERROR', message: 'Invalid JSON payload' }, 400);
   }
 
-  const { job_id, status, progress, audio_url, error } = payload;
+  const { job_id, status, progress, audio_url, manifest_url, stems_zip_url, stem_urls, error } = payload;
 
   if (!job_id) {
     return c.json({ error: 'BAD_REQUEST', message: 'Missing job_id' }, 400);
@@ -86,13 +90,13 @@ webhookRoutes.post('/ace-step', async (c) => {
       break;
 
     case 'completed':
-      // audio_url is TOP-LEVEL in handler.py payload (not nested inside result)
       completeJob(generationId, {
         masterMp3Url: audio_url || '',
-        // handler.py v1 does not return stems_url — stemsZipUrl will be undefined
-        stemsZipUrl: undefined,
+        stemsZipUrl: stems_zip_url || undefined,
+        stemUrls: stem_urls || undefined,
+        manifestUrl: manifest_url || undefined,
       });
-      console.info(`[Webhook] ✅ Job ${generationId} complete → ${audio_url}`);
+      console.info(`[Webhook] ✅ Job ${generationId} complete → ${audio_url} (stems: ${stem_urls ? 'yes' : 'no'}, manifest: ${manifest_url ?? 'none'})`);
       break;
 
     case 'failed':

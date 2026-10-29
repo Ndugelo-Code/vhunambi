@@ -6,6 +6,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/heritage_crate_models.dart';
 import '../providers/heritage_crate_provider.dart';
+import 'melody_sketchpad_modal.dart';
 
 /// Indigenous Heritage Sound Archive browser with a spinning vinyl audition
 /// graphic and 1-tap MPC chop hand-off (REQ-HRC-01 … REQ-HRC-03).
@@ -41,6 +42,31 @@ class CrateBrowserDeck extends ConsumerWidget {
                         style: AppTypography.caption
                             .copyWith(color: AppColors.textSecondary)),
                   ],
+                ),
+              ),
+              TextButton.icon(
+                key: const Key('crate_open_sketchpad_btn'),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(44, 44),
+                  backgroundColor: AppColors.surfaceElevated,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: AppRadius.buttonBorder,
+                  ),
+                ),
+                onPressed: () {
+                  MelodySketchpadModal.show(context);
+                },
+                icon: const Icon(
+                  Icons.piano_rounded,
+                  size: 16,
+                  color: AppColors.brandPrimary,
+                ),
+                label: Text(
+                  '🎹 Open in Melody Sketchpad',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],

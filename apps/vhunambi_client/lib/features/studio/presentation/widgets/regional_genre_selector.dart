@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
+import '../../../../core/design_system/tokens/design_enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
@@ -60,6 +62,9 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
     final activeGenre = ref.watch(studioFormProvider.select((s) => s.genre));
     final activeRegion = ref.watch(studioFormProvider.select((s) => s.region));
     final isDesktop = ResponsiveUtils.isDesktop(context);
+    final genre = _mapStringToGenre(activeGenre);
+    final extension = VhunambiThemeExtension.of(context);
+    final accent = extension.genreAccent(genre);
 
     final filteredGenres = _allGenres.where((g) {
       final matchesSearch =
@@ -302,10 +307,10 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                                 ),
                               ),
                               if (isSelected)
-                                const Icon(
+                                Icon(
                                   Icons.check_circle_rounded,
                                   size: 16,
-                                  color: AppColors.brandPrimary,
+                                  color: accent,
                                 ),
                             ],
                           ),
@@ -354,10 +359,11 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                           }
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.surfaceSecondary,
-                          foregroundColor: AppColors.brandPrimary,
-                          side: const BorderSide(
-                              color: AppColors.brandPrimary),
+                          backgroundColor: accent.withAlpha(30),
+                          foregroundColor: accent,
+                          side: BorderSide(
+                            color: accent,
+                          ),
                           shape: const RoundedRectangleBorder(
                             borderRadius: AppRadius.inputBorder,
                           ),
@@ -365,7 +371,10 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                             horizontal: AppSpacing.md,
                           ),
                         ),
-                        child: const Text('Add'),
+                        child: Text(
+                          'Add',
+                          style: TextStyle(color: accent),
+                        ),
                       ),
                     ],
                   ),
@@ -376,6 +385,30 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
         ],
       ),
     );
+  }
+
+  /// Maps a free-form [genre] string from [StudioFormState] to a
+  /// [Genre] enum for the design system token registry.
+  ///
+  /// Unknown genres fall back to [Genre.amapiano].
+  Genre _mapStringToGenre(String genre) {
+    final normalized = genre.trim().toLowerCase();
+    return switch (normalized) {
+      'amapiano' => Genre.amapiano,
+      'afro house' => Genre.afroHouse,
+      'afrohouse' => Genre.afroHouse,
+      'gqom' => Genre.gqom,
+      'kwaito' => Genre.kwaito,
+      'afro pop' => Genre.afroPop,
+      'afropop' => Genre.afroPop,
+      'afrobeats' => Genre.afroPop,
+      'afro beats' => Genre.afroPop,
+      'maskandi' => Genre.maskandi,
+      'hip hop' => Genre.hipHop,
+      'hiphop' => Genre.hipHop,
+      'gospel' => Genre.gospel,
+      _ => Genre.amapiano,
+    };
   }
 }
 

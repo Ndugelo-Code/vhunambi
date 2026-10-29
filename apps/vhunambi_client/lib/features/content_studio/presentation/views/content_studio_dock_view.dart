@@ -13,6 +13,7 @@ import '../widgets/duration_trim_scrubber.dart';
 import '../widgets/atmospheric_effects_deck.dart';
 import '../widgets/export_action_sheet.dart';
 import '../widgets/publish_clip_modal.dart';
+import '../../../player/presentation/widgets/player_obstacle.dart';
 
 /// Responsive Content Studio Cockpit for turning song DNA, 9:16 cover art,
 /// and synchronized lyrics into exportable short-form videos.
@@ -380,39 +381,45 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
             effects: state.effects,
             onToggle: notifier.toggleEffect,
           ),
-          const SizedBox(height: 32),
-          OutlinedButton.icon(
-            key: const Key('dock_publish_to_profile_btn'),
-            onPressed: () => _openPublishModal(context),
-            icon: const Icon(Icons.campaign_rounded, color: AppColors.brandPrimary),
-            label: Text(
-              'Publish to Profile',
-              style: AppTypography.bodyLarge.copyWith(
-                color: AppColors.brandPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppColors.brandPrimary),
-              minimumSize: const Size.fromHeight(48),
-              shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBorder),
-            ),
-          ),
-          const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: () => _openExportSheet(context),
-            icon: const Icon(Icons.download_rounded, color: AppColors.brandContrast),
-            label: Text(
-              'Export MP4',
-              style: AppTypography.bodyLarge.copyWith(
-                color: AppColors.brandContrast,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.brandPrimary,
-              minimumSize: const Size.fromHeight(48),
-              shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBorder),
+          PlayerObstacle(
+            id: 'content_studio_dock',
+            child: Column(
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('dock_publish_to_profile_btn'),
+                  onPressed: () => _openPublishModal(context),
+                  icon: const Icon(Icons.campaign_rounded, color: AppColors.brandPrimary),
+                  label: Text(
+                    'Publish to Profile',
+                    style: AppTypography.bodyLarge.copyWith(
+                      color: AppColors.brandPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.brandPrimary),
+                    minimumSize: const Size.fromHeight(48),
+                    shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBorder),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: () => _openExportSheet(context),
+                  icon: const Icon(Icons.download_rounded, color: AppColors.brandContrast),
+                  label: Text(
+                    'Export MP4',
+                    style: AppTypography.bodyLarge.copyWith(
+                      color: AppColors.brandContrast,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.brandPrimary,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBorder),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 40),

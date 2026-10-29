@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../domain/models/generation_pipeline_state.dart';
+import '../../../content_studio/domain/models/master_media_object.dart';
+import '../../../player/domain/models/stem_mixer_state.dart';
 import '../../../track/domain/models/track_entity.dart';
 
 export '../../domain/models/generation_pipeline_state.dart';
@@ -115,11 +117,24 @@ class HttpGenerationSubmissionService {
 
           TrackEntity? completedTrack;
           if (step == PipelineStep.ready && masterMp3Url.isNotEmpty) {
+            Map<StemType, String>? parsedStemUrls;
+            final rawStems = data['stemUrls'] ?? data['stem_urls'];
+            if (rawStems is Map) {
+              parsedStemUrls = <StemType, String>{};
+              rawStems.forEach((k, v) {
+                if (v != null) {
+                  parsedStemUrls![stemTypeFromWireString(k.toString())] = v.toString();
+                }
+              });
+            }
+
             completedTrack = TrackEntity(
               id: generationId,
               title: data['trackTitle'] as String? ?? 'Studio Master',
               genre: data['genre'] as String? ?? 'Amapiano',
               masterMp3Url: masterMp3Url,
+              stemsUrl: data['stemsZipUrl'] as String? ?? data['stems_zip_url'] as String?,
+              stemUrls: parsedStemUrls,
               coverUrl: '',
               duration: Duration(seconds: data['durationSec'] as int? ?? 180),
             );

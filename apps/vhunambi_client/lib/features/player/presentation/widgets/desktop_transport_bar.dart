@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/services/haptics_service.dart';
+import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
+import '../../../../core/design_system/tokens/design_enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -31,6 +33,9 @@ class DesktopTransportBar extends ConsumerWidget {
     }
 
     final notifier = ref.read(playerStateProvider.notifier);
+    final genre = _mapStringToGenre(track.genre);
+    final extension = VhunambiThemeExtension.of(context);
+    final accent = extension.genreAccent(genre);
 
     return Container(
       height: 72,
@@ -62,7 +67,7 @@ class DesktopTransportBar extends ConsumerWidget {
               value: playerState.progressRatio,
               minHeight: 2.5,
               backgroundColor: AppColors.borderSubtle,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.brandPrimary),
+              valueColor: AlwaysStoppedAnimation<Color>(accent),
             ),
           ),
 
@@ -117,72 +122,91 @@ class DesktopTransportBar extends ConsumerWidget {
                   const Spacer(),
 
                   // 3. Primary DAW Transport Controls
-                  IconButton(
-                    icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 24),
-                    onPressed: notifier.skipPrevious,
-                    tooltip: 'Previous Track',
-                  ),
-                  const SizedBox(width: 6),
-
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      color: AppColors.brandPrimary,
-                      shape: BoxShape.circle,
-                    ),
+                  Semantics(
+                    label: 'Skip previous track',
                     child: IconButton(
-                      icon: Icon(
-                        playerState.isPlaying
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                        color: AppColors.brandContrast,
-                        size: 24,
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                      onPressed: notifier.togglePlayPause,
-                      tooltip: playerState.isPlaying ? 'Pause' : 'Play',
+                      icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 24),
+                      onPressed: notifier.skipPrevious,
+                      tooltip: 'Previous Track',
                     ),
                   ),
                   const SizedBox(width: 6),
 
-                  IconButton(
-                    icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 24),
-                    onPressed: notifier.skipNext,
-                    tooltip: 'Next Track',
+                  Semantics(
+                    label: playerState.isPlaying ? 'Pause' : 'Play',
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: accent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          playerState.isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          color: _contrastTextColor(accent),
+                          size: 24,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                        onPressed: notifier.togglePlayPause,
+                        tooltip: playerState.isPlaying ? 'Pause' : 'Play',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+
+                  Semantics(
+                    label: 'Skip next track',
+                    child: IconButton(
+                      icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 24),
+                      onPressed: notifier.skipNext,
+                      tooltip: 'Next Track',
+                    ),
                   ),
                   const SizedBox(width: 20),
 
                   // 4. Utility Strip
-                  IconButton(
-                    key: const Key('transport_shuffle_button'),
-                    icon: Icon(
-                      Icons.shuffle_rounded,
-                      color: playerState.isShuffle
-                          ? AppColors.brandPrimary
-                          : AppColors.textSecondary,
-                      size: 20,
+                  Semantics(
+                    label: playerState.isShuffle ? 'Shuffle on' : 'Shuffle off',
+                    child: IconButton(
+                      key: const Key('transport_shuffle_button'),
+                      icon: Icon(
+                        Icons.shuffle_rounded,
+                        color: playerState.isShuffle
+                            ? accent
+                            : AppColors.textSecondary,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        HapticsService().selectionClick();
+                        notifier.toggleShuffle();
+                      },
+                      tooltip: 'Shuffle',
                     ),
-                    onPressed: () {
-                      HapticFeedback.selectionClick();
-                      notifier.toggleShuffle();
-                    },
-                    tooltip: 'Shuffle',
                   ),
 
-                  IconButton(
-                    icon: Icon(
-                      playerState.repeatMode == AudioRepeatMode.one
-                          ? Icons.repeat_one_rounded
-                          : Icons.repeat_rounded,
-                      color: playerState.repeatMode != AudioRepeatMode.off
-                          ? AppColors.brandPrimary
-                          : AppColors.textTertiary,
-                      size: 20,
+                  Semantics(
+                    label: playerState.repeatMode == AudioRepeatMode.one
+                        ? 'Repeat one'
+                        : playerState.repeatMode == AudioRepeatMode.all
+                            ? 'Repeat all'
+                            : 'Repeat off',
+                    child: IconButton(
+                      icon: Icon(
+                        playerState.repeatMode == AudioRepeatMode.one
+                            ? Icons.repeat_one_rounded
+                            : Icons.repeat_rounded,
+                        color: playerState.repeatMode != AudioRepeatMode.off
+                            ? accent
+                            : AppColors.textTertiary,
+                        size: 20,
+                      ),
+                      onPressed: notifier.cycleRepeatMode,
+                      tooltip: 'Repeat Mode',
                     ),
-                    onPressed: notifier.cycleRepeatMode,
-                    tooltip: 'Repeat Mode',
                   ),
 
                   PopupMenuButton<double>(
@@ -212,17 +236,17 @@ class DesktopTransportBar extends ConsumerWidget {
                       return IconButton(
                         key: const Key('transport_download_button'),
                         icon: isDownloading
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppColors.brandPrimary,
+                                  color: accent,
                                 ),
                               )
                             : Icon(
                                 isOffline ? Icons.offline_pin_rounded : Icons.download_rounded,
-                                color: isOffline ? AppColors.brandPrimary : AppColors.textSecondary,
+                                color: isOffline ? accent : AppColors.textSecondary,
                                 size: 20,
                               ),
                         onPressed: () {
@@ -273,16 +297,14 @@ class DesktopTransportBar extends ConsumerWidget {
                           isFavorite
                               ? Icons.favorite_rounded
                               : Icons.favorite_border_rounded,
-                          color: isFavorite
-                              ? AppColors.brandPrimary
-                              : AppColors.textSecondary,
+                          color: isFavorite ? accent : AppColors.textSecondary,
                           size: 20,
                         ),
                         tooltip: isFavorite
                             ? 'Remove from favourites'
                             : 'Add to favourites',
                         onPressed: () {
-                          HapticFeedback.selectionClick();
+                          HapticsService().selectionClick();
                           ref
                               .read(libraryTracksProvider.notifier)
                               .toggleFavorite(track.id);
@@ -320,10 +342,10 @@ class DesktopTransportBar extends ConsumerWidget {
                       data: SliderTheme.of(context).copyWith(
                         trackHeight: 3,
                         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                        activeTrackColor: AppColors.brandPrimary,
+                        activeTrackColor: accent,
                         inactiveTrackColor: AppColors.borderSubtle,
-                        thumbColor: AppColors.brandPrimary,
-                        overlayColor: AppColors.brandPrimary.withAlpha(30),
+                        thumbColor: accent,
+                        overlayColor: accent.withAlpha(30),
                       ),
                       child: Slider(
                         value: playerState.volume,
@@ -351,5 +373,33 @@ class DesktopTransportBar extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Maps a free-form [genre] string from [Track] to a
+  /// [Genre] enum for the design system token registry.
+  ///
+  /// Unknown genres fall back to [Genre.amapiano].
+  Genre _mapStringToGenre(String genre) {
+    final normalized = genre.trim().toLowerCase();
+    return switch (normalized) {
+      'amapiano' => Genre.amapiano,
+      'afro house' => Genre.afroHouse,
+      'afrohouse' => Genre.afroHouse,
+      'gqom' => Genre.gqom,
+      'kwaito' => Genre.kwaito,
+      'afro pop' => Genre.afroPop,
+      'afropop' => Genre.afroPop,
+      'afrobeats' => Genre.afroPop,
+      'afro beats' => Genre.afroPop,
+      'maskandi' => Genre.maskandi,
+      'hip hop' => Genre.hipHop,
+      'hiphop' => Genre.hipHop,
+      'gospel' => Genre.gospel,
+      _ => Genre.amapiano,
+    };
+  }
+
+  Color _contrastTextColor(Color background) {
+    return background.computeLuminance() > 0.5 ? Colors.black : Colors.white;
   }
 }

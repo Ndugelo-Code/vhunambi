@@ -27,4 +27,14 @@ abstract final class AppConstants {
   // Library & User Asset Vault (Blueprint 04)
   static const String vaultBoxKey = 'library_tracks';
   static const String vaultAudioDirectory = 'vhunambi_vault/audio';
+
+  // Executable Master Media Object (MMO v2.0) — Phase 23 Hive persistence
+  static const String mmoBoxKey = 'vhunambi_mmo_manifest_box';
+
+  // Vocal Identity & Cloned Voice Profiles — Phase 26 Hive persistence
+  static const String voiceProfilesBoxKey = 'vhunambi_voice_profiles_box';
+
+  // In-Key Melody, Chord & Log-Drum Sketchpad Vault — Phase 27 Hive persistence
+  static const String melodySketchesBoxKey = 'vhunambi_melody_sketches_box';
 }
+

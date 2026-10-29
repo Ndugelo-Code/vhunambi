@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../providers/melody_sketchpad_provider.dart';
 import '../providers/studio_form_provider.dart';
+import 'melody_sketchpad_modal.dart';
 
 class ReferenceAudioDropzone extends ConsumerStatefulWidget {
   const ReferenceAudioDropzone({super.key});
@@ -21,6 +23,9 @@ class _ReferenceAudioDropzoneState
   Widget build(BuildContext context) {
     final referenceAudio = ref.watch(
       studioFormProvider.select((s) => s.referenceAudioPath),
+    );
+    final attachedPattern = ref.watch(
+      melodySketchpadProvider.select((s) => s.attachedPattern),
     );
 
     return Container(
@@ -61,7 +66,26 @@ class _ReferenceAudioDropzoneState
                       ),
                     ),
                   ),
-                  if (referenceAudio != null)
+                  if (attachedPattern != null)
+                    Container(
+                      key: const Key('dropzone_active_sketchpad_badge'),
+                      margin: const EdgeInsets.only(right: AppSpacing.xs),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withAlpha(35),
+                        borderRadius: AppRadius.pillBorder,
+                      ),
+                      child: Text(
+                        '${attachedPattern.instrument.emoji} ${attachedPattern.name} (${attachedPattern.musicalKey})',
+                        style: AppTypography.badge.copyWith(
+                          color: AppColors.success,
+                        ),
+                      ),
+                    )
+                  else if (referenceAudio != null)
                     Container(
                       margin: const EdgeInsets.only(right: AppSpacing.xs),
                       padding: const EdgeInsets.symmetric(
@@ -79,6 +103,22 @@ class _ReferenceAudioDropzoneState
                         ),
                       ),
                     ),
+                  IconButton(
+                    key: const Key('dropzone_open_sketchpad_btn'),
+                    tooltip: 'Compose Melody / Log-Drum Pattern',
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    icon: const Icon(
+                      Icons.piano_rounded,
+                      color: AppColors.brandPrimary,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      MelodySketchpadModal.show(context);
+                    },
+                  ),
                   Icon(
                     _isExpanded
                         ? Icons.keyboard_arrow_up_rounded

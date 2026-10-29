@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/heritage_crate_models.dart';
+import '../../../content_studio/domain/models/master_media_object.dart';
+import '../../../player/domain/models/stem_mixer_state.dart';
 
 /// State of the Heritage Crate Digging browser.
 class HeritageCrateState {
@@ -145,6 +147,41 @@ class MpcSlicerNotifier extends StateNotifier<MpcSlicerState> {
       pads: newPads,
       sourceTitle: sample.name,
       bpm: sample.bpm,
+      selectedPadIndex: 0,
+      timeStretchRatio: 1.0,
+    );
+  }
+
+  /// Loads role-stratified slices directly from MasterMediaObjectManifest (REQ-MMO-05).
+  void loadFromManifestPads(
+    List<MpcPadSliceManifest> pads, {
+    String sourceTitle = 'MMO Stratified Kit',
+    int bpm = 112,
+    Map<StemType, String>? stemUrls,
+  }) {
+    if (pads.isEmpty) return;
+
+    final newPads = pads.map((p) {
+      final audioUrl = stemUrls?[p.sourceStem] ?? '';
+      return MpcPadEntity(
+        id: 'pad_mmo_${p.padIndex}',
+        index: p.padIndex,
+        label: p.label,
+        sourceAudioUrl: audioUrl,
+        startSec: p.startSec,
+        endSec: p.endSec,
+        pitchShiftSemitones: p.recommendedSemitoneShift,
+        isReversed: false,
+        volume: p.peakIntensity.clamp(0.0, 1.5),
+        isMuted: false,
+        isTriggered: false,
+      );
+    }).toList();
+
+    state = state.copyWith(
+      pads: newPads,
+      sourceTitle: sourceTitle,
+      bpm: bpm,
       selectedPadIndex: 0,
       timeStretchRatio: 1.0,
     );

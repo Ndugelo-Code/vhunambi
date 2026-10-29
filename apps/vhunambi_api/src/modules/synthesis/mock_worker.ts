@@ -41,10 +41,17 @@ export function simulateSynthesisPipeline(generationId: string): void {
   setTimeout(async () => {
     const masterMp3Url = await getPresignedGetUrl(`${generationId}_master.mp3`);
     const stemsZipUrl = await getPresignedGetUrl(`${generationId}_stems.zip`);
+    const stemUrls = {
+      vocals: await getPresignedGetUrl(`${generationId}_vocals.mp3`),
+      drums: await getPresignedGetUrl(`${generationId}_drums.mp3`),
+      bass: await getPresignedGetUrl(`${generationId}_bass.mp3`),
+      melodic: await getPresignedGetUrl(`${generationId}_melodic.mp3`),
+    };
 
     completeJob(generationId, {
       masterMp3Url,
       stemsZipUrl,
+      stemUrls,
       durationSec: 180,
     });
   }, 6000);

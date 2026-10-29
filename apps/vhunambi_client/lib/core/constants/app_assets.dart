@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 /// Centralized asset registry for all production branding marks, African voice
 /// timbre portraits, and crate artwork (REQ-BRD-01).
@@ -25,6 +26,12 @@ abstract final class AppAssets {
 
   /// Full-bleed 1024x1024 launcher store asset.
   static const String appIconFullBleed = '$brandingDir/app_icon_fullbleed.png';
+
+  /// Compact brand mark SVG (header) — VH-006.
+  static const String vhunambiCompactMark = '$brandingDir/vhunambi_compact_mark.svg';
+
+  /// Full lockup SVG (wordmark + icon) for splash/onboarding — VH-006.
+  static const String vhunambiFullLockup = '$brandingDir/vhunambi_full_lockup.svg';
 
   /// Master brand showcase artboard.
   static const String brandShowcase = '$brandingDir/Vhunambi Music Brand Showcase.png';
@@ -130,6 +137,38 @@ abstract final class AppAssets {
           fontWeight: FontWeight.w900,
           letterSpacing: 2,
           color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  /// Reusable widget rendering the compact Vhunambi brand mark (SVG) for the
+  /// studio header (VH-006). Falls back to an orange circle glyph when the
+  /// asset is unavailable.
+  static Widget compactMarkImage({
+    double size = 32,
+    BoxFit fit = BoxFit.contain,
+    Key? key,
+  }) {
+    return Image.asset(
+      vhunambiCompactMark,
+      key: key ?? const Key('vhunambi_brand_compact_mark_image'),
+      width: size,
+      height: size,
+      fit: fit,
+      color: AppColors.brandPrimary,
+      errorBuilder: (context, error, stackTrace) => Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          color: AppColors.brandPrimary,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          Icons.music_note_rounded,
+          size: size * 0.6,
+          color: AppColors.brandContrast,
         ),
       ),
     );

@@ -69,6 +69,10 @@ export async function dispatchSynthesisJob(
               // LoRA array — empty for Phase 16; Phase 17 will add Bantu vocal adapters
               loras: [],
               lora: [],
+              ...(prompt.svcConfig ? { svc_config: prompt.svcConfig } : {}),
+              ...(prompt.melodyConditioning
+                ? { melody_conditioning: prompt.melodyConditioning }
+                : {}),
             },
           }),
         },

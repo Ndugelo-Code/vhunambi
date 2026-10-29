@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../features/player/domain/models/stem_mixer_state.dart';
 
 @immutable
 class Track {
@@ -22,6 +23,9 @@ class Track {
   /// Optional creator handle (e.g. `@sigwa_inaf`) rendered in Explore footers.
   final String? creatorHandle;
 
+  /// Optional separated stem audio sources for Pocket DAW 4-channel live mixing.
+  final Map<StemType, String>? stemUrls;
+
   const Track({
     required this.id,
     required this.title,
@@ -38,7 +42,20 @@ class Track {
     this.trendingRank,
     this.mood,
     this.creatorHandle,
+    this.stemUrls,
   });
+
+  /// Whether all 4 isolated stems are available for true multi-stem Pocket DAW auditioning.
+  bool get hasRealStems =>
+      stemUrls != null &&
+      stemUrls!.containsKey(StemType.vocals) &&
+      stemUrls!.containsKey(StemType.drums) &&
+      stemUrls!.containsKey(StemType.bass) &&
+      stemUrls!.containsKey(StemType.melody) &&
+      (stemUrls![StemType.vocals]?.isNotEmpty ?? false) &&
+      (stemUrls![StemType.drums]?.isNotEmpty ?? false) &&
+      (stemUrls![StemType.bass]?.isNotEmpty ?? false) &&
+      (stemUrls![StemType.melody]?.isNotEmpty ?? false);
 
   /// Handle label with a deterministic fallback derived from [creatorName].
   String get handleLabel {

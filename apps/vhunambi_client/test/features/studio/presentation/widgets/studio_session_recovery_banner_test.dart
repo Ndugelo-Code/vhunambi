@@ -127,7 +127,7 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('session_restore_btn')));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
 
     final formState = container.read(studioFormProvider);
     expect(formState.prompt, 'Amapiano Piano Roll');

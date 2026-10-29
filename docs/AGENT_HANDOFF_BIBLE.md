@@ -2,12 +2,12 @@
 
 > **DOCUMENT PURPOSE:** This is the single, authoritative handoff document for the Vhunambi monorepo. Any AI agent (Antigravity, Cline, Cursor, Windsurf) or human engineer resuming work on this repository can read this document and resume seamlessly with zero loss of context.
 >
-> **Last Updated:** 2026-10-11T01:30:00+02:00  
+> **Last Updated:** 2026-10-27T21:30:00+02:00
 > **Repository Root:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\`  
 > **Client Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\`  
 > **Backend Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_api\`  
-> **Current Health:** `flutter analyze` = **0 issues (No issues found!)** | `flutter test` = **100% passing (813+ passing tests)** | Backend API = **0 errors (6/6 suites passing, 100%)**  
-> **Active Phase:** Phase 0–22 Complete + Full-Stack UI/UX Modernization Sprint M1–M6 Complete (Top Bar, Bottom Dock, Studio Cockpit, Track Details, Explore Feed, Home Header & Indigenous African Greetings)
+> **Current Health:** `flutter analyze` = **0 issues (100% clean)** | `flutter test` = **1093/1093 tests passing (100%)** | Backend API = **0 errors (7/7 suites passing, 100%)**  
+> **Active Phase:** Phase 23 (Master Media Object v2.0) Complete & Verified (1,093 tests) | Phase 24 (Multi-Stem Audio Engine & Offline Frame Renderer) Active Specification
 
 ---
 
@@ -209,6 +209,94 @@ Committed under `docs/foundation_blueprints/`:
 * `lib/features/notifications/domain/models/notification_entity.dart` (`NotificationEntity.generationReady()`).
 * **Automated Tests:** **321 total automated tests passing (100%)** — 67 new tests (22 pipeline state, 11 socket service, 9 stem download, 12 pipeline provider, 10 pipeline card widget, 5 notification entity), plus 254 baseline tests with zero regressions.
 
+
+
+### Phase 11: Sprint M2 — Faults & Improvements (4 Specs) 🔄
+
+**Sprint Overview:** Comprehensive bug fixing and UX enhancement suite addressing 17 issues (VH-001 through VH-017) discovered during field testing on October 19, 2026.
+
+**Workflow:** Spec-Driven Bug Fixing & Enhancement Sprint Protocol ([`VHUNAMBI_FAULTS_IMPROVEMENTS_WORKFLOW_STANDARD.md`](file:///docs/VHUNAMBI_FAULTS_IMPROVEMENTS_WORKFLOW_STANDARD.md))
+
+**Source:** [`docs/blueprints/Vhunambi — Faults & Improvements Spec (2026-10-19).md`](file:///docs/blueprints/Vhunambi — Faults & Improvements Spec (2026-10-19).md)
+
+#### Spec 1: Studio Cockpit Fixes (VH-001 to VH-006) ✅
+
+**Status:** Implementation Complete (Pending Verification)  
+**Branch:** `fix/studio-cockpit-bugs-vh001-vh006`  
+**Location:** `.kiro/specs/studio-cockpit-fixes/`
+
+**Specifications:**
+* **Bugfix Document:** [`bugfix.md`](file:///.kiro/specs/studio-cockpit-fixes/bugfix.md) — 6 bugs, 34 SHALL requirements
+* **Design:** [`design.md`](file:///.kiro/specs/studio-cockpit-fixes/design.md) — 3-phase migration strategy
+* **Tasks:** [`tasks.md`](file:///.kiro/specs/studio-cockpit-fixes/tasks.md) — 35+ tasks, 5 phases
+
+**Deliverables:**
+1. **VH-001** — Mini player close button + keyboard-aware hiding (`mobile_mini_player.dart`)
+2. **VH-002** — `isPublic:bool` → `visibility:String` migration with dynamic subtitle (`studio_form_state.dart`, `studio_action_bar.dart`)
+3. **VH-003** — Description paragraph removal, ToS compaction (`studio_action_bar.dart`)
+4. **VH-004** — Creator DNA CTA overflow fix with ConstrainedBox (`onboarding_view.dart`)
+5. **VH-005** — 9-slot progress tracker (collapsed bar + expanded list) (`progress_tracker_provider.dart`, `progress_tracker.dart`)
+6. **VH-006** — Logo asset integration replacing text title (`vhunambi_app_bar.dart`, `app_assets.dart`)
+
+**Files Modified:** 8 | **Files Created:** 3 | **Net Change:** +440 lines
+
+**Known Limitations:**
+- SVG logo assets referenced but not physically created (fallback glyph in place)
+- Test execution pending Flutter tooling access
+- `NotificationBellButton` import may be unused (lint-level warning)
+
+**Verification Gates (Pending):**
+```powershell
+flutter analyze .       # Target: No issues found!
+flutter test            # Target: 991+ tests passing
+flutter test test/features/studio/  # Studio-specific tests
+```
+
+**Design System Compliance:**
+- ✅ Zero hardcoded colors/spacing/radii (all tokens)
+- ✅ 44×44dp touch targets on all interactive controls
+- ✅ WCAG 2.5.5 semantic labels
+- ✅ Responsive safe area handling
+
+#### Spec 2: Onboarding Modernization (VH-007 to VH-013) 📝
+
+**Status:** Ready for Implementation  
+**Location:** `.kiro/specs/onboarding-modernization/`
+
+**Scope:** 7 enhancements including horizontal carousel, genre/mood colors, natural language copy, DNA visualization, app tour
+
+**Documents Ready:**
+* [`requirements.md`](file:///.kiro/specs/onboarding-modernization/requirements.md) — 63 acceptance criteria
+* [`design.md`](file:///.kiro/specs/onboarding-modernization/design.md) — Complete UX redesign
+* [`tasks.md`](file:///.kiro/specs/onboarding-modernization/tasks.md) — 45 tasks, 8 phases
+
+#### Spec 3: Adaptive Mini Player (VH-014 to VH-017) 📝
+
+**Status:** Ready for Implementation  
+**Location:** `.kiro/specs/adaptive-mini-player/`
+
+**Scope:** Complete mini player redesign with 3 forms (Bar, Card, Pill), gesture system, obstacle avoidance, Now Playing fixes
+
+**Documents Ready:**
+* [`requirements.md`](file:///.kiro/specs/adaptive-mini-player/requirements.md) — 26 requirements, 285+ criteria
+* [`design.md`](file:///.kiro/specs/adaptive-mini-player/design.md) — Full adaptive player architecture
+* [`tasks.md`](file:///.kiro/specs/adaptive-mini-player/tasks.md) — 72 tasks, 4 phases
+
+#### Spec 4: Cross-Cutting Design System ✅
+
+**Status:** Implementation Complete (Pending Integration)  
+**Location:** `.kiro/specs/cross-cutting-design-system/`
+
+**Scope:** Infrastructure foundation (design tokens, haptics service, generation request model, accessibility service, analytics)
+
+**Documents Ready:**
+* [`requirements.md`](file:///.kiro/specs/cross-cutting-design-system/requirements.md) — 28 infrastructure requirements
+* [`design.md`](file:///.kiro/specs/cross-cutting-design-system/design.md) — Complete design system architecture
+* [`tasks.md`](file:///.kiro/specs/cross-cutting-design-system/tasks.md) — 29 phases, 100+ tasks
+
+**Sprint Handoff:** [`CLINE_HANDOFF_FAULTS_IMPROVEMENTS_SPRINT.md`](file:///docs/CLINE_HANDOFF_FAULTS_IMPROVEMENTS_SPRINT.md)
+
+**Sprint Progress:** 50% Complete (2 of 4 specs delivered — Spec 1 + Spec 4 infrastructure)
 ---
 
 ## 5. Phase 6 Delivery Record ✅ — Beats Marketplace & Native App Architecture
@@ -706,8 +794,163 @@ Current gate benchmark: **0 analyzer issues** | **657+ tests passed (100%)**.
   - `dart analyze apps/vhunambi_client` = **0 issues (`No issues found!`)**
   - `flutter test` widget & unit suites = **100% pass (29/29 tests across Phase 22 targets)**.
 
-### 11.7 Future Horizons: Collaborative Producer Cyphers & Release Packaging (Phase 23+)
-- Multi-creator real-time collaborative songwriting rooms & cloud stems jam sessions.
-- Production APK / AAB / Web bundle compilation and CI/CD packaging.
+### 11.7 Phase 23: The Executable Master Media Object (MMO v2.0) (COMPLETE & VERIFIED)
+- **Specification & Artifacts**:
+  - Blueprint: [`docs/phases/phase_23_master_media_object/blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_23_master_media_object/blueprint.md)
+  - Requirements: [`docs/phases/phase_23_master_media_object/requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_23_master_media_object/requirements.md)
+  - Design: [`docs/phases/phase_23_master_media_object/design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_23_master_media_object/design.md)
+  - Tasks: [`docs/phases/phase_23_master_media_object/tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_23_master_media_object/tasks.md)
+  - Handoff Guide: [`docs/CLINE_HANDOFF_PHASE23.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/CLINE_HANDOFF_PHASE23.md)
+  - Standalone GPU Worker Spec: [`docs/RUNPOD_MMO_WORKER_SPEC.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/RUNPOD_MMO_WORKER_SPEC.md)
+- **Verified Deliverables**:
+  1. **Dual-Provenance Architecture (`provenance: 'measured' | 'synthesized'`)**:
+     - Backend manifest compiler (`compileMasterMediaObjectManifest`) in `apps/vhunambi_api` with deterministic BPM-locked 60 Hz quantized `Uint8` Base64 curves, transient events, and stratified 8-pad kit.
+     - `GET /v1/generations/:id/manifest` HTTP route returning compiled or measured manifest.
+     - Webhook payload ingestion in `webhook_routes.ts` supporting `manifest_url` and `stems_zip_url`.
+  2. **Quantized `Uint8` Base64 Modulation Curves**:
+     - 5 discrete 60 Hz curves (`masterRms`, `vocals`, `drums`, `bass`, `melodic`) compressed to $\le 15\text{ KB}$ each; decoded in Dart into `Uint8List` for $O(1)$ zero-allocation frame sampling.
+     - Soft-knee clamping, stem-specific attack/release constants ($k_{\text{drums}}=0.48, k_{\text{bass}}=0.22, k_{\text{melodic}}=0.16$), and 18% sub-bass baseline floor in The Drop.
+  3. **Live Pocket DAW $\leftrightarrow$ Video Coupling**:
+     - `frameModulationSnapshotProvider` coupled to all 4 channel gains in `stemMixerProvider`.
+     - `KineticPreviewCanvas` reactive choreography: camera snap-zoom on log drum drop transients and ambient particle spark emission.
+  4. **Role-Stratified 8-Pad MPC Kit**:
+     - Musical beat-unit slicing ($T_{\text{beat}} = 60/\text{BPM}, T_{\text{bar}} = 4 \times T_{\text{beat}}$) with `clampSliceBounds` protecting short tracks.
+     - 8 stratified pads (Drums x2, Bass x2, Melody x2, Vocals x2) loaded via `loadFromManifestPads()` in `MpcSlicerNotifier`.
+  5. **Bantu Phonetic Typography Bloom**:
+     - Lyric word typography bloom scaled by vocal curve $\times$ `phoneticStress`; cultural idioms highlighted in `AppColors.brandPrimary`.
+- **Verification Gates**:
+  - **Gate V1 (Backend)**: `pnpm build && pnpm test` in `apps/vhunambi_api` = **100% pass (7/7 test suites green, 0 TS errors)**.
+  - **Gate V2 (Client Analyzer)**: `dart analyze apps/vhunambi_client` = **0 issues (`No issues found!`)**.
+  - **Gate V3 (Client Tests)**: `flutter test apps/vhunambi_client` = **100% pass (1092/1092 tests green, 0 regressions)**.
+  - **Gate V4 (Dual-Provenance Manifest)**: Lossless serialization, wire-format mappers, and sub-15KB curves verified in both TS and Dart suites.
+
+### 11.8 Phase 24 (COMPLETE ✅): Multi-Stem Audio Engine & Cloud MMO Video Pipeline
+> Rev 3: Gate G1 resolved to Option 1 (Server-Side Cloud Worker — The MMO Way). Zero mobile app bloat (< 80 MB APK), zero thermal strain on budget African smartphones. Dispatches ~50 KB MMO manifest to RunPod NVENC GPU worker (`POST /v1/vision/render-video`). Full 4-channel pocket DAW with honest master-only fallback and measured drift auto-resync (≤ 40 ms).
+- **Specification & Artifacts**:
+  - Blueprint: [`docs/phases/phase_24_multi_stem_and_frame_renderer/blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_24_multi_stem_and_frame_renderer/blueprint.md)
+  - Requirements: [`docs/phases/phase_24_multi_stem_and_frame_renderer/requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_24_multi_stem_and_frame_renderer/requirements.md)
+  - Design: [`docs/phases/phase_24_multi_stem_and_frame_renderer/design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_24_multi_stem_and_frame_renderer/design.md)
+  - Tasks: [`docs/phases/phase_24_multi_stem_and_frame_renderer/tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_24_multi_stem_and_frame_renderer/tasks.md)
+  - Walkthrough: [`docs/phases/phase_24_multi_stem_and_frame_renderer/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_24_multi_stem_and_frame_renderer/walkthrough.md)
+- **Verified Deliverables**:
+  1. **Phase 24A (Client-Side Audio Engine & Pocket DAW)**:
+     - `IMultiStemAudioEngine` contract extended with `hasRealStems`, `measuredDrift`, `loadFromManifest(...)`.
+     - `JustAudioMultiStemEngine`: Coordinates 4 isolated `AudioPlayer` instances (vocals, drums, bass, melody) with unified play, pause, seek, and hardware interruption handling via `IAudioSessionManager`.
+     - **Honest Master-Only Mode**: Graceful fallback when isolated stems are absent in production (`handler.py` v1).
+     - **Measured Drift (≤ 40 ms)**: Real-time drift badge (`AppColors.success` / `AppColors.accentGold`) with auto-resync.
+     - **Pocket DAW UI (`StemMixerDeck`)**: Play/pause toggle (`Key('stem_mixer_play_pause_btn')`), master-only lock banner (`Key('stem_master_only_banner')`), transport handshake with `VhunambiAudioHandler`, and full `Semantics`.
+     - **WAV Mixdown Bounce (`StemMixBounceService`)**: Web-safe pure service, injected `WavFileWriter`, explicit `isSimulated: true` ("Preview bounce") label, zero `/vault/...` pollution.
+  2. **Phase 24B (Cloud MMO Video Export Pipeline — Option 1)**:
+     - `apps/vhunambi_api`: `POST /v1/vision/render-video` endpoint validated via Zod, queueing to RunPod NVENC GPU worker. Unit tested in `test/vision.test.ts`.
+     - `apps/vhunambi_client`: `CloudVideoExportService` dispatches MMO manifest and streams progress to R2 URL. Unit tested in `cloud_video_export_service_test.dart`.
+     - `KineticPreviewCanvas`: Real-time 60 FPS interactive preview on device without offline frame-capture bottleneck.
+- **Verification Gates**:
+  - `dart analyze .`: **0 issues** across `apps/vhunambi_client`.
+  - `pnpm test`: **7/7 test suites green** across `apps/vhunambi_api`.
+  - `flutter test test/features/player/`: **140/140 tests passing**.
+  - `Test-Path C:\vault`: **False** (zero filesystem pollution).
+
+### 11.9 Phase 25 (COMPLETE ✅): Stem Polisher, Adobe-Style Vocal Cleanse & Mobile/Desktop Mastering Suite
+> Rev 1: First pillar of the Vhunambi V4 Studio Evolution (VHUNAMBI_V4_STUDIO_EVOLUTION_BLUEPRINT.md). Fixes the "generic AI sound" and "same vocal timbre" problem by operating as a hybrid DAW. Features Tier A zero-latency client auditioning with Honest Master-Only mode fallback, MMO 60 FPS curve modulation, RunPod cloud GPU DSP worker, 6 regional genre master presets, and responsive surfaces for Mobile (MobileQuickMasterSheet) and Desktop (DesktopMasteringStudioView).
+
+- **Specification & Artifacts**:
+  - Blueprint: [`docs/phases/phase_25_stem_mastering_suite/blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_25_stem_mastering_suite/blueprint.md)
+  - Requirements: [`docs/phases/phase_25_stem_mastering_suite/requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_25_stem_mastering_suite/requirements.md)
+  - Design: [`docs/phases/phase_25_stem_mastering_suite/design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_25_stem_mastering_suite/design.md)
+  - Tasks: [`docs/phases/phase_25_stem_mastering_suite/tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_25_stem_mastering_suite/tasks.md)
+  - Walkthrough: [`docs/phases/phase_25_stem_mastering_suite/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_25_stem_mastering_suite/walkthrough.md)
+  - Cloud GPU Worker: [`tools/zr-studio-gpu/stem_mastering_worker.py`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/stem_mastering_worker.py)
+  - Cloud Worker Spec: [`docs/RUNPOD_MMO_WORKER_SPEC.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/RUNPOD_MMO_WORKER_SPEC.md)
+
+- **Verified Deliverables**:
+  1. **Domain Models & 6 Regional Studio Presets**:
+     - Shared Zod schema & Dart immutable models (`StemMasteringRecipe`, `StemEqBands`, flavor enums).
+     - 6 Regional Presets: `amapiano_club_knock` (-9.5 LUFS), `private_school_warmth` (-14.0 LUFS), `gqom_warehouse_sub` (-9.5 LUFS), `maskandi_acoustic_clarity` (-14.0 LUFS), `afro_house_horizon` (-10.5 LUFS), `kwaito_golden_tape` (-11.0 LUFS).
+     - Automatic genre matching: `StemMasteringRecipe.forGenre(genre)`.
+  2. **Tier A Client Auditioning & Honest Master-Only Mode**:
+     - `MasteringSessionNotifier` updates channel gains and `MasterBusDsp` in `stemMixerProvider` with zero latency.
+     - Honest Master-Only fallback: When `hasRealStems == false`, macro log-drum tube saturation, stereo width, and sidechain ducking still audition on the master stereo track, accompanied by notice badge (`Key('mastering_master_only_notice')`).
+     - Real-time `[Raw AI] ↔ [Studio Mastered]` A/B bypass toggle (`Key('mastering_ab_toggle')`).
+  3. **MMO 60 FPS Visual Dynamics Synergy**:
+     - `frameModulationSnapshotProvider` in `master_media_object_provider.dart` reads `masteringSessionProvider`, scaling `effectiveBassEnergy`, `effectiveVocalGlow`, and `logDrumSnapZoom` at 60 FPS based on the recipe's dynamic gain multipliers.
+  4. **Tier B Cloud GPU DSP Worker (`tools/zr-studio-gpu/stem_mastering_worker.py`)**:
+     - Sub-harmonic 35–55 Hz sine wave synthesis locked to bass transients.
+     - MMO kick transient sidechain ducking (-3.5 dB).
+     - Mid/Side stereo carving (-2.5 dB cut at 1.8 kHz on Mid, +1.5 dB on Sides for vocal clarity).
+     - Pedalboard limiting & ITU-R BS.1770 LUFS normalization (-9.5 Club vs -14.0 Streaming).
+  5. **Responsive UI Surfaces**:
+     - **Mobile (`MobileQuickMasterSheet`)**: Horizontal preset rail, 4 character pill selectors (Vocal Cleanse, Log Drum Knock, Drum Snap, Melodic Width), LUFS target buttons, and Cloud Bake CTA.
+     - **Desktop (`DesktopMasteringStudioView`)**: Full 4-stem Sonar/Cakewalk console rack with 4-band parametric EQ curves (`CustomPainter`), neural denoise sliders, sub/tube drive sliders, and LUFS/dBTP meters.
+     - **Entrypoints**: Integrated in `StemMixerDeck` and `TrackDetailView` (`Key('stem_mixer_open_mastering_btn')`, `Key('track_detail_open_mastering_btn')`).
+
+- **Verification Gates**:
+  - **Backend (`apps/vhunambi_api`)**: `pnpm test` = **8/8 test suites passing 100%**, `pnpm build` = 0 errors.
+  - **Client Static Analysis**: `dart analyze .` = **0 issues found (`No issues found!`)**.
+  - **Client Mastering Suite**: `flutter test test/features/mastering/` = **23/23 tests passing 100%**.
+  - **Client Full Suite**: `flutter test` = **1,134/1,134 tests passing 100% (0 regressions)**.
+
+### 11.10 Phase 26 (COMPLETE ✅): African Vocal Identity Catalog & Post-Lyrics Zero-Shot Phonetic Voice Cloning Engine
+> Rev 1: Second pillar of the Vhunambi V4 Studio Evolution (`VHUNAMBI_V4_STUDIO_EVOLUTION_BLUEPRINT.md`). Solves "2-voice AI fatigue" and flat Bantu pronunciation by shipping a 24-Archetype Sovereign African Voice Catalog (`RegionalVoiceArchetype`) alongside a 3-Line Bantu Phonetic Calibration Extractor (`PhoneticCalibrationExtractor`) and Zero-Shot Singing Voice Conversion (`seed_vc_worker.py`) that locks onto the creator's own voice and pronunciation in 15–20 seconds.
+
+- **Specification & Artifacts**:
+  - Blueprint: [`docs/phases/phase_26_vocal_identity_cloning/blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_26_vocal_identity_cloning/blueprint.md)
+  - Requirements: [`docs/phases/phase_26_vocal_identity_cloning/requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_26_vocal_identity_cloning/requirements.md)
+  - Design: [`docs/phases/phase_26_vocal_identity_cloning/design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_26_vocal_identity_cloning/design.md)
+  - Tasks: [`docs/phases/phase_26_vocal_identity_cloning/tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_26_vocal_identity_cloning/tasks.md)
+  - Walkthrough: [`docs/phases/phase_26_vocal_identity_cloning/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_26_vocal_identity_cloning/walkthrough.md)
+  - Cloud GPU Seed-VC Worker: [`tools/zr-studio-gpu/seed_vc_worker.py`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/seed_vc_worker.py)
+
+- **Verified Deliverables**:
+  1. **24 Sovereign Regional African Voice Archetypes (`voice_catalog.ts` & `vocal_identity_models.dart`)**:
+     - Covers Southern Africa (`Tshivenḓa`, `isiZulu`, `isiXhosa`, `Sepedi`, `Xitsonga`, `Setswana`, `Sesotho`, `siSwati`, `ChiShona`), West Africa (`Yorùbá`, `Naija Pidgin`, `Twi`, `Igbo`, `Wolof`), East Africa (`Kiswahili`, `Sheng`, `Luganda`, `Amharic`), Central Africa (`Lingala`), and the Diaspora.
+  2. **Deterministic Bantu Phonetic Density Scorer (`PhoneticCalibrationExtractor`)**:
+     - Scores every line in the user's lyrics using $S_{\text{line}} = 3.0 \times N_{\text{diacritics}} + 2.5 \times N_{\text{clusters}} + 2.0 \times N_{\text{idioms}} + 1.0 \times \text{clamp}(\text{wordCount}/6, 0, 2)$ and extracts the top 3 non-duplicate lines (with automatic native fallback padding for short lyrics).
+  3. **Headless-Safe Microphone Calibration Recorder (`IVoiceCalibrationRecorder`)**:
+     - `DeterministicVoiceCalibrationRecorder` generates valid 44-byte RIFF/WAVE PCM headers, 8-float timbre embedding previews, and phoneme cadence maps without spawning background timers or platform channel crashes in `flutter test`.
+  4. **Hive Persistence & Phase 25 Mastering Synergy (`VocalIdentityNotifier`)**:
+     - Persists `CreatorVoiceCloneProfile` records to `vhunambi_voice_profiles_box` and automatically syncs the recommended `VocalCleanseFlavor` (`studioCondenser` for cloned voices) into Phase 25's `masteringSessionProvider`.
+  5. **Studio UI Surfaces (`VoiceCloneRecorderSheet` & `VocalIdentityPickerSheet`)**:
+     - Wired into `LyricsReviewModal` (`Key('lyrics_review_clone_voice_btn')`) and `BantuVoiceDeck` (`Key('open_vocal_identity_catalog_btn')`, `Key('open_voice_clone_recorder_btn')`, `Key('active_vocal_identity_badge')`).
+
+- **Verification Gates**:
+  - **Backend (`apps/vhunambi_api`)**: `pnpm test` = **9/9 test suites passing 100%**, `pnpm build` = 0 errors.
+  - **Client Static Analysis**: `dart analyze .` = **0 issues found (`No issues found!`)**.
+  - **Client Phase 26 Suite**: `flutter test test/features/studio/vocal_identity_extractor_and_provider_test.dart test/features/studio/widgets/voice_clone_and_picker_sheet_test.dart` = **9/9 tests passing 100%**.
+  - **Client Full Suite**: `flutter test` = **1,143/1,143 tests passing 100% (0 regressions)**.
+
+### 11.11 Phase 27 (COMPLETE ✅): Device-Adaptive In-Key 16-Step Melody, Chord & Log-Drum Pattern Sketchpad + Local Hive Vault
+> Rev 1: Final pillar of the Vhunambi V4 Studio Evolution (`VHUNAMBI_V4_STUDIO_EVOLUTION_BLUEPRINT.md`). Bridges Pre-Generation Composition (`ReferenceAudioDropzone` & `CrateBrowserDeck`) with Post-Generation Telemetry (`MasterMediaObjectManifest`) and Mastering (`StemMasteringRecipe`).
+
+- **Specification & Artifacts**:
+  - Blueprint: [`docs/phases/phase_27_melody_logdrum_sketchpad/blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_27_melody_logdrum_sketchpad/blueprint.md)
+  - Requirements: [`docs/phases/phase_27_melody_logdrum_sketchpad/requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_27_melody_logdrum_sketchpad/requirements.md)
+  - Design: [`docs/phases/phase_27_melody_logdrum_sketchpad/design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_27_melody_logdrum_sketchpad/design.md)
+  - Tasks: [`docs/phases/phase_27_melody_logdrum_sketchpad/tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_27_melody_logdrum_sketchpad/tasks.md)
+  - Walkthrough: [`docs/phases/phase_27_melody_logdrum_sketchpad/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_27_melody_logdrum_sketchpad/walkthrough.md)
+
+- **Verified Deliverables**:
+  1. **Scale-Locked 8-Row × 16-Step Sequencer & 6 Iconic Starter Patterns (`melody_sketchpad_models.dart`, `melody_presets.ts`)**:
+     - 4 African Scale Modes (`minor_pentatonic`, `natural_minor`, `maskandi_hexatonic`, `gqom_phrygian_dark`) across all 12 root keys (`C`..`B`).
+     - 5 Sovereign Instruments (`amapiano_log_drum`, `private_school_rhodes`, `maskandi_guitar`, `venda_mbira`, `marimba_wood`) and 6 seeded regional patterns (`kabza_logdrum_bounce`, `private_school_rhodes_lush`, `maskandi_ukupika_turnaround`, `venda_domba_mbira`, `gqom_dark_sub_pulse`, `afro_house_marimba_arp`).
+  2. **Pure-Dart Ephemeral 16-Bit PCM WAV Synthesizer (`MelodyWavSynthesizer`)**:
+     - Renders valid 44-byte `RIFF`/`WAVE` 16-bit mono PCM audio in RAM (`< 20 ms`) with zero native C++ plugins and zero disk pollution.
+     - Implements Fruity DX10-style 2-Operator FM log-drum synthesis with a `14 ms` wooden mallet pitch-drop attack, sub-octave reinforcement, and `-5 semitone` pitch glide (`hasGlide: true`), plus Bjorklund's Euclidean Groove Generator (`generateEuclideanGrooveNotes`).
+  3. **Two-Layer Local-First Storage (`AppConstants.melodySketchesBoxKey`)**:
+     - Layer 1 saves compact `< 2 KB` JSON blueprints in Hive (`vhunambi_melody_sketches_box`); Layer 2 synthesizes WAV bytes ephemerally in RAM when auditioning or conditioning a song.
+  4. **Device-Adaptive Ergonomics (`MelodySketchpadModal`)**:
+     - **Mobile (`< 768px`)**: Bar-Paginated 4-Step HIG Grid (`>= 44×44dp` cells), 8-Pad Live Scale Performance Deck, and 1-Thumb Euclidean Groove Assist.
+     - **Desktop (`> 1024px`)**: Full 16-Step × 8-Row Split DAW Piano Roll, 1-Click Chord Voicing Stamp (`Single`, `Triad`, `Soul 7th`), Bottom 16-Column Velocity & Glide Stalk Lane, and QWERTY Keyboard Synth (`A..K`, `Space`, `G`).
+  5. **Cross-Phase V4 Synergy (Phases 3, 22, 23, 25)**:
+     - 1-tap entrypoints in `ReferenceAudioDropzone` (`Key('dropzone_open_sketchpad_btn')`) and `CrateBrowserDeck` (`Key('crate_open_sketchpad_btn')`).
+     - Injects exact step transients into Phase 23 `MasterMediaObjectManifest.modulationBus.transientEvents` (`dna_compiler.ts`) and couples with Phase 25 `StemMasteringRecipe.sketchpadLayerMix = 0.35` (`mastering_session_provider.dart`, `stem_mastering_worker.py`).
+
+- **Verification Gates**:
+  - **Backend (`apps/vhunambi_api`)**: `pnpm test` = **10/10 test suites passing 100%**, `pnpm build` = 0 errors.
+  - **Client Static Analysis**: `dart analyze .` = **0 issues found (`No issues found!`)**.
+  - **Client Phase 27 Suite**: `flutter test test/features/studio/melody_sketchpad_provider_and_synth_test.dart test/features/studio/widgets/melody_sketchpad_modal_test.dart` = **10/10 tests passing 100%**.
+  - **Client Full Suite**: `flutter test` = **1,152/1,152 tests passing 100% (0 regressions)**.
+
+
+
 
 

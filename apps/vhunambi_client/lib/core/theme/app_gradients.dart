@@ -18,6 +18,7 @@ abstract final class AppGradients {
   );
 
   // The 12 Curated African Genre Cover Gradients
+  static const LinearGradient primaryButton = amapiano;
   static const LinearGradient amapiano = LinearGradient(
     colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
     begin: Alignment.topLeft,

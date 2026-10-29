@@ -6,18 +6,22 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/bantu_voice_profile.dart';
 import '../providers/studio_form_provider.dart';
+import '../providers/vocal_identity_provider.dart';
+import 'vocal_identity_picker_sheet.dart';
+import 'voice_clone_recorder_sheet.dart';
 
-/// Bantu Voice LoRA synthesis cockpit (REQ-VOX-01 / REQ-VOX-02).
+/// Bantu Voice LoRA synthesis cockpit (REQ-VOX-01 / REQ-VOX-02 / Phase 26 REQ-VOC-01..15).
 ///
-/// Lets creators pick one of 5 native African voice timbres and fine-tune the
-/// dialect inflection (penultimate vowel stretch, ancestral vibrato,
-/// call-and-response choir, and cultural ad-libs) before generation.
+/// Lets creators pick one of 5 native African voice timbres, browse the 24-voice
+/// Regional African Catalog, or record a 3-line Zero-Shot Phonetic Voice Clone,
+/// and fine-tune the dialect inflection before generation.
 class BantuVoiceDeck extends ConsumerWidget {
   const BantuVoiceDeck({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(studioFormProvider);
+    final vocalIdentity = ref.watch(vocalIdentityProvider);
     final selected = state.selectedVoiceProfile;
     final inflection = state.dialectInflection;
 
@@ -55,6 +59,78 @@ class BantuVoiceDeck extends ConsumerWidget {
                         fontWeight: FontWeight.w700)),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+
+          // Phase 26: 24-Voice Regional Catalog & Zero-Shot Voice Cloning Actions
+          Container(
+            key: const Key('active_vocal_identity_badge'),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceSecondary,
+              borderRadius: AppRadius.inputBorder,
+              border: Border.all(color: AppColors.borderSubtle),
+            ),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xxs,
+              children: [
+                Text(
+                  'Vocal Identity: ${vocalIdentity.activeVoiceDisplayLabel}',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  children: [
+                    TextButton.icon(
+                      key: const Key('open_vocal_identity_catalog_btn'),
+                      onPressed: () => VocalIdentityPickerSheet.show(context),
+                      icon: const Icon(
+                        Icons.library_music_rounded,
+                        size: 15,
+                        color: AppColors.coinGold,
+                      ),
+                      label: Text(
+                        '24 Regional Voices',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.coinGold,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      key: const Key('open_voice_clone_recorder_btn'),
+                      onPressed: () => VoiceCloneRecorderSheet.show(
+                        context,
+                        lyrics: state.customLyrics,
+                        language: state.language,
+                      ),
+                      icon: const Icon(
+                        Icons.mic_external_on_rounded,
+                        size: 15,
+                        color: AppColors.brandPrimary,
+                      ),
+                      label: Text(
+                        'Clone My Voice',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.brandPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
 
@@ -121,7 +197,6 @@ class BantuVoiceDeck extends ConsumerWidget {
     );
   }
 }
-
 
 class _TimbreCard extends StatelessWidget {
   final BantuVoiceProfile profile;

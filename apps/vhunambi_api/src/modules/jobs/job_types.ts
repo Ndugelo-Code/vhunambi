@@ -1,3 +1,5 @@
+import { MasterMediaObjectManifest } from '../dna/dna_types.js';
+
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 export type PipelineStep = 'queued' | 'synthesizing' | 'separating_stems' | 'ready' | 'failed';
 
@@ -11,9 +13,13 @@ export interface GenerationJob {
   progressPct: number;
   masterMp3Url?: string;
   stemsZipUrl?: string;
+  stemUrls?: Record<string, string>;
+  manifestUrl?: string;
+  manifest?: MasterMediaObjectManifest;
   durationSec?: number;
   errorMessage?: string;
   providerTaskId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
+
