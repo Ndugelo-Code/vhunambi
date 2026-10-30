@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../mastering/presentation/providers/mastering_session_provider.dart';
+import '../../data/services/sketchpad_audio_player_service.dart';
 import '../../domain/models/melody_sketchpad_models.dart';
 import '../../domain/services/melody_wav_synthesizer.dart';
 import 'studio_form_provider.dart';
@@ -81,16 +82,42 @@ class MelodySketchpadState {
 /// Ephemeral In-Memory 16-bit PCM WAV synthesis, and Phase 3/23/25 synergy (REQ-SKP-01..15).
 class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   MelodySketchpadNotifier(this._ref)
-      : super(
-          MelodySketchpadState(
-            activePattern: kStarterMelodyPatterns.first,
-          ),
-        ) {
+    : super(MelodySketchpadState(activePattern: kStarterMelodyPatterns.first)) {
     _loadSavedPatternsFromHive();
   }
 
   final Ref _ref;
   static const String _savedListKey = 'saved_melody_patterns_json';
+
+  ISketchpadAudioPlayerService get _audioService =>
+      _ref.read(sketchpadAudioPlayerServiceProvider);
+
+  void _auditionSingleScaleRow(int scaleRow, {bool? hasGlide}) {
+    final pattern = state.activePattern;
+    final freqHz = resolveScaleFrequencyHz(
+      pattern.musicalKey,
+      pattern.scaleMode,
+      scaleRow,
+      instrument: pattern.instrument,
+    );
+    final hitWav = MelodyWavSynthesizer.synthesizeSingleNoteWavBytes(
+      instrument: pattern.instrument,
+      freqHz: freqHz,
+      hasGlide: hasGlide ?? state.isGlideModeEnabled,
+    );
+    unawaited(_audioService.playSingleNoteHit(hitWav));
+  }
+
+  void _refreshLoopIfPlaying() {
+    if (!state.isPlayingPreview) return;
+    final wavBytes = MelodyWavSynthesizer.synthesizePatternToWavBytes(
+      state.activePattern,
+    );
+    state = state.copyWith(lastSynthesizedWavBytes: wavBytes);
+    unawaited(
+      _audioService.updateLoopBuffer(wavBytes, bpm: state.activePattern.bpm),
+    );
+  }
 
   void _loadSavedPatternsFromHive() {
     try {
@@ -129,10 +156,8 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 
   /// Loads a starter preset or saved vault pattern into the active sequencer.
   void loadPattern(MelodyPatternEntity pattern) {
-    state = state.copyWith(
-      activePattern: pattern,
-      currentPlayheadStep: 0,
-    );
+    state = state.copyWith(activePattern: pattern, currentPlayheadStep: 0);
+    _refreshLoopIfPlaying();
   }
 
   /// Changes the active African instrument (non-destructively re-voicing existing steps).
@@ -140,6 +165,8 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(instrument: instrument),
     );
+    _auditionSingleScaleRow(0, hasGlide: false);
+    _refreshLoopIfPlaying();
   }
 
   /// Changes the root musical key (e.g., `F#m`, `Am`, `Cm`, `G`).
@@ -147,6 +174,8 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(musicalKey: musicalKey),
     );
+    _auditionSingleScaleRow(0, hasGlide: false);
+    _refreshLoopIfPlaying();
   }
 
   /// Changes the scale mode ladder (`minorPentatonic`, `naturalMinor`, `maskandiHexatonic`, `gqomPhrygianDark`).
@@ -154,6 +183,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(scaleMode: scaleMode),
     );
+    _refreshLoopIfPlaying();
   }
 
   /// Updates pattern BPM (`60..180`).
@@ -211,6 +241,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
           hasGlide: true,
           durationSteps: 2,
         );
+        _auditionSingleScaleRow(r, hasGlide: true);
       } else {
         currentNotes.removeAt(existingIdx);
       }
@@ -219,16 +250,16 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       final targetRows = switch (state.chordStampMode) {
         ChordStampMode.single => <int>[r],
         ChordStampMode.triad => <int>{
-            r,
-            (r + 2).clamp(0, 7),
-            (r + 4).clamp(0, 7),
-          }.toList(),
+          r,
+          (r + 2).clamp(0, 7),
+          (r + 4).clamp(0, 7),
+        }.toList(),
         ChordStampMode.seventh => <int>{
-            r,
-            (r + 2).clamp(0, 7),
-            (r + 4).clamp(0, 7),
-            (r + 6).clamp(0, 7),
-          }.toList(),
+          r,
+          (r + 2).clamp(0, 7),
+          (r + 4).clamp(0, 7),
+          (r + 6).clamp(0, 7),
+        }.toList(),
       };
 
       for (final targetRow in targetRows) {
@@ -247,17 +278,21 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
           );
         }
       }
+      _auditionSingleScaleRow(r, hasGlide: useGlide);
     }
 
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(notes: currentNotes),
     );
+    _refreshLoopIfPlaying();
   }
 
   /// Triggers a scale pad (0..7) from the Mobile 8-Pad Deck or Desktop QWERTY keyboard (`A..K`).
   void triggerLiveScalePad(int scaleRow) {
+    final clampedRow = scaleRow.clamp(0, 7);
     final step = state.currentPlayheadStep;
-    toggleCell(scaleRow.clamp(0, 7), step);
+    _auditionSingleScaleRow(clampedRow);
+    toggleCell(clampedRow, step);
     final nextStep = (step + 1) % 16;
     state = state.copyWith(
       currentPlayheadStep: nextStep,
@@ -271,10 +306,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     final currentNotes = state.activePattern.notes.map((n) {
       if (n.stepIndex != s) return n;
       final nextGlide = !n.hasGlide;
-      return n.copyWith(
-        hasGlide: nextGlide,
-        durationSteps: nextGlide ? 2 : 1,
-      );
+      return n.copyWith(hasGlide: nextGlide, durationSteps: nextGlide ? 2 : 1);
     }).toList();
 
     state = state.copyWith(
@@ -307,6 +339,8 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       euclideanPulses: k,
       activePattern: state.activePattern.copyWith(notes: generated),
     );
+    _auditionSingleScaleRow(0, hasGlide: true);
+    _refreshLoopIfPlaying();
   }
 
   /// Clears all active notes from the 16-step grid.
@@ -314,12 +348,24 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(notes: const []),
     );
+    if (state.isPlayingPreview) {
+      stopPreviewPlayback();
+    }
   }
 
-  /// Toggles loop audition preview and synthesizes the ephemeral 16-bit PCM WAV buffer in RAM.
+  /// Stops loop audition preview and halts the hardware audio player.
+  void stopPreviewPlayback() {
+    unawaited(_audioService.stopLoopPlayback());
+    if (mounted) {
+      state = state.copyWith(isPlayingPreview: false, currentPlayheadStep: 0);
+    }
+  }
+
+  /// Toggles loop audition preview, synthesizes the 16-bit PCM WAV buffer in RAM,
+  /// and plays it in a continuous loop via `ISketchpadAudioPlayerService`.
   void togglePreviewPlayback() {
     if (state.isPlayingPreview) {
-      state = state.copyWith(isPlayingPreview: false, currentPlayheadStep: 0);
+      stopPreviewPlayback();
     } else {
       final wavBytes = MelodyWavSynthesizer.synthesizePatternToWavBytes(
         state.activePattern,
@@ -328,6 +374,19 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
         isPlayingPreview: true,
         currentPlayheadStep: (state.currentPlayheadStep + 1) % 16,
         lastSynthesizedWavBytes: wavBytes,
+      );
+      unawaited(
+        _audioService.startLoopPlayback(
+          wavBytes,
+          bpm: state.activePattern.bpm,
+          onStepTick: (stepIndex) {
+            if (!mounted || !state.isPlayingPreview) return;
+            state = state.copyWith(
+              currentPlayheadStep: stepIndex,
+              activeMobileBarPage: stepIndex ~/ 4,
+            );
+          },
+        ),
       );
     }
   }
@@ -359,8 +418,9 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 
   /// Deletes a saved melody blueprint from the local Hive vault.
   Future<void> deleteSavedPattern(String patternId) async {
-    final updated =
-        state.savedPatterns.where((p) => p.id != patternId).toList();
+    final updated = state.savedPatterns
+        .where((p) => p.id != patternId)
+        .toList();
     state = state.copyWith(savedPatterns: updated);
     await _persistSavedPatterns(updated);
   }
@@ -379,9 +439,9 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 
     Future.microtask(() {
       if (!mounted) return;
-      _ref.read(studioFormProvider.notifier).setReferenceAudio(
-            'sketchpad://${state.activePattern.id}.wav',
-          );
+      _ref
+          .read(studioFormProvider.notifier)
+          .setReferenceAudio('sketchpad://${state.activePattern.id}.wav');
       _ref.read(masteringSessionProvider.notifier).setSketchpadLayerMix(0.35);
     });
 
@@ -397,11 +457,44 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       _ref.read(masteringSessionProvider.notifier).setSketchpadLayerMix(0.0);
     });
   }
+
+  /// Seeds and aligns the sketchpad from parent reel DNA for viral remixing (Phase D).
+  void initializeFromRemixDna({
+    String? musicalKey,
+    int? bpm,
+    String? genre,
+  }) {
+    final key = (musicalKey != null && musicalKey.trim().isNotEmpty)
+        ? musicalKey.trim()
+        : state.activePattern.musicalKey;
+    final tempo = (bpm != null && bpm > 40 && bpm < 220)
+        ? bpm
+        : state.activePattern.bpm;
+    final scale = (genre != null && genre.toLowerCase().contains('gqom'))
+        ? AfricanScaleMode.gqomPhrygianDark
+        : AfricanScaleMode.naturalMinor;
+
+    final matchingPreset = state.starterPresets.firstWhere(
+      (p) =>
+          genre != null &&
+          p.genre.toLowerCase().contains(genre.toLowerCase()),
+      orElse: () => state.starterPresets.first,
+    );
+
+    final remixedPattern = matchingPreset.copyWith(
+      id: 'remix_skp_${DateTime.now().millisecondsSinceEpoch}',
+      name: '${matchingPreset.name} (Remix Stems)',
+      musicalKey: key,
+      bpm: tempo,
+      scaleMode: scale,
+    );
+
+    state = state.copyWith(activePattern: remixedPattern);
+  }
 }
 
 /// Global Riverpod provider for the Phase 27 Melody, Chord & Log-Drum Sketchpad.
 final melodySketchpadProvider =
     StateNotifierProvider<MelodySketchpadNotifier, MelodySketchpadState>((ref) {
-  return MelodySketchpadNotifier(ref);
-});
-
+      return MelodySketchpadNotifier(ref);
+    });

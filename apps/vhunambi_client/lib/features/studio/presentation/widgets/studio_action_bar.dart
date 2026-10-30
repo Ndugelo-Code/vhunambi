@@ -37,96 +37,123 @@ class StudioActionBar extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Public Visibility Toggle Card
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceElevated,
-            borderRadius: AppRadius.cardBorder,
-            border: Border.all(color: AppColors.borderSubtle),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.public_rounded,
-                color: AppColors.brandPrimary,
-                size: 22,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Public',
-                      style: AppTypography.bodyLarge.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      visibilitySubtitle,
-                      style: AppTypography.caption,
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: isPublic,
-                onChanged: (val) {
-                  HapticsService().selectionClick();
-                  notifier.setVisibility(val ? 'public' : 'private');
-                },
-                activeThumbColor: accent,
-                activeTrackColor: accent.withAlpha(80),
-                inactiveThumbColor: AppColors.textSecondary,
-                inactiveTrackColor: AppColors.surfaceSecondary,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-
-        // Primary Action CTA Button
-        SizedBox(
-          height: 52,
-          child: ElevatedButton(
-            onPressed: () => _handleGenerate(context, ref),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: accent,
-              foregroundColor: _contrastTextColor(accent),
-              shape: const RoundedRectangleBorder(
+        // Compact Single-Row Action Deck: Visibility Toggle + Primary CTA Button (Reclaims ~85dp!)
+        Row(
+          children: [
+            Container(
+              key: const Key('studio_visibility_toggle'),
+              height: 46,
+              padding: const EdgeInsets.only(left: AppSpacing.sm, right: 4),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSecondary,
                 borderRadius: AppRadius.pillBorder,
+                border: Border.all(color: AppColors.borderSubtle),
               ),
-              elevation: 4,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPublic ? Icons.public_rounded : Icons.lock_outline_rounded,
+                    color: AppColors.brandPrimary,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Public',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          height: 1.0,
+                        ),
+                      ),
+                      Text(
+                        visibilitySubtitle,
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textTertiary,
+                          fontSize: 8.5,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Transform.scale(
+                    scale: 0.78,
+                    child: Switch(
+                      value: isPublic,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onChanged: (val) {
+                        HapticsService().selectionClick();
+                        notifier.setVisibility(val ? 'public' : 'private');
+                      },
+                      activeThumbColor: accent,
+                      activeTrackColor: accent.withAlpha(80),
+                      inactiveThumbColor: AppColors.textSecondary,
+                      inactiveTrackColor: AppColors.surfaceElevated,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(ctaIcon, size: 20, color: _contrastTextColor(accent)),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  ctaLabel,
-                  style: AppTypography.titleMedium.copyWith(
-                    color: _contrastTextColor(accent),
-                    fontWeight: FontWeight.w700,
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: ElevatedButton(
+                  onPressed: () => _handleGenerate(context, ref),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: _contrastTextColor(accent),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                    ),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: AppRadius.pillBorder,
+                    ),
+                    elevation: 3,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        ctaIcon,
+                        size: 18,
+                        color: _contrastTextColor(accent),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          ctaLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodyLarge.copyWith(
+                            color: _contrastTextColor(accent),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: 4),
 
         // Commercial Licensing Terms — compact single-line footer (VH-003)
         Center(
           child: Text(
             'By generating, you agree to our Terms of Service. See licensing →',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppTypography.caption.copyWith(
               color: AppColors.textTertiary,
-              fontSize: 10,
+              fontSize: 9.5,
+              height: 1.1,
             ),
             textAlign: TextAlign.center,
           ),

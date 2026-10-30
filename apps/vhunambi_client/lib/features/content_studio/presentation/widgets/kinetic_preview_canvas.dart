@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -18,6 +20,16 @@ class KineticPreviewCanvas extends StatefulWidget {
   final VoidCallback? onPlayPauseToggle;
   final FrameModulationSnapshot? modulationSnapshot;
 
+  /// When `true` (used inside `KineticReelsModal`), expands edge-to-edge
+  /// without a rounded card frame and elevates the lyrics/waveform above the
+  /// social caption & action rail.
+  final bool fullScreen;
+
+  /// Whether to render the internal tap-to-play InkWell overlay.
+  /// Set to `false` inside `KineticReelsModal` where the parent gesture detector
+  /// handles both single-tap play/pause and double-tap love bursts.
+  final bool showInternalPlayOverlay;
+
   const KineticPreviewCanvas({
     super.key,
     required this.coverArtUrl,
@@ -28,6 +40,8 @@ class KineticPreviewCanvas extends StatefulWidget {
     required this.isPlaying,
     this.onPlayPauseToggle,
     this.modulationSnapshot,
+    this.fullScreen = false,
+    this.showInternalPlayOverlay = true,
   });
 
   @override
@@ -44,7 +58,14 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 15),
-    )..repeat();
+    );
+    final isHeadlessTest =
+        !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (isHeadlessTest) {
+      _animController.value = 0.25;
+    } else {
+      _animController.repeat();
+    }
   }
 
   @override
@@ -55,86 +76,93 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 9 / 16,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceCanvas,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.6),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+    final hasCoverUrl =
+        widget.coverArtUrl != null && widget.coverArtUrl!.trim().isNotEmpty;
+
+    final stackContent = Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCanvas,
+        borderRadius:
+            widget.fullScreen ? BorderRadius.zero : BorderRadius.circular(16),
+        boxShadow: widget.fullScreen
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Ken Burns Visual Cover Art Layer with Log Drum Snap-Zoom
+          AnimatedBuilder(
+            animation: _animController,
+            builder: (context, child) {
+              final snapZoom = widget.modulationSnapshot?.logDrumSnapZoom ?? 0.0;
+              final bassEnergy =
+                  widget.modulationSnapshot?.effectiveBassEnergy ?? 0.0;
+              final kenBurnsScale = widget.effects.kenBurnsMotion
+                  ? 1.0 + (0.06 * sin(_animController.value * 2 * pi))
+                  : 1.0;
+              // Exponential camera snap-zoom on log drum drop + subtle bass pump
+              final scale = kenBurnsScale *
+                  (1.0 + (0.12 * snapZoom) + (0.03 * bassEnergy));
+
+              final dx = widget.effects.kenBurnsMotion
+                  ? 8.0 * cos(_animController.value * 2 * pi)
+                  : 0.0;
+
+              return Transform.translate(
+                offset: Offset(dx, 0),
+                child: Transform.scale(
+                  scale: scale,
+                  child: hasCoverUrl
+                      ? Image.network(
+                          widget.coverArtUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildFallbackVisual(),
+                        )
+                      : _buildFallbackVisual(),
+                ),
+              );
+            },
+          ),
+
+          // 2. Atmospheric Vignette, Film Grain & Bass Spark Particle Overlay
+          CustomPaint(
+            painter: _AtmosphereOverlayPainter(
+              filmGrain: widget.effects.filmGrain,
+              bassPulse: widget.effects.bassPulse,
+              bassEnergy: widget.modulationSnapshot?.effectiveBassEnergy ?? 0.0,
+              logDrumZoom: widget.modulationSnapshot?.logDrumSnapZoom ?? 0.0,
+              animValue: _animController.value,
             ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 1. Ken Burns Visual Cover Art Layer with Log Drum Snap-Zoom
-            AnimatedBuilder(
-              animation: _animController,
-              builder: (context, child) {
-                final snapZoom = widget.modulationSnapshot?.logDrumSnapZoom ?? 0.0;
-                final bassEnergy = widget.modulationSnapshot?.effectiveBassEnergy ?? 0.0;
-                final kenBurnsScale = widget.effects.kenBurnsMotion
-                    ? 1.0 + (0.06 * sin(_animController.value * 2 * pi))
-                    : 1.0;
-                // Exponential camera snap-zoom on log drum drop + subtle bass pump
-                final scale = kenBurnsScale * (1.0 + (0.12 * snapZoom) + (0.03 * bassEnergy));
+          ),
 
-                final dx = widget.effects.kenBurnsMotion
-                    ? 8.0 * cos(_animController.value * 2 * pi)
-                    : 0.0;
+          // 3. Synced Karaoke Lyrics Layer with Bantu Bloom
+          Positioned(
+            left: 20,
+            right: widget.fullScreen ? 84 : 20,
+            bottom: widget.fullScreen ? 195 : 120,
+            child: _buildLyricsOverlay(),
+          ),
 
-                return Transform.translate(
-                  offset: Offset(dx, 0),
-                  child: Transform.scale(
-                    scale: scale,
-                    child: widget.coverArtUrl != null
-                        ? Image.network(
-                            widget.coverArtUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                _buildFallbackVisual(),
-                          )
-                        : _buildFallbackVisual(),
-                  ),
-                );
-              },
-            ),
+          // 4. Audio-Reactive Waveform Equalizer
+          Positioned(
+            left: widget.fullScreen ? 20 : 24,
+            right: widget.fullScreen ? 84 : 24,
+            bottom: widget.fullScreen ? 148 : 32,
+            height: widget.fullScreen ? 36 : 48,
+            child: _buildWaveformVisualizer(),
+          ),
 
-            // 2. Atmospheric Vignette, Film Grain & Bass Spark Particle Overlay
-            CustomPaint(
-              painter: _AtmosphereOverlayPainter(
-                filmGrain: widget.effects.filmGrain,
-                bassPulse: widget.effects.bassPulse,
-                bassEnergy: widget.modulationSnapshot?.effectiveBassEnergy ?? 0.0,
-                logDrumZoom: widget.modulationSnapshot?.logDrumSnapZoom ?? 0.0,
-                animValue: _animController.value,
-              ),
-            ),
-
-            // 3. Synced Karaoke Lyrics Layer with Bantu Bloom
-            Positioned(
-              left: 20,
-              right: 20,
-              bottom: 120,
-              child: _buildLyricsOverlay(),
-            ),
-
-            // 4. Audio-Reactive Waveform Equalizer
-            Positioned(
-              left: 24,
-              right: 24,
-              bottom: 32,
-              height: 48,
-              child: _buildWaveformVisualizer(),
-            ),
-
-            // 5. Play/Pause Overlay Hit Zone
+          // 5. Play/Pause Overlay Hit Zone (when enabled)
+          if (widget.showInternalPlayOverlay)
             Positioned.fill(
               child: Material(
                 color: Colors.transparent,
@@ -165,9 +193,17 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
+    );
+
+    if (widget.fullScreen) {
+      return SizedBox.expand(child: stackContent);
+    }
+
+    return AspectRatio(
+      aspectRatio: 9 / 16,
+      child: stackContent,
     );
   }
 
@@ -264,7 +300,8 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
   Widget _buildWordWidget(LyricWordTimestamp word, bool isActive) {
     final wordText = word.word;
     final vocalGlow = widget.modulationSnapshot?.effectiveVocalGlow ?? 0.8;
-    final bloomRadius = (14.0 + (18.0 * vocalGlow * word.phoneticStress)).clamp(8.0, 32.0);
+    final bloomRadius =
+        (14.0 + (18.0 * vocalGlow * word.phoneticStress)).clamp(8.0, 32.0);
     final isIdiom = word.isCulturalIdiom;
 
     switch (widget.preset) {
@@ -386,7 +423,7 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
             final wave = sin((_animController.value * 2 * pi) + (index * 0.4));
             final dynamicBoost = (index < 8) ? bassEnergy : drumsEnergy;
             final height = widget.isPlaying
-                ? (12 + (32 * wave.abs() * (0.6 + 0.4 * dynamicBoost)))
+                ? (12 + (24 * wave.abs() * (0.6 + 0.4 * dynamicBoost)))
                 : (8.0 + (index % 4) * 3);
 
             return Container(
@@ -426,7 +463,8 @@ class _AtmosphereOverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // 1. Radial Vignette with Bass Pumping
     final pulseFactor = bassPulse || bassEnergy > 0.25;
-    final vignetteAlpha = pulseFactor ? (0.55 + 0.25 * bassEnergy).clamp(0.0, 0.85) : 0.45;
+    final vignetteAlpha =
+        pulseFactor ? (0.55 + 0.25 * bassEnergy).clamp(0.0, 0.85) : 0.45;
 
     final vignettePaint = Paint()
       ..shader = RadialGradient(
@@ -438,7 +476,8 @@ class _AtmosphereOverlayPainter extends CustomPainter {
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), vignettePaint);
+    canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.width, size.height), vignettePaint);
 
     final random = Random((animValue * 1000).toInt());
 
@@ -460,12 +499,15 @@ class _AtmosphereOverlayPainter extends CustomPainter {
     if (sparkEnergy > 0.35) {
       final sparkCount = (sparkEnergy * 24).toInt();
       final sparkPaint = Paint()
-        ..color = AppColors.brandPrimary.withValues(alpha: (sparkEnergy * 0.7).clamp(0.1, 0.75));
+        ..color = AppColors.brandPrimary
+            .withValues(alpha: (sparkEnergy * 0.7).clamp(0.1, 0.75));
 
       for (int i = 0; i < sparkCount; i++) {
         final sx = random.nextDouble() * size.width;
-        final sy = (size.height * 0.4) + (random.nextDouble() * size.height * 0.6);
-        final radius = (1.0 + (random.nextDouble() * 2.0 * sparkEnergy)).clamp(0.5, 3.5);
+        final sy =
+            (size.height * 0.4) + (random.nextDouble() * size.height * 0.6);
+        final radius =
+            (1.0 + (random.nextDouble() * 2.0 * sparkEnergy)).clamp(0.5, 3.5);
         canvas.drawCircle(Offset(sx, sy), radius, sparkPaint);
       }
     }
@@ -480,4 +522,3 @@ class _AtmosphereOverlayPainter extends CustomPainter {
         oldDelegate.logDrumZoom != logDrumZoom;
   }
 }
-

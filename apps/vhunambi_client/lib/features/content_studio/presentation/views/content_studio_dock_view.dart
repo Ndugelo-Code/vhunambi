@@ -7,6 +7,7 @@ import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../domain/models/song_metadata_dna.dart';
 import '../providers/content_studio_provider.dart';
+import '../providers/master_media_object_provider.dart';
 import '../widgets/kinetic_preview_canvas.dart';
 import '../widgets/typography_preset_picker.dart';
 import '../widgets/duration_trim_scrubber.dart';
@@ -119,6 +120,14 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
     final state = ref.watch(contentStudioProvider);
     final notifier = ref.read(contentStudioProvider.notifier);
     final isDesktop = ResponsiveUtils.isDesktop(context);
+    final modulationSnapshot = state.dna != null
+        ? ref.watch(
+            frameModulationSnapshotProvider((
+              dna: state.dna!,
+              positionMs: (state.playbackPositionSec * 1000).round(),
+            )),
+          )
+        : null;
 
     final title = state.dna?.title ?? 'Lyric Video Studio';
     final genre = state.dna?.genre ?? 'African Rhythm';
@@ -170,13 +179,16 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
           ),
         ],
       ),
-      body: isDesktop ? _buildDesktopLayout(state, notifier) : _buildMobileLayout(state, notifier),
+      body: isDesktop
+          ? _buildDesktopLayout(state, notifier, modulationSnapshot)
+          : _buildMobileLayout(state, notifier, modulationSnapshot),
     );
   }
 
   Widget _buildDesktopLayout(
     ContentStudioState state,
     ContentStudioNotifier notifier,
+    FrameModulationSnapshot? modulationSnapshot,
   ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,6 +212,7 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                       playbackPositionSec: state.playbackPositionSec,
                       isPlaying: state.isPlaying,
                       onPlayPauseToggle: notifier.togglePlayPause,
+                      modulationSnapshot: modulationSnapshot,
                     ),
                   ),
                 ),
@@ -308,6 +321,7 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
   Widget _buildMobileLayout(
     ContentStudioState state,
     ContentStudioNotifier notifier,
+    FrameModulationSnapshot? modulationSnapshot,
   ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -325,6 +339,7 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                 playbackPositionSec: state.playbackPositionSec,
                 isPlaying: state.isPlaying,
                 onPlayPauseToggle: notifier.togglePlayPause,
+                modulationSnapshot: modulationSnapshot,
               ),
             ),
           ),

@@ -178,7 +178,10 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                       minWidth: 44,
                       minHeight: 44,
                     ),
-                    onPressed: () => Navigator.of(context).maybePop(),
+                    onPressed: () {
+                      notifier.stopPreviewPlayback();
+                      Navigator.of(context).maybePop();
+                    },
                     icon: const Icon(
                       Icons.close_rounded,
                       color: AppColors.textSecondary,
@@ -186,48 +189,53 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.xs),
 
               if (state.attachedPattern != null) ...[
-                Container(
-                  key: const Key('sketchpad_attached_ready_badge'),
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withAlpha(28),
-                    borderRadius: AppRadius.inputBorder,
-                    border: Border.all(color: AppColors.success.withAlpha(90)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.check_circle_rounded,
-                        color: AppColors.success,
-                        size: 16,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Container(
+                    key: const Key('sketchpad_attached_ready_badge'),
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withAlpha(28),
+                      borderRadius: AppRadius.pillBorder,
+                      border: Border.all(
+                        color: AppColors.success.withAlpha(90),
                       ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Expanded(
-                        child: Text(
-                          'Attached as Song Reference & Phase 25 Master Layer (35% Mix): ${state.attachedPattern!.name}',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          color: AppColors.success,
+                          size: 14,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Attached (35% Master Mix): ${state.attachedPattern!.name}',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 10.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
               ],
 
               // 2. Instrument Selector Rail
               SizedBox(
-                height: 38,
+                height: 34,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: SketchpadInstrument.values.length,
@@ -239,6 +247,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                     return ChoiceChip(
                       key: Key('sketchpad_inst_${inst.name}'),
                       selected: isSelected,
+                      visualDensity: VisualDensity.compact,
                       label: Text(
                         '${inst.emoji} ${inst.label}',
                         style: AppTypography.caption.copyWith(
@@ -262,11 +271,11 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                   },
                 ),
               ),
-              const SizedBox(height: AppSpacing.xxs),
+              const SizedBox(height: 4),
 
               // 3. Key, Scale Mode & Starter Presets Rail
               SizedBox(
-                height: 36,
+                height: 32,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: [
@@ -276,6 +285,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                         padding: const EdgeInsets.only(right: AppSpacing.xxs),
                         child: ActionChip(
                           key: Key('sketchpad_key_$keyStr'),
+                          visualDensity: VisualDensity.compact,
                           backgroundColor: pattern.musicalKey == keyStr
                               ? AppColors.coinGold
                               : AppColors.surfaceElevated,
@@ -304,6 +314,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                         padding: const EdgeInsets.only(right: AppSpacing.xxs),
                         child: ActionChip(
                           key: Key('sketchpad_scale_${scale.name}'),
+                          visualDensity: VisualDensity.compact,
                           backgroundColor: pattern.scaleMode == scale
                               ? AppColors.brandPrimary.withAlpha(45)
                               : AppColors.surfaceElevated,
@@ -329,6 +340,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                         padding: const EdgeInsets.only(right: AppSpacing.xxs),
                         child: ActionChip(
                           key: Key('sketchpad_preset_${preset.id}'),
+                          visualDensity: VisualDensity.compact,
                           backgroundColor: pattern.id == preset.id
                               ? AppColors.surfaceSecondary
                               : AppColors.surfaceElevated,
@@ -353,6 +365,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                         padding: const EdgeInsets.only(right: AppSpacing.xxs),
                         child: ActionChip(
                           key: Key('sketchpad_saved_${saved.id}'),
+                          visualDensity: VisualDensity.compact,
                           backgroundColor: AppColors.surfaceSecondary,
                           side: const BorderSide(color: AppColors.brandPrimary),
                           label: Text(
@@ -369,103 +382,115 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                   ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.xs),
+              const SizedBox(height: 4),
 
-              // 4. Toolbar: Glide Mode, Euclidean Groove, Clear & Device-Specific Mode Controls
-              Wrap(
-                spacing: AppSpacing.xs,
-                runSpacing: AppSpacing.xxs,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  FilterChip(
-                    key: const Key('sketchpad_glide_mode_btn'),
-                    selected: state.isGlideModeEnabled,
-                    selectedColor: AppColors.brandPrimary,
-                    backgroundColor: AppColors.surfaceElevated,
-                    side: BorderSide(
-                      color: state.isGlideModeEnabled
-                          ? AppColors.brandPrimary
-                          : AppColors.borderSubtle,
-                    ),
-                    label: Text(
-                      '↘ Glide Slide (-5st)',
-                      style: AppTypography.caption.copyWith(
-                        color: state.isGlideModeEnabled
-                            ? AppColors.brandContrast
-                            : AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    onSelected: (_) => notifier.toggleGlideMode(),
-                  ),
-                  ActionChip(
-                    key: const Key('sketchpad_euclidean_groove_btn'),
-                    backgroundColor: AppColors.surfaceElevated,
-                    side: const BorderSide(color: AppColors.coinGold),
-                    label: Text(
-                      '⚡ Euclidean Groove (${state.euclideanPulses} hits)',
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.coinGold,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    onPressed: () {
-                      final nextPulses = state.euclideanPulses >= 9
-                          ? 5
-                          : state.euclideanPulses + 1;
-                      notifier.applyEuclideanGroove(pulses: nextPulses);
-                    },
-                  ),
-                  if (!isDesktop)
-                    ActionChip(
-                      key: const Key('mobile_input_mode_toggle'),
-                      backgroundColor: AppColors.surfaceSecondary,
-                      side: const BorderSide(color: AppColors.borderSubtle),
-                      label: Text(
-                        state.isMobileLivePadMode
-                            ? '🔢 Switch to 4-Step Grid'
-                            : '🎛️ Switch to 8-Pad Scale Deck',
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      onPressed: notifier.toggleMobileInputMode,
-                    ),
-                  if (isDesktop) ...[
-                    for (final mode in ChordStampMode.values)
-                      ChoiceChip(
-                        key: Key('desktop_chord_stamp_${mode.name}'),
-                        selected: state.chordStampMode == mode,
-                        selectedColor: AppColors.coinGold,
-                        backgroundColor: AppColors.surfaceElevated,
+              // 4. Compact Single-Row Horizontal Toolbar Strip (Frees ~90dp of vertical height!)
+              SizedBox(
+                height: 34,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    if (!isDesktop) ...[
+                      ActionChip(
+                        key: const Key('mobile_input_mode_toggle'),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: AppColors.surfaceSecondary,
+                        side: const BorderSide(color: AppColors.borderSubtle),
                         label: Text(
-                          mode.label,
+                          state.isMobileLivePadMode
+                              ? '🔢 4-Step Grid'
+                              : '🎛️ 8-Pad Deck',
                           style: AppTypography.caption.copyWith(
-                            color: state.chordStampMode == mode
-                                ? AppColors.brandContrast
-                                : AppColors.textPrimary,
-                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        onSelected: (_) => notifier.setChordStampMode(mode),
+                        onPressed: notifier.toggleMobileInputMode,
                       ),
-                  ],
-                  ActionChip(
-                    key: const Key('sketchpad_clear_grid_btn'),
-                    backgroundColor: AppColors.surfaceElevated,
-                    side: const BorderSide(color: AppColors.borderSubtle),
-                    label: Text(
-                      'Clear',
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.textSecondary,
+                      const SizedBox(width: AppSpacing.xxs),
+                    ],
+                    ActionChip(
+                      key: const Key('sketchpad_euclidean_groove_btn'),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: AppColors.surfaceElevated,
+                      side: const BorderSide(color: AppColors.coinGold),
+                      label: Text(
+                        '⚡ Groove (${state.euclideanPulses})',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.coinGold,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
+                      onPressed: () {
+                        final nextPulses = state.euclideanPulses >= 9
+                            ? 5
+                            : state.euclideanPulses + 1;
+                        notifier.applyEuclideanGroove(pulses: nextPulses);
+                      },
                     ),
-                    onPressed: notifier.clearGrid,
-                  ),
-                ],
+                    const SizedBox(width: AppSpacing.xxs),
+                    FilterChip(
+                      key: const Key('sketchpad_glide_mode_btn'),
+                      visualDensity: VisualDensity.compact,
+                      selected: state.isGlideModeEnabled,
+                      selectedColor: AppColors.brandPrimary,
+                      backgroundColor: AppColors.surfaceElevated,
+                      side: BorderSide(
+                        color: state.isGlideModeEnabled
+                            ? AppColors.brandPrimary
+                            : AppColors.borderSubtle,
+                      ),
+                      label: Text(
+                        '↘ Glide (-5st)',
+                        style: AppTypography.caption.copyWith(
+                          color: state.isGlideModeEnabled
+                              ? AppColors.brandContrast
+                              : AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      onSelected: (_) => notifier.toggleGlideMode(),
+                    ),
+                    const SizedBox(width: AppSpacing.xxs),
+                    if (isDesktop) ...[
+                      for (final mode in ChordStampMode.values) ...[
+                        ChoiceChip(
+                          key: Key('desktop_chord_stamp_${mode.name}'),
+                          visualDensity: VisualDensity.compact,
+                          selected: state.chordStampMode == mode,
+                          selectedColor: AppColors.coinGold,
+                          backgroundColor: AppColors.surfaceElevated,
+                          label: Text(
+                            mode.label,
+                            style: AppTypography.caption.copyWith(
+                              color: state.chordStampMode == mode
+                                  ? AppColors.brandContrast
+                                  : AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          onSelected: (_) => notifier.setChordStampMode(mode),
+                        ),
+                        const SizedBox(width: AppSpacing.xxs),
+                      ],
+                    ],
+                    ActionChip(
+                      key: const Key('sketchpad_clear_grid_btn'),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: AppColors.surfaceElevated,
+                      side: const BorderSide(color: AppColors.borderSubtle),
+                      label: Text(
+                        'Clear',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      onPressed: notifier.clearGrid,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: AppSpacing.xs),
+              const SizedBox(height: 6),
 
               // 5. Device-Adaptive Sequencer Surface
               Expanded(

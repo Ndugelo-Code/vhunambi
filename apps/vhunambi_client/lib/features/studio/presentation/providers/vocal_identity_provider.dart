@@ -6,13 +6,16 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../mastering/domain/models/stem_mastering_recipe.dart';
 import '../../../mastering/presentation/providers/mastering_session_provider.dart';
+import '../../data/services/sketchpad_audio_player_service.dart';
 import '../../domain/models/vocal_identity_models.dart';
 import '../../domain/services/i_voice_calibration_recorder.dart';
+import '../../domain/services/melody_wav_synthesizer.dart';
 import '../../domain/services/phonetic_calibration_extractor.dart';
 
 /// Injectable provider for the voice calibration microphone recorder (REQ-VOC-07).
-final voiceCalibrationRecorderProvider =
-    Provider<IVoiceCalibrationRecorder>((ref) {
+final voiceCalibrationRecorderProvider = Provider<IVoiceCalibrationRecorder>((
+  ref,
+) {
   final recorder = DeterministicVoiceCalibrationRecorder();
   ref.onDispose(recorder.dispose);
   return recorder;
@@ -114,12 +117,15 @@ class VocalIdentityState {
       activeClonedProfile: clearActiveClone
           ? null
           : (activeClonedProfile ?? this.activeClonedProfile),
-      selectedRegion:
-          clearRegionFilter ? null : (selectedRegion ?? this.selectedRegion),
-      selectedGender:
-          clearGenderFilter ? null : (selectedGender ?? this.selectedGender),
-      selectedStyle:
-          clearStyleFilter ? null : (selectedStyle ?? this.selectedStyle),
+      selectedRegion: clearRegionFilter
+          ? null
+          : (selectedRegion ?? this.selectedRegion),
+      selectedGender: clearGenderFilter
+          ? null
+          : (selectedGender ?? this.selectedGender),
+      selectedStyle: clearStyleFilter
+          ? null
+          : (selectedStyle ?? this.selectedStyle),
       searchQuery: searchQuery ?? this.searchQuery,
       calibrationScript: calibrationScript ?? this.calibrationScript,
       isRecording: isRecording ?? this.isRecording,
@@ -136,15 +142,15 @@ class VocalIdentityState {
 /// and Zero-Shot Creator Voice Clone profiles with Hive persistence (REQ-VOC-01..15).
 class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
   VocalIdentityNotifier(this._ref, this._recorder)
-      : super(
-          VocalIdentityState(
-            activeArchetype: kRegionalVoiceCatalog.first,
-            calibrationScript: PhoneticCalibrationExtractor.extractScript(
-              '',
-              language: 'Tshivenḓa',
-            ),
+    : super(
+        VocalIdentityState(
+          activeArchetype: kRegionalVoiceCatalog.first,
+          calibrationScript: PhoneticCalibrationExtractor.extractScript(
+            '',
+            language: 'Tshivenḓa',
           ),
-        ) {
+        ),
+      ) {
     _loadPersistedClones();
     _amplitudeSub = _recorder.amplitudeStream.listen((amp) {
       if (mounted) {
@@ -206,10 +212,7 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
 
   /// Selects one of the 24 regional African voice archetypes and clears any active clone override.
   void selectArchetype(RegionalVoiceArchetype archetype) {
-    state = state.copyWith(
-      activeArchetype: archetype,
-      clearActiveClone: true,
-    );
+    state = state.copyWith(activeArchetype: archetype, clearActiveClone: true);
     _syncCleanseFlavorToMastering(archetype.recommendedCleanseFlavor);
   }
 
@@ -219,12 +222,31 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
     _syncCleanseFlavorToMastering(profile.recommendedCleanseFlavor);
   }
 
-  /// Toggles preview state for a catalog voice archetype card.
+  /// Toggles audible formant vocal phrase preview for a catalog voice archetype card.
   void togglePreviewArchetype(String archetypeId) {
+    final audioService = _ref.read(sketchpadAudioPlayerServiceProvider);
     if (state.previewingArchetypeId == archetypeId) {
+      unawaited(audioService.stopVocalPreview());
       state = state.copyWith(clearPreviewingArchetype: true);
     } else {
       state = state.copyWith(previewingArchetypeId: archetypeId);
+      final archetype = state.catalog.firstWhere(
+        (a) => a.id == archetypeId,
+        orElse: () => state.activeArchetype,
+      );
+      final wavBytes = MelodyWavSynthesizer.synthesizeVocalPreviewWavBytes(
+        archetype,
+      );
+      unawaited(
+        audioService.playVocalPreview(
+          wavBytes,
+          onComplete: () {
+            if (mounted && state.previewingArchetypeId == archetypeId) {
+              state = state.copyWith(clearPreviewingArchetype: true);
+            }
+          },
+        ),
+      );
     }
   }
 
@@ -285,13 +307,11 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
 
   /// Starts capturing the 15-20s 3-line calibration voice note (REQ-VOC-07).
   Future<void> startCalibrationRecording() async {
-    final script = state.calibrationScript ??
+    final script =
+        state.calibrationScript ??
         PhoneticCalibrationExtractor.extractScript('', language: 'Tshivenḓa');
     await _recorder.startRecording(script);
-    state = state.copyWith(
-      isRecording: true,
-      liveAmplitude: 0.68,
-    );
+    state = state.copyWith(isRecording: true, liveAmplitude: 0.68);
   }
 
   /// Stops capturing and synthesizes a new `CreatorVoiceCloneProfile` (REQ-VOC-08).
@@ -302,11 +322,13 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
     state = state.copyWith(isSynthesizingClone: true);
 
     final result = await _recorder.stopRecording();
-    final script = state.calibrationScript ??
+    final script =
+        state.calibrationScript ??
         PhoneticCalibrationExtractor.extractScript('', language: 'Tshivenḓa');
 
-    final cleanName =
-        creatorName.trim().isEmpty ? 'My Studio Voice' : creatorName.trim();
+    final cleanName = creatorName.trim().isEmpty
+        ? 'My Studio Voice'
+        : creatorName.trim();
     final lang = nativeLanguage ?? script.language;
 
     final profile = CreatorVoiceCloneProfile(
@@ -339,14 +361,43 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
 
   /// Deletes a saved `CreatorVoiceCloneProfile` from device storage and clears active override if matched.
   Future<void> deleteClonedProfile(String profileId) async {
-    final updated =
-        state.clonedProfiles.where((p) => p.id != profileId).toList();
+    final updated = state.clonedProfiles
+        .where((p) => p.id != profileId)
+        .toList();
     final clearActive = state.activeClonedProfile?.id == profileId;
     state = state.copyWith(
       clonedProfiles: updated,
       clearActiveClone: clearActive,
     );
     await _persistClones(updated);
+  }
+
+  /// Seeds and aligns vocal identity from parent reel DNA for viral remixing (Phase D).
+  void initializeFromRemixDna({
+    String? deliveryMode,
+    String? genre,
+  }) {
+    RegionalVoiceArchetype? matched;
+    if (deliveryMode != null && deliveryMode.isNotEmpty) {
+      final style = VocalDeliveryStyle.values.firstWhere(
+        (s) => s.name.toLowerCase() == deliveryMode.toLowerCase(),
+        orElse: () => VocalDeliveryStyle.afroSoulMelodic,
+      );
+      matched = state.catalog.firstWhere(
+        (a) => a.deliveryStyle == style,
+        orElse: () => state.catalog.first,
+      );
+    } else if (genre != null && genre.isNotEmpty) {
+      matched = state.catalog.firstWhere(
+        (a) =>
+            a.region.label.toLowerCase().contains(genre.toLowerCase()) ||
+            a.nativeLanguage.toLowerCase().contains(genre.toLowerCase()),
+        orElse: () => state.catalog.first,
+      );
+    }
+    if (matched != null) {
+      selectArchetype(matched);
+    }
   }
 
   @override
@@ -359,7 +410,6 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
 /// Global Riverpod provider for the Phase 26 Vocal Identity & Zero-Shot Voice Cloning engine.
 final vocalIdentityProvider =
     StateNotifierProvider<VocalIdentityNotifier, VocalIdentityState>((ref) {
-  final recorder = ref.watch(voiceCalibrationRecorderProvider);
-  return VocalIdentityNotifier(ref, recorder);
-});
-
+      final recorder = ref.watch(voiceCalibrationRecorderProvider);
+      return VocalIdentityNotifier(ref, recorder);
+    });

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,20 +7,25 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/published_clip.dart';
+import '../providers/reel_audio_pool_provider.dart';
 import '../providers/social_feed_provider.dart';
 import '../providers/stem_remix_provider.dart';
+import '../../../content_studio/presentation/providers/master_media_object_provider.dart';
+import '../../../content_studio/presentation/widgets/kinetic_preview_canvas.dart';
+import '../../../studio/presentation/providers/melody_sketchpad_provider.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
+import '../../../studio/presentation/providers/vocal_identity_provider.dart';
 import '../../../player/presentation/widgets/stem_mixer_deck.dart';
 import 'reels_comment_sheet.dart';
 import 'creator_tipping_sheet.dart';
 import 'remix_attribution_badge.dart';
 
-/// Full-screen vertical "Kinetic Reels" feed (REQ-SOC-11).
+/// Full-screen vertical "Kinetic Reels" feed (REQ-SOC-11, REQ-SOC-26, Phase A).
 ///
-/// Zero-video: each page renders the clip's Song DNA (cover + metadata) rather
-/// than an MP4 (REQ-SOC-26). This is the T4 tap target; T5 layers in the
-/// synchronized `KineticPreviewCanvas`, audio streaming, the recycled
-/// controller pool, and the viral "Remix in Studio" sound loop.
+/// Zero-video: each page renders the clip's Song DNA via the 60 FPS
+/// [KineticPreviewCanvas] synchronized with the 3-slot recycled
+/// [ReelAudioPoolNotifier] (`Index - 1` pre-buffered, `Index` playing,
+/// `Index + 1` pre-loaded) and Phase 23 MMO modulation curves.
 class KineticReelsModal extends ConsumerStatefulWidget {
   final List<PublishedClip> clips;
   final int initialIndex;
@@ -55,18 +61,41 @@ class KineticReelsModal extends ConsumerStatefulWidget {
 class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
   late final PageController _pageController;
   late int _currentIndex;
+  ReelAudioPoolNotifier? _poolNotifier;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.clips.isEmpty) return;
+      _poolNotifier = ref.read(reelAudioPoolProvider.notifier);
+      unawaited(
+        _poolNotifier!.enterReelsSession(
+          widget.clips,
+          initialIndex: widget.initialIndex,
+        ),
+      );
+    });
   }
 
   @override
   void dispose() {
+    final notifier = _poolNotifier;
+    if (notifier != null) {
+      unawaited(notifier.exitReelsSession());
+    }
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _onPageChanged(int i) {
+    setState(() => _currentIndex = i);
+    unawaited(
+      ref.read(reelAudioPoolProvider.notifier).onPageChanged(i, widget.clips),
+    );
   }
 
   void _share(PublishedClip clip) {
@@ -92,7 +121,7 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
       body: PageView.builder(
         controller: _pageController,
         scrollDirection: Axis.vertical,
-        onPageChanged: (i) => setState(() => _currentIndex = i),
+        onPageChanged: _onPageChanged,
         itemCount: widget.clips.length,
         itemBuilder: (context, i) {
           final clip = widget.clips[i];
@@ -106,7 +135,6 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
     );
   }
 }
-
 
 class _ReelPage extends ConsumerStatefulWidget {
   final PublishedClip clip;
@@ -125,7 +153,7 @@ class _ReelPage extends ConsumerStatefulWidget {
 
 class _ReelPageState extends ConsumerState<_ReelPage>
     with SingleTickerProviderStateMixin {
-  bool _isPlaying = true;
+  bool _localPlayingFallback = true;
   late final AnimationController _heartAnimController;
   late final Animation<double> _heartScale;
   late final Animation<double> _heartOpacity;
@@ -141,13 +169,17 @@ class _ReelPageState extends ConsumerState<_ReelPage>
     );
     _heartScale = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: 0.2, end: 1.35)
-            .chain(CurveTween(curve: Curves.easeOutBack)),
+        tween: Tween(
+          begin: 0.2,
+          end: 1.35,
+        ).chain(CurveTween(curve: Curves.easeOutBack)),
         weight: 50,
       ),
       TweenSequenceItem(
-        tween: Tween(begin: 1.35, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeIn)),
+        tween: Tween(
+          begin: 1.35,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeIn)),
         weight: 50,
       ),
     ]).animate(_heartAnimController);
@@ -156,8 +188,10 @@ class _ReelPageState extends ConsumerState<_ReelPage>
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 25),
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 45),
       TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween(
+          begin: 1.0,
+          end: 0.0,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 30,
       ),
     ]).animate(_heartAnimController);
@@ -189,14 +223,34 @@ class _ReelPageState extends ConsumerState<_ReelPage>
     ref.read(socialFeedProvider.notifier).recordLove(clip.id);
   }
 
-  void _togglePlay() => setState(() => _isPlaying = !_isPlaying);
+  void _togglePlay() {
+    setState(() => _localPlayingFallback = !_localPlayingFallback);
+    unawaited(ref.read(reelAudioPoolProvider.notifier).togglePlayPause());
+  }
 
   void _remixInStudio(PublishedClip clip) {
     HapticFeedback.mediumImpact();
+    ref.read(stemRemixProvider.notifier).initiateRemix(clip);
     ref.read(studioFormProvider.notifier).setGenre(clip.genre);
-    ref.read(studioFormProvider.notifier).updatePrompt(
-          'Remix inspired by ${clip.title} by ${clip.creatorDisplayName}',
+    ref
+        .read(studioFormProvider.notifier)
+        .updatePrompt(
+          'Remix inspired by ${clip.title} by @${clip.creatorUsername}',
         );
+    ref
+        .read(melodySketchpadProvider.notifier)
+        .initializeFromRemixDna(
+          musicalKey: clip.dna.musical.key,
+          bpm: clip.dna.musical.bpm,
+          genre: clip.genre,
+        );
+    ref
+        .read(vocalIdentityProvider.notifier)
+        .initializeFromRemixDna(
+          deliveryMode: clip.dna.vocals.deliveryMode,
+          genre: clip.genre,
+        );
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Loaded sound into Studio: ${clip.title} 🎵'),
@@ -213,26 +267,62 @@ class _ReelPageState extends ConsumerState<_ReelPage>
         .clips
         .firstWhere((c) => c.id == widget.clip.id, orElse: () => widget.clip);
 
+    final poolState = ref.watch(reelAudioPoolProvider);
+    final isCurrentClipInPool = poolState.activeClipId == clip.id;
+    final isPlaying = widget.isActive
+        ? (isCurrentClipInPool ? poolState.isPlaying : _localPlayingFallback)
+        : false;
+    final playbackPos = (widget.isActive && isCurrentClipInPool)
+        ? poolState.playbackPositionSec
+        : 0.0;
+    final cycleDuration = poolState.cycleDurationSec > 0
+        ? poolState.cycleDurationSec
+        : 15.0;
+
+    final modulationSnapshot = ref.watch(
+      frameModulationSnapshotProvider((
+        dna: clip.dna,
+        positionMs: (playbackPos * 1000).round(),
+      )),
+    );
+
     return Stack(
       fit: StackFit.expand,
       children: [
+        // 1. Genre Backdrop Gradient
         Container(
-          decoration: BoxDecoration(gradient: AppGradients.forGenre(clip.genre)),
+          decoration: BoxDecoration(
+            gradient: AppGradients.forGenre(clip.genre),
+          ),
         ),
-        if (clip.coverUrl.isNotEmpty)
-          Image.network(clip.coverUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const SizedBox.shrink()),
+
+        // 2. Live 60 FPS KineticPreviewCanvas (Karaoke Lyrics, Shaders & Waveform)
+        KineticPreviewCanvas(
+          key: ValueKey('reel_kinetic_canvas_${clip.id}'),
+          coverArtUrl: clip.coverUrl.isNotEmpty ? clip.coverUrl : null,
+          words: clip.effectiveLyrics,
+          preset: clip.effectiveTypographyPreset,
+          effects: clip.effectiveAtmosphericEffects,
+          playbackPositionSec: playbackPos,
+          isPlaying: isPlaying,
+          modulationSnapshot: modulationSnapshot,
+          fullScreen: true,
+          showInternalPlayOverlay: false,
+        ),
+
+        // 3. Bottom Readability Scrim
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [Colors.transparent, Colors.black87],
-              stops: [0.4, 1.0],
+              stops: [0.45, 1.0],
             ),
           ),
         ),
+
+        // 4. Single-Tap Play/Pause & Double-Tap Love Burst Hit Zone
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _togglePlay,
@@ -240,19 +330,100 @@ class _ReelPageState extends ConsumerState<_ReelPage>
           child: Center(
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 200),
-              opacity: _isPlaying ? 0.0 : 1.0,
+              opacity: isPlaying ? 0.0 : 1.0,
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
                   color: AppColors.surfaceCanvas,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.play_arrow_rounded,
-                    color: AppColors.brandPrimary, size: 44),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: AppColors.brandPrimary,
+                  size: 44,
+                ),
               ),
             ),
           ),
         ),
+
+        // 5. Top Progress Scrubber & Live Song DNA Telemetry Header
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LinearProgressIndicator(
+                  key: ValueKey('reel_progress_${clip.id}'),
+                  value: (playbackPos / cycleDuration).clamp(0.0, 1.0),
+                  minHeight: 2.5,
+                  backgroundColor: Colors.white24,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppColors.brandPrimary,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      if (Navigator.of(context).canPop())
+                        IconButton(
+                          key: const Key('reel_close_btn'),
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(
+                            Icons.arrow_back_rounded,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      const Spacer(),
+                      Container(
+                        key: const Key('reel_dna_badge'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceModal.withAlpha(200),
+                          borderRadius: AppRadius.pillBorder,
+                          border: Border.all(color: AppColors.borderSubtle),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isPlaying
+                                  ? Icons.graphic_eq_rounded
+                                  : Icons.pause_circle_outline_rounded,
+                              size: 14,
+                              color: AppColors.brandPrimary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${clip.genre.toUpperCase()} • ${clip.dna.musical.bpm} BPM • ${clip.dna.musical.key}',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // 6. Multi-Tap Floating Heart / Cultural Emoji Burst
         if (_showBurstHeart)
           IgnorePointer(
             child: Center(
@@ -279,6 +450,8 @@ class _ReelPageState extends ConsumerState<_ReelPage>
               ),
             ),
           ),
+
+        // 7. Right Social Action Rail
         Positioned(
           right: 12,
           bottom: 120,
@@ -288,6 +461,8 @@ class _ReelPageState extends ConsumerState<_ReelPage>
             onBurst: (emoji) => _triggerBurst(emoji: emoji),
           ),
         ),
+
+        // 8. Creator Identity, Remix Lineage, Caption & Sound Pill
         Positioned(
           left: 16,
           right: 76,
@@ -298,14 +473,20 @@ class _ReelPageState extends ConsumerState<_ReelPage>
             children: [
               Row(
                 children: [
-                  Text('@${clip.creatorUsername}',
-                      style: AppTypography.bodyLarge.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.bold)),
+                  Text(
+                    '@${clip.creatorUsername}',
+                    style: AppTypography.bodyLarge.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   if (clip.isCreatorVerified) ...[
                     const SizedBox(width: 4),
-                    const Icon(Icons.verified_rounded,
-                        color: AppColors.brandPrimary, size: 16),
+                    const Icon(
+                      Icons.verified_rounded,
+                      color: AppColors.brandPrimary,
+                      size: 16,
+                    ),
                   ],
                 ],
               ),
@@ -315,10 +496,12 @@ class _ReelPageState extends ConsumerState<_ReelPage>
               ],
               const SizedBox(height: 6),
               if (clip.caption.isNotEmpty)
-                Text(clip.caption,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.bodySmall),
+                Text(
+                  clip.caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodySmall,
+                ),
               const SizedBox(height: 10),
               _SoundPill(
                 title: clip.title,
@@ -355,7 +538,9 @@ class _ActionRailState extends State<_ActionRail> {
   void _recordLove(BuildContext context, WidgetRef ref, {String emoji = '❤️'}) {
     HapticFeedback.mediumImpact();
     widget.onBurst(emoji);
-    final count = ref.read(socialFeedProvider.notifier).recordLove(widget.clip.id);
+    final count = ref
+        .read(socialFeedProvider.notifier)
+        .recordLove(widget.clip.id);
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
       SnackBar(
@@ -396,7 +581,10 @@ class _ActionRailState extends State<_ActionRail> {
                         onTap: () => _recordLove(context, ref, emoji: emoji),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text(emoji, style: const TextStyle(fontSize: 20)),
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 20),
+                          ),
                         ),
                       ),
                   ],
@@ -407,7 +595,9 @@ class _ActionRailState extends State<_ActionRail> {
               icon: clip.isLikedByMe
                   ? Icons.favorite_rounded
                   : Icons.favorite_border_rounded,
-              color: clip.isLikedByMe ? AppColors.brandPrimary : AppColors.textPrimary,
+              color: clip.isLikedByMe
+                  ? AppColors.brandPrimary
+                  : AppColors.textPrimary,
               label: formatLikes(clip.likeCount),
               onTap: () => _recordLove(context, ref),
               onLongPress: () {
@@ -457,12 +647,32 @@ class _ActionRailState extends State<_ActionRail> {
               onTap: () {
                 HapticFeedback.mediumImpact();
                 ref.read(stemRemixProvider.notifier).initiateRemix(clip);
+                ref.read(studioFormProvider.notifier).setGenre(clip.genre);
+                ref
+                    .read(studioFormProvider.notifier)
+                    .updatePrompt(
+                      'Remix inspired by ${clip.title} by @${clip.creatorUsername}',
+                    );
+                ref
+                    .read(melodySketchpadProvider.notifier)
+                    .initializeFromRemixDna(
+                      musicalKey: clip.dna.musical.key,
+                      bpm: clip.dna.musical.bpm,
+                      genre: clip.genre,
+                    );
+                ref
+                    .read(vocalIdentityProvider.notifier)
+                    .initializeFromRemixDna(
+                      deliveryMode: clip.dna.vocals.deliveryMode,
+                      genre: clip.genre,
+                    );
                 showModalBottomSheet<void>(
                   context: context,
                   isScrollControlled: true,
                   backgroundColor: AppColors.surfaceElevated,
                   shape: const RoundedRectangleBorder(
-                      borderRadius: AppRadius.modalBorder),
+                    borderRadius: AppRadius.modalBorder,
+                  ),
                   builder: (ctx) => FractionallySizedBox(
                     heightFactor: 0.85,
                     child: StemMixerDeck(title: 'Remixing: ${clip.title}'),
@@ -502,9 +712,10 @@ class _RailButton extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 30),
           const SizedBox(height: 4),
-          Text(label,
-              style: AppTypography.caption
-                  .copyWith(color: AppColors.textPrimary)),
+          Text(
+            label,
+            style: AppTypography.caption.copyWith(color: AppColors.textPrimary),
+          ),
         ],
       ),
     );
@@ -530,27 +741,36 @@ class _SoundPill extends StatelessWidget {
           borderRadius: AppRadius.pillBorder,
           border: Border.all(color: AppColors.borderSubtle),
         ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.music_note_rounded,
-              size: 14, color: AppColors.brandPrimary),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text('$title • $artist',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.music_note_rounded,
+              size: 14,
+              color: AppColors.brandPrimary,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                '$title • $artist',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textPrimary)),
-          ),
-          const SizedBox(width: 8),
-          const Icon(Icons.album_rounded,
-              size: 14, color: AppColors.brandPrimary),
-        ],
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.album_rounded,
+              size: 14,
+              color: AppColors.brandPrimary,
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 String formatLikes(int count) {

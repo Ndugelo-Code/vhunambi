@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vhunambi_client/features/mastering/presentation/providers/mastering_session_provider.dart';
 import 'package:vhunambi_client/features/studio/domain/models/melody_sketchpad_models.dart';
+import 'package:vhunambi_client/features/studio/domain/models/vocal_identity_models.dart';
 import 'package:vhunambi_client/features/studio/domain/services/melody_wav_synthesizer.dart';
 import 'package:vhunambi_client/features/studio/presentation/providers/melody_sketchpad_provider.dart';
 import 'package:vhunambi_client/features/studio/presentation/providers/studio_form_provider.dart';
@@ -37,6 +38,12 @@ void main() {
           0,
           instrument: SketchpadInstrument.amapianoLogDrum,
         );
+        final amLogDrumFreq = resolveScaleFrequencyHz(
+          'Am',
+          AfricanScaleMode.minorPentatonic,
+          0,
+          instrument: SketchpadInstrument.amapianoLogDrum,
+        );
         final rhodesLabel = resolveScaleNoteLabel(
           'F#m',
           AfricanScaleMode.minorPentatonic,
@@ -45,7 +52,8 @@ void main() {
         );
 
         expect(logDrumLabel, equals('F#2'));
-        expect(rhodesLabel, equals('F#4'));
+        expect(amLogDrumFreq, closeTo(55.0, 0.1)); // True A1 sub-bass (55 Hz)
+        expect(rhodesLabel, equals('F#3'));
       },
     );
   });
@@ -137,6 +145,29 @@ void main() {
         );
         expect(notes5.length, equals(5));
         expect(notes5.any((n) => n.hasGlide), isTrue);
+      },
+    );
+
+    test(
+      'synthesizeSingleNoteWavBytes and synthesizeVocalPreviewWavBytes produce valid 16-bit PCM WAV buffers',
+      () {
+        final singleHit = MelodyWavSynthesizer.synthesizeSingleNoteWavBytes(
+          instrument: SketchpadInstrument.amapianoLogDrum,
+          freqHz: 55.0,
+          hasGlide: true,
+        );
+        expect(singleHit.length, greaterThan(44));
+        expect(String.fromCharCodes(singleHit.sublist(0, 4)), equals('RIFF'));
+
+        final vocalPreview =
+            MelodyWavSynthesizer.synthesizeVocalPreviewWavBytes(
+              kRegionalVoiceCatalog.first,
+            );
+        expect(vocalPreview.length, greaterThan(44));
+        expect(
+          String.fromCharCodes(vocalPreview.sublist(0, 4)),
+          equals('RIFF'),
+        );
       },
     );
   });

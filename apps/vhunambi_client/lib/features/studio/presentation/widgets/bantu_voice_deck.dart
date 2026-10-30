@@ -37,93 +37,129 @@ class BantuVoiceDeck extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.graphic_eq_rounded,
-                  color: AppColors.coinGold, size: 20),
+              const Icon(
+                Icons.graphic_eq_rounded,
+                color: AppColors.coinGold,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('Bantu Voice LoRA Engine',
-                    style: AppTypography.titleMedium
-                        .copyWith(fontWeight: FontWeight.bold)),
+                child: Text(
+                  'Bantu Voice LoRA Engine',
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.coinGold.withAlpha(40),
                   borderRadius: AppRadius.pillBorder,
                   border: Border.all(color: AppColors.coinGold.withAlpha(90)),
                 ),
-                child: Text('5 Native Dialects',
-                    style: AppTypography.caption.copyWith(
-                        color: AppColors.coinGold,
-                        fontWeight: FontWeight.w700)),
+                child: Text(
+                  '5 Native Dialects',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.coinGold,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
 
-          // Phase 26: 24-Voice Regional Catalog & Zero-Shot Voice Cloning Actions
+          // Phase 26: 24-Voice Regional Catalog & Zero-Shot Voice Cloning Actions (Compact 2-Column Row)
           Container(
             key: const Key('active_vocal_identity_badge'),
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs,
-            ),
+            padding: const EdgeInsets.all(AppSpacing.xs),
             decoration: BoxDecoration(
               color: AppColors.surfaceSecondary,
               borderRadius: AppRadius.inputBorder,
               border: Border.all(color: AppColors.borderSubtle),
             ),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xxs,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Vocal Identity: ${vocalIdentity.activeVoiceDisplayLabel}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTypography.caption.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                Wrap(
-                  spacing: AppSpacing.xs,
+                const SizedBox(height: 6),
+                Row(
                   children: [
-                    TextButton.icon(
-                      key: const Key('open_vocal_identity_catalog_btn'),
-                      onPressed: () => VocalIdentityPickerSheet.show(context),
-                      icon: const Icon(
-                        Icons.library_music_rounded,
-                        size: 15,
-                        color: AppColors.coinGold,
-                      ),
-                      label: Text(
-                        '24 Regional Voices',
-                        style: AppTypography.caption.copyWith(
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('open_vocal_identity_catalog_btn'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 38),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          side: BorderSide(
+                            color: AppColors.coinGold.withAlpha(110),
+                          ),
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: AppRadius.buttonBorder,
+                          ),
+                        ),
+                        onPressed: () => VocalIdentityPickerSheet.show(context),
+                        icon: const Icon(
+                          Icons.library_music_rounded,
+                          size: 14,
                           color: AppColors.coinGold,
-                          fontWeight: FontWeight.w700,
+                        ),
+                        label: Text(
+                          '24 Regional Voices',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.coinGold,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
-                    TextButton.icon(
-                      key: const Key('open_voice_clone_recorder_btn'),
-                      onPressed: () => VoiceCloneRecorderSheet.show(
-                        context,
-                        lyrics: state.customLyrics,
-                        language: state.language,
-                      ),
-                      icon: const Icon(
-                        Icons.mic_external_on_rounded,
-                        size: 15,
-                        color: AppColors.brandPrimary,
-                      ),
-                      label: Text(
-                        'Clone My Voice',
-                        style: AppTypography.caption.copyWith(
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('open_voice_clone_recorder_btn'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 38),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          side: BorderSide(
+                            color: AppColors.brandPrimary.withAlpha(110),
+                          ),
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: AppRadius.buttonBorder,
+                          ),
+                        ),
+                        onPressed: () => VoiceCloneRecorderSheet.show(
+                          context,
+                          lyrics: state.customLyrics,
+                          language: state.language,
+                        ),
+                        icon: const Icon(
+                          Icons.mic_external_on_rounded,
+                          size: 14,
                           color: AppColors.brandPrimary,
-                          fontWeight: FontWeight.w700,
+                        ),
+                        label: Text(
+                          'Clone My Voice',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.brandPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -164,7 +200,8 @@ class BantuVoiceDeck extends ConsumerWidget {
             onChanged: (v) => ref
                 .read(studioFormProvider.notifier)
                 .updateDialectInflection(
-                    inflection.copyWith(vowelElongation: v)),
+                  inflection.copyWith(vowelElongation: v),
+                ),
           ),
           _DialectSlider(
             label: 'Ancestral Vibrato',
@@ -181,7 +218,8 @@ class BantuVoiceDeck extends ConsumerWidget {
             onChanged: (v) => ref
                 .read(studioFormProvider.notifier)
                 .updateDialectInflection(
-                    inflection.copyWith(callAndResponseIntensity: v)),
+                  inflection.copyWith(callAndResponseIntensity: v),
+                ),
           ),
           _DialectSlider(
             label: 'Cultural Ad-Libs',
@@ -190,7 +228,8 @@ class BantuVoiceDeck extends ConsumerWidget {
             onChanged: (v) => ref
                 .read(studioFormProvider.notifier)
                 .updateDialectInflection(
-                    inflection.copyWith(adLibFrequency: v)),
+                  inflection.copyWith(adLibFrequency: v),
+                ),
           ),
         ],
       ),
@@ -202,8 +241,11 @@ class _TimbreCard extends StatelessWidget {
   final BantuVoiceProfile profile;
   final bool isActive;
   final VoidCallback onTap;
-  const _TimbreCard(
-      {required this.profile, required this.isActive, required this.onTap});
+  const _TimbreCard({
+    required this.profile,
+    required this.isActive,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -242,28 +284,40 @@ class _TimbreCard extends StatelessWidget {
                   child: Text(
                     'LoRA ${profile.loraScale.toStringAsFixed(2)}',
                     style: AppTypography.caption.copyWith(
-                        color: AppColors.coinGold, fontWeight: FontWeight.w700),
+                      color: AppColors.coinGold,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
-            Text(profile.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+            Text(
+              profile.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const Spacer(),
-            Text(profile.language,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textSecondary)),
-            Text(profile.region,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textTertiary)),
+            Text(
+              profile.language,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            Text(
+              profile.region,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textTertiary,
+              ),
+            ),
           ],
         ),
       ),
@@ -290,7 +344,10 @@ class _TimbreCard extends StatelessWidget {
             height: 26,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => Center(
-              child: Text(profile.iconEmoji, style: const TextStyle(fontSize: 14)),
+              child: Text(
+                profile.iconEmoji,
+                style: const TextStyle(fontSize: 14),
+              ),
             ),
           ),
         ),
@@ -322,13 +379,20 @@ class _DialectSlider extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(label,
-                    style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600)),
+                child: Text(
+                  label,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-              Text('${(value * 100).round()}%',
-                  style: AppTypography.caption.copyWith(color: AppColors.coinGold)),
+              Text(
+                '${(value * 100).round()}%',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.coinGold,
+                ),
+              ),
             ],
           ),
           SliderTheme(
@@ -339,16 +403,16 @@ class _DialectSlider extends StatelessWidget {
               overlayColor: AppColors.coinGold.withAlpha(40),
               trackHeight: 4,
             ),
-            child: Slider(
-              value: value.clamp(0.0, 1.0),
-              onChanged: onChanged,
-            ),
+            child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
           ),
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 4),
-            child: Text(subtitle,
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textTertiary)),
+            child: Text(
+              subtitle,
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textTertiary,
+              ),
+            ),
           ),
         ],
       ),

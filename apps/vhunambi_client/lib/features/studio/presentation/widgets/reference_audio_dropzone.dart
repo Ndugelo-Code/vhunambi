@@ -28,12 +28,16 @@ class _ReferenceAudioDropzoneState
       melodySketchpadProvider.select((s) => s.attachedPattern),
     );
 
+    final isPlayingSketchpad = ref.watch(
+      melodySketchpadProvider.select((s) => s.isPlayingPreview),
+    );
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceElevated,
         borderRadius: AppRadius.cardBorder,
         border: Border.all(
-          color: referenceAudio != null
+          color: (referenceAudio != null || attachedPattern != null)
               ? AppColors.brandPrimary.withAlpha(80)
               : AppColors.borderSubtle,
         ),
@@ -41,90 +45,155 @@ class _ReferenceAudioDropzoneState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Bar / Accordion Toggle
+          // Header Bar / Accordion Toggle (Never squishes title text!)
           InkWell(
             onTap: () => setState(() => _isExpanded = !_isExpanded),
             borderRadius: AppRadius.cardBorder,
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
+                vertical: AppSpacing.xs,
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.graphic_eq_rounded,
-                    size: 20,
-                    color: AppColors.brandPrimary,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      'Reference Audio (optional)',
-                      style: AppTypography.bodyLarge.copyWith(
-                        fontWeight: FontWeight.w600,
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.graphic_eq_rounded,
+                        size: 20,
+                        color: AppColors.brandPrimary,
                       ),
-                    ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          'Reference Audio (optional)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodyLarge.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (referenceAudio != null && attachedPattern == null)
+                        Container(
+                          margin: const EdgeInsets.only(right: AppSpacing.xs),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.brandPrimary.withAlpha(40),
+                            borderRadius: AppRadius.pillBorder,
+                          ),
+                          child: Text(
+                            '1 Attached',
+                            style: AppTypography.badge.copyWith(
+                              color: AppColors.brandPrimary,
+                            ),
+                          ),
+                        ),
+                      TextButton.icon(
+                        key: const Key('dropzone_open_sketchpad_btn'),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(44, 36),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                          ),
+                          backgroundColor: AppColors.surfaceSecondary,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: AppRadius.pillBorder,
+                          ),
+                        ),
+                        onPressed: () {
+                          MelodySketchpadModal.show(context);
+                        },
+                        icon: const Icon(
+                          Icons.piano_rounded,
+                          color: AppColors.brandPrimary,
+                          size: 16,
+                        ),
+                        label: Text(
+                          'Sketchpad',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.brandPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        _isExpanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.textSecondary,
+                      ),
+                    ],
                   ),
-                  if (attachedPattern != null)
+                  if (attachedPattern != null) ...[
+                    const SizedBox(height: 6),
                     Container(
                       key: const Key('dropzone_active_sketchpad_badge'),
-                      margin: const EdgeInsets.only(right: AppSpacing.xs),
+                      width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs,
-                        vertical: 2,
+                        horizontal: AppSpacing.sm,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.success.withAlpha(35),
+                        color: AppColors.success.withAlpha(30),
                         borderRadius: AppRadius.pillBorder,
-                      ),
-                      child: Text(
-                        '${attachedPattern.instrument.emoji} ${attachedPattern.name} (${attachedPattern.musicalKey})',
-                        style: AppTypography.badge.copyWith(
-                          color: AppColors.success,
+                        border: Border.all(
+                          color: AppColors.success.withAlpha(90),
                         ),
                       ),
-                    )
-                  else if (referenceAudio != null)
-                    Container(
-                      margin: const EdgeInsets.only(right: AppSpacing.xs),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.brandPrimary.withAlpha(40),
-                        borderRadius: AppRadius.pillBorder,
-                      ),
-                      child: Text(
-                        '1 Attached',
-                        style: AppTypography.badge.copyWith(
-                          color: AppColors.brandPrimary,
-                        ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${attachedPattern.instrument.emoji} ${attachedPattern.name} (${attachedPattern.musicalKey})',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.success,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => ref
+                                .read(melodySketchpadProvider.notifier)
+                                .togglePreviewPlayback(),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              child: Icon(
+                                isPlayingSketchpad
+                                    ? Icons.stop_circle_rounded
+                                    : Icons.play_circle_fill_rounded,
+                                size: 18,
+                                color: AppColors.success,
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => ref
+                                .read(melodySketchpadProvider.notifier)
+                                .detachSongReference(),
+                            child: const Padding(
+                              padding: EdgeInsets.only(left: 4),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 16,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  IconButton(
-                    key: const Key('dropzone_open_sketchpad_btn'),
-                    tooltip: 'Compose Melody / Log-Drum Pattern',
-                    constraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 44,
-                    ),
-                    icon: const Icon(
-                      Icons.piano_rounded,
-                      color: AppColors.brandPrimary,
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      MelodySketchpadModal.show(context);
-                    },
-                  ),
-                  Icon(
-                    _isExpanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
-                    color: AppColors.textSecondary,
-                  ),
+                  ],
                 ],
               ),
             ),

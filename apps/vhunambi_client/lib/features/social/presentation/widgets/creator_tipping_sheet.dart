@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../domain/models/cultural_gift.dart';
 import '../../domain/models/published_clip.dart';
 import '../providers/creator_wallet_provider.dart';
 
@@ -77,7 +76,6 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {

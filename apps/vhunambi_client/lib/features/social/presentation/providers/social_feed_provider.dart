@@ -1,5 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/published_clip.dart';
+import '../../domain/repositories/i_social_repository.dart';
+import 'social_repository_provider.dart';
+import '../../../content_studio/domain/models/lyric_word_timestamp.dart';
 import '../../../content_studio/domain/models/song_metadata_dna.dart';
 
 /// Immutable state for the in-house Kinetic Reels discovery feed (REQ-SOC-16).
@@ -34,12 +37,29 @@ class SocialFeedState {
 /// Drives the social feed: seeded catalogue, optimistic clip publishing,
 /// cursor pagination, and like toggling (REQ-SOC-13 / REQ-SOC-16).
 ///
-/// Follows the client-only in-memory architecture of `library_providers` /
-/// `explore_providers` — no live network call, so it stays testable and
-/// offline-safe. Swapping in an HTTP repository is a drop-in behind these fns.
+/// Backed by [ISocialRepository] with instant local seeding and offline resilience.
 class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
-  SocialFeedNotifier() : super(const SocialFeedState()) {
+  final ISocialRepository? _repo;
+
+  SocialFeedNotifier([this._repo]) : super(const SocialFeedState()) {
     state = state.copyWith(clips: _seedClips());
+  }
+
+  /// Refreshes the feed from the backend if a repository is provided.
+  Future<void> refreshFeed() async {
+    if (_repo == null) return;
+    try {
+      final remoteClips = await _repo.getFeed(limit: 20);
+      if (remoteClips.isNotEmpty) {
+        final existingIds = state.clips.map((c) => c.id).toSet();
+        final newClips = remoteClips
+            .where((c) => !existingIds.contains(c.id))
+            .toList();
+        if (newClips.isNotEmpty) {
+          state = state.copyWith(clips: [...state.clips, ...newClips]);
+        }
+      }
+    } catch (_) {}
   }
 
   /// Optimistically prepends a freshly published clip (REQ-SOC-04).
@@ -62,6 +82,7 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
             clip,
       ],
     );
+    _repo?.toggleLikeClip(clipId);
   }
 
   /// Records a love tap in TikTok-familiar multi-tap bursts (REQ-COM-04).
@@ -73,27 +94,50 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
     state = state.copyWith(
       clips: [
         for (final clip in state.clips)
-          if (clip.id == clipId) () {
-            final nextCount = clip.userReactionCount + 1;
-            newReactionCount = nextCount;
-            return clip.copyWith(
-              isLikedByMe: true,
-              likeCount: clip.likeCount + 1,
-              userReactionCount: nextCount,
-            );
-          }()
+          if (clip.id == clipId)
+            () {
+              final nextCount = clip.userReactionCount + 1;
+              newReactionCount = nextCount;
+              return clip.copyWith(
+                isLikedByMe: true,
+                likeCount: clip.likeCount + 1,
+                userReactionCount: nextCount,
+              );
+            }()
           else
             clip,
       ],
     );
+    _repo?.toggleLikeClip(clipId);
     return newReactionCount;
   }
 
-  /// Loads the next cursor page. The seeded catalogue is fully in-memory, so
-  /// this marks the end of the feed; a networked repo would append here.
+  /// Loads the next cursor page.
   Future<void> loadMore() async {
     if (state.isLoading || state.hasReachedEnd) return;
     state = state.copyWith(isLoading: true);
+    if (_repo != null) {
+      try {
+        final nextClips = await _repo.getFeed(
+          cursor: state.clips.length.toString(),
+          limit: 10,
+        );
+        if (nextClips.isEmpty) {
+          state = state.copyWith(isLoading: false, hasReachedEnd: true);
+        } else {
+          final existingIds = state.clips.map((c) => c.id).toSet();
+          final filtered = nextClips
+              .where((c) => !existingIds.contains(c.id))
+              .toList();
+          state = state.copyWith(
+            clips: [...state.clips, ...filtered],
+            isLoading: false,
+            hasReachedEnd: filtered.isEmpty,
+          );
+        }
+        return;
+      } catch (_) {}
+    }
     await Future<void>.delayed(const Duration(milliseconds: 250));
     state = state.copyWith(isLoading: false, hasReachedEnd: true);
   }
@@ -109,14 +153,50 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
 
 final socialFeedProvider =
     StateNotifierProvider<SocialFeedNotifier, SocialFeedState>((ref) {
-  return SocialFeedNotifier();
-});
-
+      final repo = ref.watch(socialRepositoryProvider);
+      return SocialFeedNotifier(repo);
+    });
 
 // ---------------------------------------------------------------------------
 // Seed catalogue — mirrors the backend `social_service` seeds so the client
 // shell renders a lively feed before any user publishing occurs.
 // ---------------------------------------------------------------------------
+
+List<LyricWordTimestamp> _buildSeedLyrics(
+  List<String> words, {
+  required int bpm,
+}) {
+  const idioms = <String>{
+    'ndo',
+    'mufuna',
+    'matibe',
+    'venda',
+    'vhunambi',
+    'woza',
+    'sgubhu',
+    'amapiano',
+    'gqom',
+    'durban',
+    'makhado',
+    'mbilu',
+  };
+  final stepSec = (60.0 / bpm.clamp(80, 160)).clamp(0.42, 0.70);
+  return List<LyricWordTimestamp>.generate(words.length, (i) {
+    final start = double.parse((i * stepSec).toStringAsFixed(2));
+    final end = double.parse(((i + 1) * stepSec - 0.04).toStringAsFixed(2));
+    final clean = words[i]
+        .replaceAll(RegExp(r'[^a-zA-Zḓṋḽṱ]'), '')
+        .toLowerCase();
+    return LyricWordTimestamp(
+      word: words[i],
+      start: start,
+      end: end,
+      stanzaIndex: i ~/ 5,
+      phoneticStress: (i % 2 == 0) ? 0.92 : 0.65,
+      isCulturalIdiom: idioms.contains(clean),
+    );
+  });
+}
 
 SongMetadataDna _seedDna({
   required String id,
@@ -125,6 +205,7 @@ SongMetadataDna _seedDna({
   required int bpm,
   required int durationSec,
   String mood = 'Uplifting',
+  List<String> lyricTokens = const [],
 }) {
   return SongMetadataDna(
     id: id,
@@ -148,6 +229,9 @@ SongMetadataDna _seedDna({
       seed: bpm,
       aspectRatio: '9:16',
     ),
+    alignment: lyricTokens.isNotEmpty
+        ? _buildSeedLyrics(lyricTokens, bpm: bpm)
+        : const [],
   );
 }
 
@@ -168,6 +252,7 @@ PublishedClip _seedClip({
   int likeCount = 0,
   int commentCount = 0,
   int remixCount = 0,
+  List<String> lyricTokens = const [],
 }) {
   final suffix = id.split('_').last;
   return PublishedClip(
@@ -190,6 +275,7 @@ PublishedClip _seedClip({
       bpm: bpm,
       durationSec: durationSec,
       mood: mood,
+      lyricTokens: lyricTokens,
     ),
     playCount: playCount,
     likeCount: likeCount,
@@ -210,12 +296,29 @@ List<PublishedClip> _seedClips() {
       genre: 'Amapiano',
       bpm: 113,
       durationSec: 198,
-      caption: 'New late-night piano vibe featuring indigenous live percussion! 🎹🔥',
+      caption:
+          'New late-night piano vibe featuring indigenous live percussion! 🎹🔥',
       tags: const ['Amapiano', 'Tshivenḓa', 'DeepSoul'],
       playCount: 24500,
       likeCount: 1840,
       commentCount: 96,
       remixCount: 12,
+      lyricTokens: const [
+        'Ndo',
+        'Mufuna',
+        'Matibe',
+        'Mbilu',
+        'Yanga',
+        'Iya',
+        'Pembelela',
+        'Woza',
+        'Amapiano',
+        'Sgubhu',
+        'Vhunambi',
+        'Ndo',
+        'Mufuna',
+        'Matibe',
+      ],
     ),
     _seedClip(
       id: 'clip_pub_makhadzi_2',
@@ -233,6 +336,20 @@ List<PublishedClip> _seedClips() {
       likeCount: 742,
       commentCount: 41,
       remixCount: 8,
+      lyricTokens: const [
+        'Woza',
+        'Durban',
+        'Gqom',
+        'Sgubhu',
+        'Township',
+        'Log',
+        'Drum',
+        'Heat',
+        'Asambe',
+        'Vhunambi',
+        'Woza',
+        'Gqom',
+      ],
     ),
     _seedClip(
       id: 'clip_pub_fifi_1',
@@ -250,6 +367,21 @@ List<PublishedClip> _seedClips() {
       likeCount: 1290,
       commentCount: 73,
       remixCount: 5,
+      lyricTokens: const [
+        'Sunset',
+        'Gold',
+        'Sessions',
+        'Rising',
+        'Over',
+        'Makhado',
+        'Vhunambi',
+        'Rhythm',
+        'In',
+        'Our',
+        'Soul',
+        'Sunset',
+        'Gold',
+      ],
     ),
     _seedClip(
       id: 'clip_pub_fifi_2',
@@ -266,6 +398,19 @@ List<PublishedClip> _seedClips() {
       likeCount: 388,
       commentCount: 22,
       remixCount: 3,
+      lyricTokens: const [
+        'Venda',
+        'Sunrise',
+        'Ndi',
+        'Matsheloni',
+        'Makhado',
+        'Log',
+        'Drum',
+        'Amapiano',
+        'Vhunambi',
+        'Venda',
+        'Sunrise',
+      ],
     ),
   ];
 }

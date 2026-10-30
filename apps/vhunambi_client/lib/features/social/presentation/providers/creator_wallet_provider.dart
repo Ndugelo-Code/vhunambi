@@ -1,250 +1,156 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/models/creator_wallet.dart';
 import '../../domain/models/cultural_gift.dart';
+import '../../domain/repositories/i_social_repository.dart';
 import 'reels_comments_provider.dart';
+import 'social_repository_provider.dart';
 
-/// A recorded gift transaction sent to an African creator (REQ-GFT-02).
-@immutable
-class GiftTransaction {
-  final String id;
-  final String clipId;
-  final String senderUsername;
-  final String recipientCreatorId;
-  final CulturalGift gift;
-  final String? message;
-  final DateTime timestamp;
+export '../../domain/models/creator_wallet.dart';
+export '../../domain/models/cultural_gift.dart';
 
-  const GiftTransaction({
-    required this.id,
-    required this.clipId,
-    required this.senderUsername,
-    required this.recipientCreatorId,
-    required this.gift,
-    this.message,
-    required this.timestamp,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'clipId': clipId,
-        'senderUsername': senderUsername,
-        'recipientCreatorId': recipientCreatorId,
-        'gift': gift.toJson(),
-        'message': message,
-        'timestamp': timestamp.toIso8601String(),
-      };
-
-  factory GiftTransaction.fromJson(Map<String, dynamic> json) {
-    return GiftTransaction(
-      id: json['id'] as String,
-      clipId: json['clipId'] as String,
-      senderUsername: json['senderUsername'] as String,
-      recipientCreatorId: json['recipientCreatorId'] as String,
-      gift: CulturalGift.fromJson(json['gift'] as Map<String, dynamic>),
-      message: json['message'] as String?,
-      timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
-          DateTime.now(),
-    );
-  }
-}
-
-/// A top supporter entry on the creator's leaderboard (REQ-WAL-02).
-@immutable
-class SupporterRank {
-  final String username;
-  final String displayName;
-  final int totalCoins;
-  final double totalZar;
-  final String topGiftEmoji;
-  final int rank;
-
-  const SupporterRank({
-    required this.username,
-    required this.displayName,
-    required this.totalCoins,
-    required this.totalZar,
-    required this.topGiftEmoji,
-    required this.rank,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'username': username,
-        'displayName': displayName,
-        'totalCoins': totalCoins,
-        'totalZar': totalZar,
-        'topGiftEmoji': topGiftEmoji,
-        'rank': rank,
-      };
-
-  factory SupporterRank.fromJson(Map<String, dynamic> json) {
-    return SupporterRank(
-      username: json['username'] as String,
-      displayName: json['displayName'] as String,
-      totalCoins: (json['totalCoins'] as num).toInt(),
-      totalZar: (json['totalZar'] as num).toDouble(),
-      topGiftEmoji: json['topGiftEmoji'] as String? ?? '🪙',
-      rank: (json['rank'] as num).toInt(),
-    );
-  }
-}
-
-/// State of the user's gifting wallet and creator earnings ledger (REQ-WAL-01).
-@immutable
+/// Immutable state for creator cultural wallet & micro-gifting (REQ-WAL-01 … REQ-WAL-03).
 class CreatorWalletState {
-  /// The current user's coin balance for sending gifts.
   final int userCoinsBalance;
-
-  /// The creator's total lifetime earnings in South African Rand (ZAR).
   final double creatorEarnedZar;
-
-  /// The creator's total lifetime cultural coins received.
   final int creatorReceivedCoins;
-
-  /// Full history of gift transactions sent or received.
-  final List<GiftTransaction> transactions;
-
-  /// Top patron leaderboard for this creator profile.
   final List<SupporterRank> topSupporters;
-
-  /// Whether a cashout payout operation is currently pending.
-  final bool isProcessingPayout;
-
-  /// Status message from the most recent payout request.
+  final List<GiftTransaction> transactions;
   final String? payoutStatusMessage;
+  final bool isLoading;
+  final String? errorMessage;
+  final CreatorWallet? wallet;
 
   const CreatorWalletState({
     this.userCoinsBalance = 250,
     this.creatorEarnedZar = 1420.0,
     this.creatorReceivedCoins = 4750,
-    this.transactions = const [],
     this.topSupporters = const [],
-    this.isProcessingPayout = false,
+    this.transactions = const [],
     this.payoutStatusMessage,
+    this.isLoading = false,
+    this.errorMessage,
+    this.wallet,
   });
 
   CreatorWalletState copyWith({
     int? userCoinsBalance,
     double? creatorEarnedZar,
     int? creatorReceivedCoins,
-    List<GiftTransaction>? transactions,
     List<SupporterRank>? topSupporters,
-    bool? isProcessingPayout,
+    List<GiftTransaction>? transactions,
     String? payoutStatusMessage,
+    bool? isLoading,
+    String? errorMessage,
+    CreatorWallet? wallet,
   }) {
     return CreatorWalletState(
       userCoinsBalance: userCoinsBalance ?? this.userCoinsBalance,
       creatorEarnedZar: creatorEarnedZar ?? this.creatorEarnedZar,
-      creatorReceivedCoins:
-          creatorReceivedCoins ?? this.creatorReceivedCoins,
-      transactions: transactions ?? this.transactions,
+      creatorReceivedCoins: creatorReceivedCoins ?? this.creatorReceivedCoins,
       topSupporters: topSupporters ?? this.topSupporters,
-      isProcessingPayout: isProcessingPayout ?? this.isProcessingPayout,
+      transactions: transactions ?? this.transactions,
       payoutStatusMessage: payoutStatusMessage ?? this.payoutStatusMessage,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage,
+      wallet: wallet ?? this.wallet,
     );
   }
 }
 
-/// Manages cultural micro-gifting, coin deductions, creator ledger credits,
-/// and automated celebratory comment announcements.
+/// Orchestrates creator earnings, fan tipping, and royalty cashouts.
 class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
   final Ref _ref;
+  final ISocialRepository? _repo;
+  final String _creatorId;
 
-  CreatorWalletNotifier(this._ref) : super(const CreatorWalletState()) {
-    _seedInitialState();
+  CreatorWalletNotifier(
+    this._ref, {
+    this._repo,
+    this._creatorId = 'creator_makhadzi',
+  }) : super(const CreatorWalletState()) {
+    _seedInitial();
   }
 
-  void _seedInitialState() {
-    final now = DateTime.now();
-
-    final seedTxs = [
-      GiftTransaction(
-        id: 'tx_seed_01',
-        clipId: 'clip_seed_01',
-        senderUsername: 'thabo_beats',
-        recipientCreatorId: 'creator_makhadzi',
-        gift: kCulturalGifts[3], // Royal Venda Crown
-        message: 'Masterclass production from Makhado! 👑🇿🇦',
-        timestamp: now.subtract(const Duration(hours: 2)),
-      ),
-      GiftTransaction(
-        id: 'tx_seed_02',
-        clipId: 'clip_seed_01',
-        senderUsername: 'lerato_piano',
-        recipientCreatorId: 'creator_makhadzi',
-        gift: kCulturalGifts[2], // Log Drum Trophy
-        message: 'Bassline is unreal! 🎹',
-        timestamp: now.subtract(const Duration(hours: 4)),
-      ),
-      GiftTransaction(
-        id: 'tx_seed_03',
-        clipId: 'clip_seed_02',
-        senderUsername: 'sbu_gqom',
-        recipientCreatorId: 'creator_makhadzi',
-        gift: kCulturalGifts[1], // African Drum
-        message: 'Pure rhythm energy! 🥁',
-        timestamp: now.subtract(const Duration(hours: 8)),
-      ),
-    ];
-
-    const seedRanks = [
-      SupporterRank(
-        username: 'thabo_beats',
-        displayName: 'Thabo Beats',
-        totalCoins: 1200,
-        totalZar: 300.0,
-        topGiftEmoji: '👑',
-        rank: 1,
-      ),
-      SupporterRank(
-        username: 'lerato_piano',
-        displayName: 'Lerato Piano',
-        totalCoins: 650,
-        totalZar: 195.0,
-        topGiftEmoji: '🎹',
-        rank: 2,
-      ),
-      SupporterRank(
-        username: 'sbu_gqom',
-        displayName: 'Sbu Gqom',
-        totalCoins: 450,
-        totalZar: 135.0,
-        topGiftEmoji: '🥁',
-        rank: 3,
-      ),
-      SupporterRank(
-        username: 'kgothatso_sa',
-        displayName: 'Kgothatso',
-        totalCoins: 180,
-        totalZar: 54.0,
-        topGiftEmoji: '🐚',
-        rank: 4,
-      ),
-    ];
-
+  void _seedInitial() {
     state = state.copyWith(
-      transactions: seedTxs,
-      topSupporters: seedRanks,
+      topSupporters: const [
+        SupporterRank(
+          username: 'lerato_piano',
+          displayName: 'LERATO PIANO',
+          totalCoins: 1800,
+          totalZar: 540.0,
+          topGiftEmoji: '👑',
+          rank: 1,
+        ),
+        SupporterRank(
+          username: 'soweto_beats',
+          displayName: 'SOWETO BEATS',
+          totalCoins: 1200,
+          totalZar: 360.0,
+          topGiftEmoji: '🎹',
+          rank: 2,
+        ),
+        SupporterRank(
+          username: 'makhado_groove',
+          displayName: 'MAKHADO GROOVE',
+          totalCoins: 750,
+          totalZar: 225.0,
+          topGiftEmoji: '🥁',
+          rank: 3,
+        ),
+      ],
+      transactions: [
+        GiftTransaction(
+          id: 'tx_seed_1',
+          clipId: 'clip_seed_01',
+          senderUsername: 'lerato_piano',
+          recipientCreatorId: _creatorId,
+          gift: kCulturalGifts.firstWhere((g) => g.id == 'royal_venda_crown'),
+          message: 'Legendary piano groove! 👑',
+          timestamp: DateTime.now().subtract(const Duration(hours: 2)),
+        ),
+      ],
     );
   }
 
-  /// Sends an African cultural gift to a creator (REQ-GFT-01 / REQ-GFT-02).
-  ///
-  /// Deducts [gift.coinPrice] from [userCoinsBalance], credits creator's
-  /// ZAR and coin ledgers, logs the transaction, and pins a celebratory
-  /// announcement into the reel's comment thread.
+  Future<void> loadWallet() async {
+    if (_repo == null) return;
+    try {
+      final remoteWallet = await _repo.getCreatorWallet(_creatorId);
+      state = state.copyWith(
+        wallet: remoteWallet,
+        creatorEarnedZar: remoteWallet.balanceZar,
+        creatorReceivedCoins: remoteWallet.totalCoinsReceived,
+        topSupporters: remoteWallet.topSupporters.isNotEmpty
+            ? remoteWallet.topSupporters
+            : state.topSupporters,
+        transactions: remoteWallet.recentTransactions.isNotEmpty
+            ? remoteWallet.recentTransactions
+            : state.transactions,
+      );
+    } catch (_) {}
+  }
+
+  /// Tops up the current user's coin balance.
+  void topUpCoins(int amount) {
+    if (amount <= 0) return;
+    state = state.copyWith(userCoinsBalance: state.userCoinsBalance + amount);
+  }
+
+  /// Sends a cultural micro-gift to a creator.
   Future<bool> sendGift({
     required String clipId,
     required String recipientCreatorId,
     required String senderUsername,
+    String? senderDisplayName,
     required CulturalGift gift,
     String? message,
-    String? senderDisplayName,
   }) async {
     if (state.userCoinsBalance < gift.coinPrice) {
       return false;
     }
 
-    final newTx = GiftTransaction(
+    final tx = GiftTransaction(
       id: 'tx_${DateTime.now().millisecondsSinceEpoch}',
       clipId: clipId,
       senderUsername: senderUsername,
@@ -254,63 +160,68 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
       timestamp: DateTime.now(),
     );
 
-    final commentText = (message != null && message.trim().isNotEmpty)
-        ? '${gift.emoji} Sent a ${gift.name}! "${message.trim()}"'
-        : '${gift.emoji} Sent a ${gift.name}!';
-
-    // Deduct coins & credit creator
     state = state.copyWith(
       userCoinsBalance: state.userCoinsBalance - gift.coinPrice,
       creatorEarnedZar: state.creatorEarnedZar + gift.zarPrice,
       creatorReceivedCoins: state.creatorReceivedCoins + gift.coinPrice,
-      transactions: [newTx, ...state.transactions],
+      transactions: [tx, ...state.transactions],
     );
 
-    // Auto-post celebratory supporter announcement to reel comments
-    _ref.read(reelsCommentsProvider.notifier).addComment(
+    // Auto-post cultural celebration comment into reel thread (REQ-GFT-03)
+    final commentText = (message != null && message.trim().isNotEmpty)
+        ? 'Sent a ${gift.name}! $message'
+        : 'Sent a ${gift.name}! Proud of this sound.';
+
+    _ref
+        .read(reelsCommentsProvider.notifier)
+        .addComment(
           clipId: clipId,
           text: commentText,
           username: senderUsername,
           displayName: senderDisplayName ?? senderUsername,
           giftEmoji: gift.emoji,
           giftName: gift.name,
+          userReelLoves: 5,
         );
+
+    _repo?.sendTip(
+      clipId: clipId,
+      giftId: gift.id,
+      senderUsername: senderUsername,
+      message: message,
+    );
 
     return true;
   }
 
-  /// Adds coins to the user's gifting balance.
-  void topUpCoins(int coins) {
-    if (coins <= 0) return;
-    state = state.copyWith(
-      userCoinsBalance: state.userCoinsBalance + coins,
-    );
-  }
-
-  /// Requests payout for earned creator royalties via South African rails (REQ-WAL-03).
+  /// Requests a payout / royalty cashout (REQ-WAL-02).
   Future<bool> requestPayout({
     required double amountZar,
     required String payoutMethod,
   }) async {
-    if (amountZar > state.creatorEarnedZar || amountZar < 50.0) {
+    if (amountZar < 50.0 || amountZar > state.creatorEarnedZar) {
       return false;
     }
 
-    state = state.copyWith(isProcessingPayout: true);
-
     state = state.copyWith(
       creatorEarnedZar: state.creatorEarnedZar - amountZar,
-      isProcessingPayout: false,
       payoutStatusMessage:
-          'Payout of R${amountZar.toStringAsFixed(2)} via $payoutMethod initiated successfully!',
+          'Payout of R${amountZar.toStringAsFixed(2)} via $payoutMethod initiated!',
+    );
+
+    _repo?.requestPayout(
+      creatorId: _creatorId,
+      amountZar: amountZar,
+      payoutMethod: payoutMethod,
+      accountDetails: payoutMethod,
     );
 
     return true;
   }
 }
 
-/// Global provider for the Creator Cultural Wallet and micro-gifting ledger.
 final creatorWalletProvider =
     StateNotifierProvider<CreatorWalletNotifier, CreatorWalletState>((ref) {
-  return CreatorWalletNotifier(ref);
-});
+      final repo = ref.watch(socialRepositoryProvider);
+      return CreatorWalletNotifier(ref, repo: repo);
+    });

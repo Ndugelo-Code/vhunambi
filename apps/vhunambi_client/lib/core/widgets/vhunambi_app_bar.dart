@@ -20,73 +20,72 @@ class VhunambiAppBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final topInset = VhunambiTopBarMetrics.topInset(context);
     final barHeight = VhunambiTopBarMetrics.toolbarHeight(context);
 
     return VhunambiTopBarSurface(
       toolbarHeight: barHeight,
-      child: Padding(
-        padding: EdgeInsets.only(top: topInset),
-        child: SizedBox(
-          height: barHeight,
-          width: double.infinity,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Row(
-              children: [
-                // Brand Emblem — compact logo mark instead of text title
-                // (VH-006). Falls back to orange circle glyph when SVG is
-                // unavailable.
-                AppAssets.compactMarkImage(size: 32),
-                const SizedBox(width: AppSpacing.xs),
+      child: SizedBox(
+        height: barHeight,
+        width: double.infinity,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Brand Emblem — compact logo mark instead of text title
+              // (VH-006). Falls back to orange circle glyph when SVG is
+              // unavailable.
+              AppAssets.compactMarkImage(size: 32),
+              const SizedBox(width: AppSpacing.xs),
 
-                const Spacer(),
+              const Spacer(),
 
-                // Studio Route Title
-                Text(
-                  'Studio',
-                  style: AppTypography.titleMedium.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              // Studio Route Title
+              Text(
+                'Studio',
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
-                const Spacer(),
+              ),
+              const Spacer(),
 
-                // Token Balance Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceSecondary,
-                    borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: AppColors.borderSubtle),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.bolt_rounded,
-                        size: 16,
-                        color: AppColors.brandPrimary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '10 left',
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+              // Token Balance Badge (Centered vertically with lineHeight 1.1 so it never clips)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 5,
                 ),
-                const SizedBox(width: AppSpacing.xs),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceSecondary,
+                  borderRadius: AppRadius.pillBorder,
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.bolt_rounded,
+                      size: 15,
+                      color: AppColors.brandPrimary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '10 left',
+                      style: AppTypography.bodySmall.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        height: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
 
-                // Live Alert Centre (Phase 11)
-                const NotificationBellButton(),
-              ],
-            ),
+              // Live Alert Centre (Phase 11)
+              const NotificationBellButton(),
+            ],
           ),
         ),
       ),

@@ -5,7 +5,9 @@ import '../../domain/models/lyric_word_timestamp.dart';
 import '../../domain/services/i_video_export_service.dart';
 import '../../data/services/local_video_export_service.dart';
 import '../../../social/domain/models/published_clip.dart';
+import '../../../social/domain/repositories/i_social_repository.dart';
 import '../../../social/presentation/providers/social_feed_provider.dart';
+import '../../../social/presentation/providers/social_repository_provider.dart';
 
 final videoExportServiceProvider = Provider<IVideoExportService>((ref) {
   return LocalVideoExportService();
@@ -95,8 +97,14 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
   /// Injected social feed sink for optimistic in-house publishing (T2.4).
   final SocialFeedNotifier? _socialFeed;
 
-  ContentStudioNotifier(this._exportService, [this._socialFeed])
-      : super(const ContentStudioState());
+  /// Injected social repository for backend persistence and remix propagation (Phase C & D).
+  final ISocialRepository? _socialRepo;
+
+  ContentStudioNotifier(
+    this._exportService, [
+    this._socialFeed,
+    this._socialRepo,
+  ]) : super(const ContentStudioState());
 
   void initializeWithDna({
     required SongMetadataDna dna,
@@ -248,6 +256,8 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
     required String caption,
     required List<String> tags,
     ClipVisibility visibility = ClipVisibility.public,
+    String? remixedFromClipId,
+    String? remixAttribution,
   }) {
     final dna = state.dna;
     final audioUrl = state.audioUrl;
@@ -273,13 +283,32 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
       audioUrl: audioUrl,
       coverUrl: state.coverArtUrl ?? '',
       dna: dna,
+      remixedFromClipId: remixedFromClipId,
+      remixAttribution: remixAttribution,
       publishedAt: DateTime.now(),
     );
 
     // Optimistic local injection — the clip appears instantly in the feed and
-    // on the creator profile (REQ-SOC-04). A networked repo would reconcile
-    // the server-assigned id/shareUrl here.
+    // on the creator profile (REQ-SOC-04).
     _socialFeed?.prependClip(clip);
+
+    // Fire backend sync for viral remix propagation
+    _socialRepo?.publishClip({
+      'trackId': clip.trackId,
+      'title': clip.title,
+      'caption': clip.caption,
+      'tags': clip.tags,
+      'visibility': visibility.name,
+      'dna': clip.dna.toJson(),
+      'creatorId': clip.creatorId,
+      'creatorUsername': clip.creatorUsername,
+      'creatorDisplayName': clip.creatorDisplayName,
+      'audioUrl': clip.audioUrl,
+      'coverUrl': clip.coverUrl,
+      'remixedFromClipId': ?remixedFromClipId,
+      'remixAttribution': ?remixAttribution,
+    });
+
     state = state.copyWith(publishedShareUrl: clip.shareUrl, errorMessage: null);
     return clip;
   }
@@ -293,5 +322,6 @@ final contentStudioProvider =
     StateNotifierProvider<ContentStudioNotifier, ContentStudioState>((ref) {
   final exportService = ref.watch(videoExportServiceProvider);
   final socialFeed = ref.read(socialFeedProvider.notifier);
-  return ContentStudioNotifier(exportService, socialFeed);
+  final socialRepo = ref.watch(socialRepositoryProvider);
+  return ContentStudioNotifier(exportService, socialFeed, socialRepo);
 });

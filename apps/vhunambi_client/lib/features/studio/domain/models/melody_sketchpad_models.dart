@@ -106,39 +106,48 @@ const Map<String, int> _rootKeyToSemitone = {
 };
 
 /// Resolves the exact fundamental frequency (Hz) for a scale row (0..7) (REQ-SKP-02).
+///
+/// - `amapianoLogDrum`: Anchored in sub-bass Octave 1–2 (`49.0 Hz – 220.0 Hz`, e.g. `A1 = 55.0 Hz`, `F#2 = 92.5 Hz`).
+/// - Melodic instruments (`privateSchoolRhodes`, `maskandiGuitar`, `vendaMbira`, `marimbaWood`):
+///   Anchored in warm mid Octave 2–4 (`110.0 Hz – 493.9 Hz`).
 double resolveScaleFrequencyHz(
   String musicalKey,
   AfricanScaleMode scaleMode,
   int scaleRow, {
   SketchpadInstrument instrument = SketchpadInstrument.amapianoLogDrum,
 }) {
-  final cleanRoot =
-      musicalKey.replaceAll(RegExp(r'm(in(or)?)?$', caseSensitive: false), '').trim();
-  final rootSemitone = _rootKeyToSemitone[cleanRoot] ?? 6; // Default F#
+  final cleanRoot = musicalKey
+      .replaceAll(RegExp(r'm(in(or)?)?$', caseSensitive: false), '')
+      .trim();
+  final rawRoot = _rootKeyToSemitone[cleanRoot] ?? 6; // Default F#
+  // Wrap G, G#, A, A#, B down by 12 semitones so Amapiano keys like Am sit at 55Hz (A1) instead of 110Hz/440Hz
+  final effectiveRoot = rawRoot >= 7 ? rawRoot - 12 : rawRoot;
   final baseMidi =
-      instrument == SketchpadInstrument.amapianoLogDrum ? 36 : 60; // C2 vs C4
+      instrument == SketchpadInstrument.amapianoLogDrum ? 36 : 48; // C2 vs C3
   final clampedRow = scaleRow.clamp(0, 7);
   final midiNote =
-      baseMidi + rootSemitone + scaleMode.semitoneOffsets[clampedRow];
+      baseMidi + effectiveRoot + scaleMode.semitoneOffsets[clampedRow];
   final freq = 440.0 * math.pow(2.0, (midiNote - 69.0) / 12.0);
   return (freq * 100.0).roundToDouble() / 100.0;
 }
 
-/// Resolves a human-readable note name + octave (e.g., `F#2`, `A2`, `C#3`) for piano roll rails.
+/// Resolves a human-readable note name + octave (e.g., `A1`, `F#2`, `F#3`) for piano roll rails.
 String resolveScaleNoteLabel(
   String musicalKey,
   AfricanScaleMode scaleMode,
   int scaleRow, {
   SketchpadInstrument instrument = SketchpadInstrument.amapianoLogDrum,
 }) {
-  final cleanRoot =
-      musicalKey.replaceAll(RegExp(r'm(in(or)?)?$', caseSensitive: false), '').trim();
-  final rootSemitone = _rootKeyToSemitone[cleanRoot] ?? 6;
+  final cleanRoot = musicalKey
+      .replaceAll(RegExp(r'm(in(or)?)?$', caseSensitive: false), '')
+      .trim();
+  final rawRoot = _rootKeyToSemitone[cleanRoot] ?? 6;
+  final effectiveRoot = rawRoot >= 7 ? rawRoot - 12 : rawRoot;
   final baseMidi =
-      instrument == SketchpadInstrument.amapianoLogDrum ? 36 : 60;
+      instrument == SketchpadInstrument.amapianoLogDrum ? 36 : 48;
   final clampedRow = scaleRow.clamp(0, 7);
   final midiNote =
-      baseMidi + rootSemitone + scaleMode.semitoneOffsets[clampedRow];
+      baseMidi + effectiveRoot + scaleMode.semitoneOffsets[clampedRow];
   final noteName = kChromaticNoteNames[midiNote % 12];
   final octave = (midiNote ~/ 12) - 1;
   return '$noteName$octave';

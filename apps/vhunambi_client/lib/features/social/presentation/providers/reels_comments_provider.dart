@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/reel_comment.dart';
+import '../../domain/repositories/i_social_repository.dart';
+import 'social_repository_provider.dart';
 
 /// State containing all comments grouped by clip ID (REQ-COM-01 / REQ-COM-02).
 class ReelsCommentsState {
@@ -25,8 +27,26 @@ class ReelsCommentsState {
 /// Manages community comments, TikTok-style comment hearts, and honest
 /// love badges for published kinetic reels.
 class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
-  ReelsCommentsNotifier() : super(const ReelsCommentsState()) {
+  final ISocialRepository? _repo;
+
+  ReelsCommentsNotifier([this._repo]) : super(const ReelsCommentsState()) {
     _seedComments();
+  }
+
+  /// Synchronizes comments for a specific clip ID from backend if available.
+  Future<void> syncCommentsForClip(String clipId) async {
+    if (_repo == null) return;
+    try {
+      final remote = await _repo.getComments(clipId);
+      if (remote.isNotEmpty) {
+        state = state.copyWith(
+          commentsByClipId: {
+            ...state.commentsByClipId,
+            clipId: remote,
+          },
+        );
+      }
+    } catch (_) {}
   }
 
   /// Retrieves comments for a specific clip ID.
@@ -35,7 +55,7 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
   }
 
   /// Appends a new comment optimistically at the top of the thread.
-  void addComment({
+  Future<void> addComment({
     required String clipId,
     required String text,
     int userReelLoves = 0,
@@ -43,7 +63,7 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
     String displayName = 'Ndugelo Musician',
     String? giftEmoji,
     String? giftName,
-  }) {
+  }) async {
     if (text.trim().isEmpty) return;
 
     final newComment = ReelComment(
@@ -66,6 +86,20 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
         clipId: [newComment, ...currentList],
       },
     );
+
+    if (_repo != null) {
+      try {
+        await _repo.addComment(
+          clipId: clipId,
+          text: text,
+          username: username,
+          displayName: displayName,
+          userReelLoves: userReelLoves,
+          giftEmoji: giftEmoji,
+          giftName: giftName,
+        );
+      } catch (_) {}
+    }
   }
 
   /// Toggles the current user's like on a specific comment (TikTok-style).
@@ -94,6 +128,7 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
         clipId: updated,
       },
     );
+    _repo?.toggleLikeComment(commentId);
   }
 
   void _seedComments() {
@@ -178,7 +213,8 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
 /// Global provider for kinetic reels comments.
 final reelsCommentsProvider =
     StateNotifierProvider<ReelsCommentsNotifier, ReelsCommentsState>((ref) {
-  return ReelsCommentsNotifier();
+  final repo = ref.watch(socialRepositoryProvider);
+  return ReelsCommentsNotifier(repo);
 });
 
 /// Family provider to observe comments for a single reel reactively.

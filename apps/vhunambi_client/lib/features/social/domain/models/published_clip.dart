@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import '../../../content_studio/domain/models/content_studio_preset.dart';
+import '../../../content_studio/domain/models/lyric_word_timestamp.dart';
 import '../../../content_studio/domain/models/song_metadata_dna.dart';
 
 /// Immutable visibility of a published clip (REQ-SOC-02).
@@ -185,6 +187,96 @@ class PublishedClip {
   /// Deep link to this clip on the public web (REQ-SOC-17).
   String get shareUrl =>
       'https://vhunambi.com/@$creatorUsername/reels/$id';
+
+  /// Synchronized lyric word timestamps for 60 FPS `KineticPreviewCanvas` playback.
+  ///
+  /// Uses `dna.alignment` when populated; otherwise synthesizes rhythm-locked
+  /// African karaoke stanzas from the track title and genre so every reel
+  /// displays moving kinetic typography.
+  List<LyricWordTimestamp> get effectiveLyrics {
+    if (dna.alignment.isNotEmpty) return dna.alignment;
+
+    final titleWords = title
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    final tokens = <String>[
+      'Woza',
+      ...titleWords,
+      'Vhunambi',
+      genre,
+      'Sgubhu',
+      ...titleWords,
+      'Ndi',
+      'Mufunwa',
+      'Vibe',
+    ];
+
+    const culturalSet = <String>{
+      'woza',
+      'vhunambi',
+      'sgubhu',
+      'ndo',
+      'mufuna',
+      'matibe',
+      'mufunwa',
+      'ndi',
+      'venda',
+      'makhado',
+      'amapiano',
+      'gqom',
+      'maskandi',
+    };
+
+    final stepSec = (60.0 / dna.musical.bpm.clamp(80, 160)).clamp(0.42, 0.75);
+    return List<LyricWordTimestamp>.generate(tokens.length, (i) {
+      final start = double.parse((i * stepSec).toStringAsFixed(2));
+      final end = double.parse(((i + 1) * stepSec - 0.04).toStringAsFixed(2));
+      final word = tokens[i];
+      final cleanLower =
+          word.replaceAll(RegExp(r'[^a-zA-Zḓṋḽṱ]'), '').toLowerCase();
+      return LyricWordTimestamp(
+        word: word,
+        start: start,
+        end: end,
+        stanzaIndex: i ~/ 5,
+        phoneticStress: (i % 2 == 0) ? 0.90 : 0.65,
+        isCulturalIdiom: culturalSet.contains(cleanLower),
+      );
+    });
+  }
+
+  /// Genre-aware default typography preset for 60 FPS reel rendering.
+  LyricTypographyPreset get effectiveTypographyPreset {
+    final g = genre.toLowerCase();
+    if (g.contains('amapiano')) return LyricTypographyPreset.luminousGlow;
+    if (g.contains('gqom') || g.contains('drill')) {
+      return LyricTypographyPreset.kineticBounce;
+    }
+    if (g.contains('maskandi') ||
+        g.contains('venda') ||
+        g.contains('traditional')) {
+      return LyricTypographyPreset.bantuCalligraphy;
+    }
+    return LyricTypographyPreset.luminousGlow;
+  }
+
+  /// Genre-aware atmospheric shader configuration for 60 FPS reel rendering.
+  AtmosphericEffects get effectiveAtmosphericEffects {
+    final g = genre.toLowerCase();
+    if (g.contains('gqom') || g.contains('drill')) {
+      return const AtmosphericEffects(
+        filmGrain: true,
+        bassPulse: true,
+        kenBurnsMotion: true,
+      );
+    }
+    return const AtmosphericEffects(
+      filmGrain: false,
+      bassPulse: true,
+      kenBurnsMotion: true,
+    );
+  }
 
   @override
   bool operator ==(Object other) =>

@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vhunambi_client/features/social/domain/models/cultural_gift.dart';
 import 'package:vhunambi_client/features/social/presentation/providers/creator_wallet_provider.dart';
 import 'package:vhunambi_client/features/social/presentation/providers/reels_comments_provider.dart';
 

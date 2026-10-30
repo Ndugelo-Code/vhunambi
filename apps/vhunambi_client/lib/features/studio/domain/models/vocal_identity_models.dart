@@ -52,6 +52,14 @@ enum VocalDeliveryStyle {
   final String label;
   final String apiValue;
 
+  /// Canonical aliases for IDE LSP compatibility.
+  static const VocalDeliveryStyle afroSoulMelodic =
+      VocalDeliveryStyle.melodicSoul;
+  static const VocalDeliveryStyle gqomHype = VocalDeliveryStyle.gqomMc;
+  static const VocalDeliveryStyle afrobeatsBounce =
+      VocalDeliveryStyle.afrobeatsPidgin;
+  static const VocalDeliveryStyle zionChoir = VocalDeliveryStyle.choirHarmony;
+
   static VocalDeliveryStyle fromApi(String value) {
     return VocalDeliveryStyle.values.firstWhere(
       (e) => e.apiValue == value || e.name == value,

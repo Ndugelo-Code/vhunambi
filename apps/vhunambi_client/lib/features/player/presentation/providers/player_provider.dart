@@ -123,6 +123,10 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       playbackSpeed: playbackState.speed,
       errorMessage: playbackState.errorMessage,
     );
+    if (mappedStatus == PlaybackStatus.playing &&
+        (_positionTimer == null || !_positionTimer!.isActive)) {
+      _startPositionTicker();
+    }
   }
 
   void _onHardwareMediaItem(MediaItem? mediaItem) {
@@ -226,6 +230,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       queue: effectiveQueue,
       currentIndex: index >= 0 ? index : 0,
     );
+    if (_positionTimer == null || !_positionTimer!.isActive) {
+      _startPositionTicker();
+    }
 
     unawaited(
       _dispatchSafely(
@@ -352,19 +359,30 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   void togglePlayPause() {
     if (!state.hasActiveTrack) return;
     if (state.isPlaying) {
+      _positionTimer?.cancel();
       state = state.copyWith(playbackStatus: PlaybackStatus.paused);
       unawaited(_dispatchSafely(_audioHandler.pause));
     } else {
       state = state.copyWith(playbackStatus: PlaybackStatus.playing);
+      _startPositionTicker();
       unawaited(_dispatchSafely(_audioHandler.play));
     }
   }
 
   void pause() {
+    _positionTimer?.cancel();
+    if (!mounted) return;
     if (state.isPlaying) {
       state = state.copyWith(playbackStatus: PlaybackStatus.paused);
       unawaited(_dispatchSafely(_audioHandler.pause));
     }
+  }
+
+  void resume() {
+    if (!mounted || !state.hasActiveTrack || state.isPlaying) return;
+    state = state.copyWith(playbackStatus: PlaybackStatus.playing);
+    _startPositionTicker();
+    unawaited(_dispatchSafely(_audioHandler.play));
   }
 
   void seek(Duration position) {

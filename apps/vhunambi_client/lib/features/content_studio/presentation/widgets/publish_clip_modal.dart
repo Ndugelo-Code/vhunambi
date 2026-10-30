@@ -7,11 +7,13 @@ import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../providers/content_studio_provider.dart';
 import '../../../social/domain/models/published_clip.dart';
+import '../../../social/presentation/providers/stem_remix_provider.dart';
 
-/// In-house "Publish to Profile" dialog (REQ-SOC-01 / REQ-SOC-02).
+/// In-house "Publish to Profile" dialog (REQ-SOC-01 / REQ-SOC-02 / Phase D).
 ///
 /// Captures the caption, hashtags, and visibility for a freshly rendered
-/// clip, then hands off to `ContentStudioNotifier.publishClipToProfile`, which
+/// clip, carries forward viral remix lineage if [stemRemixProvider] is active,
+/// then hands off to `ContentStudioNotifier.publishClipToProfile`, which
 /// optimistically injects the clip into the social feed (REQ-SOC-04) — no MP4
 /// upload required (REQ-SOC-26).
 class PublishClipModal extends ConsumerStatefulWidget {
@@ -62,10 +64,14 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
   void _publish() {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+    final remixContext = ref.read(stemRemixProvider);
+
     final clip = ref.read(contentStudioProvider.notifier).publishClipToProfile(
           caption: _captionController.text.trim(),
           tags: _selectedTags.toList(),
           visibility: _visibility,
+          remixedFromClipId: remixContext?.parentClipId,
+          remixAttribution: remixContext?.attributionLineage,
         );
 
     if (clip == null) {
@@ -78,10 +84,18 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
       return;
     }
 
+    if (remixContext != null) {
+      ref.read(stemRemixProvider.notifier).clearRemix();
+    }
+
     navigator.pop();
     messenger.showSnackBar(
       SnackBar(
-        content: Text('Published to your profile! ${clip.shareUrl}'),
+        content: Text(
+          remixContext != null
+              ? 'Remix published with attribution! 🔁 ${clip.shareUrl}'
+              : 'Published to your profile! ${clip.shareUrl}',
+        ),
         backgroundColor: AppColors.brandPrimary,
         action: SnackBarAction(
           label: 'COPY',
@@ -93,10 +107,10 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(contentStudioProvider);
+    final remixContext = ref.watch(stemRemixProvider);
     final genre = state.dna?.genre ?? 'Amapiano';
     final viewInsets = MediaQuery.viewInsetsOf(context).bottom;
 
@@ -125,6 +139,38 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
               ),
             ],
           ),
+          if (remixContext != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.badgeCyan.withAlpha(30),
+                borderRadius: AppRadius.pillBorder,
+                border: Border.all(color: AppColors.badgeCyan.withAlpha(80)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.alt_route_rounded,
+                    size: 14,
+                    color: AppColors.badgeCyan,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Remixing @${remixContext.parentCreatorUsername}\'s "${remixContext.parentTrackTitle}"',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.badgeCyan,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
