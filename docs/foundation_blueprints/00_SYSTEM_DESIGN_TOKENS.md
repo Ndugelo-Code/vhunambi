@@ -231,3 +231,64 @@ abstract final class AppColors {
   static const Color textTertiary     = Color(0xFF6B7280);
 }
 ```
+
+---
+
+## 6. Sovereign Phosphor Vector Iconography (`AppIcons`)
+
+All icons in Vhunambi must be rounded, soft, friendly vector glyphs from `phosphor_icons: ^3.0.1` defined in `package:vhunambi_client/core/design_system/tokens/app_icons.dart`.
+
+> [!IMPORTANT]
+> **Strict Emoji Ban in UI Controls:** Never use literal emojis (`🔥`, `🪙`, `⚡`, `🏆`, `✨`, `🎵`) as UI badges, buttons, or counters. Emojis are reserved exclusively for genuine user social comments and cultural fan gifts (`kCulturalGifts`).
+> 
+> **Zero Stock Material Icons:** Never use sharp, blocky `Icons.*` from Material. Use `AppIcons` or direct `PhosphorIconsRegular` / `PhosphorIconsFill`.
+
+### 6.1 AppIcons Token Contract
+
+```dart
+// lib/core/design_system/tokens/app_icons.dart
+import 'package:flutter/widgets.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+
+abstract final class AppIcons {
+  // Mobile Navigation
+  static const IconData navHome = PhosphorIconsRegular.house;
+  static const IconData navHomeActive = PhosphorIconsFill.house;
+  static const IconData navExplore = PhosphorIconsRegular.compass;
+  static const IconData navExploreActive = PhosphorIconsFill.compass;
+  static const IconData navCreate = PhosphorIconsFill.sparkle;
+  static const IconData navLibrary = PhosphorIconsRegular.musicNotesSimple;
+  static const IconData navMarket = PhosphorIconsRegular.storefront;
+
+  // Gamification & Status (Replaces UI Emojis)
+  static const IconData flame = PhosphorIconsFill.flame;
+  static const IconData coin = PhosphorIconsFill.coin;
+  static const IconData coins = PhosphorIconsFill.coins;
+  static const IconData sparkle = PhosphorIconsFill.sparkle;
+  static const IconData lightning = PhosphorIconsFill.lightning;
+  static const IconData trophy = PhosphorIconsFill.trophy;
+  static const IconData dna = PhosphorIconsFill.dna;
+  static const IconData verified = PhosphorIconsFill.checkCircle;
+
+  // Media Transport Controls
+  static const IconData play = PhosphorIconsFill.play;
+  static const IconData pause = PhosphorIconsFill.pause;
+  static const IconData skipForward = PhosphorIconsFill.skipForward;
+  static const IconData skipBack = PhosphorIconsFill.skipBack;
+  static const IconData shuffle = PhosphorIconsRegular.shuffle;
+  static const IconData repeat = PhosphorIconsRegular.repeat;
+  static const IconData volumeHigh = PhosphorIconsRegular.speakerHigh;
+}
+```
+
+---
+
+## 7. Viewport Decluttering & Touch Physics Standards
+
+Refer to the full specification in [`docs/standards/VHUNAMBI_UI_UX_AND_ICONOGRAPHY_STANDARD.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/standards/VHUNAMBI_UI_UX_AND_ICONOGRAPHY_STANDARD.md):
+
+1. **56dp Minimalist Chrome & Transient Title Auto-Collapse:** Mobile headers keep a 56dp height with an auto-collapsing title pill (3.5–4.0s fade) and maximum 3 compact action icons.
+2. **Progressive Disclosure:** Primary feed stays clean; deep filters and multi-axis facets are relegated to dedicated slide-up sheets (`ExploreDiscoveryDrawerSheet`).
+3. **Zero-Bleed Frosted Glass Touch:** When rendering over `BackdropFilter` ($\sigma \ge 16$), interactive tiles must set `splashColor: Colors.transparent` and `highlightColor: Colors.transparent` to eliminate milky cracked-screen flash blooms.
+4. **Single-Channel Haptics:** Never combine platform auto-click with `HapticsService()`.
+5. **360dp Viewport Defense:** Wrap horizontal segment switchers and metric pill rows in `FittedBox(fit: BoxFit.scaleDown)` to prevent `RenderFlex` overflows.
