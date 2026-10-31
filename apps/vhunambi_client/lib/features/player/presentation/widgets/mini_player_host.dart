@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:vhunambi_client/core/design_system/services/analytics_service.dart';
-import 'package:vhunambi_client/core/design_system/services/haptics_service.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/services/analytics_service.dart';
+import '../../../../core/design_system/services/haptics_service.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../domain/models/player_state.dart';
 import '../providers/mini_player_controller.dart';
 import '../providers/player_provider.dart';
-import 'card_form.dart';
 import 'expanded_cockpit_modal.dart';
 import 'mobile_mini_player.dart';
 import 'pill_form.dart';
@@ -23,6 +25,9 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
   late AnimationController _morphController;
   late AnimationController _positionController;
   late AnimationController _dismissController;
+
+  Offset _grabOffset = Offset.zero;
+  bool _isOverBin = false;
 
   @override
   void initState() {
@@ -54,15 +59,17 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     final controller = ref.watch(miniPlayerControllerProvider);
     final playerState = ref.watch(playerStateProvider);
     final screenSize = MediaQuery.sizeOf(context);
-    final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
+    final mediaPadding = MediaQuery.paddingOf(context);
+    final topSafeArea = mediaPadding.top;
+    final bottomSafeArea = mediaPadding.bottom;
 
     // Hide during desktop, no active track, auth/onboarding, keyboard, or Now Playing
     if (_shouldHide(context, controller, playerState)) {
       return const SizedBox.shrink();
     }
 
-    // Scale feedback during hold gesture (1.03x).
-    final dragScale = controller.isDragging ? kHoldGestureScale : 1.0;
+    // Scale feedback during hold gesture (1.04x) or hovering over bin (0.85x).
+    final dragScale = controller.isDragging ? (_isOverBin ? 0.85 : kHoldGestureScale) : 1.0;
 
     // Calculate active target position based on mode, form, and obstacles
     final activePosition = controller.calculateAutoPosition(
@@ -75,14 +82,16 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
       type: MaterialType.transparency,
       child: Stack(
         children: [
-          // Extreme zone highlights during drag
+          // Animated Bin Drop Target at bottom center during active drag
           if (controller.isDragging) ...[
-            _buildExtremeZoneHighlight(context, controller),
+            _buildBinDismissTarget(context, screenSize, bottomSafeArea),
           ],
 
-          // Player form widget — animated positioned
+          // Player form widget — direct 60fps tracking when dragging, animated positioned when idle/snapping
           AnimatedPositioned(
-            duration: _positionController.duration!,
+            duration: controller.isDragging
+                ? Duration.zero
+                : _positionController.duration!,
             curve: Curves.easeOutCubic,
             left: activePosition.dx,
             top: activePosition.dy,
@@ -91,33 +100,37 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
                 : null,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onLongPressStart: _handleLongPressStart,
-              onLongPressMoveUpdate: _handleDragUpdate,
-              onLongPressEnd: (details) async {
-                final shouldDismiss = ref
-                    .read(miniPlayerControllerProvider.notifier)
-                    .endDrag(details.velocity.pixelsPerSecond, screenSize);
-                if (shouldDismiss) {
-                  // Fling dismiss: stop playback and clear track
-                  HapticsService().mediumImpact();
-                  await _dismissController.forward();
-                  ref.read(playerStateProvider.notifier).dismiss();
-                  _recordGestureEvent('fling_dismiss');
-                } else {
-                  _morphController.reverse();
-                }
-              },
+              onLongPressStart: (details) => _handleLongPressStart(
+                details,
+                activePosition,
+              ),
+              onLongPressMoveUpdate: (details) => _handleDragUpdate(
+                details,
+                screenSize,
+                topSafeArea,
+                bottomSafeArea,
+              ),
+              onLongPressEnd: (details) => _handleDragEnd(
+                details,
+                screenSize,
+                bottomSafeArea,
+              ),
+              onLongPressCancel: _handleDragCancel,
               onTap: () {
                 HapticsService().lightImpact();
                 _recordGestureEvent('tap_expand');
                 ExpandedCockpitModal.show(context);
               },
               child: AnimatedBuilder(
-                animation: _morphController,
+                animation: Listenable.merge([_morphController, _dismissController]),
                 builder: (context, child) {
+                  final dismissFactor = 1.0 - _dismissController.value;
                   return Transform.scale(
-                    scale: dragScale,
-                    child: _buildPlayerForm(context, controller, playerState),
+                    scale: dragScale * dismissFactor,
+                    child: Opacity(
+                      opacity: (_isOverBin ? 0.7 : 1.0) * dismissFactor.clamp(0.0, 1.0),
+                      child: _buildPlayerForm(context, controller, playerState),
+                    ),
                   );
                 },
               ),
@@ -180,11 +193,6 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
           key: const Key('mini_player_bar'),
           onExpand: openCockpit,
         );
-      case PlayerForm.card:
-        return CardForm(
-          key: const Key('mini_player_card'),
-          onExpand: openCockpit,
-        );
       case PlayerForm.pill:
         return PillForm(
           key: const Key('mini_player_pill'),
@@ -193,32 +201,160 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     }
   }
 
-  void _handleLongPressStart(LongPressStartDetails details) {
+  void _handleLongPressStart(
+    LongPressStartDetails details,
+    Offset currentPosition,
+  ) {
     HapticsService().mediumImpact();
     _recordGestureEvent('hold_start');
+    _grabOffset = details.globalPosition - currentPosition;
     ref
         .read(miniPlayerControllerProvider.notifier)
-        .startDrag(details.globalPosition);
+        .startDrag(currentPosition);
     _morphController.forward();
   }
 
-  void _handleDragUpdate(LongPressMoveUpdateDetails details) {
-    ref
-        .read(miniPlayerControllerProvider.notifier)
-        .updateDrag(details.globalPosition);
+  void _handleDragUpdate(
+    LongPressMoveUpdateDetails details,
+    Size screenSize,
+    double topSafeArea,
+    double bottomSafeArea,
+  ) {
+    final controller = ref.read(miniPlayerControllerProvider);
+    final formWidth = controller.form == PlayerForm.bar
+        ? (screenSize.width - 16.0)
+        : 160.0;
+    final formHeight = controller.form == PlayerForm.bar ? 64.0 : 48.0;
+
+    final targetTopLeft = details.globalPosition - _grabOffset;
+    final clampedX = targetTopLeft.dx.clamp(
+      8.0,
+      (screenSize.width - formWidth - 8.0).clamp(8.0, double.infinity),
+    );
+    final clampedY = targetTopLeft.dy.clamp(
+      topSafeArea + 8.0,
+      (screenSize.height - formHeight - bottomSafeArea - 8.0)
+          .clamp(topSafeArea + 8.0, double.infinity),
+    );
+
+    final newPos = Offset(clampedX, clampedY);
+    ref.read(miniPlayerControllerProvider.notifier).updateDrag(newPos);
+
+    // Collision check against bottom-center bin target
+    const binSize = 64.0;
+    final binCenterX = screenSize.width / 2;
+    final binCenterY =
+        screenSize.height - (56.0 + bottomSafeArea + 16.0 + (binSize / 2));
+    final binCenter = Offset(binCenterX, binCenterY);
+
+    final playerCenter =
+        Offset(clampedX + formWidth / 2, clampedY + formHeight / 2);
+    final dist = (playerCenter - binCenter).distance;
+    final isOver = dist <= 64.0;
+
+    if (isOver != _isOverBin) {
+      setState(() => _isOverBin = isOver);
+      if (isOver) {
+        HapticsService().heavyImpact();
+      } else {
+        HapticsService().selectionClick();
+      }
+    }
   }
 
-  Widget _buildExtremeZoneHighlight(
+  Future<void> _handleDragEnd(
+    LongPressEndDetails details,
+    Size screenSize,
+    double bottomSafeArea,
+  ) async {
+    if (_isOverBin) {
+      // Drag-to-bin dismiss: kill player and reset controller
+      HapticsService().heavyImpact();
+      _recordGestureEvent('drag_bin_dismiss');
+      await _dismissController.forward();
+      ref.read(playerStateProvider.notifier).dismiss();
+      ref.read(miniPlayerControllerProvider.notifier).endDrag(
+            details.velocity.pixelsPerSecond,
+            screenSize,
+            dismissedInBin: true,
+            bottomSafeArea: bottomSafeArea,
+          );
+      _dismissController.reset();
+      if (mounted) setState(() => _isOverBin = false);
+    } else {
+      final shouldDismiss = ref
+          .read(miniPlayerControllerProvider.notifier)
+          .endDrag(
+            details.velocity.pixelsPerSecond,
+            screenSize,
+            dismissedInBin: false,
+            bottomSafeArea: bottomSafeArea,
+          );
+      if (shouldDismiss) {
+        HapticsService().mediumImpact();
+        await _dismissController.forward();
+        ref.read(playerStateProvider.notifier).dismiss();
+        _dismissController.reset();
+        _recordGestureEvent('fling_dismiss');
+      } else {
+        _morphController.reverse();
+      }
+      if (mounted) setState(() => _isOverBin = false);
+    }
+  }
+
+  void _handleDragCancel() {
+    ref.read(miniPlayerControllerProvider.notifier).setDragging(false);
+    _morphController.reverse();
+    if (mounted) setState(() => _isOverBin = false);
+  }
+
+  Widget _buildBinDismissTarget(
     BuildContext context,
-    MiniPlayerController controller,
+    Size screenSize,
+    double bottomSafeArea,
   ) {
-    return Positioned.fill(
-      child: Container(
-        color: Colors.black.withValues(alpha: 0.1),
-        child: const Center(
-          child: Text(
-            'Drag to reposition',
-            style: TextStyle(color: Colors.white),
+    const binSize = 64.0;
+    final binLeft = (screenSize.width - binSize) / 2;
+    final binTop =
+        screenSize.height - (56.0 + bottomSafeArea + 16.0 + binSize);
+
+    return Positioned(
+      left: binLeft,
+      top: binTop,
+      width: binSize,
+      height: binSize,
+      child: AnimatedScale(
+        scale: _isOverBin ? 1.25 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutBack,
+        child: Container(
+          decoration: BoxDecoration(
+            color: _isOverBin
+                ? AppColors.error
+                : Colors.black.withValues(alpha: 0.75),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: _isOverBin
+                  ? Colors.white
+                  : AppColors.error.withValues(alpha: 0.6),
+              width: _isOverBin ? 2.5 : 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (_isOverBin ? AppColors.error : Colors.black)
+                    .withValues(alpha: 0.5),
+                blurRadius: _isOverBin ? 24 : 12,
+                spreadRadius: _isOverBin ? 2 : 0,
+              ),
+            ],
+          ),
+          child: Center(
+            child: PhosphorIcon(
+              AppIcons.trash,
+              color: Colors.white,
+              size: _isOverBin ? 30 : 26,
+            ),
           ),
         ),
       ),

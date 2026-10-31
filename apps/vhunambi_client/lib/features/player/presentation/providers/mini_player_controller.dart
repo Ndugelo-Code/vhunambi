@@ -23,8 +23,8 @@ const double kDirectionLockDistance = 24.0;
 /// Scale factor applied during hold gesture feedback.
 const double kHoldGestureScale = 1.03;
 
-/// Mini player form — Bar (docked), Card (square), Pill (minimal).
-enum PlayerForm { bar, card, pill }
+/// Mini player form — Bar (docked above bottom nav) or Pill (minimal floating capsule).
+enum PlayerForm { bar, pill }
 
 /// Mini player positioning mode — Auto (obstacle avoidance) or Manual.
 enum PlayerMode { auto, manual }
@@ -163,12 +163,10 @@ class MiniPlayerController extends ChangeNotifier {
   Offset clampedPosition(Size screenSize, double bottomSafeArea, [double topSafeArea = 0.0]) {
     final double formWidth = switch (_form) {
       PlayerForm.bar => screenSize.width - 16.0,
-      PlayerForm.card => 128.0,
       PlayerForm.pill => 160.0,
     };
     final double formHeight = switch (_form) {
       PlayerForm.bar => 64.0,
-      PlayerForm.card => 128.0,
       PlayerForm.pill => 48.0,
     };
 
@@ -209,13 +207,6 @@ class MiniPlayerController extends ChangeNotifier {
 
         return Offset(8.0, targetY);
 
-      case PlayerForm.card:
-        // Snapped to bottom right edge
-        return Offset(
-          screenSize.width - 128.0 - 16.0,
-          screenSize.height - (56.0 + bottomSafeArea + 16.0 + 128.0),
-        );
-
       case PlayerForm.pill:
         // Floating pill centered horizontally above the dock
         return Offset(
@@ -227,6 +218,7 @@ class MiniPlayerController extends ChangeNotifier {
 
   /// Starts a drag at [globalPosition].
   void startDrag(Offset globalPosition) {
+    _mode = PlayerMode.manual;
     _position = globalPosition;
     _isDragging = true;
     notifyListeners();
@@ -238,29 +230,57 @@ class MiniPlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Ends a drag with [velocity], applying extreme zone logic.
-  /// Returns true if the player should be dismissed (fling gesture).
-  bool endDrag(Offset velocity, Size screenSize) {
+  /// Resets the mini player to the docked Bar in auto mode.
+  void resetToDock([Size? screenSize]) {
+    if (_isDisposed) return;
+    _form = PlayerForm.bar;
+    _mode = PlayerMode.auto;
     _isDragging = false;
+    _recalculateAutoPosition(screenSize);
+    _persistState();
+    notifyListeners();
+  }
+
+  /// Ends a drag with [velocity], applying extreme zone logic and bin dismiss check.
+  /// Returns true if the player should be dismissed.
+  bool endDrag(
+    Offset velocity,
+    Size screenSize, {
+    bool dismissedInBin = false,
+    double bottomSafeArea = 0.0,
+  }) {
+    _isDragging = false;
+
+    if (dismissedInBin) {
+      resetToDock(screenSize);
+      return true;
+    }
 
     // Fling dismiss: horizontal velocity > 250 px/s
     if (velocity.dx.abs() > kFlingDismissVelocityThreshold) {
+      resetToDock(screenSize);
       return true; // Signal dismiss to MiniPlayerHost
     }
 
-    // Extreme zone detection
-    final topZone = _position.dy < kTopExtremeZoneHeight;
-    final bottomZone = _position.dy > screenSize.height - kBottomExtremeZoneHeight;
+    // Bottom extreme zone: return to Bar + Auto_Mode
+    final dockThreshold = screenSize.height - (56.0 + bottomSafeArea + 64.0 + 40.0);
+    final bottomZone = _position.dy > dockThreshold;
 
     if (bottomZone) {
       // Bottom extreme zone: return to Bar + Auto_Mode
       _form = PlayerForm.bar;
       _mode = PlayerMode.auto;
       _recalculateAutoPosition(screenSize);
-    } else if (topZone) {
-      // Top extreme zone: morph to Pill_Form
+    } else {
+      // Manual placement: morph to Pill_Form and snap to nearest horizontal edge
       _form = PlayerForm.pill;
       _mode = PlayerMode.manual;
+      const formWidth = 160.0;
+      const snapLeft = 16.0;
+      final snapRight = screenSize.width - formWidth - 16.0;
+      final targetX =
+          (_position.dx + formWidth / 2 < screenSize.width / 2) ? snapLeft : snapRight;
+      _position = Offset(targetX, _position.dy);
     }
 
     _persistState();
@@ -277,7 +297,10 @@ class MiniPlayerController extends ChangeNotifier {
       final posX = prefs.getDouble(_keyPosX) ?? 0.0;
       final posY = prefs.getDouble(_keyPosY) ?? 0.0;
 
-      _form = PlayerForm.values[formIndex.clamp(0, PlayerForm.values.length - 1)];
+      // Safe migration: legacy formIndex 1 (card) or >= 2 (old pill) safely maps to pill.
+      _form = formIndex >= PlayerForm.values.length
+          ? PlayerForm.pill
+          : PlayerForm.values[formIndex.clamp(0, PlayerForm.values.length - 1)];
       _mode = PlayerMode.values[modeIndex.clamp(0, PlayerMode.values.length - 1)];
       _position = Offset(posX, posY);
     } catch (_) {

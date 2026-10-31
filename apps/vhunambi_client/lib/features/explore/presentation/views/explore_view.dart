@@ -72,15 +72,22 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
       ),
       body: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
+          if (notification.metrics.axis != Axis.vertical) return false;
           if (notification is ScrollUpdateNotification) {
-            if (notification.scrollDelta != null &&
-                notification.scrollDelta!.abs() > 2) {
-              final controller = ref.read(miniPlayerControllerProvider);
-              if (controller.form == PlayerForm.bar &&
-                  controller.mode == PlayerMode.auto) {
+            final controller = ref.read(miniPlayerControllerProvider);
+            if (controller.mode == PlayerMode.auto) {
+              final delta = notification.scrollDelta ?? 0;
+              final pixels = notification.metrics.pixels;
+              if (pixels > 40 &&
+                  delta > 1.5 &&
+                  controller.form == PlayerForm.bar) {
                 ref
                     .read(miniPlayerControllerProvider.notifier)
                     .setForm(PlayerForm.pill);
+              } else if (pixels <= 10 && controller.form == PlayerForm.pill) {
+                ref
+                    .read(miniPlayerControllerProvider.notifier)
+                    .setForm(PlayerForm.bar);
               }
             }
           }

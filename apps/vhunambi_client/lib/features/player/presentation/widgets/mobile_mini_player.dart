@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/services/haptics_service.dart';
 import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
-import '../../../../core/design_system/tokens/design_enums.dart';
-import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
+import '../../../../core/design_system/tokens/design_enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -108,97 +108,116 @@ class MobileMiniPlayer extends ConsumerWidget {
                     ),
                     const SizedBox(width: 10),
 
-                  // Metadata Stack
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: onExpand,
-                      behavior: HitTestBehavior.opaque,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            track.title,
-                            style: AppTypography.bodyLarge.copyWith(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                    // Metadata Stack
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: onExpand,
+                        behavior: HitTestBehavior.opaque,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              track.title,
+                              style: AppTypography.bodyLarge.copyWith(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${track.genre} • ${playerState.formattedPosition} / ${playerState.formattedDuration}',
-                            style: AppTypography.caption.copyWith(
-                              color: AppColors.textSecondary,
+                            const SizedBox(height: 2),
+                            Text(
+                              '${track.genre} • ${playerState.formattedPosition} / ${playerState.formattedDuration}',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
 
-                  // Skip previous — 44x44 hit target.
-                  Semantics(
-                    label: 'Skip previous track',
-                    child: IconButton(
-                      key: const Key('mini_player_prev'),
-                      icon: const PhosphorIcon(AppIcons.skipBack, color: Colors.white, size: 22),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                      onPressed: () {
-                        HapticsService().lightImpact();
-                        notifier.skipPrevious();
-                      },
-                    ),
-                  ),
-
-                  // Play/Pause orb — 44x44 hit target.
-                  Semantics(
-                    label: playerState.isPlaying ? 'Pause' : 'Play',
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: accent,
-                        shape: BoxShape.circle,
-                      ),
+                    // Skip previous — 44x44 circular hit target.
+                    Semantics(
+                      label: 'Skip previous track',
                       child: IconButton(
-                        key: const Key('mini_player_play_pause'),
-                        icon: Icon(
-                          playerState.isPlaying
-                              ? AppIcons.pause
-                              : AppIcons.play,
-                          color: _contrastTextColor(accent),
+                        key: const Key('mini_player_prev'),
+                        style: IconButton.styleFrom(shape: const CircleBorder()),
+                        icon: const PhosphorIcon(
+                          AppIcons.skipBack,
+                          color: Colors.white,
                           size: 22,
                         ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                         onPressed: () {
-                          HapticsService().mediumImpact();
-                          notifier.togglePlayPause();
+                          HapticsService().lightImpact();
+                          notifier.skipPrevious();
                         },
                       ),
                     ),
-                  ),
-                  // Skip next — 44x44 hit target.
-                  Semantics(
-                    label: 'Skip next track',
-                    child: IconButton(
-                      key: const Key('mini_player_next'),
-                      icon: const PhosphorIcon(AppIcons.skipForward, color: Colors.white, size: 22),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                      onPressed: () {
-                        HapticsService().lightImpact();
-                        notifier.skipNext();
-                      },
+
+                    // Play/Pause orb — 44x44 circular orb.
+                    Semantics(
+                      label: playerState.isPlaying ? 'Pause' : 'Play',
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: accent,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: accent.withValues(alpha: 0.35),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          key: const Key('mini_player_play_pause'),
+                          style: IconButton.styleFrom(shape: const CircleBorder()),
+                          icon: PhosphorIcon(
+                            playerState.isPlaying
+                                ? AppIcons.pause
+                                : AppIcons.play,
+                            color: _contrastTextColor(accent),
+                            size: 22,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                          onPressed: () {
+                            HapticsService().mediumImpact();
+                            notifier.togglePlayPause();
+                          },
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+
+                    // Skip next — 44x44 circular hit target.
+                    Semantics(
+                      label: 'Skip next track',
+                      child: IconButton(
+                        key: const Key('mini_player_next'),
+                        style: IconButton.styleFrom(shape: const CircleBorder()),
+                        icon: const PhosphorIcon(
+                          AppIcons.skipForward,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                        onPressed: () {
+                          HapticsService().lightImpact();
+                          notifier.skipNext();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

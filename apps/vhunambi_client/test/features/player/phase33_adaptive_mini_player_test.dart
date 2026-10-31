@@ -10,7 +10,6 @@ import 'package:vhunambi_client/features/player/data/services/vhunambi_audio_han
 import 'package:vhunambi_client/features/player/presentation/providers/audio_bridge_providers.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/mini_player_controller.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
-import 'package:vhunambi_client/features/player/presentation/widgets/card_form.dart';
 import 'package:vhunambi_client/features/player/presentation/widgets/expanded_cockpit_modal.dart';
 import 'package:vhunambi_client/features/player/presentation/widgets/mini_player_host.dart';
 import 'package:vhunambi_client/features/player/presentation/widgets/mobile_mini_player.dart';
@@ -184,19 +183,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(ExpandedCockpitModal), findsNothing);
 
-        // 2. Switch to Card Form
-        controller.setForm(PlayerForm.card);
-        await tester.pumpAndSettle();
-        expect(find.byType(CardForm), findsOneWidget);
-        await tester.tap(find.byKey(const Key('mini_player_card')));
-        await tester.pumpAndSettle();
-        expect(find.byType(ExpandedCockpitModal), findsOneWidget);
-
-        // Dismiss modal
-        await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
-
-        // 3. Switch to Pill Form
+        // 2. Switch to Pill Form
         controller.setForm(PlayerForm.pill);
         await tester.pumpAndSettle();
         expect(find.byType(PillForm), findsOneWidget);

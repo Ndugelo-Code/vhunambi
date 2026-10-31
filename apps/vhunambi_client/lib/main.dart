@@ -91,13 +91,12 @@ class _RootShellState extends ConsumerState<RootShell> {
     HapticsService().selectionClick();
     if (index == 1) {
       resetExploreTitleFade(ref);
-    } else {
-      // When leaving Explore tab, restore player to Bar form if in Auto mode
-      final playerController = ref.read(miniPlayerControllerProvider);
-      if (playerController.form == PlayerForm.pill &&
-          playerController.mode == PlayerMode.auto) {
-        ref.read(miniPlayerControllerProvider.notifier).setForm(PlayerForm.bar);
-      }
+    }
+    // Restore mini-player to Bar form if in Auto mode when switching tabs
+    final playerController = ref.read(miniPlayerControllerProvider);
+    if (playerController.form == PlayerForm.pill &&
+        playerController.mode == PlayerMode.auto) {
+      ref.read(miniPlayerControllerProvider.notifier).setForm(PlayerForm.bar);
     }
     setState(() {
       _tabHistory.add(index);
@@ -192,24 +191,52 @@ class _RootShellState extends ConsumerState<RootShell> {
     );
 
     final shell = Scaffold(
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _currentIndex,
-            children: _buildPages(),
-          ),
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification.metrics.axis != Axis.vertical) return false;
+          if (notification is ScrollUpdateNotification) {
+            final controller = ref.read(miniPlayerControllerProvider);
+            if (controller.mode == PlayerMode.auto) {
+              final delta = notification.scrollDelta ?? 0;
+              final pixels = notification.metrics.pixels;
 
-          // Persistent Audio Transport Bar (Desktop only; Mobile is hosted by global MiniPlayerHost)
-          if (hasActiveTrack && isDesktop)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: DesktopTransportBar(
-                onExpand: () => ExpandedCockpitModal.show(context),
-              ),
+              // Downward scroll exploration (pixels > 40 & delta > 1.5): morph to Pill to reveal content
+              if (pixels > 40 &&
+                  delta > 1.5 &&
+                  controller.form == PlayerForm.bar) {
+                ref
+                    .read(miniPlayerControllerProvider.notifier)
+                    .setForm(PlayerForm.pill);
+              }
+              // Scrolled back to the top (pixels <= 10): restore docked Bar
+              else if (pixels <= 10 && controller.form == PlayerForm.pill) {
+                ref
+                    .read(miniPlayerControllerProvider.notifier)
+                    .setForm(PlayerForm.bar);
+              }
+            }
+          }
+          return false;
+        },
+        child: Stack(
+          children: [
+            IndexedStack(
+              index: _currentIndex,
+              children: _buildPages(),
             ),
-        ],
+
+            // Persistent Audio Transport Bar (Desktop only; Mobile is hosted by global MiniPlayerHost)
+            if (hasActiveTrack && isDesktop)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: DesktopTransportBar(
+                  onExpand: () => ExpandedCockpitModal.show(context),
+                ),
+              ),
+          ],
+        ),
       ),
       bottomNavigationBar: isDesktop
           ? null

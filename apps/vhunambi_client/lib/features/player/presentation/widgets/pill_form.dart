@@ -4,7 +4,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:vhunambi_client/core/design_system/services/haptics_service.dart';
 import 'package:vhunambi_client/core/design_system/theme/vhunambi_theme_extension.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/design_system/tokens/design_enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
@@ -13,9 +16,9 @@ import '../providers/player_provider.dart';
 
 /// Pill form — minimal floating pill with cover-art reactive glow.
 ///
-/// Displays circular cover art (32dp) and play/pause icon. Glow intensity is
-/// driven by simulated waveform amplitude sampling at 30fps. When paused, a
-/// static breathe animation displays. Glow respects reduce-motion setting.
+/// Displays circular cover art (32dp), track title, and play/pause orb.
+/// Glow intensity is driven by simulated waveform amplitude sampling at 30fps.
+/// When paused, a static breathe animation displays. Glow respects reduce-motion.
 class PillForm extends ConsumerStatefulWidget {
   final VoidCallback? onExpand;
 
@@ -141,7 +144,6 @@ class _PillFormState extends ConsumerState<PillForm>
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     return GestureDetector(
-      
       onTap: widget.onExpand,
       child: Container(
         width: 160,
@@ -160,33 +162,76 @@ class _PillFormState extends ConsumerState<PillForm>
           ],
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Container(
               width: 32,
               height: 32,
               decoration: BoxDecoration(
                 gradient: _genreGradient(track.genre),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: const Center(
-                child: Icon(
-                  Icons.music_note_rounded,
+                child: PhosphorIcon(
+                  AppIcons.songs,
                   size: 16,
                   color: Colors.white,
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            Icon(
-              playerState.isPlaying
-                  ? Icons.pause_rounded
-                  : Icons.play_arrow_rounded,
-              color: Colors.white,
-              size: 20,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                track.title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 4),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                HapticsService().mediumImpact();
+                ref.read(playerStateProvider.notifier).togglePlayPause();
+              },
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.35),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: PhosphorIcon(
+                    playerState.isPlaying
+                        ? AppIcons.pause
+                        : AppIcons.play,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
           ],
         ),
       ),

@@ -25,11 +25,11 @@ void main() {
       var notifyCount = 0;
       controller.addListener(() => notifyCount++);
 
-      controller.setForm(PlayerForm.card);
-      expect(controller.form, PlayerForm.card);
+      controller.setForm(PlayerForm.pill);
+      expect(controller.form, PlayerForm.pill);
       expect(notifyCount, 1);
 
-      controller.setForm(PlayerForm.card);
+      controller.setForm(PlayerForm.pill);
       expect(notifyCount, 1);
     });
 
@@ -77,7 +77,7 @@ void main() {
 
     test('reservedBottom returns 0 when not bar form', () {
       final controller = MiniPlayerController();
-      controller.setForm(PlayerForm.card);
+      controller.setForm(PlayerForm.pill);
       expect(controller.reservedBottom, 0.0);
     });
 

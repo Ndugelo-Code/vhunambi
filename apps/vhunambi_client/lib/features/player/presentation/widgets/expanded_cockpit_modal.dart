@@ -194,8 +194,9 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                     label: _showLyrics ? 'Show artwork' : 'Show lyrics',
                     child: IconButton(
                       key: const Key('player_lyrics_toggle'),
-                      icon: Icon(
-                        _showLyrics ? Icons.album_rounded : Icons.lyrics_rounded,
+                      style: IconButton.styleFrom(shape: const CircleBorder()),
+                      icon: PhosphorIcon(
+                        _showLyrics ? AppIcons.disc : AppIcons.mic,
                         size: 22,
                         color: _showLyrics
                             ? accent
@@ -209,10 +210,11 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(
+                    style: IconButton.styleFrom(shape: const CircleBorder()),
+                    icon: PhosphorIcon(
                       _isFavorite(ref, track.id)
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
+                          ? AppIcons.heart
+                          : AppIcons.heartOutline,
                       size: 22,
                       color: _isFavorite(ref, track.id)
                           ? AppColors.brandPrimary
@@ -230,7 +232,8 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                   ),
                   IconButton(
                     key: const Key('player_create_reel_btn'),
-                    icon: const Icon(Icons.movie_creation_rounded, size: 22, color: Colors.white),
+                    style: IconButton.styleFrom(shape: const CircleBorder()),
+                    icon: const PhosphorIcon(AppIcons.sparkle, size: 22, color: Colors.white),
                     tooltip: 'Create 9:16 Lyric Reel',
                     onPressed: () => _openContentStudio(context, track),
                   ),
@@ -557,13 +560,13 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                 children: [
                     _UtilityItem(
                       key: const Key('player_lyrics_btn'),
-                      icon: _showLyrics ? Icons.album_rounded : Icons.lyrics_outlined,
+                      icon: _showLyrics ? AppIcons.disc : AppIcons.mic,
                       label: _showLyrics ? 'Artwork' : 'Lyrics',
                       onTap: () => setState(() => _showLyrics = !_showLyrics),
                     ),
                     _UtilityItem(
                       key: const Key('player_stems_btn'),
-                      icon: Icons.tune_rounded,
+                      icon: AppIcons.beatstore,
                       label: 'Stems',
                       onTap: () {
                         HapticsService().selectionClick();
@@ -590,7 +593,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                     ),
                     _UtilityItem(
                       key: const Key('player_track_info_btn'),
-                      icon: Icons.info_outline_rounded,
+                      icon: AppIcons.info,
                       label: 'Details',
                       onTap: () {
                         final libraryTrack = ref
@@ -607,13 +610,13 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                     ),
                     _UtilityItem(
                       key: const Key('player_export_btn'),
-                      icon: Icons.movie_creation_outlined,
+                      icon: AppIcons.sparkle,
                       label: 'Export Reel',
                       onTap: () => _openContentStudio(context, track),
                     ),
                     _UtilityItem(
                       key: const Key('player_mux_btn'),
-                      icon: Icons.bolt_rounded,
+                      icon: AppIcons.lightning,
                       label: 'Native Muxer',
                       onTap: () => VideoExportModal.show(
                         context,
@@ -627,23 +630,21 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       ),
                     ),
                     _UtilityItem(
-                      icon: Icons.queue_music_rounded,
+                      icon: AppIcons.playlist,
                       label: 'Queue',
                       onTap: () => QueueDrawer.show(context),
                     ),
                     // 1-Tap Master A/B Auditioning Chip (Phase 25)
                     _UtilityItem(
                       key: const Key('cockpit_master_ab_btn'),
-                      icon: isMasteredActive
-                          ? Icons.auto_fix_high_rounded
-                          : Icons.auto_fix_normal_rounded,
+                      icon: AppIcons.mastering,
                       label: isMasteredActive ? 'Mastered' : 'Raw AI',
                       onTap: _toggleMasterAB,
                     ),
                     // Studio Remixing Preset Chip (Phase 21/27)
                     _UtilityItem(
                       key: const Key('cockpit_remix_studio_btn'),
-                      icon: Icons.refresh_rounded,
+                      icon: AppIcons.remix,
                       label: 'Remix',
                       onTap: () => _remixInStudio(context, track),
                     ),
@@ -690,8 +691,8 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.lyrics_rounded,
+                PhosphorIcon(
+                  AppIcons.mic,
                   size: 18,
                   color: accent,
                 ),
@@ -708,8 +709,8 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                   IconButton(
                     key: const Key('cockpit_copy_lyrics'),
                     tooltip: 'Copy lyrics',
-                    icon: const Icon(
-                      Icons.copy_rounded,
+                    icon: const PhosphorIcon(
+                      AppIcons.edit,
                       size: 18,
                       color: AppColors.textSecondary,
                     ),
@@ -883,8 +884,8 @@ class _LyricsEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.music_note_rounded,
+          const PhosphorIcon(
+            AppIcons.songs,
             size: 48,
             color: AppColors.textTertiary,
           ),
@@ -924,7 +925,7 @@ class _UtilityItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Row(
           children: [
-            Icon(icon, size: 16, color: AppColors.textSecondary),
+            PhosphorIcon(icon, size: 16, color: AppColors.textSecondary),
             const SizedBox(width: 6),
             Text(label, style: AppTypography.caption.copyWith(color: AppColors.textPrimary)),
           ],

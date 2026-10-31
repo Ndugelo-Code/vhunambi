@@ -209,3 +209,4 @@ Every new screen, modal, or feature PR must pass this QA gate:
 - [ ] **Haptics Check:** Only curated `HapticsService()` single-channel triggers are fired on tap.
 - [ ] **Narrow Device Check:** Tested or simulated at $360\text{dp}$ width with zero `RenderFlex` overflows.
 - [ ] **Tree-Shaking Check:** Release build logs show $>95\%$ font asset reduction for Phosphor font files.
+

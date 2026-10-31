@@ -113,6 +113,7 @@ abstract final class AppIcons {
   static const IconData volumeMute = PhosphorIconsRegular.speakerSlash;
   static const IconData disc = PhosphorIconsRegular.disc;
   static const IconData waveform = PhosphorIconsRegular.waveform;
+  static const IconData playlist = PhosphorIconsRegular.playlist;
 
   // =========================================================================
   // 5. Common UI Actions, Search, Navigation & Settings

@@ -7,7 +7,6 @@ import 'package:vhunambi_client/features/player/data/services/vhunambi_audio_han
 import 'package:vhunambi_client/features/player/presentation/providers/audio_bridge_providers.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/mini_player_controller.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
-import 'package:vhunambi_client/features/player/presentation/widgets/card_form.dart';
 import 'package:vhunambi_client/features/player/presentation/widgets/mini_player_host.dart';
 import 'package:vhunambi_client/features/player/presentation/widgets/mobile_mini_player.dart';
 import 'package:vhunambi_client/features/player/presentation/widgets/pill_form.dart';
@@ -64,7 +63,7 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('switches between Bar, Card, and Pill forms based on controller',
+  testWidgets('switches between Bar and Pill forms based on controller',
       (tester) async {
     final handler = TestVhunambiAudioHandler();
     addTearDown(handler.dispose);
@@ -97,16 +96,6 @@ void main() {
 
     // Default form is Bar
     expect(find.byType(MobileMiniPlayer), findsOneWidget);
-    expect(find.byType(CardForm), findsNothing);
-    expect(find.byType(PillForm), findsNothing);
-
-    // Switch to Card form
-    controller.setForm(PlayerForm.card);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.byType(MobileMiniPlayer), findsNothing);
-    expect(find.byType(CardForm), findsOneWidget);
     expect(find.byType(PillForm), findsNothing);
 
     // Switch to Pill form
@@ -115,8 +104,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(MobileMiniPlayer), findsNothing);
-    expect(find.byType(CardForm), findsNothing);
     expect(find.byType(PillForm), findsOneWidget);
+
+    // Switch back to Bar form
+    controller.setForm(PlayerForm.bar);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(MobileMiniPlayer), findsOneWidget);
+    expect(find.byType(PillForm), findsNothing);
 
     container.dispose();
   });
@@ -148,7 +144,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(MobileMiniPlayer), findsNothing);
-    expect(find.byType(CardForm), findsNothing);
     expect(find.byType(PillForm), findsNothing);
 
     container.dispose();
