@@ -8,6 +8,7 @@ import { socialRoutes } from './routes/social_routes.js';
 import { visionRoutes } from './routes/vision_routes.js';
 import { voiceRoutes } from './routes/voice_routes.js';
 import { melodyRoutes } from './routes/melody_routes.js';
+import { marketplaceRoutes } from './routes/marketplace_routes.js';
 import { countActiveJobs } from './modules/jobs/job_store.js';
 
 /**
@@ -58,3 +59,6 @@ app.route('/v1/melodies', melodyRoutes);
 
 // Mount Phase 18 Social Creator Network routes (/api/social/*, /api/creators/*)
 app.route('/api', socialRoutes);
+
+// Mount Phase 28 Beats Marketplace & Licensing routes (/api/marketplace/*)
+app.route('/api/marketplace', marketplaceRoutes);

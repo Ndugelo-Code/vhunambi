@@ -448,6 +448,38 @@ export function requestPayout(
   };
 }
 
+/**
+ * Credits a producer's wallet with beat license royalty earnings (85% net split).
+ */
+export function creditProducerBeatRoyalty(
+  creatorId: string,
+  amountZar: number,
+  coins: number,
+  description: string,
+  buyerUsername: string,
+): { newBalanceZar: number } {
+  const wallet = getOrCreateWallet(creatorId);
+  wallet.balanceZar += amountZar;
+  wallet.totalCoinsReceived += coins;
+  wallet.transactions.unshift({
+    id: `tx_beat_${nanoid(8)}`,
+    clipId: 'beat_sale',
+    senderUsername: buyerUsername,
+    recipientCreatorId: creatorId,
+    gift: {
+      id: 'beat_license_royalty',
+      name: 'Beat Royalty (85%)',
+      emoji: '💰',
+      coinPrice: coins,
+      zarPrice: amountZar,
+      culturalMeaning: description,
+    },
+    message: description,
+    timestamp: new Date().toISOString(),
+  });
+  return { newBalanceZar: wallet.balanceZar };
+}
+
 /** Test/observability helper — total stored clips. */
 export function countClips(): number {
   return clips.size;

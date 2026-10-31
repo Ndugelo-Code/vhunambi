@@ -4,6 +4,15 @@ import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/marketplace_models.dart';
+import '../../domain/repositories/i_marketplace_repository.dart';
+import '../../data/repositories/http_marketplace_repository.dart';
+import '../../../beats/domain/models/producer_beat_entity.dart';
+import '../../../beats/presentation/providers/beats_provider.dart';
+
+/// Production marketplace repository provider.
+final marketplaceRepositoryProvider = Provider<IMarketplaceRepository>((ref) {
+  return HttpMarketplaceRepository();
+});
 
 /// Outcome of a marketplace licensing transaction (REQ-MKT-04).
 enum BeatLicenseOutcome { licensed, insufficientCredits }
@@ -73,6 +82,17 @@ BeatLicenseOutcome licenseBeat(WidgetRef ref, BeatListingEntity beat) {
       );
 
   ref.read(marketplaceBeatsProvider.notifier).registerSale(beat.id);
+  ref.read(beatsProvider.notifier).recordSale(
+        beat.id,
+        '@buyer_user',
+        beat.priceInCredits,
+        BeatLicenseTier.nonExclusiveCommercial,
+      );
+  ref.read(marketplaceRepositoryProvider).licenseBeat(
+        beatId: beat.id,
+        buyerId: 'buyer_user',
+        tier: 'basic_lease',
+      );
 
   return BeatLicenseOutcome.licensed;
 }

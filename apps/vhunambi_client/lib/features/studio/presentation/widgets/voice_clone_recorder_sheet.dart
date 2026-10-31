@@ -60,7 +60,9 @@ class _VoiceCloneRecorderSheetState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (widget.initialLyrics != null) {
-        ref.read(vocalIdentityProvider.notifier).prepareCalibrationFromLyrics(
+        ref
+            .read(vocalIdentityProvider.notifier)
+            .prepareCalibrationFromLyrics(
               widget.initialLyrics!,
               language: widget.language,
             );
@@ -96,8 +98,8 @@ class _VoiceCloneRecorderSheetState
                   width: 36,
                   height: 36,
                   decoration: const BoxDecoration(
-                    gradient: AppGradients.amapiano,
-                    borderRadius: AppRadius.inputBorder,
+                    gradient: AppGradients.primaryButton,
+                    borderRadius: AppRadius.buttonBorder,
                   ),
                   child: const Icon(
                     Icons.mic_external_on_rounded,
@@ -127,7 +129,10 @@ class _VoiceCloneRecorderSheetState
                 ),
                 IconButton(
                   key: const Key('voice_clone_close_btn'),
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(
                     Icons.close_rounded,
@@ -253,7 +258,7 @@ class _VoiceCloneRecorderSheetState
                         const SizedBox(height: AppSpacing.xs),
                         Text(
                           line.text,
-                          style: AppTypography.bodyLarge.copyWith(
+                          style: AppTypography.bodyMedium.copyWith(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
@@ -310,7 +315,9 @@ class _VoiceCloneRecorderSheetState
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: List.generate(16, (barIdx) {
-                  final baseAmp = state.isRecording ? state.liveAmplitude : 0.14;
+                  final baseAmp = state.isRecording
+                      ? state.liveAmplitude
+                      : 0.14;
                   final factor = 0.4 + ((barIdx * 3) % 7) * 0.1;
                   final barHeight = (28.0 * baseAmp * factor).clamp(4.0, 28.0);
                   return Container(
@@ -356,7 +363,7 @@ class _VoiceCloneRecorderSheetState
                               : AppColors.brandPrimary,
                         ),
                         shape: const RoundedRectangleBorder(
-                          borderRadius: AppRadius.inputBorder,
+                          borderRadius: AppRadius.buttonBorder,
                         ),
                       ),
                       icon: Icon(
@@ -390,7 +397,7 @@ class _VoiceCloneRecorderSheetState
                         backgroundColor: AppColors.brandPrimary,
                         foregroundColor: AppColors.brandContrast,
                         shape: const RoundedRectangleBorder(
-                          borderRadius: AppRadius.inputBorder,
+                          borderRadius: AppRadius.buttonBorder,
                         ),
                       ),
                       icon: const Icon(Icons.auto_awesome_rounded, size: 18),
@@ -413,4 +420,3 @@ class _VoiceCloneRecorderSheetState
     );
   }
 }
-

@@ -129,3 +129,143 @@ When consulting with Argon on the roadmap, here are the core decisions to align 
 1. **Sprint Planning with Argon:** Review the four strategic options above and agree on the phase roadmap (e.g., Phase 28: Unified Beatstore & Marketplace Backend).
 2. **Quick Fix on Client:** Patch the "Invisible Licensed Beat" bug by updating `BeatsVaultView` or `LibraryCategory.licensing` so buyers immediately see their purchased beats.
 3. **Backend Route Expansion:** Scaffold `apps/vhunambi_api/src/modules/marketplace/` and mount `/api/marketplace/*` routes.
+
+Ran find session resume doc · Exited with code 1
+Ran search for session resume doc
+
+I am locating the session resume document in the monorepo and will wait for the search to complete.
+
+Analyzed session-resume-2026-10-26.md:L1-100
+Created session-resume-2026-10-30.md
+Ran git status check
+Ran commit and push audit and session resume docs
+
+I have committed and initiated the push for the session resume and beats audit documents. I will wait for the push to complete.
+
+Ran final git status
+
+The session context has been compiled, committed, and pushed.
+
+### Master Documents Created & Pushed
+
+1. **Session Resume Document:**
+   - [`docs/session-resume-2026-10-30.md`](file:///C:/Users/Ndugelo/VHUNAMBI/monorepo/docs/session-resume-2026-10-30.md)
+   - Records the complete history of today's sprint:
+     - Real sound output in Melody Studio (`SketchpadAudioPlayerService` + `just_audio` PCM stream).
+     - Sub-bass log-drum register shift (55–146.8 Hz) and private school Rhodes tuning.
+     - Create Studio toolbar decluttering (4-Step / 8-Pad toggle frontmost).
+     - Kinetic Reels 3-player LRU audio pool (`ReelAudioPoolService`) and global background ducking.
+     - Backend social routes (`apps/vhunambi_api`) for comments, cultural micro-tipping (Cowrie, Choker, Horn, Crest), and creator wallet.
+     - Viral remix DNA propagation into Studio.
+     - Release APK (40.6 MB) built, installed, and verified running on your phone (`EPHUT20917014649` • PID `9884`).
+
+2. **Beats Marketplace & Library Vault Audit:**
+   - [`docs/audits/BEATS_MARKETPLACE_AND_LIBRARY_AUDIT.md`](file:///C:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/BEATS_MARKETPLACE_AND_LIBRARY_AUDIT.md)
+   - Complete technical analysis ready for your roadmap discussions with Argon, detailing:
+     - **The "Invisible Licensed Beat" Bug**: Why beats purchased on `/market` are currently hidden in the Library UI.
+     - **Client-Side Persistence Gap**: Lack of backend API routes on `apps/vhunambi_api`.
+     - **Currency Divergence**: Marketplace "Credits" vs. Reels "Coins/ZAR".
+     - **Studio Backing Track Bridge**: 1-tap import of licensed beats into Create Studio.
+
+### Monorepo Status
+- **Git:** Commit [`33c5a28`](https://github.com/Ndugelo-Code/vhunambi/commit/33c5a28) pushed to `origin/fix/studio-cockpit-bugs-vh001-vh006` (Working tree clean).
+- **Tests:** Backend (10/10 suites) & Client (74/74 social + studio suites) 100% green.
+- **Dart Analyzer:** `0` issues found.
+
+
+PS C:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client> flutter analyze                                                                   
+Analyzing vhunambi_client...
+No issues found! (ran in 256.7s)
+PS C:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client> flutter build apk --target-platform android-arm64 --release --no-pub
+Running Gradle task 'assembleRelease'...
+Warning: Flutter support for your project's Gradle version (8.9.0) will soon be dropped. Please upgrade your Gradle version to a version of at least 8.14.0 soon.
+Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+
+Potential fix: Your project's gradle version is typically defined in the gradle wrapper file. By default, this can be found at C:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\android/gradle/wrapper/gradle-wrapper.properties.
+For more information, see https://docs.gradle.org/current/userguide/gradle_wrapper.html.
+
+Warning: Flutter support for your project's Android Gradle Plugin version (Android Gradle Plugin version 8.7.3) will soon be dropped. Please upgrade your Android Gradle Plugin version to a version of at least Android Gradle Plugin version 8.11.1 soon.
+Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+
+Potential fix: Your project's AGP version is typically defined in the plugins block of the `settings.gradle` file (C:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\android/settings.gradle), by a plugin with the id of com.android.application.
+If you don't see a plugins block, your project was likely created with an older template version. In this case it is most likely defined in the top-level build.gradle file (C:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\android/build.gradle) by the following line in the dependencies block of the buildscript: "classpath 'com.android.tools.build:gradle:<version>'".
+
+WARNING: Your app uses the following plugins that apply Kotlin Gradle Plugin (KGP): share_plus
+Future versions of Flutter will fail to build if your app uses plugins that apply KGP.
+
+Please check the changelogs of these plugins and upgrade to a version that supports Built-in Kotlin.
+If no such version exists, report the issue to the plugin. If necessary, here is a guide on filing
+an issue against a plugin: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-app-developers#report-incompatible-kotlin-gradle-plugin-usage-to-plugin-authors
+
+If you are a plugin author, please migrate your plugin to Built-in Kotlin using this guide: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-plugin-authors
+Warning: SDK processing. This version only understands SDK XML versions up to 3 but an SDK XML file of version 4 was encountered. This can happen if you use versions of Android Studio and the command-line tools that were released at different times.
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 28836 bytes (98.2% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Running Gradle task 'assembleRelease'...                          809,9s
+√ Built build\app\outputs\flutter-apk\app-release.apk (40.6MB)
+PS C:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client> 
+
+---
+
+## 4. Phase 28: Beats Marketplace, Library Vault & Creator Wallet ZAR Convergence
+
+### 4.1 Overview & Architecture
+Executed **Phase 28** based on `docs/audits/BEATS_MARKETPLACE_AND_LIBRARY_AUDIT.md` (`AUDIT-BEAT-MKT-001`) and the joint roadmap session with **Gemini Argon**:
+
+1. **Resolution of "Invisible Licensed Beat" Bug:**
+   - Introduced a 2-segment switcher (`Key('beats_vault_mode_produced')` / `Key('beats_vault_mode_licensed')`) at the top of `BeatsVaultView`.
+   - In **Licensed Beats** mode, rendered responsive `_LicensedBeatCard` widgets featuring 1-tap action buttons: `"🎤 Use in Studio"`, `"📜 License Certificate"`, and `"▶️ Play"`.
+   - Updated `_matchesCategory(track, LibraryCategory.licensing)` in `library_providers.dart` to match purchased marketplace beats (`track.id.startsWith('market_')` or specialized non-default commercial licenses) while isolating regular vault recordings.
+
+2. **Backend Marketplace API & Creator Wallet ZAR Royalty Routing (`apps/vhunambi_api`):**
+   - Created `src/modules/marketplace/marketplace_types.ts` defining types for `MarketplaceBeatListing`, `BeatLicenseTier`, `BeatStemPackageUrls`, `CreateBeatListingRequest`, `LicenseBeatRequest`, and `BeatLicenseCertificate`.
+   - Implemented `src/modules/marketplace/marketplace_service.ts` with 6 seeded regional African beats and multi-dimensional filtering (genre, BPM range, price, search).
+   - Wired `creditProducerBeatRoyalty` in `src/modules/social/social_service.ts` to route **85% of beat license sales** directly into the seller's `CreatorWallet` (both Coins and ZAR equivalent) eligible for South African bank cashout (Capitec, FNB, Standard Bank, Nedbank, Absa).
+   - Mounted `src/routes/marketplace_routes.ts` at `/api/marketplace` in `src/server.ts`.
+   - Added `test/marketplace.test.ts` (7 integration tests: catalog feed, multi-dimensional filtering, producer publishing, atomic licensing with 85% royalty split, buyer license retrieval, and unpublishing).
+
+3. **Client HTTP Marketplace Repository (`apps/vhunambi_client`):**
+   - Implemented `IMarketplaceRepository` and `HttpMarketplaceRepository` with Dio networking, offline mock fallback, and test timer safety.
+   - Mounted `marketplaceRepositoryProvider` and wired atomic checkout into `licenseBeat()`.
+
+4. **Two-Way Studio ↔ Marketplace MMO Bridge:**
+   - **Buyer → Studio:** Added `"🛍️ My Beats"` button (`Key('dropzone_load_licensed_beat_btn')`) to `ReferenceAudioDropzone`, opening a bottom sheet to load any licensed or produced beat as a backing track into Studio.
+   - **Producer → Beatstore:** Added `"💰 List in Beatstore"` action in `TrackActionsSheet` and `StemMixerDeck` (`Key('stem_mixer_list_beat_btn')`) to turn master mixes directly into sellable marketplace listings.
+
+5. **Monorepo Verification Snapshot:**
+   - `dart analyze lib test`: **0 issues found** (clean exit code 0).
+   - Flutter tests: **113/113 passed** across beats and marketplace; **46/46 passed** in library; **6/6 passed** in `phase28_marketplace_vault_bridge_test.dart`.
+   - Backend tests: **11/11 test suites passed** (`pnpm test` 100% green).
+   - TypeScript build: `pnpm build` (`tsc`) compiled with **0 errors**.
+
+---
+
+## 4. Phase 28: Beats Marketplace, Library Vault & Creator Wallet ZAR Convergence
+
+### 4.1 Overview & Architecture
+Executed **Phase 28** based on `docs/audits/BEATS_MARKETPLACE_AND_LIBRARY_AUDIT.md` (`AUDIT-BEAT-MKT-001`) and the joint roadmap session with **Gemini Argon**:
+
+1. **Resolution of "Invisible Licensed Beat" Bug:**
+   - Introduced a 2-segment switcher (`Key('beats_vault_mode_produced')` / `Key('beats_vault_mode_licensed')`) at the top of `BeatsVaultView`.
+   - In **Licensed Beats** mode, rendered responsive `_LicensedBeatCard` widgets featuring 1-tap action buttons: `"🎤 Use in Studio"`, `"📜 License Certificate"`, and `"▶️ Play"`.
+   - Updated `_matchesCategory(track, LibraryCategory.licensing)` in `library_providers.dart` to match purchased marketplace beats (`track.id.startsWith('market_')` or specialized non-default commercial licenses) while isolating regular vault recordings.
+
+2. **Backend Marketplace API & Creator Wallet ZAR Royalty Routing (`apps/vhunambi_api`):**
+   - Created `src/modules/marketplace/marketplace_types.ts` defining types for `MarketplaceBeatListing`, `BeatLicenseTier`, `BeatStemPackageUrls`, `CreateBeatListingRequest`, `LicenseBeatRequest`, and `BeatLicenseCertificate`.
+   - Implemented `src/modules/marketplace/marketplace_service.ts` with 6 seeded regional African beats and multi-dimensional filtering (genre, BPM range, price, search).
+   - Wired `creditProducerBeatRoyalty` in `src/modules/social/social_service.ts` to route **85% of beat license sales** directly into the seller's `CreatorWallet` (both Coins and ZAR equivalent) eligible for South African bank cashout (Capitec, FNB, Standard Bank, Nedbank, Absa).
+   - Mounted `src/routes/marketplace_routes.ts` at `/api/marketplace` in `src/server.ts`.
+   - Added `test/marketplace.test.ts` (7 integration tests: catalog feed, multi-dimensional filtering, producer publishing, atomic licensing with 85% royalty split, buyer license retrieval, and unpublishing).
+
+3. **Client HTTP Marketplace Repository (`apps/vhunambi_client`):**
+   - Implemented `IMarketplaceRepository` and `HttpMarketplaceRepository` with Dio networking, offline mock fallback, and test timer safety.
+   - Mounted `marketplaceRepositoryProvider` and wired atomic checkout into `licenseBeat()`.
+
+4. **Two-Way Studio ↔ Marketplace MMO Bridge:**
+   - **Buyer → Studio:** Added `"🛍️ My Beats"` button (`Key('dropzone_load_licensed_beat_btn')`) to `ReferenceAudioDropzone`, opening a bottom sheet to load any licensed or produced beat as a backing track into Studio.
+   - **Producer → Beatstore:** Added `"💰 List in Beatstore"` action in `TrackActionsSheet` and `StemMixerDeck` (`Key('stem_mixer_list_beat_btn')`) to turn master mixes directly into sellable marketplace listings.
+
+5. **Monorepo Verification Snapshot:**
+   - `dart analyze lib test`: **0 issues found** (clean exit code 0).
+   - Flutter tests: **113/113 passed** across beats and marketplace; **46/46 passed** in library; **6/6 passed** in `phase28_marketplace_vault_bridge_test.dart`.
+   - Backend tests: **11/11 test suites passed** (`pnpm test` 100% green).
+   - TypeScript build: `pnpm build` (`tsc`) compiled with **0 errors**.

@@ -99,9 +99,9 @@ class LyricsReviewModal extends ConsumerWidget {
                         section: section,
                         onLinesChanged: (lines) =>
                             notifier.updateSectionLines(section.id, lines),
-                        onFocusGained: () => ref
-                            .read(_activeStanzaIdProvider.notifier)
-                            .state = section.id,
+                        onFocusGained: () =>
+                            ref.read(_activeStanzaIdProvider.notifier).state =
+                                section.id,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                     ],
@@ -505,8 +505,9 @@ class _RawLyricsEditor extends StatefulWidget {
 }
 
 class _RawLyricsEditorState extends State<_RawLyricsEditor> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.draft.rawText);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.draft.rawText,
+  );
 
   @override
   void dispose() {
@@ -657,7 +658,9 @@ void _approveDraft(BuildContext context, WidgetRef ref) {
   ref.read(_activeStanzaIdProvider.notifier).state = null;
 
   unawaited(
-    ref.read(generationProgressProvider.notifier).submitAndStartGeneration(
+    ref
+        .read(generationProgressProvider.notifier)
+        .submitAndStartGeneration(
           trackTitle: formState.resolvedTitle,
           genre: formState.genre,
           language: formState.language,
@@ -682,8 +685,8 @@ void _handleIdiomInsert(BuildContext context, WidgetRef ref, String idiom) {
   // Active stanza (still present in the draft) wins; otherwise fall back to
   // the first verse — `null` lets the notifier use its own last-stanza
   // default for degenerate drafts with no verse at all.
-  final targetId = activeId != null &&
-          sections.any((section) => section.id == activeId)
+  final targetId =
+      activeId != null && sections.any((section) => section.id == activeId)
       ? activeId
       : _firstVerseId(sections);
 

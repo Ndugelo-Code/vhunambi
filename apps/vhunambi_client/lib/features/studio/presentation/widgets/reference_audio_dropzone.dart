@@ -6,6 +6,8 @@ import '../../../../core/theme/app_typography.dart';
 import '../providers/melody_sketchpad_provider.dart';
 import '../providers/studio_form_provider.dart';
 import 'melody_sketchpad_modal.dart';
+import '../../../library/presentation/providers/library_providers.dart';
+import '../../../beats/presentation/providers/beats_provider.dart';
 
 class ReferenceAudioDropzone extends ConsumerStatefulWidget {
   const ReferenceAudioDropzone({super.key});
@@ -93,6 +95,33 @@ class _ReferenceAudioDropzoneState
                             ),
                           ),
                         ),
+                      TextButton.icon(
+                        key: const Key('dropzone_load_licensed_beat_btn'),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(44, 36),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                          ),
+                          backgroundColor: AppColors.surfaceSecondary,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: AppRadius.pillBorder,
+                          ),
+                        ),
+                        onPressed: () => _showBeatPicker(context),
+                        icon: const Icon(
+                          Icons.shopping_bag_rounded,
+                          color: AppColors.coinGold,
+                          size: 16,
+                        ),
+                        label: Text(
+                          'My Beats',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.coinGold,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xxs),
                       TextButton.icon(
                         key: const Key('dropzone_open_sketchpad_btn'),
                         style: TextButton.styleFrom(
@@ -328,6 +357,180 @@ class _ReferenceAudioDropzoneState
           ],
         ],
       ),
+    );
+  }
+
+  void _showBeatPicker(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceModal,
+      shape: const RoundedRectangleBorder(
+        borderRadius: AppRadius.modalBorder,
+        side: BorderSide(color: AppColors.borderSubtle),
+      ),
+      builder: (bottomSheetContext) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final libraryTracks = ref.watch(libraryTracksProvider);
+            final licensed = libraryTracks
+                .where((t) =>
+                    !t.isDeleted &&
+                    (t.id.startsWith('market_') ||
+                        (t.isInstrumental &&
+                            t.licenseType.trim().isNotEmpty && t.licenseType != 'Commercial')))
+                .toList();
+            final produced = ref.watch(beatsProvider);
+            final hasAny = licensed.isNotEmpty || produced.isNotEmpty;
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.borderActive,
+                          borderRadius: AppRadius.pillBorder,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Choose a Beat as Backing Track',
+                      style: AppTypography.titleMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Select a licensed or produced beat to lock tempo, key, and style.',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    if (!hasAny)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                        child: Center(
+                          child: Text(
+                            'No beats found in your vault yet.',
+                            style: AppTypography.bodyMuted,
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView(
+                          shrinkWrap: true,
+                          children: [
+                            if (licensed.isNotEmpty) ...[
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  '🛍️ Licensed Beats',
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.coinGold,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              for (final beat in licensed)
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.album_rounded,
+                                    color: AppColors.coinGold,
+                                  ),
+                                  title: Text(beat.title, style: AppTypography.bodySmall),
+                                  subtitle: Text(
+                                    '${beat.creatorName} • ${beat.genre}',
+                                    style: AppTypography.caption,
+                                  ),
+                                  onTap: () {
+                                    ref
+                                        .read(studioFormProvider.notifier)
+                                        .setReferenceAudio(beat.remoteAudioUrl);
+                                    ref
+                                        .read(studioFormProvider.notifier)
+                                        .setGenre(beat.genre);
+                                    ref
+                                        .read(melodySketchpadProvider.notifier)
+                                        .initializeFromRemixDna(genre: beat.genre);
+                                    Navigator.of(bottomSheetContext).pop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Attached "${beat.title}" as backing beat 🎤',
+                                        ),
+                                        backgroundColor: AppColors.success,
+                                      ),
+                                    );
+                                  },
+                                ),
+                            ],
+                            if (produced.isNotEmpty) ...[
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  '🎛️ My Produced Beats',
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.brandPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              for (final beat in produced)
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.graphic_eq_rounded,
+                                    color: AppColors.brandPrimary,
+                                  ),
+                                  title: Text(beat.title, style: AppTypography.bodySmall),
+                                  subtitle: Text(
+                                    '${beat.bpm} BPM • ${beat.musicalKey} • ${beat.genre}',
+                                    style: AppTypography.caption,
+                                  ),
+                                  onTap: () {
+                                    ref
+                                        .read(studioFormProvider.notifier)
+                                        .setReferenceAudio(beat.previewAudioUrl);
+                                    ref
+                                        .read(studioFormProvider.notifier)
+                                        .setGenre(beat.genre);
+                                    ref
+                                        .read(melodySketchpadProvider.notifier)
+                                        .initializeFromRemixDna(
+                                          musicalKey: beat.musicalKey,
+                                          bpm: beat.bpm,
+                                          genre: beat.genre,
+                                        );
+                                    Navigator.of(bottomSheetContext).pop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Attached "${beat.title}" as backing beat 🎤',
+                                        ),
+                                        backgroundColor: AppColors.success,
+                                      ),
+                                    );
+                                  },
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -79,7 +79,10 @@ class _VocalIdentityPickerSheetState
                 ),
                 IconButton(
                   key: const Key('vocal_picker_close_btn'),
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(
                     Icons.close_rounded,
@@ -97,7 +100,7 @@ class _VocalIdentityPickerSheetState
                   child: InkWell(
                     key: const Key('vocal_tab_catalog'),
                     onTap: () => setState(() => _showClonedTab = false),
-                    borderRadius: AppRadius.inputBorder,
+                    borderRadius: AppRadius.buttonBorder,
                     child: Container(
                       height: 44,
                       alignment: Alignment.center,
@@ -105,7 +108,7 @@ class _VocalIdentityPickerSheetState
                         color: !_showClonedTab
                             ? AppColors.brandPrimary
                             : AppColors.surfaceElevated,
-                        borderRadius: AppRadius.inputBorder,
+                        borderRadius: AppRadius.buttonBorder,
                         border: Border.all(
                           color: !_showClonedTab
                               ? AppColors.brandPrimary
@@ -130,7 +133,7 @@ class _VocalIdentityPickerSheetState
                   child: InkWell(
                     key: const Key('vocal_tab_cloned'),
                     onTap: () => setState(() => _showClonedTab = true),
-                    borderRadius: AppRadius.inputBorder,
+                    borderRadius: AppRadius.buttonBorder,
                     child: Container(
                       height: 44,
                       alignment: Alignment.center,
@@ -138,7 +141,7 @@ class _VocalIdentityPickerSheetState
                         color: _showClonedTab
                             ? AppColors.brandPrimary
                             : AppColors.surfaceElevated,
-                        borderRadius: AppRadius.inputBorder,
+                        borderRadius: AppRadius.buttonBorder,
                         border: Border.all(
                           color: _showClonedTab
                               ? AppColors.brandPrimary
@@ -171,7 +174,8 @@ class _VocalIdentityPickerSheetState
                   color: AppColors.textPrimary,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Search language, city, or accent (e.g. Tshivenḓa, Soweto, Lagos)...',
+                  hintText:
+                      'Search language, city, or accent (e.g. Tshivenḓa, Soweto, Lagos)...',
                   hintStyle: AppTypography.caption.copyWith(
                     color: AppColors.textTertiary,
                   ),
@@ -215,8 +219,9 @@ class _VocalIdentityPickerSheetState
                           color: isSelected
                               ? AppColors.brandContrast
                               : AppColors.textPrimary,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                         ),
                       ),
                       selectedColor: AppColors.brandPrimary,
@@ -253,8 +258,9 @@ class _VocalIdentityPickerSheetState
                           color: isSelected
                               ? AppColors.brandContrast
                               : AppColors.textPrimary,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                         ),
                       ),
                       selectedColor: AppColors.coinGold,
@@ -279,7 +285,8 @@ class _VocalIdentityPickerSheetState
                       const SizedBox(height: AppSpacing.xs),
                   itemBuilder: (context, index) {
                     final arch = state.filteredCatalog[index];
-                    final isSelected = !state.isUsingClonedVoice &&
+                    final isSelected =
+                        !state.isUsingClonedVoice &&
                         state.activeArchetype.id == arch.id;
                     final isPreviewing = state.previewingArchetypeId == arch.id;
 
@@ -309,7 +316,7 @@ class _VocalIdentityPickerSheetState
                                 Expanded(
                                   child: Text(
                                     arch.name,
-                                    style: AppTypography.bodyLarge.copyWith(
+                                    style: AppTypography.bodyMedium.copyWith(
                                       color: AppColors.textPrimary,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -386,7 +393,7 @@ class _VocalIdentityPickerSheetState
                     backgroundColor: AppColors.brandPrimary,
                     foregroundColor: AppColors.brandContrast,
                     shape: const RoundedRectangleBorder(
-                      borderRadius: AppRadius.inputBorder,
+                      borderRadius: AppRadius.buttonBorder,
                     ),
                   ),
                   icon: const Icon(Icons.mic_rounded, size: 18),
@@ -451,11 +458,11 @@ class _VocalIdentityPickerSheetState
                                       children: [
                                         Text(
                                           profile.creatorName,
-                                          style:
-                                              AppTypography.bodyLarge.copyWith(
-                                            color: AppColors.textPrimary,
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                                          style: AppTypography.bodyMedium
+                                              .copyWith(
+                                                color: AppColors.textPrimary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         Text(
@@ -469,13 +476,15 @@ class _VocalIdentityPickerSheetState
                                     ),
                                   ),
                                   IconButton(
-                                    key: Key('delete_cloned_voice_${profile.id}'),
+                                    key: Key(
+                                      'delete_cloned_voice_${profile.id}',
+                                    ),
                                     constraints: const BoxConstraints(
                                       minWidth: 44,
                                       minHeight: 44,
                                     ),
-                                    onPressed: () =>
-                                        notifier.deleteClonedProfile(profile.id),
+                                    onPressed: () => notifier
+                                        .deleteClonedProfile(profile.id),
                                     icon: const Icon(
                                       Icons.delete_outline_rounded,
                                       color: AppColors.error,
@@ -495,4 +504,3 @@ class _VocalIdentityPickerSheetState
     );
   }
 }
-

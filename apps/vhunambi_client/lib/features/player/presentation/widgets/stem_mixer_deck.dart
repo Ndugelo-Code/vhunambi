@@ -12,6 +12,7 @@ import '../providers/player_provider.dart';
 import '../providers/stem_mixer_provider.dart';
 import '../../../mastering/presentation/widgets/mobile_quick_master_sheet.dart';
 import '../../../mastering/presentation/views/desktop_mastering_studio_view.dart';
+import '../../../beats/presentation/providers/beats_provider.dart';
 
 /// Pocket 4-Channel Stem Mixer & Master Bus DSP console (REQ-MIX-01 … 05, REQ-STEM-AUDIO-01 .. 06).
 ///
@@ -684,6 +685,47 @@ class _MasterDspSection extends ConsumerWidget {
             '✨ Master Track (Studio Polisher)',
             style: AppTypography.bodyLarge.copyWith(
               color: AppColors.brandPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        OutlinedButton.icon(
+          key: const Key('stem_mixer_list_beat_btn'),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            final currentTrack = ref.read(playerStateProvider).currentTrack;
+            final beatTitle = title ?? currentTrack?.title ?? 'Instrumental Master Mix';
+            ref.read(beatsProvider.notifier).createBeat(
+                  title: beatTitle,
+                  genre: currentTrack?.genre ?? 'Amapiano',
+                  bpm: 115,
+                  musicalKey: 'F# Minor',
+                  priceInCredits: 10,
+                  previewAudioUrl: currentTrack?.audioUrl ?? '',
+                );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Listed "$beatTitle" in your Beats Vault! 💰'),
+                backgroundColor: AppColors.success,
+              ),
+            );
+          },
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: AppColors.coinGold),
+            minimumSize: const Size.fromHeight(48),
+            shape: const RoundedRectangleBorder(
+              borderRadius: AppRadius.inputBorder,
+            ),
+          ),
+          icon: const Icon(
+            Icons.monetization_on_rounded,
+            color: AppColors.coinGold,
+          ),
+          label: Text(
+            '💰 List in Beatstore',
+            style: AppTypography.bodyLarge.copyWith(
+              color: AppColors.coinGold,
               fontWeight: FontWeight.bold,
             ),
           ),

@@ -19,12 +19,23 @@ import '../widgets/beat_stats_banner.dart';
 import '../widgets/publish_beat_modal.dart';
 import '../widgets/stem_export_modal.dart';
 import 'beat_detail_cockpit_view.dart';
+import '../../../../core/theme/app_gradients.dart';
+import '../../../library/presentation/providers/library_providers.dart';
+import '../../../library/presentation/widgets/track_actions_sheet.dart';
+import '../../../studio/presentation/providers/studio_form_provider.dart';
+import '../../../studio/presentation/providers/melody_sketchpad_provider.dart';
 
 /// Producer Beats Vault & Beatstore cockpit (`/library?tab=beats`).
 ///
 /// Implements REQ-BEAT-14 to REQ-BEAT-22: responsive grid/list vault, status
 /// filtering, authoring dialog, marketplace publish sheet, stems export and the
 /// persistent player audition bridge.
+/// Dual vault view mode: Producer's own beats vs Licensed beats purchased.
+enum BeatsVaultMode {
+  produced,
+  licensed,
+}
+
 class BeatsVaultView extends ConsumerStatefulWidget {
   /// Retained for API parity with the other vault tabs; the empty-state CTA
   /// opens the beat authoring dialog owned by this view.
@@ -39,6 +50,7 @@ class BeatsVaultView extends ConsumerStatefulWidget {
 class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
   final TextEditingController _searchController = TextEditingController();
   LibraryViewMode _viewMode = LibraryViewMode.grid;
+  BeatsVaultMode _vaultMode = BeatsVaultMode.produced;
 
   @override
   void dispose() {
@@ -228,43 +240,122 @@ class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          BeatStatsBanner(stats: stats, compact: isMobile),
-          const SizedBox(height: AppSpacing.md),
-          _VaultActionStrip(
-            searchController: _searchController,
-            filter: filter,
-            stats: stats,
-            viewMode: _viewMode,
-            onSearchChanged: (value) => ref
-                .read(beatsVaultFilterProvider.notifier)
-                .state = ref.read(beatsVaultFilterProvider).copyWith(
-                      searchQuery: value,
+          // Segmented Switcher (Produced vs Licensed)
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xxs),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceSecondary,
+              borderRadius: AppRadius.pillBorder,
+              border: Border.all(color: AppColors.borderSubtle),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    key: const Key('beats_vault_mode_produced'),
+                    onTap: () => setState(() => _vaultMode = BeatsVaultMode.produced),
+                    borderRadius: AppRadius.pillBorder,
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _vaultMode == BeatsVaultMode.produced
+                            ? AppColors.brandPrimary
+                            : Colors.transparent,
+                        borderRadius: AppRadius.pillBorder,
+                      ),
+                      child: Text(
+                        '🎛️ My Produced Beats',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: _vaultMode == BeatsVaultMode.produced
+                              ? AppColors.brandContrast
+                              : AppColors.textSecondary,
+                          fontWeight: _vaultMode == BeatsVaultMode.produced
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                        ),
+                      ),
                     ),
-            onStatusSelected: (status) => ref
-                .read(beatsVaultFilterProvider.notifier)
-                .state = ref.read(beatsVaultFilterProvider).copyWith(
-                      statusFilter: status,
-                      clearStatus: status == null,
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    key: const Key('beats_vault_mode_licensed'),
+                    onTap: () => setState(() => _vaultMode = BeatsVaultMode.licensed),
+                    borderRadius: AppRadius.pillBorder,
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _vaultMode == BeatsVaultMode.licensed
+                            ? AppColors.brandPrimary
+                            : Colors.transparent,
+                        borderRadius: AppRadius.pillBorder,
+                      ),
+                      child: Text(
+                        '🛍️ Licensed Beats',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: _vaultMode == BeatsVaultMode.licensed
+                              ? AppColors.brandContrast
+                              : AppColors.textSecondary,
+                          fontWeight: _vaultMode == BeatsVaultMode.licensed
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                        ),
+                      ),
                     ),
-            onSortSelected: (order) => ref
-                .read(beatsVaultFilterProvider.notifier)
-                .state = ref.read(beatsVaultFilterProvider).copyWith(
-                      sortOrder: order,
-                    ),
-            onViewModeChanged: (mode) => setState(() => _viewMode = mode),
-            onCreatePressed: _showCreateDialog,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Expanded(
-            child: _buildBody(
-              allBeats: allBeats,
-              beats: beats,
-              filter: filter,
-              playback: playback,
-              isMobile: isMobile,
-              isTablet: isTablet,
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          if (_vaultMode == BeatsVaultMode.produced) ...[
+            BeatStatsBanner(stats: stats, compact: isMobile),
+            const SizedBox(height: AppSpacing.md),
+            _VaultActionStrip(
+              searchController: _searchController,
+              filter: filter,
+              stats: stats,
+              viewMode: _viewMode,
+              onSearchChanged: (value) => ref
+                  .read(beatsVaultFilterProvider.notifier)
+                  .state = ref.read(beatsVaultFilterProvider).copyWith(
+                        searchQuery: value,
+                      ),
+              onStatusSelected: (status) => ref
+                  .read(beatsVaultFilterProvider.notifier)
+                  .state = ref.read(beatsVaultFilterProvider).copyWith(
+                        statusFilter: status,
+                        clearStatus: status == null,
+                      ),
+              onSortSelected: (order) => ref
+                  .read(beatsVaultFilterProvider.notifier)
+                  .state = ref.read(beatsVaultFilterProvider).copyWith(
+                        sortOrder: order,
+                      ),
+              onViewModeChanged: (mode) => setState(() => _viewMode = mode),
+              onCreatePressed: _showCreateDialog,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Expanded(
+              child: _buildBody(
+                allBeats: allBeats,
+                beats: beats,
+                filter: filter,
+                playback: playback,
+                isMobile: isMobile,
+                isTablet: isTablet,
+              ),
+            ),
+          ] else ...[
+            Expanded(
+              child: _buildLicensedBeats(
+                isMobile: isMobile,
+                isTablet: isTablet,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -355,6 +446,87 @@ class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
           onTogglePublish: () => _togglePublication(beat),
           onExportStems: () => _showStemModal(beat),
           onDelete: () => _confirmDelete(beat),
+        );
+      },
+    );
+  }
+
+  Widget _buildLicensedBeats({
+    required bool isMobile,
+    required bool isTablet,
+  }) {
+    final allTracks = ref.watch(libraryTracksProvider);
+    final licensedBeats = allTracks
+        .where((t) =>
+            !t.isDeleted &&
+            (t.id.startsWith('market_') ||
+                (t.isInstrumental &&
+                    t.licenseType.trim().isNotEmpty && t.licenseType != 'Commercial')))
+        .toList();
+
+    if (licensedBeats.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.shopping_bag_outlined,
+                size: 48,
+                color: AppColors.brandPrimary,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'No licensed beats yet',
+                style: AppTypography.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                'Explore the Beats Marketplace to license top African instrumental beats.',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final columns = isMobile ? 2 : (isTablet ? 3 : 4);
+    final aspectRatio = isMobile ? 0.72 : (isTablet ? 0.76 : 0.80);
+
+    return GridView.builder(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        mainAxisSpacing: AppSpacing.sm,
+        crossAxisSpacing: AppSpacing.sm,
+        childAspectRatio: aspectRatio,
+      ),
+      itemCount: licensedBeats.length,
+      itemBuilder: (context, index) {
+        final track = licensedBeats[index];
+        return _LicensedBeatCard(
+          track: track,
+          onUseInStudio: () {
+            ref.read(studioFormProvider.notifier).setReferenceAudio(track.remoteAudioUrl);
+            ref.read(studioFormProvider.notifier).setGenre(track.genre);
+            ref.read(melodySketchpadProvider.notifier).initializeFromRemixDna(
+                  genre: track.genre,
+                );
+            widget.onCreateRequested?.call();
+            _showSnack('Loaded "${track.title}" into Studio as backing track 🎤');
+          },
+          onShowCertificate: () {
+            showLibraryLicenseDialog(context, track);
+          },
+          onPlay: () {
+            playLibraryTrack(ref, track);
+          },
         );
       },
     );
@@ -694,6 +866,162 @@ class _NoBeatsMatch extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _LicensedBeatCard extends ConsumerWidget {
+  final LibraryTrack track;
+  final VoidCallback? onUseInStudio;
+  final VoidCallback? onShowCertificate;
+  final VoidCallback? onPlay;
+
+  const _LicensedBeatCard({
+    required this.track,
+    this.onUseInStudio,
+    this.onShowCertificate,
+    this.onPlay,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playerState = ref.watch(playerStateProvider);
+    final isPlaying = playerState.currentTrack?.id == track.id &&
+        playerState.playbackStatus == PlaybackStatus.playing;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: AppRadius.cardBorder,
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cover art with genre gradient
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: AppGradients.forGenre(track.genre),
+                borderRadius: AppRadius.inputBorder,
+              ),
+              child: Stack(
+                children: [
+                  Center(
+                    child: IconButton(
+                      iconSize: 36,
+                      icon: Icon(
+                        isPlaying
+                            ? Icons.pause_circle_filled_rounded
+                            : Icons.play_circle_filled_rounded,
+                        color: AppColors.brandContrast,
+                      ),
+                      onPressed: onPlay,
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceCanvas.withValues(alpha: 0.8),
+                        borderRadius: AppRadius.pillBorder,
+                      ),
+                      child: Text(
+                        track.genre,
+                        style: AppTypography.badge.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            track.title,
+            style: AppTypography.titleMedium.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            track.creatorName,
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.brandPrimary.withValues(alpha: 0.15),
+              borderRadius: AppRadius.pillBorder,
+            ),
+            child: Text(
+              track.licenseType,
+              style: AppTypography.badge.copyWith(
+                color: AppColors.brandPrimary,
+                fontSize: 9.5,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  key: Key('licensed_beat_use_in_studio_${track.id}'),
+                  onPressed: onUseInStudio,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.brandPrimary,
+                    foregroundColor: AppColors.brandContrast,
+                    minimumSize: const Size(44, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: AppRadius.pillBorder,
+                    ),
+                  ),
+                  icon: const Icon(Icons.mic_rounded, size: 14),
+                  label: Text(
+                    'Studio',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.brandContrast,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xxs),
+              IconButton(
+                key: Key('licensed_beat_cert_${track.id}'),
+                icon: const Icon(Icons.verified_rounded, size: 18),
+                color: AppColors.coinGold,
+                tooltip: 'License Certificate',
+                constraints: const BoxConstraints(
+                  minWidth: 44,
+                  minHeight: 44,
+                ),
+                onPressed: onShowCertificate,
+              ),
+            ],
           ),
         ],
       ),

@@ -246,9 +246,10 @@ bool _matchesCategory(LibraryTrack track, LibraryCategory category) {
     LibraryCategory.songs => !track.isDeleted && !track.isInstrumental,
     LibraryCategory.beats => !track.isDeleted && track.isInstrumental,
     LibraryCategory.trash => track.isDeleted,
+    LibraryCategory.licensing => !track.isDeleted &&
+        (track.id.startsWith('market_') || (track.licenseType.trim().isNotEmpty && track.licenseType != 'Commercial')),
     LibraryCategory.playlists ||
-    LibraryCategory.collections ||
-    LibraryCategory.licensing =>
+    LibraryCategory.collections =>
       false,
   };
 }

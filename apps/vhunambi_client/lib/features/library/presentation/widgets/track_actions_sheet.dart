@@ -12,6 +12,7 @@ import 'library_badges.dart';
 import 'library_cover_art.dart';
 import 'track_details_modal.dart';
 import 'package:vhunambi_client/features/content_studio/presentation/views/content_studio_dock_view.dart';
+import '../../../beats/presentation/providers/beats_provider.dart';
 
 /// Contextual vault asset action sheet (REQ-LIB-06).
 ///
@@ -196,10 +197,17 @@ class TrackActionsSheet extends ConsumerWidget {
       );
     }
 
+    void handleListInBeatstore() {
+      ref.read(beatsProvider.notifier).convertTrackToBeat(track);
+      close();
+      notify('Listed "${track.title}" in your Beats Vault! 💰');
+    }
+
     return _TrackActionsLayout(
       track: track,
       onPlayNow: handlePlayNow,
       onCreateLyricReel: handleCreateLyricReel,
+      onListInBeatstore: handleListInBeatstore,
       onSongDetails: handleSongDetails,
       onAddToPlaylist: handleAddToPlaylist,
       onStemSeparation: handleStemSeparation,
@@ -218,6 +226,7 @@ class _TrackActionsLayout extends StatelessWidget {
   final LibraryTrack track;
   final VoidCallback onPlayNow;
   final VoidCallback onCreateLyricReel;
+  final VoidCallback onListInBeatstore;
   final VoidCallback onSongDetails;
   final VoidCallback onAddToPlaylist;
   final VoidCallback onStemSeparation;
@@ -233,6 +242,7 @@ class _TrackActionsLayout extends StatelessWidget {
     required this.track,
     required this.onPlayNow,
     required this.onCreateLyricReel,
+    required this.onListInBeatstore,
     required this.onSongDetails,
     required this.onAddToPlaylist,
     required this.onStemSeparation,
@@ -328,6 +338,13 @@ class _TrackActionsLayout extends StatelessWidget {
                   onTap: onCreateLyricReel,
                 ),
                 _ActionTile(
+                  key: const Key('track_action_list_in_beatstore'),
+                  icon: Icons.monetization_on_rounded,
+                  label: '💰 List in Beatstore',
+                  subtitle: 'Convert to sellable beat listing on the Beats Marketplace',
+                  onTap: onListInBeatstore,
+                ),
+                _ActionTile(
                   icon: Icons.info_outline_rounded,
                   label: 'Song Details',
                   subtitle: 'Genre, language, plays, storage & license',
@@ -411,6 +428,7 @@ class _ActionTile extends StatelessWidget {
   final bool isDestructive;
 
   const _ActionTile({
+    super.key,
     required this.icon,
     required this.label,
     required this.subtitle,
