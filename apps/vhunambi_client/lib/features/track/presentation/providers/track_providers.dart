@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../player/domain/models/stem_mixer_state.dart';
+import '../../../player/presentation/providers/stem_mixer_provider.dart';
 import '../../domain/models/track_detail_models.dart';
 
 /// Track dissection record for `/track/:id` (REQ-TRK-01 … REQ-TRK-11).
 final trackDetailFamilyProvider = StateNotifierProvider.family<
     TrackDetailNotifier, TrackDetailEntity, String>((ref, trackId) {
-  return TrackDetailNotifier(trackId);
+  return TrackDetailNotifier(trackId, ref: ref);
 });
 
 /// Discussion thread for a track (REQ-TRK-11).
@@ -26,8 +28,9 @@ final moreLikeThisProvider =
 
 class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
   final String trackId;
+  final Ref? ref;
 
-  TrackDetailNotifier(this.trackId) : super(_lookupInitialTrack(trackId));
+  TrackDetailNotifier(this.trackId, {this.ref}) : super(_lookupInitialTrack(trackId));
 
   /// Optimistically toggles the like state and tally (REQ-TRK-04).
   void toggleLike() {
@@ -58,7 +61,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
     );
   }
 
-  /// Runs the simulated 4-step stem isolation pipeline (REQ-TRK-09).
+  /// Runs the 4-step stem isolation pipeline (REQ-TRK-09 / REQ-TRK-STEM-01).
   Future<void> separateStems() async {
     if (state.stemState.isProcessing) return;
 
@@ -89,25 +92,25 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
           StemTrackEntity(
             id: '${trackId}_vocals',
             name: 'Vocals',
-            audioUrl: '',
+            audioUrl: 'https://cdn.vhunambi.com/stems/${trackId}_vocals.wav',
             duration: state.duration,
           ),
           StemTrackEntity(
             id: '${trackId}_drums',
             name: 'Drums',
-            audioUrl: '',
+            audioUrl: 'https://cdn.vhunambi.com/stems/${trackId}_drums.wav',
             duration: state.duration,
           ),
           StemTrackEntity(
             id: '${trackId}_bass',
             name: 'Bass & Log Drums',
-            audioUrl: '',
+            audioUrl: 'https://cdn.vhunambi.com/stems/${trackId}_bass.wav',
             duration: state.duration,
           ),
           StemTrackEntity(
             id: '${trackId}_inst',
             name: 'Instrumental',
-            audioUrl: '',
+            audioUrl: 'https://cdn.vhunambi.com/stems/${trackId}_inst.wav',
             duration: state.duration,
           ),
         ],
@@ -121,6 +124,13 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
             stem.id == stemId ? stem.copyWith(isMuted: !stem.isMuted) : stem)
         .toList();
     state = state.copyWith(stemState: state.stemState.copyWith(stems: stems));
+
+    if (ref != null) {
+      final stemType = _mapStemIdToType(stemId);
+      if (stemType != null) {
+        ref!.read(stemMixerProvider.notifier).toggleMute(stemType);
+      }
+    }
   }
 
   void toggleSoloStem(String stemId) {
@@ -129,6 +139,24 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
             stem.id == stemId ? stem.copyWith(isSoloed: !stem.isSoloed) : stem)
         .toList();
     state = state.copyWith(stemState: state.stemState.copyWith(stems: stems));
+
+    if (ref != null) {
+      final stemType = _mapStemIdToType(stemId);
+      if (stemType != null) {
+        ref!.read(stemMixerProvider.notifier).toggleSolo(stemType);
+      }
+    }
+  }
+
+  static StemType? _mapStemIdToType(String id) {
+    final lower = id.toLowerCase();
+    if (lower.contains('vocal')) return StemType.vocals;
+    if (lower.contains('drum')) return StemType.drums;
+    if (lower.contains('bass')) return StemType.bass;
+    if (lower.contains('inst') || lower.contains('melody')) {
+      return StemType.melody;
+    }
+    return null;
   }
 }
 

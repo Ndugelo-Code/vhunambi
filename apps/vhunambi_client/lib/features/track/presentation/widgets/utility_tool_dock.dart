@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/track_detail_models.dart';
 
-/// Secondary Utility Toolbar: Download, Playlist, Radio, Lyrics, Variation, Comments, Embed (REQ-TRK-05).
+/// Secondary Utility Toolbar: Download, Reel Export, Playlist, Radio, Lyrics, Variation, Comments, Embed (REQ-TRK-05 / STD-UIUX-001).
 class UtilityToolDock extends StatelessWidget {
   final TrackDetailEntity track;
   final VoidCallback? onDownload;
+  final VoidCallback? onExportVideo;
   final VoidCallback? onAddToPlaylist;
   final VoidCallback? onStartRadio;
   final VoidCallback? onJumpToLyrics;
@@ -19,6 +21,7 @@ class UtilityToolDock extends StatelessWidget {
     super.key,
     required this.track,
     this.onDownload,
+    this.onExportVideo,
     this.onAddToPlaylist,
     this.onStartRadio,
     this.onJumpToLyrics,
@@ -37,37 +40,43 @@ class UtilityToolDock extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           _buildToolChip(
-            icon: Icons.download_rounded,
+            icon: PhosphorIconsRegular.downloadSimple,
             label: 'Download',
             onTap: onDownload,
           ),
+          if (onExportVideo != null)
+            _buildToolChip(
+              icon: PhosphorIconsRegular.videoCamera,
+              label: 'Export Reel',
+              onTap: onExportVideo,
+            ),
           _buildToolChip(
-            icon: Icons.playlist_add_rounded,
+            icon: PhosphorIconsRegular.playlist,
             label: 'Playlist',
             onTap: onAddToPlaylist,
           ),
           _buildToolChip(
-            icon: Icons.radio_rounded,
+            icon: PhosphorIconsRegular.radio,
             label: 'Radio',
             onTap: onStartRadio,
           ),
           _buildToolChip(
-            icon: Icons.lyrics_rounded,
+            icon: PhosphorIconsRegular.textT,
             label: 'Lyrics',
             onTap: onJumpToLyrics,
           ),
           _buildToolChip(
-            icon: Icons.alt_route_rounded,
+            icon: PhosphorIconsRegular.gitFork,
             label: 'Variation',
             onTap: onVariation,
           ),
           _buildToolChip(
-            icon: Icons.chat_bubble_outline_rounded,
+            icon: PhosphorIconsRegular.chatCircleDots,
             label: 'Comments',
             onTap: onJumpToComments,
           ),
           _buildToolChip(
-            icon: Icons.code_rounded,
+            icon: PhosphorIconsRegular.code,
             label: 'Embed',
             onTap: onEmbed,
           ),
@@ -87,7 +96,7 @@ class UtilityToolDock extends StatelessWidget {
         onTap: onTap,
         borderRadius: AppRadius.pillBorder,
         child: Container(
-          constraints: const BoxConstraints(minHeight: 44),
+          constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -98,7 +107,7 @@ class UtilityToolDock extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: AppColors.textSecondary),
+              PhosphorIcon(icon, size: 16, color: AppColors.textSecondary),
               const SizedBox(width: 6),
               Text(
                 label,

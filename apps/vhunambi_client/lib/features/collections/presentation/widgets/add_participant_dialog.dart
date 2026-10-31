@@ -28,10 +28,8 @@ class AddParticipantDialog extends ConsumerStatefulWidget {
   }) {
     return showDialog<void>(
       context: context,
-      builder: (_) => AddParticipantDialog(
-        collectionId: collectionId,
-        initial: initial,
-      ),
+      builder: (_) =>
+          AddParticipantDialog(collectionId: collectionId, initial: initial),
     );
   }
 
@@ -44,6 +42,7 @@ class _AddParticipantDialogState extends ConsumerState<AddParticipantDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _roleController;
   late final TextEditingController _shareController;
+  late final TextEditingController _handleController;
 
   @override
   void initState() {
@@ -51,6 +50,7 @@ class _AddParticipantDialogState extends ConsumerState<AddParticipantDialog> {
     final initial = widget.initial;
     _nameController = TextEditingController(text: initial?.name ?? '');
     _roleController = TextEditingController(text: initial?.role ?? '');
+    _handleController = TextEditingController(text: initial?.handle ?? '');
     _shareController = TextEditingController(
       text: initial == null ? '' : _trim(initial.sharePercent),
     );
@@ -60,6 +60,7 @@ class _AddParticipantDialogState extends ConsumerState<AddParticipantDialog> {
   void dispose() {
     _nameController.dispose();
     _roleController.dispose();
+    _handleController.dispose();
     _shareController.dispose();
     super.dispose();
   }
@@ -86,10 +87,20 @@ class _AddParticipantDialogState extends ConsumerState<AddParticipantDialog> {
     final share = _parsedShare;
     if (share == null || !_canSave) return;
 
+    final rawHandle = _handleController.text.trim();
+    final cleanHandle = rawHandle.isNotEmpty
+        ? (rawHandle.startsWith('@') ? rawHandle : '@$rawHandle')
+        : null;
+    final creatorId = cleanHandle != null
+        ? 'creator_${cleanHandle.replaceAll('@', '').toLowerCase()}'
+        : null;
+
     final participant = SplitParticipant(
       name: _nameController.text.trim(),
       role: _roleController.text.trim(),
       sharePercent: share,
+      handle: cleanHandle,
+      creatorId: creatorId,
     );
 
     final notifier = ref.read(collectionsProvider.notifier);
@@ -112,44 +123,57 @@ class _AddParticipantDialogState extends ConsumerState<AddParticipantDialog> {
         isEditing ? 'Edit Collaborator' : 'Add Collaborator',
         style: AppTypography.titleMedium.copyWith(color: AppColors.textPrimary),
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            key: const Key('participant_name_field'),
-            controller: _nameController,
-            autofocus: true,
-            onChanged: (_) => setState(() {}),
-            style: AppTypography.bodyLarge,
-            decoration: const InputDecoration(
-              labelText: 'Name',
-              hintText: 'e.g. Ndugelo Makwela',
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const Key('participant_name_field'),
+              controller: _nameController,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
+              style: AppTypography.bodyLarge,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                hintText: 'e.g. Ndugelo Makwela',
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextField(
-            key: const Key('participant_role_field'),
-            controller: _roleController,
-            onChanged: (_) => setState(() {}),
-            style: AppTypography.bodyLarge,
-            decoration: const InputDecoration(
-              labelText: 'Role',
-              hintText: 'e.g. Producer, Composer, Lyricist',
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              key: const Key('participant_handle_field'),
+              controller: _handleController,
+              onChanged: (_) => setState(() {}),
+              style: AppTypography.bodyLarge,
+              decoration: const InputDecoration(
+                labelText: 'Platform Handle (Optional)',
+                hintText: 'e.g. @fifi',
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextField(
-            key: const Key('participant_share_field'),
-            controller: _shareController,
-            onChanged: (_) => setState(() {}),
-            keyboardType: TextInputType.number,
-            style: AppTypography.bodyLarge,
-            decoration: const InputDecoration(
-              labelText: 'Share %',
-              hintText: '0 - 100',
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              key: const Key('participant_role_field'),
+              controller: _roleController,
+              onChanged: (_) => setState(() {}),
+              style: AppTypography.bodyLarge,
+              decoration: const InputDecoration(
+                labelText: 'Role',
+                hintText: 'e.g. Producer, Composer, Lyricist',
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              key: const Key('participant_share_field'),
+              controller: _shareController,
+              onChanged: (_) => setState(() {}),
+              keyboardType: TextInputType.number,
+              style: AppTypography.bodyLarge,
+              decoration: const InputDecoration(
+                labelText: 'Share %',
+                hintText: '0 - 100',
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(

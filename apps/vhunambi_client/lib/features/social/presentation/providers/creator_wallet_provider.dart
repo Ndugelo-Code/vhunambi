@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../collections/domain/models/collection_entity.dart';
+import '../../../collections/domain/services/royalty_distribution_service.dart';
 import '../../domain/models/creator_wallet.dart';
 import '../../domain/models/cultural_gift.dart';
 import '../../domain/repositories/i_social_repository.dart';
@@ -135,6 +137,127 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
   void topUpCoins(int amount) {
     if (amount <= 0) return;
     state = state.copyWith(userCoinsBalance: state.userCoinsBalance + amount);
+  }
+
+  /// Dispatches a track tip (credits/coins), splitting proceeds proportionally
+  /// across collaborators if the track belongs to a collection with a valid split sheet (REQ-ROY-SPLIT-03).
+  Future<bool> distributeTrackTip({
+    required String trackId,
+    required String trackTitle,
+    required String creatorId,
+    required String creatorName,
+    required int credits,
+    CollectionEntity? collection,
+  }) async {
+    if (state.userCoinsBalance < credits || credits <= 0) {
+      return false;
+    }
+
+    // Convert credits to ZAR (R0.30 per coin/credit in standard Vhunambi tokenomics)
+    final grossZar = double.parse((credits * 0.30).toStringAsFixed(2));
+    final grossCoins = credits;
+
+    final distributions = (collection != null && collection.isSplitBalanced)
+        ? RoyaltyDistributionService.calculateSplit(
+            collection: collection,
+            grossZar: grossZar,
+            grossCoins: grossCoins,
+          ).distributions
+        : [
+            SplitShareDistribution(
+              participant: SplitParticipant(
+                name: creatorName,
+                role: 'Creator',
+                sharePercent: 100.0,
+                creatorId: creatorId,
+              ),
+              zarAmount: grossZar,
+              coinsAmount: grossCoins,
+            ),
+          ];
+
+    // Debit user coins, credit creator wallet earnings
+    final newTransactions = <GiftTransaction>[...state.transactions];
+    for (final dist in distributions) {
+      newTransactions.insert(
+        0,
+        GiftTransaction(
+          id: 'tx_tip_${DateTime.now().millisecondsSinceEpoch}_${dist.participant.name}',
+          clipId: trackId,
+          senderUsername: 'me',
+          recipientCreatorId: dist.participant.creatorId ?? creatorId,
+          gift: CulturalGift(
+            id: 'tip_${dist.participant.name}',
+            name: collection != null
+                ? 'Split Tip: ${collection.title} (${dist.participant.shareLabel})'
+                : 'Track Tip: $trackTitle',
+            emoji: '🪙',
+            coinPrice: dist.coinsAmount,
+            zarPrice: dist.zarAmount,
+            culturalMeaning: 'Music connects through fair splits',
+          ),
+          message:
+              'Tip on "$trackTitle" [${dist.participant.role} - ${dist.participant.shareLabel}]',
+          timestamp: DateTime.now(),
+        ),
+      );
+    }
+
+    state = state.copyWith(
+      userCoinsBalance: state.userCoinsBalance - credits,
+      creatorEarnedZar: state.creatorEarnedZar + grossZar,
+      creatorReceivedCoins: state.creatorReceivedCoins + grossCoins,
+      transactions: newTransactions,
+    );
+
+    return true;
+  }
+
+  /// Distributes beat license sales or marketplace royalty earnings across collection collaborators (REQ-ROY-SPLIT-02).
+  Future<RoyaltyDistributionResult> distributeSplitPayout({
+    required CollectionEntity collection,
+    required double grossZar,
+    int grossCoins = 0,
+    required String trackTitle,
+  }) async {
+    final result = RoyaltyDistributionService.calculateSplit(
+      collection: collection,
+      grossZar: grossZar,
+      grossCoins: grossCoins,
+    );
+
+    final newTransactions = <GiftTransaction>[...state.transactions];
+    for (final dist in result.distributions) {
+      newTransactions.insert(
+        0,
+        GiftTransaction(
+          id: 'tx_royalty_${DateTime.now().millisecondsSinceEpoch}_${dist.participant.name}',
+          clipId: collection.id,
+          senderUsername: 'marketplace',
+          recipientCreatorId: dist.participant.creatorId ?? _creatorId,
+          gift: CulturalGift(
+            id: 'royalty_${dist.participant.name}',
+            name:
+                'Royalty Split: ${collection.title} (${dist.participant.shareLabel})',
+            emoji: '💎',
+            coinPrice: dist.coinsAmount,
+            zarPrice: dist.zarAmount,
+            culturalMeaning: 'Fair compensation for all collaborators',
+          ),
+          message:
+              'Royalty on "$trackTitle" [${dist.participant.role} - ${dist.participant.shareLabel}]',
+          timestamp: DateTime.now(),
+        ),
+      );
+    }
+
+    state = state.copyWith(
+      creatorEarnedZar: state.creatorEarnedZar + grossZar,
+      creatorReceivedCoins: state.creatorReceivedCoins + grossCoins,
+      transactions: newTransactions,
+    );
+
+    return result;
   }
 
   /// Sends a cultural micro-gift to a creator.

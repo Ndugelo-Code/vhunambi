@@ -64,12 +64,18 @@ void main() {
 
     // 4. Cultural Emoji Reactions (REQ-TRK-06)
     expect(find.byType(EmojiReactionDeck), findsOneWidget);
-    expect(find.text('🔥'), findsOneWidget);
-    expect(find.text('❤️'), findsOneWidget);
+    expect(find.byKey(const Key('reaction_fire')), findsOneWidget);
+    expect(find.byKey(const Key('reaction_love')), findsOneWidget);
 
     // 5. Amplitude Waveform Scrubber (REQ-TRK-07)
     expect(find.byType(WaveformScrubber), findsOneWidget);
-    expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(WaveformScrubber),
+        matching: find.byIcon(Icons.play_circle_fill_rounded),
+      ),
+      findsOneWidget,
+    );
 
     // 6. Lyrics Teleprompter (REQ-TRK-08)
     expect(find.byType(LyricsTeleprompter), findsOneWidget);
@@ -112,8 +118,8 @@ void main() {
     // Tap Like within TrackActionsBar
     final likeButton = find.descendant(
       of: find.byType(TrackActionsBar),
-      matching: find.byIcon(Icons.favorite_rounded),
-    );
+      matching: find.byType(InkWell),
+    ).first;
     await tester.tap(likeButton);
     await tester.pumpAndSettle();
 
@@ -127,11 +133,7 @@ void main() {
     );
 
     // Tap Like again to re-like
-    final unlikedButton = find.descendant(
-      of: find.byType(TrackActionsBar),
-      matching: find.byIcon(Icons.favorite_border_rounded),
-    );
-    await tester.tap(unlikedButton);
+    await tester.tap(likeButton);
     await tester.pumpAndSettle();
 
     // Tally back to 1 in TrackActionsBar

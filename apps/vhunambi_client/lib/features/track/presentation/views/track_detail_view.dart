@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -10,6 +11,8 @@ import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../../../../shared/models/track.dart';
+import '../../../collections/domain/models/collection_entity.dart';
+import '../../../collections/presentation/providers/collections_provider.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../mastering/presentation/providers/mastering_session_provider.dart';
 import '../../../mastering/presentation/views/desktop_mastering_studio_view.dart';
@@ -19,6 +22,9 @@ import '../../../offline/presentation/providers/offline_providers.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../../player/presentation/widgets/stem_mixer_deck.dart';
 import '../../../profile/presentation/views/artist_profile_view.dart';
+import '../../../social/domain/models/video_export_job.dart';
+import '../../../social/presentation/providers/creator_wallet_provider.dart';
+import '../../../social/presentation/widgets/video_export_modal.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import '../../domain/models/track_detail_models.dart';
 import '../providers/track_providers.dart';
@@ -108,13 +114,26 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
   }
 
   void _showTipModal(TrackDetailEntity track) {
+    // Resolve whether this track belongs to a multi-collaborator collection
+    final collections = ref.read(collectionsProvider);
+    CollectionEntity? matchedCollection;
+    for (final col in collections) {
+      if (col.trackIds.contains(track.id)) {
+        matchedCollection = col;
+        break;
+      }
+    }
+
+    final hasSplit =
+        matchedCollection != null && matchedCollection.isSplitBalanced;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surfaceModal,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (modalCtx) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
           child: Column(
@@ -123,28 +142,48 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
             children: [
               Row(
                 children: [
-                  const Icon(
-                    Icons.monetization_on_rounded,
+                  const PhosphorIcon(
+                    PhosphorIconsRegular.coin,
                     color: AppColors.coinGold,
                     size: 24,
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    'Tip ${track.creatorName}',
-                    style: AppTypography.titleMedium.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tip ${track.creatorName}',
+                          style: AppTypography.titleMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (hasSplit && matchedCollection != null)
+                          Text(
+                            'Split Sheet: ${matchedCollection.title} (${matchedCollection.participants.length} Collaborators)',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.brandPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const PhosphorIcon(PhosphorIconsRegular.x, size: 20),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    onPressed: () => Navigator.of(modalCtx).pop(),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
-                'Show support for this musical generation. Credits go directly to the creator.',
+                hasSplit
+                    ? 'Tips are automatically split across collaborators according to the signed project split sheet.'
+                    : 'Show support for this musical generation. Credits go directly to the creator.',
                 style: AppTypography.caption.copyWith(
                   color: AppColors.textSecondary,
                 ),
@@ -158,7 +197,7 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                       backgroundColor: AppColors.surfaceElevated,
                       foregroundColor: AppColors.coinGold,
                       side: BorderSide(color: AppColors.coinGold.withAlpha(90)),
-                      shape: RoundedRectangleBorder(
+                      shape: const RoundedRectangleBorder(
                         borderRadius: AppRadius.pillBorder,
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -166,20 +205,56 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                         vertical: 12,
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Tipped $credits credits to ${track.creatorName}! 🪙',
+                    onPressed: () async {
+                      Navigator.of(modalCtx).pop();
+                      final ok = await ref
+                          .read(creatorWalletProvider.notifier)
+                          .distributeTrackTip(
+                            trackId: track.id,
+                            trackTitle: track.title,
+                            creatorId: track.creatorId,
+                            creatorName: track.creatorName,
+                            credits: credits,
+                            collection: matchedCollection,
+                          );
+
+                      if (!mounted) return;
+                      if (ok) {
+                        final splitMsg = hasSplit
+                            ? ' Split across ${matchedCollection!.participants.length} collaborators!'
+                            : '';
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Tipped $credits credits to ${track.creatorName}!$splitMsg',
+                            ),
+                            backgroundColor: AppColors.surfaceElevated,
                           ),
-                          backgroundColor: AppColors.surfaceElevated,
-                        ),
-                      );
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Insufficient coin balance to send tip.',
+                            ),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                      }
                     },
-                    child: Text(
-                      '⚡ $credits',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const PhosphorIcon(
+                          PhosphorIconsRegular.lightning,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$credits',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
                   );
                 }).toList(),
@@ -204,7 +279,9 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
               const SizedBox(width: 8),
               Text(
                 'Download Audio',
-                style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -212,9 +289,18 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                title: const Text('MP3 (320 kbps)', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('High-quality stereo stream', style: TextStyle(color: AppColors.textSecondary)),
-                trailing: const Icon(Icons.download_rounded, color: AppColors.brandPrimary),
+                title: const Text(
+                  'MP3 (320 kbps)',
+                  style: TextStyle(color: Colors.white),
+                ),
+                subtitle: const Text(
+                  'High-quality stereo stream',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+                trailing: const Icon(
+                  Icons.download_rounded,
+                  color: AppColors.brandPrimary,
+                ),
                 onTap: () {
                   Navigator.of(context).pop();
                   final libTrack = LibraryTrack(
@@ -228,19 +314,32 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                         'https://cdn.vhunambi.com/audio/${track.id}.mp3',
                     createdAt: DateTime.now(),
                   );
-                  ref.read(downloadManagerProvider.notifier).downloadTrack(
-                    libTrack,
-                    quality: AudioDownloadQuality.mp3HighQuality,
-                  );
+                  ref
+                      .read(downloadManagerProvider.notifier)
+                      .downloadTrack(
+                        libTrack,
+                        quality: AudioDownloadQuality.mp3HighQuality,
+                      );
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Downloading "${track.title}.mp3"...')),
+                    SnackBar(
+                      content: Text('Downloading "${track.title}.mp3"...'),
+                    ),
                   );
                 },
               ),
               ListTile(
-                title: const Text('WAV (Lossless 24-bit)', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('Studio master audio', style: TextStyle(color: AppColors.textSecondary)),
-                trailing: const Icon(Icons.download_rounded, color: AppColors.brandPrimary),
+                title: const Text(
+                  'WAV (Lossless 24-bit)',
+                  style: TextStyle(color: Colors.white),
+                ),
+                subtitle: const Text(
+                  'Studio master audio',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+                trailing: const Icon(
+                  Icons.download_rounded,
+                  color: AppColors.brandPrimary,
+                ),
                 onTap: () {
                   Navigator.of(context).pop();
                   final libTrack = LibraryTrack(
@@ -254,12 +353,16 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                         'https://cdn.vhunambi.com/audio/${track.id}.wav',
                     createdAt: DateTime.now(),
                   );
-                  ref.read(downloadManagerProvider.notifier).downloadTrack(
-                    libTrack,
-                    quality: AudioDownloadQuality.wavLossless,
-                  );
+                  ref
+                      .read(downloadManagerProvider.notifier)
+                      .downloadTrack(
+                        libTrack,
+                        quality: AudioDownloadQuality.wavLossless,
+                      );
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Downloading "${track.title}.wav"...')),
+                    SnackBar(
+                      content: Text('Downloading "${track.title}.wav"...'),
+                    ),
                   );
                 },
               ),
@@ -270,8 +373,21 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
     );
   }
 
+  void _openVideoExport(TrackDetailEntity track) {
+    final job = VideoExportJob(
+      id: 'job_${track.id}',
+      title: track.title,
+      creatorHandle: track.creatorHandle,
+      genre: track.genre,
+      audioPath: 'https://cdn.vhunambi.com/audio/${track.id}.mp3',
+      durationSec: track.duration.inSeconds.toDouble(),
+    );
+    VideoExportModal.show(context, job: job);
+  }
+
   void _copyEmbedCode(TrackDetailEntity track) {
-    final embed = '<iframe src="https://vhunambi.com/embed/${track.id}" width="100%" height="160" frameborder="0"></iframe>';
+    final embed =
+        '<iframe src="https://vhunambi.com/embed/${track.id}" width="100%" height="160" frameborder="0"></iframe>';
     Clipboard.setData(ClipboardData(text: embed));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Embed snippet copied to clipboard! 📋')),
@@ -293,7 +409,10 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
         preferredSize: Size.fromHeight(
           VhunambiTopBarMetrics.totalHeight(context),
         ),
-        child: _TrackDetailAppBar(track: track, showStickyTitle: _showStickyTitle),
+        child: _TrackDetailAppBar(
+          track: track,
+          showStickyTitle: _showStickyTitle,
+        ),
       ),
       body: SafeArea(
         child: Center(
@@ -309,9 +428,8 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                     onTapCreator: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => ArtistProfileView(
-                            artistId: track.creatorId,
-                          ),
+                          builder: (context) =>
+                              ArtistProfileView(artistId: track.creatorId),
                         ),
                       );
                     },
@@ -324,7 +442,9 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                     track: track,
                     onToggleLike: () {
                       ref
-                          .read(trackDetailFamilyProvider(widget.trackId).notifier)
+                          .read(
+                            trackDetailFamilyProvider(widget.trackId).notifier,
+                          )
                           .toggleLike();
                     },
                     onRemix: () => _handleRemix(track),
@@ -335,13 +455,16 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                   UtilityToolDock(
                     track: track,
                     onDownload: () => _showDownloadDialog(track),
+                    onExportVideo: () => _openVideoExport(track),
                     onAddToPlaylist: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Added to My Playlist ✨')),
                       );
                     },
                     onStartRadio: () {
-                      ref.read(playerStateProvider.notifier).playTrack(
+                      ref
+                          .read(playerStateProvider.notifier)
+                          .playTrack(
                             Track(
                               id: track.id,
                               title: track.title,
@@ -352,7 +475,11 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                             ),
                           );
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Radio station started: ${track.genre}')),
+                        SnackBar(
+                          content: Text(
+                            'Radio station started: ${track.genre}',
+                          ),
+                        ),
                       );
                     },
                     onJumpToLyrics: () => _scrollToSection(_lyricsKey),
@@ -366,7 +493,9 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                     track: track,
                     onToggleReaction: (key) {
                       ref
-                          .read(trackDetailFamilyProvider(widget.trackId).notifier)
+                          .read(
+                            trackDetailFamilyProvider(widget.trackId).notifier,
+                          )
                           .toggleReaction(key);
                     },
                   ),
@@ -382,7 +511,9 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                       if (isPlayingThisTrack) {
                         ref.read(playerStateProvider.notifier).pause();
                       } else {
-                        ref.read(playerStateProvider.notifier).playTrack(
+                        ref
+                            .read(playerStateProvider.notifier)
+                            .playTrack(
                               Track(
                                 id: track.id,
                                 title: track.title,
@@ -407,22 +538,32 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                     stemState: track.stemState,
                     onSeparateStems: () {
                       ref
-                          .read(trackDetailFamilyProvider(widget.trackId).notifier)
+                          .read(
+                            trackDetailFamilyProvider(widget.trackId).notifier,
+                          )
                           .separateStems();
                     },
                     onToggleMuteStem: (id) {
                       ref
-                          .read(trackDetailFamilyProvider(widget.trackId).notifier)
+                          .read(
+                            trackDetailFamilyProvider(widget.trackId).notifier,
+                          )
                           .toggleMuteStem(id);
                     },
                     onToggleSoloStem: (id) {
                       ref
-                          .read(trackDetailFamilyProvider(widget.trackId).notifier)
+                          .read(
+                            trackDetailFamilyProvider(widget.trackId).notifier,
+                          )
                           .toggleSoloStem(id);
                     },
                     onDownloadStem: (stem) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Downloading stem: "${stem.name}.wav"...')),
+                        SnackBar(
+                          content: Text(
+                            'Downloading stem: "${stem.name}.wav"...',
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -442,18 +583,22 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                         ),
                       );
                     },
-                    icon: const Icon(Icons.tune_rounded,
-                        color: AppColors.brandPrimary),
+                    icon: const Icon(
+                      Icons.tune_rounded,
+                      color: AppColors.brandPrimary,
+                    ),
                     label: Text(
                       'Open Pocket Stem Mixer',
-                      style: AppTypography.bodyLarge
-                          .copyWith(color: AppColors.brandPrimary),
+                      style: AppTypography.bodyLarge.copyWith(
+                        color: AppColors.brandPrimary,
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppColors.brandPrimary),
                       minimumSize: const Size.fromHeight(48),
                       shape: const RoundedRectangleBorder(
-                          borderRadius: AppRadius.inputBorder),
+                        borderRadius: AppRadius.inputBorder,
+                      ),
                     ),
                   ),
 
@@ -496,18 +641,22 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                         );
                       }
                     },
-                    icon: const Icon(Icons.auto_awesome_rounded,
-                        color: AppColors.brandPrimary),
+                    icon: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: AppColors.brandPrimary,
+                    ),
                     label: Text(
                       '✨ Master Track (Studio Polisher)',
-                      style: AppTypography.bodyLarge
-                          .copyWith(color: AppColors.brandPrimary),
+                      style: AppTypography.bodyLarge.copyWith(
+                        color: AppColors.brandPrimary,
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppColors.brandPrimary),
                       minimumSize: const Size.fromHeight(48),
                       shape: const RoundedRectangleBorder(
-                          borderRadius: AppRadius.inputBorder),
+                        borderRadius: AppRadius.inputBorder,
+                      ),
                     ),
                   ),
 
@@ -547,7 +696,9 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                       );
                     },
                     onAuditionTrack: (selected) {
-                      ref.read(playerStateProvider.notifier).playTrack(
+                      ref
+                          .read(playerStateProvider.notifier)
+                          .playTrack(
                             Track(
                               id: selected.id,
                               title: selected.title,
@@ -619,15 +770,16 @@ class _TrackDetailAppBar extends StatelessWidget {
                                     key: const ValueKey('sticky-title'),
                                     track: track,
                                   )
-                                : const _BrandMark(
-                                    key: ValueKey('brand-mark'),
-                                  ),
+                                : const _BrandMark(key: ValueKey('brand-mark')),
                           );
                         },
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.share_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.share_rounded,
+                        color: Colors.white,
+                      ),
                       tooltip: 'Share',
                       onPressed: () {
                         Clipboard.setData(
@@ -701,9 +853,7 @@ class _StickyTrackTitle extends StatelessWidget {
           track.creatorName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppTypography.caption.copyWith(
-            color: AppColors.textSecondary,
-          ),
+          style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
         ),
       ],
     );

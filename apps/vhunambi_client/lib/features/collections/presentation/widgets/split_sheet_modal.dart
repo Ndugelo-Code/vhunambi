@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -125,10 +126,7 @@ class SplitSheetModal extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           if (participants.isEmpty)
-            Text(
-              'No collaborators added yet.',
-              style: AppTypography.bodyMuted,
-            )
+            Text('No collaborators added yet.', style: AppTypography.bodyMuted)
           else ...[
             const _ParticipantRow(
               name: 'Name',
@@ -171,9 +169,8 @@ class SplitSheetModal extends StatelessWidget {
               const SizedBox(width: AppSpacing.xs),
               ElevatedButton.icon(
                 key: const Key('split_sheet_copy'),
-                onPressed: () => Clipboard.setData(
-                  ClipboardData(text: summaryText),
-                ),
+                onPressed: () =>
+                    Clipboard.setData(ClipboardData(text: summaryText)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandPrimary,
                   foregroundColor: AppColors.brandContrast,
@@ -181,7 +178,7 @@ class SplitSheetModal extends StatelessWidget {
                     borderRadius: AppRadius.pillBorder,
                   ),
                 ),
-                icon: const Icon(Icons.copy_rounded, size: 16),
+                icon: const PhosphorIcon(PhosphorIconsRegular.copy, size: 16),
                 label: const Text('Copy to Clipboard'),
               ),
             ],
@@ -210,8 +207,9 @@ class _MetaRow extends StatelessWidget {
             width: 88,
             child: Text(
               label,
-              style:
-                  AppTypography.caption.copyWith(color: AppColors.textTertiary),
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textTertiary,
+              ),
             ),
           ),
           Expanded(
@@ -254,9 +252,7 @@ class _ParticipantRow extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.borderSubtle),
-        ),
+        border: Border(bottom: BorderSide(color: AppColors.borderSubtle)),
       ),
       child: Row(
         children: [

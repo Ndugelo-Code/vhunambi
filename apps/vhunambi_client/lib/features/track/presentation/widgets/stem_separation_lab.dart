@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/track_detail_models.dart';
 
-/// 4-Stem Separation Lab with FSM Progress & Stem Cards (REQ-TRK-09).
+/// 4-Stem Separation Lab with FSM Progress & Real Stem Controls (REQ-TRK-09 / STD-UIUX-001).
 class StemSeparationLab extends StatelessWidget {
   final StemSeparationState stemState;
   final VoidCallback onSeparateStems;
   final ValueChanged<String> onToggleMuteStem;
   final ValueChanged<String> onToggleSoloStem;
   final ValueChanged<StemTrackEntity>? onDownloadStem;
+  final VoidCallback? onOpenFullMixer;
 
   const StemSeparationLab({
     super.key,
@@ -19,6 +21,7 @@ class StemSeparationLab extends StatelessWidget {
     required this.onToggleMuteStem,
     required this.onToggleSoloStem,
     this.onDownloadStem,
+    this.onOpenFullMixer,
   });
 
   @override
@@ -48,10 +51,12 @@ class StemSeparationLab extends StatelessWidget {
                   color: AppColors.brandPrimary.withAlpha(25),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.layers_rounded,
-                  color: AppColors.brandPrimary,
-                  size: 20,
+                child: const Center(
+                  child: PhosphorIcon(
+                    PhosphorIconsRegular.stack,
+                    color: AppColors.brandPrimary,
+                    size: 20,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -81,7 +86,7 @@ class StemSeparationLab extends StatelessWidget {
                     backgroundColor: const Color(0xFF3A2508),
                     foregroundColor: AppColors.brandPrimary,
                     side: const BorderSide(color: AppColors.brandPrimary),
-                    shape: RoundedRectangleBorder(
+                    shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
                     ),
                     padding: const EdgeInsets.symmetric(
@@ -91,7 +96,7 @@ class StemSeparationLab extends StatelessWidget {
                     elevation: 0,
                   ),
                   onPressed: onSeparateStems,
-                  icon: const Icon(Icons.tune_rounded, size: 16),
+                  icon: const PhosphorIcon(PhosphorIconsRegular.sliders, size: 16),
                   label: const Text(
                     'Separate',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
@@ -163,6 +168,16 @@ class StemSeparationLab extends StatelessWidget {
             const Divider(color: AppColors.borderSubtle),
             const SizedBox(height: 12),
             ...stemState.stems.map((stem) => _buildStemCard(stem, context)),
+            if (onOpenFullMixer != null) ...[
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton.icon(
+                  onPressed: onOpenFullMixer,
+                  icon: const PhosphorIcon(PhosphorIconsRegular.faders, size: 16),
+                  label: const Text('Open Pocket Stem Mixer Deck'),
+                ),
+              ),
+            ],
           ],
         ],
       ),
@@ -192,16 +207,18 @@ class StemSeparationLab extends StatelessWidget {
           Container(
             width: 32,
             height: 32,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.surfaceElevated,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              _getStemIcon(stem.name),
-              size: 16,
-              color: stem.isMuted
-                  ? AppColors.textTertiary
-                  : AppColors.brandPrimary,
+            child: Center(
+              child: PhosphorIcon(
+                _getStemIcon(stem.name),
+                size: 16,
+                color: stem.isMuted
+                    ? AppColors.textTertiary
+                    : AppColors.brandPrimary,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -258,10 +275,10 @@ class StemSeparationLab extends StatelessWidget {
             iconSize: 20,
             padding: const EdgeInsets.all(10),
             constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            icon: Icon(
+            icon: PhosphorIcon(
               stem.isMuted
-                  ? Icons.volume_off_rounded
-                  : Icons.volume_up_rounded,
+                  ? PhosphorIconsRegular.speakerSlash
+                  : PhosphorIconsRegular.speakerHigh,
               color: stem.isMuted
                   ? AppColors.textTertiary
                   : AppColors.textSecondary,
@@ -276,8 +293,8 @@ class StemSeparationLab extends StatelessWidget {
             iconSize: 20,
             padding: const EdgeInsets.all(10),
             constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            icon: const Icon(
-              Icons.download_rounded,
+            icon: const PhosphorIcon(
+              PhosphorIconsRegular.downloadSimple,
               color: AppColors.textSecondary,
             ),
             onPressed: () => onDownloadStem?.call(stem),
@@ -289,9 +306,9 @@ class StemSeparationLab extends StatelessWidget {
 
   IconData _getStemIcon(String name) {
     final lower = name.toLowerCase();
-    if (lower.contains('vocal')) return Icons.mic_rounded;
-    if (lower.contains('drum')) return Icons.album_rounded;
-    if (lower.contains('bass')) return Icons.graphic_eq_rounded;
-    return Icons.piano_rounded;
+    if (lower.contains('vocal')) return PhosphorIconsRegular.microphone;
+    if (lower.contains('drum')) return PhosphorIconsRegular.disc;
+    if (lower.contains('bass')) return PhosphorIconsRegular.waveSine;
+    return PhosphorIconsRegular.pianoKeys;
   }
 }

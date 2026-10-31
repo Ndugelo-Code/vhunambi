@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -153,7 +154,7 @@ class CollectionDetailView extends ConsumerWidget {
         actions: [
           PopupMenuButton<String>(
             key: const Key('collection_detail_menu'),
-            icon: const Icon(Icons.more_vert_rounded),
+            icon: const PhosphorIcon(PhosphorIconsRegular.dotsThreeVertical),
             color: AppColors.surfaceModal,
             onSelected: (action) {
               if (action == 'rename') {
@@ -168,7 +169,7 @@ class CollectionDetailView extends ConsumerWidget {
                 value: 'rename',
                 child: Row(
                   children: [
-                    Icon(Icons.edit_rounded, size: 16),
+                    PhosphorIcon(PhosphorIconsRegular.pencilSimple, size: 16),
                     SizedBox(width: 8),
                     Text('Rename'),
                   ],
@@ -178,8 +179,8 @@ class CollectionDetailView extends ConsumerWidget {
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.delete_outline_rounded,
+                    PhosphorIcon(
+                      PhosphorIconsRegular.trash,
                       size: 16,
                       color: AppColors.error,
                     ),
@@ -502,7 +503,7 @@ class _CollectionTrackSection extends ConsumerWidget {
             context,
             collectionId: collection.id,
           ),
-          icon: const Icon(Icons.add_rounded, size: 18),
+          icon: const PhosphorIcon(PhosphorIconsRegular.plus, size: 18),
           label: const Text('+ Add Track from Library'),
         ),
       ],
@@ -545,8 +546,8 @@ class _CollectionTrackRow extends ConsumerWidget {
             children: [
               ReorderableDragStartListener(
                 index: index,
-                child: const Icon(
-                  Icons.drag_handle_rounded,
+                child: const PhosphorIcon(
+                  PhosphorIconsRegular.dotsSixVertical,
                   size: 18,
                   color: AppColors.textTertiary,
                 ),
@@ -588,8 +589,8 @@ class _CollectionTrackRow extends ConsumerWidget {
               const SizedBox(width: AppSpacing.xxs),
               IconButton(
                 key: Key('collection_remove_${track.id}'),
-                icon: const Icon(
-                  Icons.close_rounded,
+                icon: const PhosphorIcon(
+                  PhosphorIconsRegular.x,
                   size: 18,
                   color: AppColors.textTertiary,
                 ),
@@ -650,7 +651,9 @@ class _SplitParticipantsSection extends ConsumerWidget {
                     ),
                   ),
                   subtitle: Text(
-                    participant.role,
+                    participant.handle != null && participant.handle!.isNotEmpty
+                        ? '${participant.role} • ${participant.handle}'
+                        : participant.role,
                     style: AppTypography.caption.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -666,8 +669,8 @@ class _SplitParticipantsSection extends ConsumerWidget {
                       ),
                       IconButton(
                         key: Key('participant_edit_${participant.name}'),
-                        icon: const Icon(
-                          Icons.edit_rounded,
+                        icon: const PhosphorIcon(
+                          PhosphorIconsRegular.pencilSimple,
                           size: 16,
                           color: AppColors.textSecondary,
                         ),
@@ -680,8 +683,8 @@ class _SplitParticipantsSection extends ConsumerWidget {
                       ),
                       IconButton(
                         key: Key('participant_remove_${participant.name}'),
-                        icon: const Icon(
-                          Icons.close_rounded,
+                        icon: const PhosphorIcon(
+                          PhosphorIconsRegular.x,
                           size: 16,
                           color: AppColors.textTertiary,
                         ),
@@ -716,7 +719,7 @@ class _SplitParticipantsSection extends ConsumerWidget {
             context,
             collectionId: collection.id,
           ),
-          icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+          icon: const PhosphorIcon(PhosphorIconsRegular.userPlus, size: 18),
           label: const Text('+ Add Collaborator'),
         ),
       ],

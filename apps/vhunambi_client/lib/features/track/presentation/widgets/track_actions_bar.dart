@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/track_detail_models.dart';
 
-/// Primary Social Engagement Row: Like, Plays, Remix, Tip (REQ-TRK-04).
+/// Primary Social Engagement Row: Like, Plays, Remix, Tip (REQ-TRK-04 / STD-UIUX-001).
 class TrackActionsBar extends StatelessWidget {
   final TrackDetailEntity track;
   final VoidCallback onToggleLike;
@@ -33,7 +34,7 @@ class TrackActionsBar extends StatelessWidget {
             onTap: onToggleLike,
             borderRadius: AppRadius.pillBorder,
             child: Container(
-              constraints: const BoxConstraints(minHeight: 44),
+              constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
               alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -43,17 +44,15 @@ class TrackActionsBar extends StatelessWidget {
                 borderRadius: AppRadius.pillBorder,
                 border: Border.all(
                   color: track.isLiked
-                    ? AppColors.brandPrimary
-                    : AppColors.borderSubtle,
+                      ? AppColors.brandPrimary
+                      : AppColors.borderSubtle,
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    track.isLiked
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
+                  PhosphorIcon(
+                    track.isLiked ? PhosphorIconsFill.heart : PhosphorIconsRegular.heart,
                     color: track.isLiked ? AppColors.brandPrimary : Colors.white,
                     size: 18,
                   ),
@@ -83,8 +82,8 @@ class TrackActionsBar extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.play_arrow_rounded,
+                const PhosphorIcon(
+                  PhosphorIconsRegular.play,
                   color: AppColors.textSecondary,
                   size: 18,
                 ),
@@ -106,7 +105,7 @@ class TrackActionsBar extends StatelessWidget {
               backgroundColor: AppColors.surfaceElevated,
               foregroundColor: AppColors.brandPrimary,
               side: const BorderSide(color: AppColors.borderSubtle),
-              shape: RoundedRectangleBorder(
+              shape: const RoundedRectangleBorder(
                 borderRadius: AppRadius.pillBorder,
               ),
               minimumSize: const Size(0, 44),
@@ -114,7 +113,7 @@ class TrackActionsBar extends StatelessWidget {
               elevation: 0,
             ),
             onPressed: onRemix,
-            icon: const Icon(Icons.shuffle_rounded, size: 18),
+            icon: const PhosphorIcon(PhosphorIconsRegular.shuffle, size: 18),
             label: const Text(
               'Remix',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
@@ -127,7 +126,7 @@ class TrackActionsBar extends StatelessWidget {
               backgroundColor: AppColors.surfaceElevated,
               foregroundColor: AppColors.coinGold,
               side: BorderSide(color: AppColors.coinGold.withAlpha(90)),
-              shape: RoundedRectangleBorder(
+              shape: const RoundedRectangleBorder(
                 borderRadius: AppRadius.pillBorder,
               ),
               minimumSize: const Size(0, 44),
@@ -135,7 +134,7 @@ class TrackActionsBar extends StatelessWidget {
               elevation: 0,
             ),
             onPressed: onTip,
-            icon: const Icon(Icons.monetization_on_rounded, size: 18),
+            icon: const PhosphorIcon(PhosphorIconsRegular.coin, size: 18),
             label: const Text(
               'Tip',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),

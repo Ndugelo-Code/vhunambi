@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
@@ -11,11 +12,7 @@ class TrackHeroSection extends StatelessWidget {
   final TrackDetailEntity track;
   final VoidCallback? onTapCreator;
 
-  const TrackHeroSection({
-    super.key,
-    required this.track,
-    this.onTapCreator,
-  });
+  const TrackHeroSection({super.key, required this.track, this.onTapCreator});
 
   @override
   Widget build(BuildContext context) {
@@ -35,10 +32,7 @@ class TrackHeroSection extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: AppGradients.forGenre(track.genre),
             borderRadius: AppRadius.cardBorder,
-            border: Border.all(
-              color: AppColors.borderSubtle,
-              width: 1.5,
-            ),
+            border: Border.all(color: AppColors.borderSubtle, width: 1.5),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x3DF97316),
@@ -51,7 +45,7 @@ class TrackHeroSection extends StatelessWidget {
           child: Stack(
             children: [
               Center(
-                child: Icon(
+                child: PhosphorIcon(
                   _getGenreIcon(track.genre),
                   color: Colors.white.withAlpha(220),
                   size: artSize * 0.35,
@@ -61,7 +55,10 @@ class TrackHeroSection extends StatelessWidget {
                 bottom: 12,
                 left: 12,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withAlpha(160),
                     borderRadius: AppRadius.pillBorder,
@@ -87,10 +84,11 @@ class TrackHeroSection extends StatelessWidget {
         // Track Title
         Text(
           track.title,
-          style: (isDesktop
-                  ? AppTypography.displayMedium
-                  : AppTypography.titleLarge)
-              .copyWith(fontWeight: FontWeight.bold),
+          style:
+              (isDesktop
+                      ? AppTypography.displayMedium
+                      : AppTypography.titleLarge)
+                  .copyWith(fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -211,17 +209,17 @@ class TrackHeroSection extends StatelessWidget {
   IconData _getGenreIcon(String genre) {
     switch (genre.toLowerCase()) {
       case 'amapiano':
-        return Icons.piano_rounded;
+        return PhosphorIconsRegular.pianoKeys;
       case 'gqom':
-        return Icons.album_rounded;
+        return PhosphorIconsRegular.disc;
       case 'maskandi':
-        return Icons.music_note_rounded;
+        return PhosphorIconsRegular.guitar;
       case 'kwaito':
-        return Icons.speaker_group_rounded;
+        return PhosphorIconsRegular.speakerHigh;
       case 'afro house':
-        return Icons.graphic_eq_rounded;
+        return PhosphorIconsRegular.waveSine;
       default:
-        return Icons.headphones_rounded;
+        return PhosphorIconsRegular.headphones;
     }
   }
 }

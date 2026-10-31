@@ -950,6 +950,38 @@ Current gate benchmark: **0 analyzer issues** | **657+ tests passed (100%)**.
   - **Client Phase 27 Suite**: `flutter test test/features/studio/melody_sketchpad_provider_and_synth_test.dart test/features/studio/widgets/melody_sketchpad_modal_test.dart` = **10/10 tests passing 100%**.
   - **Client Full Suite**: `flutter test` = **1,152/1,152 tests passing 100% (0 regressions)**.
 
+### 11.12 Phase 34 (COMPLETE ✅): Track Details (/track/:id) & Collections Split-Sheet ZAR Royalty Convergence
+> Audit and converge Track Details cockpit (`TrackDetailView`) and Collections Split-Sheet engine (`CollectionDetailView`) so multi-collaborator songs automatically split incoming tips and beat license sales across each collaborator's `CreatorWallet` according to their signed Split Sheet.
+
+- **Specification & Artifacts**:
+  - Audit Report: [`docs/audits/TRACK_DETAILS_AND_COLLECTIONS_SPLIT_SHEET_AUDIT.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/TRACK_DETAILS_AND_COLLECTIONS_SPLIT_SHEET_AUDIT.md)
+  - Blueprint: [`docs/phases/phase_34_track_details_and_split_sheets/blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_34_track_details_and_split_sheets/blueprint.md)
+  - Requirements: [`docs/phases/phase_34_track_details_and_split_sheets/requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_34_track_details_and_split_sheets/requirements.md)
+  - Design: [`docs/phases/phase_34_track_details_and_split_sheets/design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_34_track_details_and_split_sheets/design.md)
+  - Tasks: [`docs/phases/phase_34_track_details_and_split_sheets/tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_34_track_details_and_split_sheets/tasks.md)
+
+- **Verified Deliverables**:
+  1. **Zero-Leakage Sovereign Split-Sheet Engine (`RoyaltyDistributionService`)**:
+     - Conserves 100% of gross funds ($\sum\% = 100\%$) across arbitrary collaborator splits.
+     - Exact 1-cent ZAR dust and integer Cultural Coin dust reconciled to primary project owner ($p_1$).
+     - Unbalanced split guard attributes 100% to primary owner with explicit error state, eliminating financial stalling.
+  2. **Track Tipping & Payout Multi-Collaborator Split (`CreatorWalletNotifier`)**:
+     - Added `distributeTrackTip(...)` and `distributeSplitPayout(...)` to `CreatorWalletNotifier`.
+     - Automatically looks up parent collection split sheets in `TrackDetailView` and writes itemized ledger transactions for each collaborator.
+  3. **Live DSP Stem Engine Integration (`StemSeparationLab` & `TrackDetailNotifier`)**:
+     - Retired Phase 7 mock timer FSM in favor of Phase 24's live `JustAudioMultiStemEngine` and `StemMixerNotifier`.
+     - Real stem URLs populated for Vocals, Drums, Bass, Instrumental with live mute and solo synchronization.
+  4. **Universal Design System Standardization (`STD-UIUX-001`)**:
+     - Migrated `EmojiReactionDeck` from raw Unicode emojis to soft rounded Phosphor vector icons with $\ge 44 \times 44\text{dp}$ touch boundaries.
+     - Modernized `TrackActionsBar`, `UtilityToolDock`, `StemSeparationLab`, `TrackHeroSection`, and `CollectionDetailView` to Phosphor iconography.
+     - Added 1-tap "Export Video Reel" tool chip invoking Phase 27's `VideoExportModal`.
+
+- **Verification Gates**:
+  - **Client Static Analysis**: `dart analyze lib/features/track lib/features/collections lib/features/social test/features/track test/features/collections` = **0 issues found (`No issues found!`)**.
+  - **Track & Split Integration Suite**: `flutter test test/features/track test/features/collections/domain/services/royalty_distribution_service_test.dart` = **23/23 tests passing 100%**.
+  - **Collections Suite**: `flutter test test/features/collections/` = **67/67 tests passing 100%**.
+
+
 
 
 

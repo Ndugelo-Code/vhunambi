@@ -46,9 +46,7 @@ void main() {
         addTearDown(handler.dispose);
 
         final container = ProviderContainer(
-          overrides: [
-            audioHandlerProvider.overrideWithValue(handler),
-          ],
+          overrides: [audioHandlerProvider.overrideWithValue(handler)],
         );
         addTearDown(container.dispose);
 
@@ -63,16 +61,9 @@ void main() {
               navigatorKey: appNavigatorKey,
               theme: AppTheme.darkTheme,
               builder: (context, child) {
-                return Stack(
-                  children: [
-                    ?child,
-                    const MiniPlayerHost(),
-                  ],
-                );
+                return Stack(children: [?child, const MiniPlayerHost()]);
               },
-              home: const Scaffold(
-                body: Center(child: Text('Home Content')),
-              ),
+              home: const Scaffold(body: Center(child: Text('Home Content'))),
             ),
           ),
         );
@@ -157,16 +148,9 @@ void main() {
               navigatorKey: appNavigatorKey,
               theme: AppTheme.darkTheme,
               builder: (context, child) {
-                return Stack(
-                  children: [
-                    ?child,
-                    const MiniPlayerHost(),
-                  ],
-                );
+                return Stack(children: [?child, const MiniPlayerHost()]);
               },
-              home: const Scaffold(
-                body: Center(child: Text('Screen Content')),
-              ),
+              home: const Scaffold(body: Center(child: Text('Screen Content'))),
             ),
           ),
         );
@@ -249,9 +233,7 @@ void main() {
         addTearDown(handler.dispose);
 
         final container = ProviderContainer(
-          overrides: [
-            audioHandlerProvider.overrideWithValue(handler),
-          ],
+          overrides: [audioHandlerProvider.overrideWithValue(handler)],
         );
         addTearDown(container.dispose);
 
@@ -263,15 +245,16 @@ void main() {
             child: MaterialApp(
               navigatorKey: appNavigatorKey,
               theme: AppTheme.darkTheme,
-              home: const Scaffold(
-                body: ExpandedCockpitModal(),
-              ),
+              home: const Scaffold(body: ExpandedCockpitModal()),
             ),
           ),
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('cockpit_waveform_scrubber')), findsOneWidget);
+        expect(
+          find.byKey(const Key('cockpit_waveform_scrubber')),
+          findsOneWidget,
+        );
 
         container.read(playerStateProvider.notifier).dismiss();
         await tester.pumpAndSettle();
@@ -289,9 +272,7 @@ void main() {
         addTearDown(handler.dispose);
 
         final container = ProviderContainer(
-          overrides: [
-            audioHandlerProvider.overrideWithValue(handler),
-          ],
+          overrides: [audioHandlerProvider.overrideWithValue(handler)],
         );
         addTearDown(container.dispose);
 
@@ -303,9 +284,7 @@ void main() {
             child: MaterialApp(
               navigatorKey: appNavigatorKey,
               theme: AppTheme.darkTheme,
-              home: const Scaffold(
-                body: ExpandedCockpitModal(),
-              ),
+              home: const Scaffold(body: ExpandedCockpitModal()),
             ),
           ),
         );
@@ -314,13 +293,19 @@ void main() {
         // 1. Master A/B Toggle
         final masterBtn = find.byKey(const Key('cockpit_master_ab_btn'));
         expect(masterBtn, findsOneWidget);
-        expect(container.read(masteringSessionProvider).isMasteredPreviewActive, isTrue);
+        expect(
+          container.read(masteringSessionProvider).isMasteredPreviewActive,
+          isTrue,
+        );
 
         await tester.ensureVisible(masterBtn);
         await tester.pumpAndSettle();
         await tester.tap(masterBtn);
         await tester.pumpAndSettle();
-        expect(container.read(masteringSessionProvider).isMasteredPreviewActive, isFalse);
+        expect(
+          container.read(masteringSessionProvider).isMasteredPreviewActive,
+          isFalse,
+        );
 
         // 2. Remix in Studio Button
         final remixBtn = find.byKey(const Key('cockpit_remix_studio_btn'));
@@ -333,7 +318,10 @@ void main() {
 
         // studioFormProvider was populated with active track's genre and remix prompt
         expect(container.read(studioFormProvider).genre, equals('Amapiano'));
-        expect(container.read(studioFormProvider).prompt, contains('Remix of Venda Midnight Groove'));
+        expect(
+          container.read(studioFormProvider).prompt,
+          contains('Remix of Venda Midnight Groove'),
+        );
 
         container.read(playerStateProvider.notifier).dismiss();
         await tester.pumpAndSettle();
@@ -351,9 +339,7 @@ void main() {
         addTearDown(handler.dispose);
 
         final container = ProviderContainer(
-          overrides: [
-            audioHandlerProvider.overrideWithValue(handler),
-          ],
+          overrides: [audioHandlerProvider.overrideWithValue(handler)],
         );
         addTearDown(container.dispose);
 
@@ -366,16 +352,9 @@ void main() {
               navigatorKey: appNavigatorKey,
               theme: AppTheme.darkTheme,
               builder: (context, child) {
-                return Stack(
-                  children: [
-                    ?child,
-                    const MiniPlayerHost(),
-                  ],
-                );
+                return Stack(children: [?child, const MiniPlayerHost()]);
               },
-              home: const Scaffold(
-                body: Center(child: Text('Content')),
-              ),
+              home: const Scaffold(body: Center(child: Text('Content'))),
             ),
           ),
         );

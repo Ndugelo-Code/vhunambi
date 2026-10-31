@@ -9,16 +9,18 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
-    test('initial state has default form=bar, mode=auto, position=Offset.zero',
-        () {
-      final controller = MiniPlayerController();
-      expect(controller.form, PlayerForm.bar);
-      expect(controller.mode, PlayerMode.auto);
-      expect(controller.position, Offset.zero);
-      expect(controller.isDragging, isFalse);
-      expect(controller.isNowPlayingOpen, isFalse);
-      expect(controller.obstacles.isEmpty, isTrue);
-    });
+    test(
+      'initial state has default form=bar, mode=auto, position=Offset.zero',
+      () {
+        final controller = MiniPlayerController();
+        expect(controller.form, PlayerForm.bar);
+        expect(controller.mode, PlayerMode.auto);
+        expect(controller.position, Offset.zero);
+        expect(controller.isDragging, isFalse);
+        expect(controller.isNowPlayingOpen, isFalse);
+        expect(controller.obstacles.isEmpty, isTrue);
+      },
+    );
 
     test('setForm changes form and notifies', () {
       final controller = MiniPlayerController();

@@ -222,9 +222,7 @@ class _PillFormState extends ConsumerState<PillForm>
                 ),
                 child: Center(
                   child: PhosphorIcon(
-                    playerState.isPlaying
-                        ? AppIcons.pause
-                        : AppIcons.play,
+                    playerState.isPlaying ? AppIcons.pause : AppIcons.play,
                     color: Colors.white,
                     size: 16,
                   ),
