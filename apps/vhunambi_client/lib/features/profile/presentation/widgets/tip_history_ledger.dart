@@ -36,7 +36,7 @@ class _TipHistoryLedgerState extends State<TipHistoryLedger> {
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 12),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.surfaceElevated,
         borderRadius: AppRadius.cardBorder,
@@ -53,15 +53,19 @@ class _TipHistoryLedgerState extends State<TipHistoryLedger> {
                 size: 20,
                 color: AppColors.coinGold,
               ),
-              const SizedBox(width: 10),
-              Text(
-                'Tip History',
-                style: AppTypography.titleMedium.copyWith(
-                  fontWeight: FontWeight.bold,
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  'Tip History',
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: AppSpacing.xs),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     'Tips on',
@@ -69,11 +73,14 @@ class _TipHistoryLedgerState extends State<TipHistoryLedger> {
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Switch.adaptive(
-                    value: widget.tipsEnabled,
-                    activeTrackColor: AppColors.brandPrimary,
-                    onChanged: widget.onToggleTips,
+                  const SizedBox(width: 4),
+                  Transform.scale(
+                    scale: 0.8,
+                    child: Switch.adaptive(
+                      value: widget.tipsEnabled,
+                      activeTrackColor: AppColors.brandPrimary,
+                      onChanged: widget.onToggleTips,
+                    ),
                   ),
                 ],
               ),
@@ -83,20 +90,28 @@ class _TipHistoryLedgerState extends State<TipHistoryLedger> {
           const SizedBox(height: 12),
 
           // Sub-Tab Switcher
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
-              _buildTabPill(
-                title: 'Received',
-                isSelected: _showReceived,
-                onTap: () => setState(() => _showReceived = true),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTabPill(
+                    title: 'Received',
+                    isSelected: _showReceived,
+                    onTap: () => setState(() => _showReceived = true),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildTabPill(
+                    title: 'Sent',
+                    isSelected: !_showReceived,
+                    onTap: () => setState(() => _showReceived = false),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              _buildTabPill(
-                title: 'Sent',
-                isSelected: !_showReceived,
-                onTap: () => setState(() => _showReceived = false),
-              ),
-              const Spacer(),
               Text(
                 'Total: ⚡ $totalCredits',
                 style: const TextStyle(

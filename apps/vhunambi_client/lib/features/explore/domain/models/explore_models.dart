@@ -13,6 +13,22 @@ enum ExploreSortBy {
   mostLiked,
 }
 
+/// In-modal TikTok filter tabs for Kinetic Reels (REQ-EXP-REEL-TABS-01).
+enum ReelFeedTab {
+  trending,
+  forYou,
+  following,
+  newest,
+}
+
+/// Category tabs for the dedicated TikTok search view (REQ-EXP-SEARCH-05).
+enum ExploreSearchCategory {
+  top,
+  songs,
+  reels,
+  creators,
+}
+
 /// Public creator identity rendered by the Explore Featured Creators deck.
 /// Reference: `docs/phases/phase_05_explore_feed/design.md` §1.2
 @immutable

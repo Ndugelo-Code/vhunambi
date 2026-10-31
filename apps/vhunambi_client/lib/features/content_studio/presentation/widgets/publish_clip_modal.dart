@@ -5,9 +5,12 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../providers/content_studio_provider.dart';
+import '../../../../shared/models/track.dart';
+import '../../../explore/domain/models/social_music_post.dart';
+import '../../../explore/presentation/providers/explore_providers.dart';
 import '../../../social/domain/models/published_clip.dart';
 import '../../../social/presentation/providers/stem_remix_provider.dart';
+import '../providers/content_studio_provider.dart';
 
 /// In-house "Publish to Profile" dialog (REQ-SOC-01 / REQ-SOC-02 / Phase D).
 ///
@@ -66,7 +69,9 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
     final navigator = Navigator.of(context);
     final remixContext = ref.read(stemRemixProvider);
 
-    final clip = ref.read(contentStudioProvider.notifier).publishClipToProfile(
+    final clip = ref
+        .read(contentStudioProvider.notifier)
+        .publishClipToProfile(
           caption: _captionController.text.trim(),
           tags: _selectedTags.toList(),
           visibility: _visibility,
@@ -83,6 +88,41 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
       );
       return;
     }
+
+    // Close FINDING-EXP-005: inject published creation into Explore Social Feed
+    ref
+        .read(socialFeedPostsProvider.notifier)
+        .addPost(
+          SocialMusicPost(
+            id: 'post_${clip.id}',
+            creatorId: clip.creatorId,
+            creatorName: clip.creatorDisplayName,
+            creatorHandle: '@${clip.creatorUsername}',
+            creatorAvatarUrl: clip.creatorAvatarUrl,
+            isCreatorVerified: clip.isCreatorVerified,
+            publishedAt: clip.publishedAt,
+            location: 'South Africa',
+            caption: clip.caption.isNotEmpty
+                ? clip.caption
+                : 'New track drop 🔥',
+            track: Track(
+              id: clip.trackId,
+              title: clip.title,
+              creatorName: clip.creatorDisplayName,
+              creatorHandle: '@${clip.creatorUsername}',
+              genre: clip.genre,
+              duration: Duration(seconds: clip.dna.musical.durationSec),
+              audioUrl: clip.audioUrl,
+              coverUrl: clip.coverUrl,
+              isNew: true,
+            ),
+            likeCount: 0,
+            commentCount: 0,
+            remixCount: 0,
+            tipCountCoins: 0,
+            isFollowingCreator: false,
+          ),
+        );
 
     if (remixContext != null) {
       ref.read(stemRemixProvider.notifier).clearRemix();
@@ -131,10 +171,16 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Publish to Vhunambi Profile', style: AppTypography.titleLarge),
+              Text(
+                'Publish to Vhunambi Profile',
+                style: AppTypography.titleLarge,
+              ),
               IconButton(
                 key: const Key('publish_modal_close'),
-                icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: AppColors.textSecondary,
+                ),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
@@ -189,14 +235,24 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
                       minLines: 2,
                       style: AppTypography.bodyLarge,
                       decoration: InputDecoration(
-                        hintText: "What's this song about?",
-                        hintStyle: AppTypography.bodyMuted,
-                        filled: true,
-                        fillColor: AppColors.surfaceSecondary,
-                        border: const OutlineInputBorder(
-                          borderRadius: AppRadius.inputBorder,
-                          borderSide: BorderSide.none,
+                        hintText:
+                            'Describe this reel or credit collaborators...',
+                        hintStyle: AppTypography.bodyLarge.copyWith(
+                          color: AppColors.textSecondary,
                         ),
+                        border: OutlineInputBorder(
+                          borderRadius: AppRadius.inputBorder,
+                          borderSide: const BorderSide(
+                            color: AppColors.borderSubtle,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: AppRadius.inputBorder,
+                          borderSide: const BorderSide(
+                            color: AppColors.brandPrimary,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.all(AppSpacing.sm),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
@@ -229,8 +285,11 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
                 child: ElevatedButton.icon(
                   key: const Key('publish_reel_btn'),
                   onPressed: _publish,
-                  icon: const Icon(Icons.rocket_launch_rounded,
-                      color: AppColors.brandContrast, size: 18),
+                  icon: const Icon(
+                    Icons.rocket_launch_rounded,
+                    color: AppColors.brandContrast,
+                    size: 18,
+                  ),
                   label: Text(
                     'Publish Reel',
                     style: AppTypography.bodyLarge.copyWith(
@@ -262,8 +321,11 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
         height: 88 * 16 / 9,
         decoration: BoxDecoration(gradient: AppGradients.forGenre(genre)),
         child: coverUrl == null
-            ? const Icon(Icons.music_note_rounded,
-                color: AppColors.textPrimary, size: 32)
+            ? const Icon(
+                Icons.music_note_rounded,
+                color: AppColors.textPrimary,
+                size: 32,
+              )
             : Image.network(
                 coverUrl,
                 fit: BoxFit.cover,
@@ -309,8 +371,7 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
             label: 'Followers',
             icon: Icons.lock_outline_rounded,
             selected: _visibility == ClipVisibility.followers,
-            onTap: () =>
-                setState(() => _visibility = ClipVisibility.followers),
+            onTap: () => setState(() => _visibility = ClipVisibility.followers),
           ),
         ),
       ],

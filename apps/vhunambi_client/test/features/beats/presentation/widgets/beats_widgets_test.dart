@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/beats/domain/models/producer_beat_entity.dart';
 import 'package:vhunambi_client/features/beats/presentation/providers/beats_provider.dart';
@@ -103,7 +104,7 @@ void main() {
       expect(find.text('@you • 4/4 stems'), findsOneWidget);
       expect(find.text('⚡ 10 Cr • 2 Sold'), findsOneWidget);
       expect(find.text('Published'), findsOneWidget);
-      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+      expect(find.byIcon(AppIcons.play), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('beat_play_beat_1')));
       await tester.pump();
@@ -159,7 +160,7 @@ void main() {
         ),
       );
 
-      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+      expect(find.byIcon(AppIcons.pause), findsOneWidget);
       expect(find.text('Draft'), findsOneWidget);
       expect(find.text('Publish to Marketplace'), findsNothing);
     });

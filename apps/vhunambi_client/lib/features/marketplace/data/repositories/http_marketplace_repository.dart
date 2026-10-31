@@ -286,19 +286,22 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
       } catch (_) {}
     }
 
+    final certPayload = {
+      'id': 'CERT-VHB-${beatId.toUpperCase()}',
+      'certificateId': 'CERT-VHB-${beatId.toUpperCase()}',
+      'beatId': beatId,
+      'buyerId': buyerId,
+      'licenseType': tier == 'exclusive'
+          ? 'Exclusive Commercial Master License'
+          : 'Non-Exclusive Commercial Lease',
+      'licenseHash': 'hash_simulated_${DateTime.now().millisecondsSinceEpoch}',
+      'tier': tier,
+      'amountPaidCoins': (beat?.priceInCredits ?? 10) * 5,
+    };
+
     return {
-      'certificate': {
-        'id': 'CERT-VHB-${beatId.toUpperCase()}',
-        'certificateId': 'CERT-VHB-${beatId.toUpperCase()}',
-        'beatId': beatId,
-        'buyerId': buyerId,
-        'licenseType': tier == 'exclusive'
-            ? 'Exclusive Commercial Master License'
-            : 'Non-Exclusive Commercial Lease',
-        'licenseHash': 'hash_simulated_${DateTime.now().millisecondsSinceEpoch}',
-        'tier': tier,
-        'amountPaidCoins': (beat?.priceInCredits ?? 10) * 5,
-      },
+      ...certPayload,
+      'certificate': certPayload,
     };
   }
 

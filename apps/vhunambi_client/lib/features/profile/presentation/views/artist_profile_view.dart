@@ -6,6 +6,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/utils/creator_id_utils.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../../player/presentation/providers/player_provider.dart';
@@ -14,6 +15,13 @@ import '../../../social/domain/models/published_clip.dart';
 import '../../../social/presentation/providers/creator_clips_provider.dart';
 import '../../../social/presentation/widgets/creator_reel_thumbnail_card.dart';
 import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
+import '../../../social/presentation/widgets/creator_tipping_sheet.dart';
+import '../../../marketplace/presentation/providers/marketplace_providers.dart';
+import '../../../marketplace/presentation/widgets/beat_license_modal.dart';
+import '../widgets/producer_beat_listing_tile.dart';
+import '../../../creator_dna/presentation/widgets/creator_dna_profile_card.dart';
+import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
+import '../widgets/artist_voice_showcase_card.dart';
 import '../providers/profile_providers.dart';
 import '../../domain/models/profile_models.dart';
 import '../../domain/models/profile_operation_type.dart';
@@ -35,97 +43,12 @@ class ArtistProfileView extends ConsumerWidget {
     required this.artistId,
   });
 
-  void _showTipDialog(BuildContext context, WidgetRef ref, String artistName) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.monetization_on_rounded,
-                    color: AppColors.coinGold,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Tip $artistName',
-                    style: AppTypography.titleMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Show direct appreciation. 100% of credits support this creator.',
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [10, 25, 50, 100].map((credits) {
-                  return ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.surfaceElevated,
-                      foregroundColor: AppColors.coinGold,
-                      side: BorderSide(color: AppColors.coinGold.withAlpha(90)),
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: AppRadius.pillBorder,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                    onPressed: () {
-                      ref
-                          .read(profileOperationProvider(artistId).notifier)
-                          .tipArtist(credits);
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Tipped $credits credits to $artistName! 🪙'),
-                          backgroundColor: AppColors.surfaceElevated,
-                        ),
-                      );
-                    },
-                    child: Text(
-                      '⚡ $credits',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(artistProfileFamilyProvider(artistId));
     final opState = ref.watch(profileOperationProvider(artistId));
     final clips =
-        ref.watch(creatorClipsFamilyProvider('creator_${profile.id}'));
+        ref.watch(creatorClipsFamilyProvider(normalizeCreatorId(profile.id)));
 
     // Listen for mutation errors to display snackbars
     ref.listen<ProfileOperationState>(profileOperationProvider(artistId), (previous, current) {
@@ -245,8 +168,13 @@ class ArtistProfileView extends ConsumerWidget {
                         onToggleFollow: () => ref
                             .read(profileOperationProvider(artistId).notifier)
                             .toggleFollow(),
-                        onTipArtist: () =>
-                            _showTipDialog(context, ref, profile.displayName),
+                        onTipArtist: () => CreatorTippingSheet.show(
+                          context,
+                          creatorId: profile.id,
+                          creatorName: profile.displayName,
+                          creatorUsername: profile.username,
+                          creatorAvatarUrl: profile.avatarUrl,
+                        ),
                         onShare: () {
                           Clipboard.setData(ClipboardData(
                             text:
@@ -292,7 +220,13 @@ class ArtistProfileView extends ConsumerWidget {
                     context,
                     ref,
                     profile,
-                    () => _showTipDialog(context, ref, profile.displayName),
+                    () => CreatorTippingSheet.show(
+                      context,
+                      creatorId: profile.id,
+                      creatorName: profile.displayName,
+                      creatorUsername: profile.username,
+                      creatorAvatarUrl: profile.avatarUrl,
+                    ),
                   ),
                 ],
               ),
@@ -517,9 +451,28 @@ class ArtistProfileView extends ConsumerWidget {
 
   Widget _discographyTab(
       BuildContext context, WidgetRef ref, ArtistProfileEntity profile) {
+    final artistDna =
+        profile.creatorDna ?? ref.watch(artistDnaFamilyProvider(profile.id));
+
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
+        // 1. Sovereign Bantu Voice Identity Showcase (Phase 30 REQ-PROF-VOICE-01)
+        ArtistVoiceShowcaseCard(
+          artistName: profile.displayName,
+          vocalArchetypeTitle: profile.vocalArchetypeTitle,
+          vocalArchetypeLanguage: profile.vocalArchetypeLanguage,
+          vocalSampleUrl: profile.vocalSampleUrl,
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // 2. Scoped Creator DNA Profile Card (Phase 30 REQ-PROF-DNA-01)
+        CreatorDnaProfileCard(
+          isOwner: false,
+          customDna: artistDna,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+
         Text('Top Songs',
             style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: AppSpacing.sm),
@@ -569,11 +522,66 @@ class ArtistProfileView extends ConsumerWidget {
 
   Widget _beatsCommunityTab(BuildContext context, WidgetRef ref,
       ArtistProfileEntity profile, VoidCallback onTip) {
+    final beats = ref.watch(creatorBeatsFamilyProvider(profile.id));
+    final currentTrack = ref.watch(playerStateProvider).currentTrack;
+
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
-        _BeatLicenseCard(profile: profile),
-        const SizedBox(height: AppSpacing.md),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.storefront_rounded,
+                    color: AppColors.brandPrimary, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Beats & Stems',
+                  style: AppTypography.titleMedium
+                      .copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            Text(
+              '${beats.length} available',
+              style: AppTypography.caption
+                  .copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (beats.isEmpty)
+          Container(
+            key: const Key('artist_profile_empty_beats'),
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: AppRadius.cardBorder,
+              border: Border.all(color: AppColors.borderSubtle),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.music_off_rounded,
+                    size: 32, color: AppColors.textSecondary),
+                const SizedBox(height: 8),
+                Text(
+                  'No beats listed yet by this producer.',
+                  style: AppTypography.bodyMuted,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          )
+        else
+          for (final beat in beats)
+            ProducerBeatListingTile(
+              beat: beat,
+              isPlaying: currentTrack?.id == beat.id,
+              onAudition: () => auditionBeat(ref, beat),
+              onLicense: () => showBeatLicenseModal(context, beat),
+            ),
+        const SizedBox(height: AppSpacing.lg),
         TopSupportersLeaderboard(
           supporters: profile.topSupporters,
           onTipFirst: onTip,
@@ -677,61 +685,5 @@ class _ReleaseRow extends StatelessWidget {
   }
 }
 
-class _BeatLicenseCard extends StatelessWidget {
-  final ArtistProfileEntity profile;
-  const _BeatLicenseCard({required this.profile});
-
-  @override
-  Widget build(BuildContext context) {
-    final genres = profile.topGenres.isEmpty
-        ? const ['Amapiano']
-        : profile.topGenres;
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.storefront_rounded,
-                  color: AppColors.brandPrimary, size: 20),
-              const SizedBox(width: 8),
-              Text('Beats & Stems',
-                  style: AppTypography.titleMedium
-                      .copyWith(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text('License commercial beats and stem packs from ${profile.displayName}.',
-              style: AppTypography.bodyMuted),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.xs,
-            children: [
-              for (final genre in genres)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceSecondary,
-                    borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: AppColors.borderSubtle),
-                  ),
-                  child: Text('#$genre',
-                      style: AppTypography.caption
-                          .copyWith(color: AppColors.brandPrimary)),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 

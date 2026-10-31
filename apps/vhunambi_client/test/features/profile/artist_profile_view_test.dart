@@ -6,6 +6,7 @@ import 'package:vhunambi_client/features/profile/presentation/views/artist_profi
 import 'package:vhunambi_client/features/profile/presentation/widgets/profile_banner_header.dart';
 import 'package:vhunambi_client/features/profile/presentation/widgets/profile_stats_grid.dart';
 import 'package:vhunambi_client/features/profile/presentation/widgets/top_supporters_leaderboard.dart';
+import 'package:vhunambi_client/features/social/presentation/widgets/creator_tipping_sheet.dart';
 
 Future<void> _pumpArtistProfile(
   WidgetTester tester, {
@@ -89,7 +90,7 @@ void main() {
     expect(find.text('Follow'), findsOneWidget);
   });
 
-  testWidgets('ArtistProfileView opens tip modal when Tip Artist pressed',
+  testWidgets('ArtistProfileView opens cultural tipping sheet when Tip Artist pressed',
       (WidgetTester tester) async {
     await _pumpArtistProfile(tester);
 
@@ -99,8 +100,9 @@ void main() {
     await tester.tap(tipButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('Tip Fifi'), findsOneWidget);
-    expect(find.text('⚡ 10'), findsOneWidget);
-    expect(find.text('⚡ 25'), findsOneWidget);
+    expect(find.byType(CreatorTippingSheet), findsOneWidget);
+    expect(find.text('Support @fifi'), findsOneWidget);
+    expect(find.byKey(const Key('tip_coin_balance')), findsOneWidget);
+    expect(find.byKey(const Key('tip_send_btn')), findsOneWidget);
   });
 }

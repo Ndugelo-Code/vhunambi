@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -141,13 +143,85 @@ class MiniPlayerController extends ChangeNotifier {
   /// [screenSize] is used to position the bar above bottom navigation.
   void _recalculateAutoPosition([Size? screenSize]) {
     if (_mode != PlayerMode.auto || _form != PlayerForm.bar) return;
-    // Position above bottom navigation, centered horizontally.
-    // Bar is ~280dp wide, sits ~108dp from bottom (68 bar + 40 nav margin).
     if (screenSize != null) {
-      _position = Offset(
-        (screenSize.width - 280) / 2,
-        screenSize.height - 108,
+      double targetY = screenSize.height - 128.0;
+
+      // Inspect registered obstacles intersecting bottom dock zone
+      final dockObstacles = _obstacles.values.where(
+        (rect) => rect.bottom > screenSize.height - 240,
       );
+      if (dockObstacles.isNotEmpty) {
+        final highestTop = dockObstacles.map((o) => o.top).reduce((a, b) => a < b ? a : b);
+        targetY = (highestTop - 64.0 - 8.0).clamp(8.0, targetY);
+      }
+
+      _position = Offset(8.0, targetY);
+    }
+  }
+
+  /// Clamps manual drag position to safe screen boundaries.
+  Offset clampedPosition(Size screenSize, double bottomSafeArea, [double topSafeArea = 0.0]) {
+    final double formWidth = switch (_form) {
+      PlayerForm.bar => screenSize.width - 16.0,
+      PlayerForm.card => 128.0,
+      PlayerForm.pill => 160.0,
+    };
+    final double formHeight = switch (_form) {
+      PlayerForm.bar => 64.0,
+      PlayerForm.card => 128.0,
+      PlayerForm.pill => 48.0,
+    };
+
+    const minX = 8.0;
+    final maxX = (screenSize.width - formWidth - 8.0).clamp(minX, double.infinity);
+    final minY = topSafeArea + 8.0;
+    final maxY = (screenSize.height - formHeight - bottomSafeArea - 8.0).clamp(minY, double.infinity);
+
+    return Offset(
+      _position.dx.clamp(minX, maxX),
+      _position.dy.clamp(minY, maxY),
+    );
+  }
+
+  /// Calculates target position for auto mode given screen geometry and registered obstacles.
+  Offset calculateAutoPosition({
+    required Size screenSize,
+    required double bottomSafeArea,
+  }) {
+    if (_mode == PlayerMode.manual) {
+      return clampedPosition(screenSize, bottomSafeArea);
+    }
+
+    switch (_form) {
+      case PlayerForm.bar:
+        // Base docked position: 8dp above bottom navigation bar (56dp + bottomSafeArea)
+        final defaultDockBottom = 56.0 + bottomSafeArea + 8.0;
+        double targetY = screenSize.height - defaultDockBottom - 64.0;
+
+        // Obstacle avoidance: if any registered obstacle intersects the bottom area
+        final dockObstacles = _obstacles.values.where(
+          (rect) => rect.bottom > screenSize.height - 240,
+        );
+        if (dockObstacles.isNotEmpty) {
+          final highestTop = dockObstacles.map((o) => o.top).reduce((a, b) => a < b ? a : b);
+          targetY = min(targetY, highestTop - 64.0 - 8.0).clamp(8.0, targetY);
+        }
+
+        return Offset(8.0, targetY);
+
+      case PlayerForm.card:
+        // Snapped to bottom right edge
+        return Offset(
+          screenSize.width - 128.0 - 16.0,
+          screenSize.height - (56.0 + bottomSafeArea + 16.0 + 128.0),
+        );
+
+      case PlayerForm.pill:
+        // Floating pill centered horizontally above the dock
+        return Offset(
+          (screenSize.width - 160.0) / 2,
+          screenSize.height - (56.0 + bottomSafeArea + 12.0 + 48.0),
+        );
     }
   }
 
@@ -224,6 +298,7 @@ class MiniPlayerController extends ChangeNotifier {
       // Silently ignore persistence failures.
     }
   }
+
   @override
   void dispose() {
     _isDisposed = true;

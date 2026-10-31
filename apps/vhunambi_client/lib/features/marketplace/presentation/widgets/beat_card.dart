@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
@@ -91,8 +93,8 @@ class BeatCard extends ConsumerWidget {
                     color: AppColors.brandPrimary,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  child: PhosphorIcon(
+                    isPlaying ? AppIcons.pause : AppIcons.play,
                     size: 20,
                     color: AppColors.brandContrast,
                   ),
@@ -130,8 +132,8 @@ class BeatCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.xxs),
-            const Icon(
-              Icons.verified_rounded,
+            const PhosphorIcon(
+              AppIcons.verified,
               size: 12,
               color: AppColors.badgeCyan,
             ),

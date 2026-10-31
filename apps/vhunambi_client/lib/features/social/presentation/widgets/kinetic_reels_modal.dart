@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
@@ -19,6 +21,10 @@ import '../../../player/presentation/widgets/stem_mixer_deck.dart';
 import 'reels_comment_sheet.dart';
 import 'creator_tipping_sheet.dart';
 import 'remix_attribution_badge.dart';
+import '../../../explore/domain/models/explore_models.dart';
+import '../../../explore/presentation/providers/explore_providers.dart';
+import '../../../explore/presentation/views/explore_search_view.dart';
+import '../../../profile/presentation/views/artist_profile_view.dart';
 
 /// Full-screen vertical "Kinetic Reels" feed (REQ-SOC-11, REQ-SOC-26, Phase A).
 ///
@@ -108,9 +114,48 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
     );
   }
 
+  List<PublishedClip> _resolveClipsForTab(
+    ReelFeedTab tab,
+    Set<String> followingIds,
+  ) {
+    final source = widget.clips;
+    switch (tab) {
+      case ReelFeedTab.trending:
+        return [...source]..sort((a, b) => b.likeCount.compareTo(a.likeCount));
+      case ReelFeedTab.forYou:
+        return source;
+      case ReelFeedTab.following:
+        final filtered = source
+            .where((c) => followingIds.contains(c.creatorId))
+            .toList();
+        return filtered.isNotEmpty ? filtered : source;
+      case ReelFeedTab.newest:
+        return [...source]
+          ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+    }
+  }
+
+  void _handleTabSelected(ReelFeedTab tab) {
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
+    final followingIds = ref.read(followingCreatorIdsProvider);
+    final nextClips = _resolveClipsForTab(tab, followingIds);
+    _onPageChanged(0);
+    if (nextClips.isNotEmpty) {
+      unawaited(
+        ref.read(reelAudioPoolProvider.notifier).onPageChanged(0, nextClips),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (widget.clips.isEmpty) {
+    final activeTab = ref.watch(activeReelTabProvider);
+    final followingIds = ref.watch(followingCreatorIdsProvider);
+    final displayClips = _resolveClipsForTab(activeTab, followingIds);
+
+    if (displayClips.isEmpty) {
       return const Scaffold(
         backgroundColor: AppColors.surfaceCanvas,
         body: Center(child: Text('No clips to show yet')),
@@ -121,14 +166,22 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
       body: PageView.builder(
         controller: _pageController,
         scrollDirection: Axis.vertical,
-        onPageChanged: _onPageChanged,
-        itemCount: widget.clips.length,
+        onPageChanged: (i) {
+          _onPageChanged(i);
+          unawaited(
+            ref
+                .read(reelAudioPoolProvider.notifier)
+                .onPageChanged(i, displayClips),
+          );
+        },
+        itemCount: displayClips.length,
         itemBuilder: (context, i) {
-          final clip = widget.clips[i];
+          final clip = displayClips[i];
           return _ReelPage(
             clip: clip,
             isActive: i == _currentIndex,
             onShare: () => _share(clip),
+            onSelectTab: _handleTabSelected,
           );
         },
       ),
@@ -140,11 +193,13 @@ class _ReelPage extends ConsumerStatefulWidget {
   final PublishedClip clip;
   final bool isActive;
   final VoidCallback onShare;
+  final void Function(ReelFeedTab)? onSelectTab;
 
   const _ReelPage({
     required this.clip,
     required this.isActive,
     required this.onShare,
+    this.onSelectTab,
   });
 
   @override
@@ -337,8 +392,8 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                   color: AppColors.surfaceCanvas,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
+                child: const PhosphorIcon(
+                  AppIcons.play,
                   color: AppColors.brandPrimary,
                   size: 44,
                 ),
@@ -366,22 +421,84 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                     AppColors.brandPrimary,
                   ),
                 ),
-                Padding(
+                Container(
+                  key: const Key('reels_modal_top_bar'),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceModal.withValues(alpha: 0.65),
                   ),
                   child: Row(
                     children: [
                       if (Navigator.of(context).canPop())
-                        IconButton(
-                          key: const Key('reel_close_btn'),
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(
-                            Icons.arrow_back_rounded,
-                            color: AppColors.textPrimary,
+                        SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: IconButton(
+                            key: const Key('reel_close_btn'),
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const PhosphorIcon(
+                              AppIcons.arrowLeft,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
+                      const Spacer(),
+                      _ReelTopFilterTab(
+                        tab: ReelFeedTab.trending,
+                        label: 'Trending',
+                        key: const Key('reels_modal_tab_trending'),
+                        onSelect: widget.onSelectTab,
+                      ),
+                      _ReelTopFilterTab(
+                        tab: ReelFeedTab.forYou,
+                        label: 'For You',
+                        key: const Key('reels_modal_tab_for_you'),
+                        onSelect: widget.onSelectTab,
+                      ),
+                      _ReelTopFilterTab(
+                        tab: ReelFeedTab.following,
+                        label: 'Following',
+                        key: const Key('reels_modal_tab_following'),
+                        onSelect: widget.onSelectTab,
+                      ),
+                      _ReelTopFilterTab(
+                        tab: ReelFeedTab.newest,
+                        label: 'Newest',
+                        key: const Key('reels_modal_tab_newest'),
+                        onSelect: widget.onSelectTab,
+                      ),
+                      const Spacer(),
+                      SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: IconButton(
+                          key: const Key('reels_modal_search_btn'),
+                          icon: const PhosphorIcon(
+                            AppIcons.search,
+                            color: AppColors.textPrimary,
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ExploreSearchView(),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    children: [
                       const Spacer(),
                       Container(
                         key: const Key('reel_dna_badge'),
@@ -397,10 +514,10 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
+                            PhosphorIcon(
                               isPlaying
-                                  ? Icons.graphic_eq_rounded
-                                  : Icons.pause_circle_outline_rounded,
+                                  ? AppIcons.waveform
+                                  : AppIcons.pauseOutline,
                               size: 14,
                               color: AppColors.brandPrimary,
                             ),
@@ -435,8 +552,8 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                     child: Transform.scale(
                       scale: _heartScale.value,
                       child: _burstEmoji == '❤️'
-                          ? const Icon(
-                              Icons.favorite_rounded,
+                          ? const PhosphorIcon(
+                              AppIcons.heart,
                               color: AppColors.brandPrimary,
                               size: 110,
                             )
@@ -471,24 +588,35 @@ class _ReelPageState extends ConsumerState<_ReelPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  Text(
-                    '@${clip.creatorUsername}',
-                    style: AppTypography.bodyLarge.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
+              GestureDetector(
+                key: ValueKey('reels_modal_creator_link_${clip.id}'),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ArtistProfileView(artistId: clip.creatorId),
                     ),
-                  ),
-                  if (clip.isCreatorVerified) ...[
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.verified_rounded,
-                      color: AppColors.brandPrimary,
-                      size: 16,
+                  );
+                },
+                child: Row(
+                  children: [
+                    Text(
+                      '@${clip.creatorUsername}',
+                      style: AppTypography.bodyLarge.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                    if (clip.isCreatorVerified) ...[
+                      const SizedBox(width: 4),
+                      const PhosphorIcon(
+                        AppIcons.verified,
+                        color: AppColors.brandPrimary,
+                        size: 16,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
               if (clip.isRemix) ...[
                 const SizedBox(height: 6),
@@ -592,9 +720,7 @@ class _ActionRailState extends State<_ActionRail> {
               ),
             _RailButton(
               key: const Key('reel_like_btn'),
-              icon: clip.isLikedByMe
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
+              icon: clip.isLikedByMe ? AppIcons.heart : AppIcons.heartOutline,
               color: clip.isLikedByMe
                   ? AppColors.brandPrimary
                   : AppColors.textPrimary,
@@ -608,7 +734,7 @@ class _ActionRailState extends State<_ActionRail> {
             const SizedBox(height: 18),
             _RailButton(
               key: const Key('reel_comment_btn'),
-              icon: Icons.mode_comment_outlined,
+              icon: AppIcons.chat,
               color: AppColors.textPrimary,
               label: '${clip.commentCount}',
               onTap: () {
@@ -619,7 +745,7 @@ class _ActionRailState extends State<_ActionRail> {
             const SizedBox(height: 18),
             _RailButton(
               key: const Key('reel_tip_btn'),
-              icon: Icons.monetization_on_rounded,
+              icon: AppIcons.coin,
               color: AppColors.coinGold,
               label: 'Tip',
               onTap: () {
@@ -630,7 +756,7 @@ class _ActionRailState extends State<_ActionRail> {
             const SizedBox(height: 18),
             _RailButton(
               key: const Key('reel_share_btn'),
-              icon: Icons.reply_rounded,
+              icon: AppIcons.share,
               color: AppColors.textPrimary,
               label: 'Share',
               onTap: () {
@@ -641,7 +767,7 @@ class _ActionRailState extends State<_ActionRail> {
             const SizedBox(height: 18),
             _RailButton(
               key: const Key('reel_remix_btn'),
-              icon: Icons.alt_route_rounded,
+              icon: AppIcons.remix,
               color: AppColors.badgeCyan,
               label: 'Remix',
               onTap: () {
@@ -710,7 +836,7 @@ class _RailButton extends StatelessWidget {
       onLongPress: onLongPress,
       child: Column(
         children: [
-          Icon(icon, color: color, size: 30),
+          PhosphorIcon(icon, color: color, size: 30),
           const SizedBox(height: 4),
           Text(
             label,
@@ -744,8 +870,8 @@ class _SoundPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.music_note_rounded,
+            const PhosphorIcon(
+              AppIcons.songs,
               size: 14,
               color: AppColors.brandPrimary,
             ),
@@ -761,8 +887,8 @@ class _SoundPill extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(
-              Icons.album_rounded,
+            const PhosphorIcon(
+              AppIcons.disc,
               size: 14,
               color: AppColors.brandPrimary,
             ),
@@ -777,4 +903,56 @@ String formatLikes(int count) {
   if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
   if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
   return '$count';
+}
+
+class _ReelTopFilterTab extends ConsumerWidget {
+  final ReelFeedTab tab;
+  final String label;
+  final void Function(ReelFeedTab)? onSelect;
+
+  const _ReelTopFilterTab({
+    super.key,
+    required this.tab,
+    required this.label,
+    this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeTab = ref.watch(activeReelTabProvider);
+    final isActive = activeTab == tab;
+
+    return InkWell(
+      onTap: () {
+        ref.read(activeReelTabProvider.notifier).state = tab;
+        onSelect?.call(tab);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: AppTypography.bodySmall.copyWith(
+                color: isActive
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Container(
+              height: 2,
+              width: 18,
+              decoration: BoxDecoration(
+                color: isActive ? AppColors.brandPrimary : Colors.transparent,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design_system/services/haptics_service.dart';
 import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
 import '../../../../core/design_system/tokens/design_enums.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -85,6 +87,7 @@ class MobileMiniPlayer extends ConsumerWidget {
                   children: [
                     // Leading 44x44 album art (tap to expand).
                     GestureDetector(
+                      key: const Key('mini_player_art'),
                       onTap: onExpand,
                       child: Hero(
                         tag: 'now_playing_art_${track.id}',
@@ -95,8 +98,8 @@ class MobileMiniPlayer extends ConsumerWidget {
                             gradient: AppGradients.forGenre(track.genre),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(
-                            Icons.piano_rounded,
+                          child: const PhosphorIcon(
+                            AppIcons.piano,
                             color: Colors.white,
                             size: 22,
                           ),
@@ -141,7 +144,8 @@ class MobileMiniPlayer extends ConsumerWidget {
                   Semantics(
                     label: 'Skip previous track',
                     child: IconButton(
-                      icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 22),
+                      key: const Key('mini_player_prev'),
+                      icon: const PhosphorIcon(AppIcons.skipBack, color: Colors.white, size: 22),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                       onPressed: () {
@@ -162,10 +166,11 @@ class MobileMiniPlayer extends ConsumerWidget {
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
+                        key: const Key('mini_player_play_pause'),
                         icon: Icon(
                           playerState.isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
+                              ? AppIcons.pause
+                              : AppIcons.play,
                           color: _contrastTextColor(accent),
                           size: 22,
                         ),
@@ -182,7 +187,8 @@ class MobileMiniPlayer extends ConsumerWidget {
                   Semantics(
                     label: 'Skip next track',
                     child: IconButton(
-                      icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 22),
+                      key: const Key('mini_player_next'),
+                      icon: const PhosphorIcon(AppIcons.skipForward, color: Colors.white, size: 22),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                       onPressed: () {

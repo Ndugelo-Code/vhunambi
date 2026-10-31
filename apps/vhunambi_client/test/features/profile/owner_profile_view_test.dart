@@ -51,6 +51,10 @@ void main() {
     expect(find.text('ZaYN'), findsOneWidget);
     expect(find.text('🌐 Public'), findsNWidgets(2));
 
+    // Switch to Releases segment (Phase 30 REQ-PROF-STUDIO-01)
+    await tester.tap(find.byKey(const Key('owner_studio_tab_releases')));
+    await tester.pumpAndSettle();
+
     // 5. Discography Releases Manager
     expect(find.byType(ReleasesManagerCard), findsOneWidget);
     expect(find.text('Discography Releases'), findsOneWidget);

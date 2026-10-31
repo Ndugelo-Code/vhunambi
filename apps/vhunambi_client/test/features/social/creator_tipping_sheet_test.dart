@@ -50,7 +50,7 @@ void main() {
 
     expect(find.text('Support @makhadzi'), findsOneWidget);
     expect(find.byKey(const Key('tip_coin_balance')), findsOneWidget);
-    expect(find.textContaining('🪙 250'), findsOneWidget);
+    expect(find.text('250'), findsOneWidget);
     expect(find.text('Cowrie Shell (Mbaḓi)'), findsOneWidget);
     expect(find.text('Royal Venda Crown (Khare)'), findsOneWidget);
   });

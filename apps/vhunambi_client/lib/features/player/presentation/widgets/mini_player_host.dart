@@ -7,6 +7,7 @@ import '../../domain/models/player_state.dart';
 import '../providers/mini_player_controller.dart';
 import '../providers/player_provider.dart';
 import 'card_form.dart';
+import 'expanded_cockpit_modal.dart';
 import 'mobile_mini_player.dart';
 import 'pill_form.dart';
 
@@ -53,47 +54,41 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     final controller = ref.watch(miniPlayerControllerProvider);
     final playerState = ref.watch(playerStateProvider);
     final screenSize = MediaQuery.sizeOf(context);
+    final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
 
-    // Hide on desktop (DesktopTransportBar handles desktop layout).
-    if (ResponsiveUtils.isDesktop(context)) {
-      return const SizedBox.shrink();
-    }
-
-    // Hide during onboarding, splash, auth, or Now Playing.
-    if (_shouldHide(context, controller)) {
-      return const SizedBox.shrink();
-    }
-
-    // Hide when no active track.
-    if (!playerState.hasActiveTrack) {
-      return const SizedBox.shrink();
-    }
-
-    // Hide when keyboard is open.
-    final viewInsets = MediaQuery.of(context).viewInsets;
-    if (viewInsets.bottom > 0) {
+    // Hide during desktop, no active track, auth/onboarding, keyboard, or Now Playing
+    if (_shouldHide(context, controller, playerState)) {
       return const SizedBox.shrink();
     }
 
     // Scale feedback during hold gesture (1.03x).
     final dragScale = controller.isDragging ? kHoldGestureScale : 1.0;
 
+    // Calculate active target position based on mode, form, and obstacles
+    final activePosition = controller.calculateAutoPosition(
+      screenSize: screenSize,
+      bottomSafeArea: bottomSafeArea,
+    );
+
     return Material(
+      key: const Key('mini_player_host'),
       type: MaterialType.transparency,
       child: Stack(
         children: [
-          // Extreme zone highlights during drag.
+          // Extreme zone highlights during drag
           if (controller.isDragging) ...[
             _buildExtremeZoneHighlight(context, controller),
           ],
 
-          // Player form widget — animated positioned.
+          // Player form widget — animated positioned
           AnimatedPositioned(
             duration: _positionController.duration!,
             curve: Curves.easeOutCubic,
-            left: controller.position.dx,
-            top: controller.position.dy,
-            width: controller.form == PlayerForm.bar ? screenSize.width : null,
+            left: activePosition.dx,
+            top: activePosition.dy,
+            width: controller.form == PlayerForm.bar
+                ? (screenSize.width - 16.0)
+                : null,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onLongPressStart: _handleLongPressStart,
@@ -103,7 +98,7 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
                     .read(miniPlayerControllerProvider.notifier)
                     .endDrag(details.velocity.pixelsPerSecond, screenSize);
                 if (shouldDismiss) {
-                  // Fling dismiss: stop playback and clear track.
+                  // Fling dismiss: stop playback and clear track
                   HapticsService().mediumImpact();
                   await _dismissController.forward();
                   ref.read(playerStateProvider.notifier).dismiss();
@@ -113,7 +108,9 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
                 }
               },
               onTap: () {
+                HapticsService().lightImpact();
                 _recordGestureEvent('tap_expand');
+                ExpandedCockpitModal.show(context);
               },
               child: AnimatedBuilder(
                 animation: _morphController,
@@ -131,15 +128,36 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     );
   }
 
-  bool _shouldHide(BuildContext context, MiniPlayerController controller) {
-    final route = ModalRoute.of(context);
-    if (route == null) return true;
+  bool _shouldHide(
+    BuildContext context,
+    MiniPlayerController controller,
+    PlayerState playerState,
+  ) {
+    // Hide on desktop (DesktopTransportBar handles desktop layout).
+    if (ResponsiveUtils.isDesktop(context)) return true;
 
-    final routeName = route.settings.name;
-    return routeName == '/onboarding' ||
-        routeName == '/splash' ||
-        routeName == '/auth' ||
-        controller.isNowPlayingOpen;
+    // Hide when no active track.
+    if (!playerState.hasActiveTrack) return true;
+
+    // Hide when Now Playing cockpit is open.
+    if (controller.isNowPlayingOpen) return true;
+
+    // Hide when software keyboard is open.
+    final viewInsets = MediaQuery.of(context).viewInsets;
+    if (viewInsets.bottom > 0) return true;
+
+    // Safe route inspection: only hide if route exists AND is splash/onboarding/auth
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      final routeName = route.settings.name;
+      if (routeName == '/onboarding' ||
+          routeName == '/splash' ||
+          routeName == '/auth') {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   Widget _buildPlayerForm(
@@ -150,24 +168,27 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     final track = playerState.currentTrack;
     if (track == null) return const SizedBox.shrink();
 
+    void openCockpit() {
+      HapticsService().lightImpact();
+      _recordGestureEvent('tap_expand');
+      ExpandedCockpitModal.show(context);
+    }
+
     switch (controller.form) {
       case PlayerForm.bar:
         return MobileMiniPlayer(
-          onExpand: () {
-            _recordFormChange(controller, PlayerForm.bar);
-          },
+          key: const Key('mini_player_bar'),
+          onExpand: openCockpit,
         );
       case PlayerForm.card:
         return CardForm(
-          onExpand: () {
-            _recordFormChange(controller, PlayerForm.card);
-          },
+          key: const Key('mini_player_card'),
+          onExpand: openCockpit,
         );
       case PlayerForm.pill:
         return PillForm(
-          onExpand: () {
-            _recordFormChange(controller, PlayerForm.pill);
-          },
+          key: const Key('mini_player_pill'),
+          onExpand: openCockpit,
         );
     }
   }
@@ -187,24 +208,6 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
         .updateDrag(details.globalPosition);
   }
 
-  void _recordFormChange(
-    MiniPlayerController controller,
-    PlayerForm newForm,
-  ) {
-    final oldFormName = controller.form.toString().split('.').last;
-    final newFormName = newForm.toString().split('.').last;
-    if (oldFormName != newFormName) {
-      ref.read(miniPlayerControllerProvider.notifier).setForm(newForm);
-      final analytics = AnalyticsService();
-      analytics.record(PlayerFormChangedEvent(oldFormName, newFormName));
-    }
-  }
-
-  void _recordGestureEvent(String gestureType) {
-    final analytics = AnalyticsService();
-    analytics.record(PlayerGestureEvent(gestureType));
-  }
-
   Widget _buildExtremeZoneHighlight(
     BuildContext context,
     MiniPlayerController controller,
@@ -220,5 +223,10 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
         ),
       ),
     );
+  }
+
+  void _recordGestureEvent(String gestureType) {
+    final analytics = AnalyticsService();
+    analytics.record(PlayerGestureEvent(gestureType));
   }
 }

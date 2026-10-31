@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/design_system/theme/vhunambi_theme_extension.dart';
 import 'package:vhunambi_client/core/design_system/tokens/design_enums.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -52,8 +54,8 @@ class CardForm extends ConsumerWidget {
           children: [
             // Cover art gradient placeholder.
             const Center(
-              child: Icon(
-                Icons.piano_rounded,
+              child: PhosphorIcon(
+                AppIcons.piano,
                 size: 48,
                 color: Colors.white,
               ),
@@ -85,8 +87,8 @@ class CardForm extends ConsumerWidget {
                   children: [
                     Icon(
                       playerState.isPlaying
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
+                          ? AppIcons.pause
+                          : AppIcons.play,
                       color: Colors.white,
                       size: 16,
                     ),

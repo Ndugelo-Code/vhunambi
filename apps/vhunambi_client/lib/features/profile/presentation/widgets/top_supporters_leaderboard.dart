@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -30,7 +32,7 @@ class TopSupportersLeaderboard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Text('🏆', style: TextStyle(fontSize: 18)),
+              const PhosphorIcon(AppIcons.trophy, color: AppColors.coinGold, size: 20),
               const SizedBox(width: 8),
               Text(
                 'Top Supporters',
@@ -76,7 +78,14 @@ class TopSupportersLeaderboard extends StatelessWidget {
                         ),
                       ),
                       onPressed: onTipFirst,
-                      child: const Text('Tip Artist 🪙'),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Tip Artist'),
+                          SizedBox(width: 6),
+                          PhosphorIcon(AppIcons.coin, size: 16),
+                        ],
+                      ),
                     ),
                   ],
                 ],

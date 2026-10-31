@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -109,7 +111,7 @@ class _StemMixerDeckState extends ConsumerState<StemMixerDeck> {
             // Header & Transport
             Row(
               children: [
-                const Icon(Icons.tune_rounded, color: AppColors.brandPrimary),
+                const PhosphorIcon(AppIcons.beatstore, color: AppColors.brandPrimary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -141,8 +143,8 @@ class _StemMixerDeckState extends ConsumerState<StemMixerDeck> {
                       key: const Key('stem_mixer_play_pause_btn'),
                       icon: Icon(
                         isPlaying
-                            ? Icons.pause_circle_filled_rounded
-                            : Icons.play_circle_filled_rounded,
+                            ? AppIcons.pause
+                            : AppIcons.play,
                         color: AppColors.brandPrimary,
                         size: 28,
                       ),
@@ -207,8 +209,8 @@ class _StemMixerDeckState extends ConsumerState<StemMixerDeck> {
                           children: [
                             Icon(
                               isSynced
-                                  ? Icons.sync_rounded
-                                  : Icons.sync_problem_rounded,
+                                  ? AppIcons.remix
+                                  : PhosphorIconsRegular.warning,
                               size: 12,
                               color: color,
                             ),
@@ -262,8 +264,8 @@ class _StemMixerDeckState extends ConsumerState<StemMixerDeck> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.info_outline_rounded,
+                    const PhosphorIcon(
+                      AppIcons.info,
                       color: AppColors.accentGold,
                       size: 18,
                     ),
@@ -330,7 +332,16 @@ class _ChannelStrip extends ConsumerWidget {
         ),
         child: Column(
           children: [
-            Text(channel.emoji, style: const TextStyle(fontSize: 20)),
+            PhosphorIcon(
+              switch (channel.type) {
+                StemType.vocals => AppIcons.vocals,
+                StemType.drums => AppIcons.drums,
+                StemType.bass => AppIcons.piano,
+                StemType.melody => AppIcons.guitar,
+              },
+              size: 22,
+              color: AppColors.brandPrimary,
+            ),
             Text(
               channel.name,
               textAlign: TextAlign.center,
@@ -525,8 +536,8 @@ class _MasterDspSection extends ConsumerWidget {
       children: [
         Row(
           children: [
-            const Icon(
-              Icons.graphic_eq_rounded,
+            const PhosphorIcon(
+              AppIcons.waveform,
               color: AppColors.coinGold,
               size: 18,
             ),
@@ -628,8 +639,8 @@ class _MasterDspSection extends ConsumerWidget {
               borderRadius: AppRadius.inputBorder,
             ),
           ),
-          icon: const Icon(
-            Icons.download_rounded,
+          icon: const PhosphorIcon(
+            AppIcons.download,
             color: AppColors.brandContrast,
           ),
           label: Text(
@@ -678,11 +689,11 @@ class _MasterDspSection extends ConsumerWidget {
             ),
           ),
           icon: const Icon(
-            Icons.auto_awesome_rounded,
+            AppIcons.sparkle,
             color: AppColors.brandPrimary,
           ),
           label: Text(
-            '✨ Master Track (Studio Polisher)',
+            'Master Track (Studio Polisher)',
             style: AppTypography.bodyLarge.copyWith(
               color: AppColors.brandPrimary,
               fontWeight: FontWeight.bold,
@@ -706,7 +717,7 @@ class _MasterDspSection extends ConsumerWidget {
                 );
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Listed "$beatTitle" in your Beats Vault! 💰'),
+                content: Text('Listed "$beatTitle" in your Beats Vault!'),
                 backgroundColor: AppColors.success,
               ),
             );
@@ -719,11 +730,11 @@ class _MasterDspSection extends ConsumerWidget {
             ),
           ),
           icon: const Icon(
-            Icons.monetization_on_rounded,
+            AppIcons.coin,
             color: AppColors.coinGold,
           ),
           label: Text(
-            '💰 List in Beatstore',
+            'List in Beatstore',
             style: AppTypography.bodyLarge.copyWith(
               color: AppColors.coinGold,
               fontWeight: FontWeight.bold,

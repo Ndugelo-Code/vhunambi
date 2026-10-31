@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../providers/creator_dna_provider.dart';
+import '../../domain/entities/creator_dna_profile.dart';
 import 'dna_genre_badge.dart';
 import 'dna_strength_meter.dart';
 
@@ -12,15 +13,14 @@ import 'dna_strength_meter.dart';
 /// and self-sovereign reset controls.
 class CreatorDnaProfileCard extends ConsumerWidget {
   final bool isOwner;
+  final CreatorDnaProfile? customDna;
 
-  const CreatorDnaProfileCard({
-    super.key,
-    this.isOwner = true,
-  });
+  const CreatorDnaProfileCard({super.key, this.isOwner = true, this.customDna});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dna = ref.watch(creatorDnaProvider);
+    final CreatorDnaProfile dna =
+        customDna ?? ref.watch(creatorDnaProvider);
 
     return Container(
       key: const Key('creator_dna_profile_card'),
@@ -37,19 +37,25 @@ class CreatorDnaProfileCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Text('🧬', style: TextStyle(fontSize: 20)),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Creator DNA',
-                    style: AppTypography.titleMedium.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
+              Expanded(
+                child: Row(
+                  children: [
+                    const Text('🧬', style: TextStyle(fontSize: 20)),
+                    const SizedBox(width: AppSpacing.sm),
+                    Flexible(
+                      child: Text(
+                        'Creator DNA',
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.titleMedium.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: AppSpacing.xs),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -75,10 +81,16 @@ class CreatorDnaProfileCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Sound Signature Attunement',
-                style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+              Expanded(
+                child: Text(
+                  'Sound Signature Attunement',
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ),
+              const SizedBox(width: AppSpacing.xs),
               Text(
                 '${dna.strengthPercent}%',
                 style: AppTypography.bodySmall.copyWith(
@@ -117,16 +129,20 @@ class CreatorDnaProfileCard extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: _buildSpecTile('Rhythm', dna.tempoPreference.toUpperCase()),
+                child: _buildSpecTile(
+                  'Rhythm',
+                  dna.tempoPreference.toUpperCase(),
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
-                child: _buildSpecTile('Vocal Energy', dna.vocalEnergyPreference.toUpperCase()),
+                child: _buildSpecTile(
+                  'Vocal Energy',
+                  dna.vocalEnergyPreference.toUpperCase(),
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _buildSpecTile('Language', dna.primaryLanguage),
-              ),
+              Expanded(child: _buildSpecTile('Language', dna.primaryLanguage)),
             ],
           ),
 
@@ -138,12 +154,19 @@ class CreatorDnaProfileCard extends ConsumerWidget {
             // Privacy Guarantee & Reset Action
             Row(
               children: [
-                const Icon(Icons.lock_outline, size: 14, color: AppColors.success),
+                const Icon(
+                  Icons.lock_outline,
+                  size: 14,
+                  color: AppColors.success,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     'Stored 100% locally on your device',
-                    style: AppTypography.caption.copyWith(color: AppColors.textTertiary, fontSize: 10),
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textTertiary,
+                      fontSize: 10,
+                    ),
                   ),
                 ),
                 TextButton(
@@ -180,11 +203,21 @@ class CreatorDnaProfileCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              color: AppColors.textSecondary,
+            ),
+          ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -202,7 +235,10 @@ class CreatorDnaProfileCard extends ConsumerWidget {
           borderRadius: AppRadius.cardBorder,
           side: const BorderSide(color: AppColors.borderSubtle),
         ),
-        title: const Text('Reset Creator DNA?', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Reset Creator DNA?',
+          style: TextStyle(color: Colors.white),
+        ),
         content: const Text(
           'This will erase your on-device taste weights, prompt pre-fills, and telemetry log. This action cannot be undone.',
           style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
@@ -210,7 +246,10 @@ class CreatorDnaProfileCard extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
           ElevatedButton(
             key: const Key('confirm_reset_dna_button'),
@@ -219,7 +258,9 @@ class CreatorDnaProfileCard extends ConsumerWidget {
               await ref.read(creatorDnaProvider.notifier).resetDna();
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Creator DNA has been reset to defaults')),
+                  const SnackBar(
+                    content: Text('Creator DNA has been reset to defaults'),
+                  ),
                 );
               }
             },

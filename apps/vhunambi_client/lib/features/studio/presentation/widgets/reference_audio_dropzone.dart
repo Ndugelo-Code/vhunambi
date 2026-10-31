@@ -401,7 +401,7 @@ class _ReferenceAudioDropzoneState
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      'Choose a Beat as Backing Track',
+                      'Select Backing Beat',
                       style: AppTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.bold,
                       ),

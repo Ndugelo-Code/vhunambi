@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_assets.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -61,7 +63,7 @@ class LibraryAppBar extends ConsumerWidget {
                   const _AnalyticsButton(),
                   const SizedBox(width: AppSpacing.xxs),
                   _HeaderIconButton(
-                    icon: Icons.storage_rounded,
+                    icon: PhosphorIconsRegular.hardDrives,
                     tooltip: 'Vault Storage Quota',
                     onPressed: () => VaultStorageModal.show(context),
                   ),
@@ -116,8 +118,8 @@ class LibraryAppBar extends ConsumerWidget {
               width: 30,
               height: 30,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => const Icon(
-                Icons.music_note_rounded,
+              errorBuilder: (context, error, stackTrace) => const PhosphorIcon(
+                AppIcons.songs,
                 size: 18,
                 color: AppColors.brandContrast,
               ),
@@ -429,10 +431,10 @@ class _OverflowMenu extends ConsumerWidget {
   }
 
   static IconData _sortIcon(LibrarySortOrder order) => switch (order) {
-        LibrarySortOrder.newestFirst => Icons.schedule_rounded,
-        LibrarySortOrder.oldestFirst => Icons.history_rounded,
-        LibrarySortOrder.titleAscending => Icons.sort_by_alpha_rounded,
-        LibrarySortOrder.mostPlayed => Icons.local_fire_department_rounded,
+        LibrarySortOrder.newestFirst => PhosphorIconsRegular.clock,
+        LibrarySortOrder.oldestFirst => PhosphorIconsRegular.clockCounterClockwise,
+        LibrarySortOrder.titleAscending => AppIcons.sort,
+        LibrarySortOrder.mostPlayed => AppIcons.flame,
       };
 
   static String _sortLabel(LibrarySortOrder order) => switch (order) {

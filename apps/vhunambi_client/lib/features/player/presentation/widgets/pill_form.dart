@@ -46,10 +46,16 @@ class _PillFormState extends ConsumerState<PillForm>
 
   void _startAmplitudeSampling() {
     _amplitudeTimer?.cancel();
-    _amplitudeTimer = Timer.periodic(
-      const Duration(milliseconds: 33),
-      (_) => _sampleAmplitude(),
-    );
+    _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      final isPlaying = ref.read(playerStateProvider).isPlaying;
+      if (!isPlaying) {
+        if (mounted && _currentAmplitude != 0.3) {
+          setState(() => _currentAmplitude = 0.3);
+        }
+        return;
+      }
+      _sampleAmplitude();
+    });
   }
 
   void _sampleAmplitude() {
@@ -131,9 +137,11 @@ class _PillFormState extends ConsumerState<PillForm>
     final accent = _dominantColor ?? extension.genreAccent(genre);
 
     final glowColor = accent.withValues(alpha: 0.2 + (_currentAmplitude * 0.3));
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     return GestureDetector(
+      
       onTap: widget.onExpand,
       child: Container(
         width: 160,
@@ -141,10 +149,7 @@ class _PillFormState extends ConsumerState<PillForm>
         decoration: BoxDecoration(
           color: AppColors.surfaceElevated.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: accent.withValues(alpha: 0.3),
-            width: 1.5,
-          ),
+          border: Border.all(color: accent.withValues(alpha: 0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
               color: glowColor,
@@ -212,47 +217,45 @@ class _PillFormState extends ConsumerState<PillForm>
     final normalized = genre.trim().toLowerCase();
     return switch (normalized) {
       'amapiano' => const LinearGradient(
-          colors: [Color(0xFFF97316), Color(0xFFEA580C)],
-        ),
+        colors: [Color(0xFFF97316), Color(0xFFEA580C)],
+      ),
       'afro house' => const LinearGradient(
-          colors: [Color(0xFFEA580C), Color(0xFFF59E0B)],
-        ),
+        colors: [Color(0xFFEA580C), Color(0xFFF59E0B)],
+      ),
       'afrohouse' => const LinearGradient(
-          colors: [Color(0xFFEA580C), Color(0xFFF59E0B)],
-        ),
+        colors: [Color(0xFFEA580C), Color(0xFFF59E0B)],
+      ),
       'gqom' => const LinearGradient(
-          colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
-        ),
+        colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+      ),
       'kwaito' => const LinearGradient(
-          colors: [Color(0xFFDC2626), Color(0xFFB91C1C)],
-        ),
+        colors: [Color(0xFFDC2626), Color(0xFFB91C1C)],
+      ),
       'afro pop' => const LinearGradient(
-          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-        ),
+        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+      ),
       'afropop' => const LinearGradient(
-          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-        ),
+        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+      ),
       'afrobeats' => const LinearGradient(
-          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-        ),
+        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+      ),
       'afro beats' => const LinearGradient(
-          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-        ),
+        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+      ),
       'maskandi' => const LinearGradient(
-          colors: [Color(0xFF059669), Color(0xFF10B981)],
-        ),
+        colors: [Color(0xFF059669), Color(0xFF10B981)],
+      ),
       'hip hop' => const LinearGradient(
-          colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
-        ),
+        colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+      ),
       'hiphop' => const LinearGradient(
-          colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
-        ),
+        colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+      ),
       'gospel' => const LinearGradient(
-          colors: [Color(0xFF10B981), Color(0xFF34D399)],
-        ),
-      _ => const LinearGradient(
-          colors: [Color(0xFFF97316), Color(0xFFEA580C)],
-        ),
+        colors: [Color(0xFF10B981), Color(0xFF34D399)],
+      ),
+      _ => const LinearGradient(colors: [Color(0xFFF97316), Color(0xFFEA580C)]),
     };
   }
 }

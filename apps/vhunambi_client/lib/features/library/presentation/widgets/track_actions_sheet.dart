@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -326,44 +328,44 @@ class _TrackActionsLayout extends StatelessWidget {
 
               if (!isTrashed) ...[
                 _ActionTile(
-                  icon: Icons.play_arrow_rounded,
+                  icon: AppIcons.play,
                   label: 'Play Now',
                   subtitle: 'Load into the persistent player and start playback',
                   onTap: onPlayNow,
                 ),
                 _ActionTile(
-                  icon: Icons.movie_creation_rounded,
+                  icon: PhosphorIconsRegular.filmSlate,
                   label: 'Create 9:16 Lyric Reel',
                   subtitle: 'Launch kinetic typography studio & export reel',
                   onTap: onCreateLyricReel,
                 ),
                 _ActionTile(
                   key: const Key('track_action_list_in_beatstore'),
-                  icon: Icons.monetization_on_rounded,
+                  icon: AppIcons.coin,
                   label: '💰 List in Beatstore',
                   subtitle: 'Convert to sellable beat listing on the Beats Marketplace',
                   onTap: onListInBeatstore,
                 ),
                 _ActionTile(
-                  icon: Icons.info_outline_rounded,
+                  icon: AppIcons.info,
                   label: 'Song Details',
                   subtitle: 'Genre, language, plays, storage & license',
                   onTap: onSongDetails,
                 ),
                 _ActionTile(
-                  icon: Icons.playlist_add_rounded,
+                  icon: PhosphorIconsRegular.playlist,
                   label: 'Add to Playlist',
                   subtitle: 'Append to an existing or brand new playlist',
                   onTap: onAddToPlaylist,
                 ),
                 _ActionTile(
-                  icon: Icons.graphic_eq_rounded,
+                  icon: AppIcons.waveform,
                   label: 'Stem Separation',
                   subtitle: 'Split into Vocals, Drums, Bass & Other',
                   onTap: onStemSeparation,
                 ),
                 _ActionTile(
-                  icon: Icons.download_rounded,
+                  icon: AppIcons.download,
                   label: 'Download Offline',
                   subtitle: track.isOfflineAvailable
                       ? 'Cached in device vault • Tap to re-download'
@@ -372,26 +374,26 @@ class _TrackActionsLayout extends StatelessWidget {
                 ),
                 if (track.isOfflineAvailable)
                   _ActionTile(
-                    icon: Icons.delete_outline_rounded,
+                    icon: AppIcons.trash,
                     label: 'Remove Offline Download',
                     subtitle: 'Remove audio from local device storage',
                     onTap: onRemoveOffline,
                   ),
                 _ActionTile(
-                  icon: Icons.balance_rounded,
+                  icon: PhosphorIconsRegular.scales,
                   label: 'View Commercial License',
                   subtitle: '${track.licenseType} • ${track.licenseCertificateId}',
                   onTap: onViewLicense,
                 ),
                 _ActionTile(
-                  icon: Icons.link_rounded,
+                  icon: PhosphorIconsRegular.link,
                   label: 'Share Song',
                   subtitle: track.publicShareUrl,
                   onTap: onShare,
                 ),
                 const Divider(),
                 _ActionTile(
-                  icon: Icons.delete_outline_rounded,
+                  icon: AppIcons.trash,
                   label: 'Move to Trash',
                   subtitle: 'Restorable for 30 days',
                   isDestructive: true,
@@ -399,13 +401,13 @@ class _TrackActionsLayout extends StatelessWidget {
                 ),
               ] else ...[
                 _ActionTile(
-                  icon: Icons.restore_rounded,
+                  icon: PhosphorIconsRegular.arrowCounterClockwise,
                   label: 'Restore Track',
                   subtitle: 'Return this asset to your library',
                   onTap: onRestore,
                 ),
                 _ActionTile(
-                  icon: Icons.delete_forever_rounded,
+                  icon: AppIcons.trash,
                   label: 'Delete Permanently',
                   subtitle: 'This cannot be undone',
                   isDestructive: true,

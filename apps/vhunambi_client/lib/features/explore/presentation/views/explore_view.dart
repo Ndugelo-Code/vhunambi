@@ -4,53 +4,56 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
-import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../shared/models/track.dart';
-import '../../domain/models/explore_models.dart';
-import '../providers/explore_providers.dart';
-import '../providers/recommendation_provider.dart';
-import '../widgets/african_charts_banner.dart';
-import '../widgets/catalog_filter_bar.dart';
-import '../widgets/creator_card.dart';
-import '../widgets/explore_empty_state.dart';
-import '../widgets/explore_header_section.dart';
-import '../widgets/explore_top_bar.dart';
-import '../widgets/genre_radio_tile.dart';
-import '../widgets/track_card.dart';
-import '../widgets/track_list_tile.dart';
+import '../../../player/presentation/providers/mini_player_controller.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../../social/presentation/widgets/trending_reels_shelf.dart';
+import '../../domain/models/explore_models.dart';
+import '../../domain/models/social_music_post.dart';
+import '../providers/explore_providers.dart';
+import '../widgets/catalog_filter_bar.dart';
+import '../widgets/explore_discovery_drawer_sheet.dart';
+import '../widgets/explore_empty_state.dart';
+import '../widgets/explore_social_post_card.dart';
+import '../widgets/explore_top_bar.dart';
+import '../widgets/track_card.dart';
+import '../widgets/track_list_tile.dart';
 
-/// Explore Feed & Music Discovery (`/explore`) — mounted at tab index 1 of
-/// `RootShell`. Reference: `docs/phases/phase_05_explore_feed/blueprint.md`
-class ExploreView extends ConsumerWidget {
-  static const String newThisWeekTitle = 'New This Week';
-  static const String recommendedForYouTitle = 'Recommended For You';
-  static const String risingTitle = 'Rising';
-  static const String featuredCreatorsTitle = 'Featured Creators';
-  static const String genreRadioTitle = 'Genre Radio';
-
+/// V4.1 Social Explore Feed & Music Discovery (`/explore`) — mounted at tab index 1 of `RootShell`.
+/// Unifies TikTok search and reels with Facebook Stories-style rail, compact discovery drawer,
+/// and rich creator music feed with zero-skip 5-slot stride interleaving.
+class ExploreView extends ConsumerStatefulWidget {
   /// Routes the `+ Create` CTA into the Studio cockpit (tab index 2).
   final VoidCallback? onCreateRequested;
 
   const ExploreView({super.key, this.onCreateRequested});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isDesktop = ResponsiveUtils.isDesktop(context);
-    final isMobile = ResponsiveUtils.isMobile(context);
+  ConsumerState<ExploreView> createState() => _ExploreViewState();
+}
 
+class _ExploreViewState extends ConsumerState<ExploreView> {
+  bool _showingAllSongs = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDesktop = ResponsiveUtils.isDesktop(context);
     final activeTab = ref.watch(exploreTabProvider);
-    final newTracks = ref.watch(newThisWeekTracksProvider);
-    final recommendedTracks = ref.watch(filteredRecommendedTracksProvider);
+    final followingIds = ref.watch(followingCreatorIdsProvider);
+    final allPosts = ref.watch(socialFeedPostsProvider);
     final rising = ref.watch(risingTracksProvider);
-    final creators = ref.watch(exploreCreatorsProvider);
     final catalog = ref.watch(visibleExploreTracksProvider);
     final hasResults = ref.watch(filteredExploreTracksProvider).isNotEmpty;
     final hasMore = ref.watch(hasMoreExploreTracksProvider);
     final hasActiveTrack =
         ref.watch(playerStateProvider.select((s) => s.hasActiveTrack));
+
+    // Filter posts if on following tab
+    final displayPosts = activeTab == ExploreTab.following
+        ? allPosts.where((p) => followingIds.contains(p.creatorId)).toList()
+        : allPosts;
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -64,121 +67,115 @@ class ExploreView extends ConsumerWidget {
                 ),
         ),
         child: isDesktop
-            ? DesktopExploreTopBar(onCreateRequested: onCreateRequested)
-            : MobileExploreTopBar(onCreateRequested: onCreateRequested),
+            ? DesktopExploreTopBar(onCreateRequested: widget.onCreateRequested)
+            : MobileExploreTopBar(onCreateRequested: widget.onCreateRequested),
       ),
-      body: CustomScrollView(
-        slivers: [
-          // 2. Page header: title, tabs, streak chip
-          const SliverToBoxAdapter(child: ExploreHeaderSection()),
-
-          // 3. African Music Charts hero banner
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            sliver: SliverToBoxAdapter(
-              child: AfricanChartsBanner(
-                onViewCharts: () => _showChartsNotice(context),
-              ),
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollUpdateNotification) {
+            if (notification.scrollDelta != null &&
+                notification.scrollDelta!.abs() > 2) {
+              final controller = ref.read(miniPlayerControllerProvider);
+              if (controller.form == PlayerForm.bar &&
+                  controller.mode == PlayerMode.auto) {
+                ref
+                    .read(miniPlayerControllerProvider.notifier)
+                    .setForm(PlayerForm.pill);
+              }
+            }
+          }
+          return false;
+        },
+        child: CustomScrollView(
+          slivers: [
+          // 1. Facebook Stories-Style Kinetic Reels Discovery Rail (Card #0 is ➕ Post Reel)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: AppSpacing.xs),
+              child: TrendingReelsShelf(),
             ),
           ),
 
-          // 3.5 Trending Kinetic Reels discovery shelf (Phase 19)
-          const SliverToBoxAdapter(child: TrendingReelsShelf()),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+          // 2. Feed Switcher Filter Bar
+          SliverToBoxAdapter(
+            child: _buildFeedSwitcher(context, activeTab),
+          ),
 
-          // 4. Hero Grid: Personalized "Recommended For You" when on For You tab, else "New This Week"
-          if (activeTab == ExploreTab.forYou) ...[
-            _sectionHeader(recommendedForYouTitle),
-            _trackCardGrid(context, recommendedTracks.take(6).toList()),
+          // 3. Main Body: Catalog Mode vs. Creator Music Social Feed
+          if (_showingAllSongs) ...[
+            // Catalog Filter Engine & Results
+            const SliverToBoxAdapter(child: CatalogFilterBar()),
+            if (hasResults)
+              _buildCatalogGrid(context, catalog)
+            else
+              SliverToBoxAdapter(
+                child: ExploreEmptyState(
+                  onCreateRequested: widget.onCreateRequested,
+                ),
+              ),
+            if (hasResults && hasMore)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  child: Center(
+                    child: OutlinedButton(
+                      onPressed: () => loadMoreExploreTracks(ref),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textPrimary,
+                        side: const BorderSide(color: AppColors.borderSubtle),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: AppRadius.pillBorder,
+                        ),
+                      ),
+                      child: const Text('Load more'),
+                    ),
+                  ),
+                ),
+              ),
           ] else ...[
-            _sectionHeader(newThisWeekTitle),
-            _trackCardGrid(context, newTracks),
+            // Unified Creator Music Social Feed with Zero-Skip 5-Slot Interleaving
+            if (displayPosts.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.person_search_rounded,
+                          size: 48,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          activeTab == ExploreTab.following
+                              ? 'Not following any creators yet'
+                              : 'No posts in feed',
+                          style: AppTypography.titleMedium.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Follow creators or switch to "For You" to discover new music.',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              _buildInterleavedSocialFeed(displayPosts, rising),
           ],
 
-          // 5. Rising tracks (2-col split matrix on desktop, dense list mobile)
-          _sectionHeader(risingTitle),
-          if (isMobile)
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              sliver: SliverList.separated(
-                itemCount: rising.length,
-                separatorBuilder: (_, _) =>
-                    const SizedBox(height: AppSpacing.xs),
-                itemBuilder: (_, index) =>
-                    TrackListTile(track: rising[index]),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: _risingColumns(context),
-                  crossAxisSpacing: AppSpacing.md,
-                  mainAxisSpacing: AppSpacing.md,
-                  childAspectRatio: 4.8,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (_, index) => TrackListTile(track: rising[index]),
-                  childCount: rising.length,
-                ),
-              ),
-            ),
-
-          // 6. Featured Creators deck
-          _sectionHeader(featuredCreatorsTitle),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            sliver: SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _creatorColumns(context),
-                crossAxisSpacing: AppSpacing.sm,
-                mainAxisSpacing: AppSpacing.sm,
-                childAspectRatio: _creatorRatio(context),
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (_, index) => CreatorCard(creator: creators[index]),
-                childCount: creators.length,
-              ),
-            ),
-          ),
-
-          // 7. 12-genre radio mosaic
-          _sectionHeader(genreRadioTitle),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            sliver: SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _radioColumns(context),
-                crossAxisSpacing: AppSpacing.sm,
-                mainAxisSpacing: AppSpacing.sm,
-                childAspectRatio: 1.4,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (_, index) =>
-                    GenreRadioTile(genre: exploreGenreCatalog[index]),
-                childCount: exploreGenreCatalog.length,
-              ),
-            ),
-          ),
-
-          // 8. Catalog filter engine
-          const SliverToBoxAdapter(child: CatalogFilterBar()),
-
-          // 9. Catalog grid or universal empty state
-          if (hasResults)
-            _trackCardGrid(context, catalog)
-          else
-            SliverToBoxAdapter(
-              child: ExploreEmptyState(
-                onCreateRequested: onCreateRequested,
-              ),
-            ),
-
-          // 10. Pagination
-          if (hasResults && hasMore)
-            const SliverToBoxAdapter(child: _LoadMoreButton()),
-
+          // 4. Bottom Transport Clearance Dock Metric
           SliverToBoxAdapter(
             child: SizedBox(
               height: VhunambiBottomDockMetrics.scrollInset(
@@ -188,133 +185,338 @@ class ExploreView extends ConsumerWidget {
           ),
         ],
       ),
+    ),
+  );
+}
+
+  Widget _buildFeedSwitcher(BuildContext context, ExploreTab activeTab) {
+    return Container(
+      key: const Key('explore_feed_switcher'),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: Row(
+          children: [
+            // 'For You' Pill
+            _buildFilterPill(
+              label: 'For You',
+              isSelected: !_showingAllSongs && activeTab == ExploreTab.forYou,
+              onTap: () {
+                setState(() => _showingAllSongs = false);
+                ref.read(exploreTabProvider.notifier).state = ExploreTab.forYou;
+              },
+            ),
+            const SizedBox(width: AppSpacing.xs),
+
+            // 'Following' Pill
+            _buildFilterPill(
+              label: 'Following',
+              isSelected: !_showingAllSongs && activeTab == ExploreTab.following,
+              onTap: () {
+                setState(() => _showingAllSongs = false);
+                ref.read(exploreTabProvider.notifier).state =
+                    ExploreTab.following;
+              },
+            ),
+            const SizedBox(width: AppSpacing.xs),
+
+            // 'All Songs' (Catalog Browser) Pill
+            _buildFilterPill(
+              label: 'All Songs',
+              isSelected: _showingAllSongs,
+              onTap: () {
+                setState(() => _showingAllSongs = true);
+              },
+            ),
+            const SizedBox(width: AppSpacing.md),
+
+            // Compact Discovery Drawer Hub Trigger
+            InkWell(
+              key: const Key('explore_feed_drawer_shortcut'),
+              onTap: () => ExploreDiscoveryDrawerSheet.show(context),
+              borderRadius: AppRadius.pillBorder,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  borderRadius: AppRadius.pillBorder,
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.explore_rounded,
+                      size: 14,
+                      color: AppColors.brandPrimary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Hub',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  void _showChartsNotice(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.surfaceModal,
-        duration: const Duration(seconds: 3),
-        content: Text(
-          'African Music Charts expand into the full leaderboards with the marketplace release.',
-          style: AppTypography.bodySmall.copyWith(
-            color: AppColors.textPrimary,
+  Widget _buildFilterPill({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.pillBorder,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.brandPrimary : AppColors.surfaceElevated,
+          borderRadius: AppRadius.pillBorder,
+          border: Border.all(
+            color: isSelected ? AppColors.brandPrimary : AppColors.borderSubtle,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.caption.copyWith(
+            color: isSelected
+                ? AppColors.brandContrast
+                : AppColors.textSecondary,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
       ),
     );
   }
 
-  Widget _sectionHeader(String title) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.lg,
-          AppSpacing.md,
-          AppSpacing.sm,
-        ),
-        child: Text(title, style: AppTypography.titleLarge),
+  Widget _buildInterleavedSocialFeed(
+    List<SocialMusicPost> posts,
+    List<Track> rising,
+  ) {
+    // 5-Slot Stride: every 5th slot is an interleaved carousel.
+    // postIndex = idx - (idx ~/ 5)
+    final carouselCount = posts.length ~/ 4;
+    final totalSlots = posts.length + carouselCount;
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, idx) {
+          final isCarouselSlot = (idx + 1) % 5 == 0;
+
+          if (isCarouselSlot) {
+            final carouselIdx = (idx + 1) ~/ 5;
+            return _buildInterleavedCarousel(carouselIdx, rising);
+          }
+
+          final postIndex = idx - (idx ~/ 5);
+          if (postIndex < posts.length) {
+            return ExploreSocialPostCard(
+              post: posts[postIndex],
+              onRemixSuccess: widget.onCreateRequested,
+            );
+          }
+
+          return const SizedBox.shrink();
+        },
+        childCount: totalSlots,
       ),
     );
   }
 
-  Widget _trackCardGrid(BuildContext context, List<Track> tracks) {
+  Widget _buildInterleavedCarousel(int carouselIdx, List<Track> rising) {
+    // Modulo 3: rotate through Radio Stations, Rising MP3s, and African Charts
+    final type = carouselIdx % 3;
+
+    switch (type) {
+      case 1:
+        // Carousel A: 12-Genre Radio Strip
+        return Container(
+          margin: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceSecondary,
+            borderRadius: AppRadius.cardBorder,
+            border: Border.all(color: AppColors.borderSubtle),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.radio_rounded,
+                    color: AppColors.badgeCyan,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      '12-Genre Radio Stations',
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.titleMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              SizedBox(
+                height: 38,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: exploreGenreCatalog.length,
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(width: AppSpacing.xs),
+                  itemBuilder: (context, i) {
+                    final genre = exploreGenreCatalog[i];
+                    return ActionChip(
+                      label: Text(genre),
+                      backgroundColor: AppColors.surfaceElevated,
+                      onPressed: () => playExploreGenreRadio(ref, genre),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case 2:
+        // Carousel B: Rising MP3s Strip
+        return Container(
+          margin: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceSecondary,
+            borderRadius: AppRadius.cardBorder,
+            border: Border.all(color: AppColors.borderSubtle),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.rocket_launch_rounded,
+                    color: AppColors.brandPrimary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Fastest Growing Tracks 🚀',
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.titleMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              for (final track in rising.take(2))
+                TrackListTile(
+                  track: track,
+                ),
+            ],
+          ),
+        );
+
+      default:
+        // Carousel C: African Music Charts Teaser
+        return Container(
+          margin: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.surfaceElevated, AppColors.surfaceSecondary],
+            ),
+            borderRadius: AppRadius.cardBorder,
+            border: Border.all(color: AppColors.borderSubtle),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.leaderboard_rounded,
+                color: AppColors.brandPrimary,
+                size: 32,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'African Music Charts Top 50',
+                      style: AppTypography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'See which songs are trending across SA & Nigeria',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => ExploreDiscoveryDrawerSheet.show(context),
+                child: const Text('View ->'),
+              ),
+            ],
+          ),
+        );
+    }
+  }
+
+  Widget _buildCatalogGrid(BuildContext context, List<Track> tracks) {
+    final columns = ResponsiveUtils.isDesktop(context)
+        ? 6
+        : ResponsiveUtils.isTablet(context)
+            ? 4
+            : 2;
+
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: _cardColumns(context),
-          crossAxisSpacing: _cardSpacing(context),
-          mainAxisSpacing: _cardSpacing(context),
-          childAspectRatio: _cardRatio(context),
+          crossAxisCount: columns,
+          crossAxisSpacing: AppSpacing.sm,
+          mainAxisSpacing: AppSpacing.sm,
+          childAspectRatio: 0.75,
         ),
         delegate: SliverChildBuilderDelegate(
-          (_, index) => TrackCard(track: tracks[index]),
+          (context, index) {
+            final track = tracks[index];
+            return TrackCard(
+              track: track,
+            );
+          },
           childCount: tracks.length,
         ),
       ),
     );
   }
-}
-
-/// Centered `Load more` pill advancing the catalog pagination cursor
-/// (REQ-EXP-08 / Blueprint 01 §5 Section F.4).
-class _LoadMoreButton extends ConsumerWidget {
-  const _LoadMoreButton();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.lg,
-      ),
-      child: Center(
-        child: InkWell(
-          onTap: () => loadMoreExploreTracks(ref),
-          borderRadius: AppRadius.pillBorder,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 44),
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.xxl,
-              vertical: AppSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
-              borderRadius: AppRadius.pillBorder,
-              border: Border.all(color: AppColors.borderSubtle),
-            ),
-            child: Text(
-              'Load more',
-              style: AppTypography.bodyLarge.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Track card columns: 2 mobile / 4 tablet / 6 desktop.
-int _cardColumns(BuildContext context) {
-  if (ResponsiveUtils.isDesktop(context)) return 6;
-  if (ResponsiveUtils.isTablet(context)) return 4;
-  return 2;
-}
-
-/// Track card aspect ratio: 0.75 mobile / 0.74 tablet / 0.72 desktop.
-double _cardRatio(BuildContext context) {
-  if (ResponsiveUtils.isDesktop(context)) return 0.72;
-  if (ResponsiveUtils.isTablet(context)) return 0.74;
-  return 0.75;
-}
-
-double _cardSpacing(BuildContext context) =>
-    ResponsiveUtils.isDesktop(context) ? AppSpacing.md : AppSpacing.sm;
-
-/// Rising tracks: balanced 2-column split matrix (1 column on tablet).
-int _risingColumns(BuildContext context) =>
-    ResponsiveUtils.isTablet(context) ? 1 : 2;
-
-/// Featured creators: 2 mobile / 3 tablet / 6 desktop single-row deck.
-int _creatorColumns(BuildContext context) {
-  if (ResponsiveUtils.isDesktop(context)) return 6;
-  if (ResponsiveUtils.isTablet(context)) return 3;
-  return 2;
-}
-
-double _creatorRatio(BuildContext context) =>
-    ResponsiveUtils.isDesktop(context) ? 1.8 : 2.2;
-
-/// Genre radio mosaic: 2x6 mobile / 3x4 tablet / 6x2 desktop.
-int _radioColumns(BuildContext context) {
-  if (ResponsiveUtils.isDesktop(context)) return 6;
-  if (ResponsiveUtils.isTablet(context)) return 3;
-  return 2;
 }

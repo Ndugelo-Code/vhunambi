@@ -59,6 +59,7 @@ dependencies:
   # Typography & Icons
   google_fonts: ^6.1.0
   lucide_icons: ^0.257.0
+  phosphor_icons: ^3.0.1
 
   # Window Management (Desktop)
   window_manager: ^0.3.8

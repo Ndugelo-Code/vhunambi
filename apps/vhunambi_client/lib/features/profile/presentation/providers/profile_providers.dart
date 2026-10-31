@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/cache/profile_cache.dart';
+import '../../../../core/utils/creator_id_utils.dart';
 import '../../data/repositories/profile_repository_impl.dart';
 import '../../domain/models/profile_models.dart';
 import '../../domain/models/profile_operation_state.dart';
@@ -7,16 +8,20 @@ import '../../domain/repositories/profile_repository.dart';
 import 'profile_operation_notifier.dart';
 
 /// Public artist profile provider family for `/profile/:id` (REQ-TRK-12).
-final artistProfileFamilyProvider = StateNotifierProvider.family<
-    ArtistProfileNotifier, ArtistProfileEntity, String>((ref, artistId) {
-  return ArtistProfileNotifier(artistId);
-});
+final artistProfileFamilyProvider =
+    StateNotifierProvider.family<
+      ArtistProfileNotifier,
+      ArtistProfileEntity,
+      String
+    >((ref, artistId) {
+      return ArtistProfileNotifier(artistId);
+    });
 
 /// Account owner creator studio profile provider for `/profile/me` (REQ-TRK-15).
 final ownerProfileProvider =
     StateNotifierProvider<ArtistProfileNotifier, ArtistProfileEntity>((ref) {
-  return ArtistProfileNotifier('me');
-});
+      return ArtistProfileNotifier('me');
+    });
 
 /// Global profile repository provider.
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
@@ -29,26 +34,34 @@ final profileCacheProvider = Provider<ProfileCache>((ref) {
 });
 
 /// Companion resilience provider for async operation tracking on `/profile/:id`.
-final profileOperationProvider = StateNotifierProvider.family<
-    ProfileOperationNotifier, ProfileOperationState, String>((ref, artistId) {
-  return ProfileOperationNotifier(
-    artistId: artistId,
-    repository: ref.watch(profileRepositoryProvider),
-    cache: ref.watch(profileCacheProvider),
-    profileNotifier: ref.watch(artistProfileFamilyProvider(artistId).notifier),
-  );
-});
+final profileOperationProvider =
+    StateNotifierProvider.family<
+      ProfileOperationNotifier,
+      ProfileOperationState,
+      String
+    >((ref, artistId) {
+      return ProfileOperationNotifier(
+        artistId: artistId,
+        repository: ref.watch(profileRepositoryProvider),
+        cache: ref.watch(profileCacheProvider),
+        profileNotifier: ref.watch(
+          artistProfileFamilyProvider(artistId).notifier,
+        ),
+      );
+    });
 
 /// Companion resilience provider for async operation tracking on `/profile/me`.
-final ownerProfileOperationProvider = StateNotifierProvider<
-    ProfileOperationNotifier, ProfileOperationState>((ref) {
-  return ProfileOperationNotifier(
-    artistId: 'me',
-    repository: ref.watch(profileRepositoryProvider),
-    cache: ref.watch(profileCacheProvider),
-    profileNotifier: ref.watch(ownerProfileProvider.notifier),
-  );
-});
+final ownerProfileOperationProvider =
+    StateNotifierProvider<ProfileOperationNotifier, ProfileOperationState>((
+      ref,
+    ) {
+      return ProfileOperationNotifier(
+        artistId: 'me',
+        repository: ref.watch(profileRepositoryProvider),
+        cache: ref.watch(profileCacheProvider),
+        profileNotifier: ref.watch(ownerProfileProvider.notifier),
+      );
+    });
 
 /// Manages local optimistic state updates for an artist profile entity.
 ///
@@ -73,7 +86,11 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
   }
 
   /// Tips credits to the artist and adds a ledger entry (REQ-TRK-14).
-  void tipArtist(int credits, {String senderName = 'cern', String senderHandle = '@cern'}) {
+  void tipArtist(
+    int credits, {
+    String senderName = 'cern',
+    String senderHandle = '@cern',
+  }) {
     if (credits <= 0) return;
     final tipRecord = TipRecordEntity(
       id: 'tip_${DateTime.now().millisecondsSinceEpoch}',
@@ -85,9 +102,7 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
       timestamp: DateTime.now(),
       isReceived: true,
     );
-    state = state.copyWith(
-      tipHistory: [tipRecord, ...state.tipHistory],
-    );
+    state = state.copyWith(tipHistory: [tipRecord, ...state.tipHistory]);
   }
 
   /// Toggles whether fans can send direct credit tips (REQ-TRK-16).
@@ -106,9 +121,7 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
 
   /// Adds an Album, EP, or Single to the artist discography (REQ-TRK-15).
   void addRelease(MusicReleaseEntity release) {
-    state = state.copyWith(
-      releases: [release, ...state.releases],
-    );
+    state = state.copyWith(releases: [release, ...state.releases]);
   }
 
   /// Seeds or updates the profile state from a cached or fresh entity.
@@ -127,13 +140,23 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
 
 ArtistProfileEntity _lookupProfile(String id) {
   final cleanId = id.toLowerCase().trim();
+  final rawId = extractRawCreatorId(cleanId);
   final match = seededArtistProfiles.firstWhere(
-    (p) => p.id == cleanId || p.username == cleanId,
+    (p) =>
+        p.id.toLowerCase() == cleanId ||
+        p.username.toLowerCase() == cleanId ||
+        p.id.toLowerCase() == rawId ||
+        p.username.toLowerCase() == rawId ||
+        p.id.toLowerCase() == 'creator_$rawId',
     orElse: () => ArtistProfileEntity(
       id: cleanId,
       username: cleanId,
-      displayName: cleanId.isEmpty ? 'Artist' : cleanId[0].toUpperCase() + cleanId.substring(1),
-      monogram: cleanId.length >= 2 ? cleanId.substring(0, 2).toUpperCase() : 'AR',
+      displayName: cleanId.isEmpty
+          ? 'Artist'
+          : cleanId[0].toUpperCase() + cleanId.substring(1),
+      monogram: cleanId.length >= 2
+          ? cleanId.substring(0, 2).toUpperCase()
+          : 'AR',
       bio: 'African music producer and songwriter composing on Vhunambi.',
       isVerified: true,
       songCount: 3,
@@ -154,7 +177,8 @@ final List<ArtistProfileEntity> seededArtistProfiles = [
     username: 'fifi',
     displayName: 'Fifi',
     monogram: 'FI',
-    bio: 'Modern Amapiano songstress blending Tshivenḓa poetry with private school piano log drums and atmospheric jazz chords.',
+    bio:
+        'Modern Amapiano songstress blending Tshivenḓa poetry with private school piano log drums and atmospheric jazz chords.',
     isVerified: true,
     songCount: 8,
     likeCount: 1240,
@@ -233,7 +257,8 @@ final List<ArtistProfileEntity> seededArtistProfiles = [
     username: 'cern',
     displayName: 'cern',
     monogram: 'CE',
-    bio: 'Multi-genre electronic and indigenous rhythms producer from Johannesburg. Building the future of generative African sound.',
+    bio:
+        'Multi-genre electronic and indigenous rhythms producer from Johannesburg. Building the future of generative African sound.',
     isVerified: true,
     songCount: 7,
     likeCount: 480,
@@ -307,7 +332,8 @@ final List<ArtistProfileEntity> seededArtistProfiles = [
     username: 'sigwa',
     displayName: 'Sigwa & Inaf',
     monogram: 'SI',
-    bio: 'Soulful duo bridging acoustic African instruments with modern electronic club rhythms.',
+    bio:
+        'Soulful duo bridging acoustic African instruments with modern electronic club rhythms.',
     isVerified: true,
     songCount: 14,
     likeCount: 3800,
@@ -321,7 +347,8 @@ final List<ArtistProfileEntity> seededArtistProfiles = [
     username: 'djvibe',
     displayName: 'DJ Vibe',
     monogram: 'DV',
-    bio: 'Durban underground Gqom pioneer. Heavy raw percussions and warehouse synth stabs.',
+    bio:
+        'Durban underground Gqom pioneer. Heavy raw percussions and warehouse synth stabs.',
     isVerified: true,
     songCount: 19,
     likeCount: 5200,
@@ -335,7 +362,8 @@ final List<ArtistProfileEntity> seededArtistProfiles = [
     username: 'ndugelo',
     displayName: 'Ndugelo',
     monogram: 'ND',
-    bio: 'Acoustic Zulu folk and Maskandi maestro celebrating indigenous heritage.',
+    bio:
+        'Acoustic Zulu folk and Maskandi maestro celebrating indigenous heritage.',
     isVerified: true,
     songCount: 6,
     likeCount: 1100,
@@ -343,5 +371,38 @@ final List<ArtistProfileEntity> seededArtistProfiles = [
     followerCount: 1540,
     dayStreak: 3,
     topGenres: ['Maskandi', 'Mbaqanga'],
+  ),
+  const ArtistProfileEntity(
+    id: 'creator_makhadzi',
+    username: 'makhadzi',
+    displayName: 'Makhadzi',
+    monogram: 'MA',
+    bio:
+        'Queen of African dance music and Limpopo heritage. Royal high-energy Amapiano.',
+    isVerified: true,
+    songCount: 22,
+    likeCount: 9400,
+    playCount: 195000,
+    followerCount: 14200,
+    dayStreak: 15,
+    topGenres: ['Amapiano', 'Afro House', 'Tshivenḓa Folk'],
+    vocalArchetypeTitle: 'Venda Royal Matriarch',
+    vocalArchetypeLanguage: 'Tshivenḓa',
+  ),
+  const ArtistProfileEntity(
+    id: 'creator_khakhathi',
+    username: 'khakhathi',
+    displayName: 'Khakhathi',
+    monogram: 'KH',
+    bio: 'Maskandi storyteller and acoustic acoustic warrior.',
+    isVerified: true,
+    songCount: 11,
+    likeCount: 3100,
+    playCount: 48000,
+    followerCount: 3400,
+    dayStreak: 6,
+    topGenres: ['Maskandi', 'Mbaqanga'],
+    vocalArchetypeTitle: 'Zulu Maskandi Tenor',
+    vocalArchetypeLanguage: 'isiZulu',
   ),
 ];

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -8,20 +10,42 @@ import '../../domain/models/published_clip.dart';
 import '../providers/creator_wallet_provider.dart';
 
 /// TikTok-style cultural micro-gifting sheet for supporting a creator
-/// (REQ-GFT-01 / REQ-GFT-02). Sends African cultural gifts via the coin wallet.
+/// (REQ-GFT-01 / REQ-GFT-02 / Phase 30 REQ-PROF-TIP-01). Sends African cultural gifts via the coin wallet.
 class CreatorTippingSheet extends ConsumerStatefulWidget {
-  final PublishedClip clip;
-  const CreatorTippingSheet({super.key, required this.clip});
+  final PublishedClip? clip;
+  final String? creatorId;
+  final String? creatorDisplayName;
+  final String? creatorUsername;
+  final String? creatorAvatarUrl;
+
+  const CreatorTippingSheet({
+    super.key,
+    this.clip,
+    this.creatorId,
+    this.creatorDisplayName,
+    this.creatorUsername,
+    this.creatorAvatarUrl,
+  });
 
   static Future<void> show(
     BuildContext context, {
-    required PublishedClip clip,
+    PublishedClip? clip,
+    String? creatorId,
+    String? creatorName,
+    String? creatorUsername,
+    String? creatorAvatarUrl,
   }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => CreatorTippingSheet(clip: clip),
+      builder: (_) => CreatorTippingSheet(
+        clip: clip,
+        creatorId: creatorId ?? clip?.creatorId,
+        creatorDisplayName: creatorName ?? clip?.creatorDisplayName,
+        creatorUsername: creatorUsername ?? clip?.creatorUsername,
+        creatorAvatarUrl: creatorAvatarUrl ?? clip?.creatorAvatarUrl,
+      ),
     );
   }
 
@@ -34,6 +58,15 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
   CulturalGift _selected = kCulturalGifts.first;
   final TextEditingController _messageController = TextEditingController();
 
+  String get _effectiveCreatorId =>
+      widget.creatorId ?? widget.clip?.creatorId ?? '';
+
+  String get _effectiveUsername =>
+      widget.creatorUsername ?? widget.clip?.creatorUsername ?? 'artist';
+
+  String get _effectiveClipId =>
+      widget.clip?.id ?? 'profile_$_effectiveCreatorId';
+
   @override
   void dispose() {
     _messageController.dispose();
@@ -45,9 +78,9 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
     final wallet = ref.read(creatorWalletProvider.notifier);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    final clip = widget.clip;
 
-    if (ref.read(creatorWalletProvider).userCoinsBalance < _selected.coinPrice) {
+    if (ref.read(creatorWalletProvider).userCoinsBalance <
+        _selected.coinPrice) {
       messenger.showSnackBar(
         const SnackBar(
           content: Text('Not enough coins — top up to send this gift.'),
@@ -58,8 +91,8 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
     }
 
     final ok = await wallet.sendGift(
-      clipId: clip.id,
-      recipientCreatorId: clip.creatorId,
+      clipId: _effectiveClipId,
+      recipientCreatorId: _effectiveCreatorId,
       senderUsername: 'ndugelo_musician',
       senderDisplayName: 'Ndugelo Musician',
       gift: _selected,
@@ -71,7 +104,8 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-            'Sent ${_selected.emoji} ${_selected.name} to @${clip.creatorUsername}!'),
+          'Sent ${_selected.emoji} ${_selected.name} to @$_effectiveUsername!',
+        ),
         backgroundColor: AppColors.brandPrimary,
       ),
     );
@@ -80,7 +114,6 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(creatorWalletProvider);
-    final clip = widget.clip;
 
     return Container(
       decoration: const BoxDecoration(
@@ -111,23 +144,38 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
           Row(
             children: [
               Expanded(
-                child: Text('Support @${clip.creatorUsername}',
-                    style: AppTypography.titleMedium
-                        .copyWith(fontWeight: FontWeight.bold)),
+                child: Text(
+                  'Support @$_effectiveUsername',
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
               Container(
                 key: const Key('tip_coin_balance'),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceSecondary,
                   borderRadius: AppRadius.pillBorder,
                   border: Border.all(color: AppColors.borderSubtle),
                 ),
-                child: Text('🪙 ${state.userCoinsBalance}',
-                    style: AppTypography.bodySmall.copyWith(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const PhosphorIcon(AppIcons.coin, size: 14, color: AppColors.coinGold),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${state.userCoinsBalance}',
+                      style: AppTypography.bodySmall.copyWith(
                         color: AppColors.coinGold,
-                        fontWeight: FontWeight.bold)),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -161,8 +209,9 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
             maxLines: 2,
             decoration: InputDecoration(
               hintText: 'Leave an encouraging praise note...',
-              hintStyle:
-                  AppTypography.caption.copyWith(color: AppColors.textTertiary),
+              hintStyle: AppTypography.caption.copyWith(
+                color: AppColors.textTertiary,
+              ),
               filled: true,
               fillColor: AppColors.surfaceSecondary,
               border: const OutlineInputBorder(
@@ -179,12 +228,15 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
               backgroundColor: AppColors.brandPrimary,
               minimumSize: const Size.fromHeight(50),
               shape: const RoundedRectangleBorder(
-                  borderRadius: AppRadius.inputBorder),
+                borderRadius: AppRadius.inputBorder,
+              ),
             ),
             child: Text(
               'Send ${_selected.name} (${_selected.coinPrice} 🪙)',
               style: AppTypography.bodyLarge.copyWith(
-                  color: AppColors.brandContrast, fontWeight: FontWeight.bold),
+                color: AppColors.brandContrast,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -197,8 +249,11 @@ class _GiftCard extends StatelessWidget {
   final CulturalGift gift;
   final bool isActive;
   final VoidCallback onTap;
-  const _GiftCard(
-      {required this.gift, required this.isActive, required this.onTap});
+  const _GiftCard({
+    required this.gift,
+    required this.isActive,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +264,9 @@ class _GiftCard extends StatelessWidget {
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.surfaceSecondary : AppColors.surfaceElevated,
+          color: isActive
+              ? AppColors.surfaceSecondary
+              : AppColors.surfaceElevated,
           borderRadius: AppRadius.inputBorder,
           border: Border.all(
             color: isActive ? AppColors.coinGold : AppColors.borderSubtle,
@@ -221,21 +278,31 @@ class _GiftCard extends StatelessWidget {
           children: [
             Text(gift.emoji, style: const TextStyle(fontSize: 26)),
             const SizedBox(height: 4),
-            Text(gift.name,
+            Text(
+              gift.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${gift.coinPrice} 🪙 (R${gift.zarPrice.toStringAsFixed(0)})',
+              style: AppTypography.caption.copyWith(color: AppColors.coinGold),
+            ),
+            const SizedBox(height: 2),
+            Flexible(
+              child: Text(
+                gift.culturalMeaning,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.caption.copyWith(
-                    color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-            const Spacer(),
-            Text('${gift.coinPrice} 🪙 (R${gift.zarPrice.toStringAsFixed(0)})',
-                style: AppTypography.caption.copyWith(color: AppColors.coinGold)),
-            const SizedBox(height: 2),
-            Flexible(
-              child: Text(gift.culturalMeaning,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.caption
-                      .copyWith(color: AppColors.textTertiary, fontSize: 9)),
+                  color: AppColors.textTertiary,
+                  fontSize: 9,
+                ),
+              ),
             ),
           ],
         ),

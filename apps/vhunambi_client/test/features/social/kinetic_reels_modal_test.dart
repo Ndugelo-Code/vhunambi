@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
 import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
@@ -119,7 +120,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     // Like toggles optimistically
-    expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
+    expect(find.byIcon(AppIcons.heart), findsOneWidget);
   });
 
   testWidgets('Tapping sound pill executes Remix in Studio loop', (tester) async {

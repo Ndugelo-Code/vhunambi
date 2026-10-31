@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/library/presentation/providers/library_providers.dart';
 import 'package:vhunambi_client/features/marketplace/presentation/providers/marketplace_providers.dart';
@@ -114,7 +115,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: firstCard,
-        matching: find.byIcon(Icons.play_arrow_rounded),
+        matching: find.byIcon(AppIcons.play),
       ),
     );
     await tester.pumpAndSettle();
@@ -126,7 +127,7 @@ void main() {
     expect(
       find.descendant(
         of: firstCard,
-        matching: find.byIcon(Icons.pause_rounded),
+        matching: find.byIcon(AppIcons.pause),
       ),
       findsOneWidget,
     );

@@ -1,13 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/constants/app_assets.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
+import '../../../notifications/presentation/views/notifications_view.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
+import '../../../profile/presentation/views/owner_profile_view.dart';
 import '../providers/explore_providers.dart';
+import '../views/explore_search_view.dart';
+import 'explore_discovery_drawer_sheet.dart';
 
 /// Desktop discovery top bar — 68px with breadcrumb, wide search, credit chip,
 /// bell, avatar and `+ Create` pill (REQ-EXP-01 / Blueprint 01 §3.1).
@@ -55,7 +63,16 @@ class DesktopExploreTopBar extends StatelessWidget {
               const SizedBox(width: AppSpacing.xs),
               const NotificationBellButton(),
               const SizedBox(width: AppSpacing.xs),
-              const _UserAvatar(),
+              InkWell(
+                key: const Key('explore_desktop_user_avatar'),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const OwnerProfileView()),
+                  );
+                },
+                borderRadius: BorderRadius.circular(18),
+                child: const _UserAvatar(),
+              ),
               const SizedBox(width: AppSpacing.sm),
               _CreateAction(onPressed: onCreateRequested, compact: false),
             ],
@@ -66,10 +83,10 @@ class DesktopExploreTopBar extends StatelessWidget {
   }
 }
 
-/// Mobile discovery top bar — 56px with back/brand, centered search pill and a
-/// compact `+ Create` action (REQ-EXP-01).
+/// Mobile discovery top bar — 56px minimalist chrome with transient 4s Explore title
+/// and direct action triad (Discovery Drawer, Search View, Notifications View).
+/// (REQ-EXP-TOPBAR-01..06)
 class MobileExploreTopBar extends StatelessWidget {
-  static const String searchHint = 'Search songs...';
   static const double barHeight = 56;
 
   final VoidCallback? onCreateRequested;
@@ -81,37 +98,258 @@ class MobileExploreTopBar extends StatelessWidget {
     return VhunambiTopBarSurface(
       toolbarHeight: barHeight,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
         child: Row(
           children: [
-            // Root tab: the brand monogram anchors the top-left. Explore is an
-            // IndexedStack sibling inside RootShell (never pushed), so a back
-            // chevron here would be a dead tap — it has been removed.
+            // Root tab: the brand monogram anchors the top-left.
             Container(
-              width: 28,
-              height: 28,
+              width: 30,
+              height: 30,
               decoration: const BoxDecoration(
                 color: AppColors.brandPrimary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.music_note_rounded,
-                size: 16,
-                color: AppColors.brandContrast,
+              child: ClipOval(
+                child: Image.asset(
+                  AppAssets.vhunambiGlyph,
+                  width: 30,
+                  height: 30,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const PhosphorIcon(
+                    AppIcons.songs,
+                    size: 16,
+                    color: AppColors.brandContrast,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: AppSpacing.xs),
-            const Expanded(
-              child: _ExploreSearchField(
-                hint: searchHint,
-                showShortcutBadge: false,
-                enableShortcut: false,
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      'VHUNAMBI',
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.titleMedium.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
+                  const _TransientExploreTitlePill(
+                    key: Key('explore_transient_title_pill'),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: AppSpacing.xs),
-            _CreateAction(onPressed: onCreateRequested, compact: true),
+
+            // Action Triad (REQ-EXP-TOPBAR-05):
+            // 1. Discovery Drawer Button
+            const _DiscoveryDrawerButton(
+              key: Key('explore_open_discovery_drawer_btn'),
+            ),
+
+            // 2. Search Icon Button
+            const _SearchIconButton(key: Key('explore_open_search_view_btn')),
+
+            // 3. Notifications Bell Button (1-step on mobile)
+            const _NotificationBellAction(
+              key: Key('explore_open_notifications_btn'),
+            ),
+
+            // 4. Compact Profile Avatar Action (Phase 30 REQ-PROF-NAV-02)
+            InkWell(
+              key: const Key('explore_mobile_user_avatar_btn'),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const OwnerProfileView()),
+                );
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 44),
+                child: Center(
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondary,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.brandPrimary,
+                        width: 1.2,
+                      ),
+                    ),
+                    child: const PhosphorIcon(
+                      AppIcons.user,
+                      size: 14,
+                      color: AppColors.brandPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Transient 4-second title pill that auto-collapses to reclaim viewport width (REQ-EXP-TOPBAR-03..04).
+class _TransientExploreTitlePill extends ConsumerStatefulWidget {
+  const _TransientExploreTitlePill({super.key});
+
+  @override
+  ConsumerState<_TransientExploreTitlePill> createState() =>
+      _TransientExploreTitlePillState();
+}
+
+class _TransientExploreTitlePillState
+    extends ConsumerState<_TransientExploreTitlePill>
+    with SingleTickerProviderStateMixin {
+  Timer? _fadeTimer;
+  bool _isVisible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _startFadeTimer();
+  }
+
+  void _startFadeTimer() {
+    _fadeTimer?.cancel();
+    _isVisible = true;
+    _fadeTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) {
+        setState(() {
+          _isVisible = false;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _fadeTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<bool>(exploreTitlePillVisibleProvider, (previous, next) {
+      if (next) {
+        _startFadeTimer();
+        setState(() {});
+      }
+    });
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 300),
+        opacity: _isVisible ? 1.0 : 0.0,
+        curve: Curves.easeInOut,
+        child: _isVisible
+            ? Container(
+                margin: const EdgeInsets.only(left: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  borderRadius: AppRadius.pillBorder,
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: const BoxDecoration(
+                        color: AppColors.brandPrimary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Explore',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
+class _DiscoveryDrawerButton extends StatelessWidget {
+  const _DiscoveryDrawerButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: const PhosphorIcon(
+          PhosphorIconsRegular.squaresFour,
+          color: AppColors.textPrimary,
+          size: 20,
+        ),
+        tooltip: 'Discovery Hub',
+        onPressed: () => ExploreDiscoveryDrawerSheet.show(context),
+      ),
+    );
+  }
+}
+
+class _SearchIconButton extends StatelessWidget {
+  const _SearchIconButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: const PhosphorIcon(
+          AppIcons.search,
+          color: AppColors.textPrimary,
+          size: 22,
+        ),
+        tooltip: 'Search',
+        onPressed: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const ExploreSearchView())),
+      ),
+    );
+  }
+}
+
+class _NotificationBellAction extends StatelessWidget {
+  const _NotificationBellAction({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: NotificationBellButton(
+        onPressed: () {
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const NotificationsView()));
+        },
       ),
     );
   }
@@ -139,8 +377,8 @@ class _BrandGroup extends StatelessWidget {
               width: 32,
               height: 32,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => const Icon(
-                Icons.music_note_rounded,
+              errorBuilder: (context, error, stackTrace) => const PhosphorIcon(
+                AppIcons.songs,
                 size: 20,
                 color: AppColors.brandContrast,
               ),
@@ -189,7 +427,7 @@ class _ExploreSearchField extends ConsumerStatefulWidget {
 
 class _ExploreSearchFieldState extends ConsumerState<_ExploreSearchField> {
   late final TextEditingController _controller;
-  final FocusNode _focusNode = FocusNode();
+  late final FocusNode _focusNode;
 
   @override
   void initState() {
@@ -197,6 +435,7 @@ class _ExploreSearchFieldState extends ConsumerState<_ExploreSearchField> {
     _controller = TextEditingController(
       text: ref.read(exploreSearchQueryProvider),
     );
+    _focusNode = FocusNode();
   }
 
   @override
@@ -206,69 +445,82 @@ class _ExploreSearchFieldState extends ConsumerState<_ExploreSearchField> {
     super.dispose();
   }
 
+  void _onChanged(String value) {
+    ref.read(exploreSearchQueryProvider.notifier).state = value;
+    resetExploreCatalogCursor(ref);
+  }
+
+  void _clear() {
+    _controller.clear();
+    _onChanged('');
+    _focusNode.unfocus();
+  }
+
+  void _handleShortcut() {
+    if (!widget.enableShortcut) return;
+    _focusNode.requestFocus();
+    _controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _controller.text.length,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Keep the field in sync when the query is cleared from elsewhere.
-    ref.listen(exploreSearchQueryProvider, (previous, next) {
-      if (_controller.text != next) {
-        _controller.text = next;
-      }
-    });
+    final query = ref.watch(exploreSearchQueryProvider);
+    if (_controller.text != query) {
+      _controller.value = _controller.value.copyWith(
+        text: query,
+        selection: TextSelection.collapsed(offset: query.length),
+      );
+    }
 
     final field = Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      height: 40,
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.surfaceSecondary,
         borderRadius: AppRadius.pillBorder,
         border: Border.all(color: AppColors.borderSubtle),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.search_rounded,
+          const SizedBox(width: AppSpacing.sm),
+          const PhosphorIcon(
+            AppIcons.search,
             size: 18,
-            color: AppColors.textTertiary,
+            color: AppColors.textSecondary,
           ),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
-            child: Center(
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                textInputAction: TextInputAction.search,
-                onChanged: (value) {
-                  ref.read(exploreSearchQueryProvider.notifier).state = value;
-                  resetExploreCatalogCursor(ref);
-                },
-                style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.textPrimary,
+            child: TextField(
+              key: const Key('explore_search_field'),
+              controller: _controller,
+              focusNode: _focusNode,
+              onChanged: _onChanged,
+              style: AppTypography.bodyMedium,
+              decoration: InputDecoration(
+                hintText: widget.hint,
+                hintStyle: AppTypography.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
                 ),
-                cursorColor: AppColors.brandPrimary,
-                decoration: InputDecoration(
-                  hintText: widget.hint,
-                  hintStyle: AppTypography.caption,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),
             ),
           ),
-          if (widget.showShortcutBadge)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.xs,
-                vertical: 2,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceSecondary,
-                borderRadius: AppRadius.pillBorder,
-                border: Border.all(color: AppColors.borderSubtle),
-              ),
-              child: Text('Ctrl + K', style: AppTypography.caption),
+          if (query.isNotEmpty)
+            IconButton(
+              key: const Key('explore_search_clear_button'),
+              icon: const PhosphorIcon(AppIcons.close, size: 16),
+              color: AppColors.textSecondary,
+              splashRadius: 16,
+              onPressed: _clear,
+            )
+          else if (widget.showShortcutBadge)
+            const Padding(
+              padding: EdgeInsets.only(right: AppSpacing.xs),
+              child: _ShortcutBadge(),
             ),
         ],
       ),
@@ -276,18 +528,50 @@ class _ExploreSearchFieldState extends ConsumerState<_ExploreSearchField> {
 
     if (!widget.enableShortcut) return field;
 
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(
-          LogicalKeyboardKey.keyK,
-          control: true,
-        ): () => _focusNode.requestFocus(),
-        const SingleActivator(
-          LogicalKeyboardKey.keyK,
-          meta: true,
-        ): () => _focusNode.requestFocus(),
+    return Shortcuts(
+      shortcuts: <ShortcutActivator, Intent>{
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyK):
+            const _FocusSearchIntent(),
       },
-      child: field,
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _FocusSearchIntent: CallbackAction<_FocusSearchIntent>(
+            onInvoke: (_) {
+              _handleShortcut();
+              return null;
+            },
+          ),
+        },
+        child: Focus(canRequestFocus: false, child: field),
+      ),
+    );
+  }
+}
+
+class _FocusSearchIntent extends Intent {
+  const _FocusSearchIntent();
+}
+
+class _ShortcutBadge extends StatelessWidget {
+  const _ShortcutBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Text(
+        'Ctrl + K',
+        style: AppTypography.caption.copyWith(
+          color: AppColors.textSecondary,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -310,8 +594,8 @@ class _CreditPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.bolt_rounded,
+          const PhosphorIcon(
+            AppIcons.lightning,
             size: 15,
             color: AppColors.brandPrimary,
           ),
@@ -342,8 +626,8 @@ class _UserAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.brandPrimary, width: 1.5),
       ),
-      child: const Icon(
-        Icons.person_rounded,
+      child: const PhosphorIcon(
+        AppIcons.user,
         size: 18,
         color: AppColors.brandPrimary,
       ),
@@ -374,8 +658,8 @@ class _CreateAction extends StatelessWidget {
                 color: AppColors.brandPrimary,
                 borderRadius: AppRadius.thumbBorder,
               ),
-              child: const Icon(
-                Icons.add_rounded,
+              child: const PhosphorIcon(
+                AppIcons.plus,
                 size: 20,
                 color: AppColors.brandContrast,
               ),
@@ -396,12 +680,10 @@ class _CreateAction extends StatelessWidget {
           horizontal: AppSpacing.md,
           vertical: AppSpacing.xs,
         ),
-        shape: const RoundedRectangleBorder(
-          borderRadius: AppRadius.pillBorder,
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.pillBorder),
       ),
-      icon: const Icon(
-        Icons.add_rounded,
+      icon: const PhosphorIcon(
+        AppIcons.plus,
         size: 16,
         color: AppColors.brandContrast,
       ),

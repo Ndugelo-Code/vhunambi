@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/utils/creator_id_utils.dart';
 import '../../data/repositories/creator_dna_repository.dart';
 import '../../domain/entities/creator_dna_profile.dart';
 import '../../domain/models/behavior_event.dart';
@@ -164,6 +165,86 @@ final creatorDnaRepositoryProvider = Provider<CreatorDnaRepository>((ref) {
 /// Global state provider for Creator DNA profile.
 final creatorDnaProvider = StateNotifierProvider<CreatorDnaNotifier, CreatorDnaProfile>((ref) {
   return CreatorDnaNotifier(ref.watch(creatorDnaRepositoryProvider));
+});
+
+/// Curated sound signatures for featured creators (Phase 30 REQ-PROF-DNA-01).
+final artistDnaFamilyProvider =
+    Provider.family<CreatorDnaProfile, String>((ref, artistId) {
+  final raw = extractRawCreatorId(artistId).toLowerCase();
+  final now = DateTime.now();
+
+  if (raw.contains('makhadzi') || raw.contains('sigwa')) {
+    return CreatorDnaProfile(
+      userId: artistId,
+      creativeRole: CreativeRole.multiHyphenate,
+      experienceLevel: ExperienceLevel.pro,
+      genreWeights: const {'Amapiano': 14.5, 'Afro House': 8.2, 'Tshivenḓa Folk': 6.0},
+      languageWeights: const {'Tshivenḓa': 12.0, 'English': 5.0},
+      primaryLanguage: 'Tshivenḓa',
+      tempoPreference: 'fast',
+      vocalEnergyPreference: 'intense',
+      lifecycleState: DnaLifecycleState.attuned,
+      totalBehaviorEvents: 180,
+      onboardingCompleted: true,
+      onboardingCompleteness: 1.0,
+      createdAt: now,
+      lastUpdatedAt: now,
+    );
+  }
+  if (raw.contains('fifi')) {
+    return CreatorDnaProfile(
+      userId: artistId,
+      creativeRole: CreativeRole.vocalist,
+      experienceLevel: ExperienceLevel.pro,
+      genreWeights: const {'Amapiano': 12.0, 'Soul': 8.0, 'Afrobeats': 4.0},
+      languageWeights: const {'English': 10.0, 'isiZulu': 6.0},
+      primaryLanguage: 'English',
+      tempoPreference: 'medium',
+      vocalEnergyPreference: 'balanced',
+      lifecycleState: DnaLifecycleState.attuned,
+      totalBehaviorEvents: 140,
+      onboardingCompleted: true,
+      onboardingCompleteness: 1.0,
+      createdAt: now,
+      lastUpdatedAt: now,
+    );
+  }
+  if (raw.contains('khakhathi')) {
+    return CreatorDnaProfile(
+      userId: artistId,
+      creativeRole: CreativeRole.songwriter,
+      experienceLevel: ExperienceLevel.pro,
+      genreWeights: const {'Maskandi': 15.0, 'Mbaqanga': 9.0},
+      languageWeights: const {'isiZulu': 14.0},
+      primaryLanguage: 'isiZulu',
+      tempoPreference: 'fast',
+      vocalEnergyPreference: 'intense',
+      lifecycleState: DnaLifecycleState.attuned,
+      totalBehaviorEvents: 210,
+      onboardingCompleted: true,
+      onboardingCompleteness: 1.0,
+      createdAt: now,
+      lastUpdatedAt: now,
+    );
+  }
+
+  // Default balanced DNA fallback
+  return CreatorDnaProfile(
+    userId: artistId,
+    creativeRole: CreativeRole.producer,
+    experienceLevel: ExperienceLevel.growing,
+    genreWeights: const {'Afrobeats': 10.0, 'Amapiano': 8.0, 'Afro House': 5.0},
+    languageWeights: const {'English': 8.0},
+    primaryLanguage: 'English',
+    tempoPreference: 'medium',
+    vocalEnergyPreference: 'balanced',
+    lifecycleState: DnaLifecycleState.calibrated,
+    totalBehaviorEvents: 95,
+    onboardingCompleted: true,
+    onboardingCompleteness: 1.0,
+    createdAt: now,
+    lastUpdatedAt: now,
+  );
 });
 
 /// No-op repository used by [CreatorDnaNotifier.withInitial] in tests.

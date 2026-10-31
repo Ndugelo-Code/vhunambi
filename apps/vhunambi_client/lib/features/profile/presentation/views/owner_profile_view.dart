@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
@@ -14,6 +16,7 @@ import '../widgets/profile_referral_card.dart';
 import '../widgets/releases_manager_card.dart';
 import '../widgets/tip_history_ledger.dart';
 import '../widgets/creator_wallet_deck.dart';
+import '../widgets/owner_beatstore_cockpit.dart';
 import '../../../social/presentation/providers/creator_clips_provider.dart';
 import '../../../social/presentation/widgets/creator_reel_thumbnail_card.dart';
 import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
@@ -36,6 +39,8 @@ class OwnerProfileView extends ConsumerStatefulWidget {
 }
 
 class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
+  OwnerStudioTab _activeTab = OwnerStudioTab.songs;
+
   // Track visibility map (trackId -> isPublic)
   final Map<String, bool> _trackVisibility = {
     'track_own_01': true,
@@ -57,7 +62,9 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
               shape: RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
               title: Text(
                 'Create New Release',
-                style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -75,7 +82,13 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Release Type', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  const Text(
+                    'Release Type',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   Row(
                     children: ReleaseType.values.map((type) {
@@ -93,7 +106,9 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                           selectedColor: AppColors.brandPrimary,
                           backgroundColor: AppColors.surfaceElevated,
                           labelStyle: TextStyle(
-                            color: isSelected ? AppColors.brandContrast : Colors.white,
+                            color: isSelected
+                                ? AppColors.brandContrast
+                                : Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
@@ -109,23 +124,32 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.brandPrimary,
                     foregroundColor: AppColors.brandContrast,
-                    shape: RoundedRectangleBorder(borderRadius: AppRadius.pillBorder),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.pillBorder,
+                    ),
                   ),
                   onPressed: () {
                     final title = titleController.text.trim();
                     if (title.isNotEmpty) {
-                      ref.read(ownerProfileOperationProvider.notifier).addRelease(
+                      ref
+                          .read(ownerProfileOperationProvider.notifier)
+                          .addRelease(
                             MusicReleaseEntity(
                               id: 'rel_${DateTime.now().millisecondsSinceEpoch}',
                               title: title,
                               releaseType: selectedType,
-                              trackCount: selectedType == ReleaseType.single ? 1 : 4,
+                              trackCount: selectedType == ReleaseType.single
+                                  ? 1
+                                  : 4,
                               releaseDate: DateTime.now(),
                               genre: selectedGenre,
                             ),
@@ -153,7 +177,10 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
     final opState = ref.watch(ownerProfileOperationProvider);
 
     // Listen for mutation error notifications
-    ref.listen<ProfileOperationState>(ownerProfileOperationProvider, (prev, curr) {
+    ref.listen<ProfileOperationState>(ownerProfileOperationProvider, (
+      prev,
+      curr,
+    ) {
       for (final type in [
         ProfileOperationType.avatarUpdate,
         ProfileOperationType.createRelease,
@@ -171,7 +198,8 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
       }
     });
 
-    if (opState.isLoading(ProfileOperationType.fetch) && opState.cachedProfile == null) {
+    if (opState.isLoading(ProfileOperationType.fetch) &&
+        opState.cachedProfile == null) {
       return const ProfileSkeletonScreen();
     }
 
@@ -186,12 +214,14 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
         ),
         body: ErrorBoundary(
           message: fetchError.message,
-          onRetry: () => ref.read(ownerProfileOperationProvider.notifier).fetchProfile(),
+          onRetry: () =>
+              ref.read(ownerProfileOperationProvider.notifier).fetchProfile(),
         ),
       );
     }
 
-    final isMutating = opState.isLoading(ProfileOperationType.createRelease) ||
+    final isMutating =
+        opState.isLoading(ProfileOperationType.createRelease) ||
         opState.isLoading(ProfileOperationType.avatarUpdate) ||
         opState.isLoading(ProfileOperationType.visibilityToggle);
 
@@ -227,7 +257,8 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
         child: RefreshIndicator(
           color: AppColors.brandPrimary,
           backgroundColor: AppColors.surfaceModal,
-          onRefresh: () => ref.read(ownerProfileOperationProvider.notifier).fetchProfile(),
+          onRefresh: () =>
+              ref.read(ownerProfileOperationProvider.notifier).fetchProfile(),
           child: SafeArea(
             child: Center(
               child: ConstrainedBox(
@@ -244,201 +275,288 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                       if (opState.isOffline) ...[
                         OfflineIndicator(
                           cacheTimestamp: opState.cachedProfile?.timestamp,
-                          onRefresh: () => ref.read(ownerProfileOperationProvider.notifier).fetchProfile(),
+                          onRefresh: () => ref
+                              .read(ownerProfileOperationProvider.notifier)
+                              .fetchProfile(),
                         ),
                         const SizedBox(height: 16),
                       ],
-                  // 1. Owner Profile Scaffolding Row
-                  Row(
-                    children: [
-                      // Creator Profile Avatar with AI Edit Badge
-                      CreatorAvatar(
-                        avatarKey: const Key('owner_avatar_button'),
-                        avatarUrl: profile.avatarUrl,
-                        monogram: profile.monogram,
-                        size: 68,
-                        borderWidth: 2,
-                        showEditBadge: true,
-                        onTap: () {
-                          AvatarCustomizationModal.show(context);
-                        },
+                      // 1. Owner Profile Scaffolding Row
+                      Row(
+                        children: [
+                          // Creator Profile Avatar with AI Edit Badge
+                          CreatorAvatar(
+                            avatarKey: const Key('owner_avatar_button'),
+                            avatarUrl: profile.avatarUrl,
+                            monogram: profile.monogram,
+                            size: 68,
+                            borderWidth: 2,
+                            showEditBadge: true,
+                            onTap: () {
+                              AvatarCustomizationModal.show(context);
+                            },
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  profile.displayName,
+                                  style: AppTypography.titleLarge.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '@${profile.username} • Verified Creator',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+
+                      const SizedBox(height: 16),
+
+                      // 2. Management Action Strip
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _buildActionPill(
+                            icon: Icons.auto_awesome_rounded,
+                            label: 'Change Avatar ✨',
+                            onTap: () {
+                              AvatarCustomizationModal.show(context);
+                            },
+                          ),
+                          _buildActionPill(
+                            icon: Icons.edit_rounded,
+                            label: 'Edit Profile',
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Opening Profile Editor...'),
+                                ),
+                              );
+                            },
+                          ),
+                          _buildActionPill(
+                            icon: Icons.push_pin_rounded,
+                            label: 'Pin Song',
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Select a song to pin to top'),
+                                ),
+                              );
+                            },
+                          ),
+                          _buildActionPill(
+                            icon: Icons.analytics_outlined,
+                            label: 'Studio Analytics',
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Opening Analytics Console...'),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // 3. Top Genres Analytics Chips
+                      Text(
+                        'TOP GENRES',
+                        style: AppTypography.caption.copyWith(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildGenreChip('🎵 House', '1'),
+                          _buildGenreChip('🎹 Amapiano', '4'),
+                          _buildGenreChip('🎸 Maskandi', '2'),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // 3b. Creator DNA Profile Card (Phase 2 — REQ-DNA-HOME-01)
+                      const CreatorDnaProfileCard(isOwner: true),
+
+                      const SizedBox(height: 24),
+
+                      // 4. Tri-Segment Studio Switcher (Phase 30 REQ-PROF-STUDIO-01)
+                      _buildStudioSegmentedSelector(),
+
+                      const SizedBox(height: 12),
+
+                      if (_activeTab == OwnerStudioTab.songs) ...[
+                        Row(
                           children: [
                             Text(
-                              profile.displayName,
-                              style: AppTypography.titleLarge.copyWith(
+                              'Your Songs',
+                              style: AppTypography.titleMedium.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            const Spacer(),
                             Text(
-                              '@${profile.username} • Verified Creator',
-                              style: const TextStyle(
-                                fontSize: 12,
+                              '${profile.songCount} total',
+                              style: AppTypography.caption.copyWith(
                                 color: AppColors.textSecondary,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // 2. Management Action Strip
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _buildActionPill(
-                        icon: Icons.auto_awesome_rounded,
-                        label: 'Change Avatar ✨',
-                        onTap: () {
-                          AvatarCustomizationModal.show(context);
-                        },
-                      ),
-                      _buildActionPill(
-                        icon: Icons.edit_rounded,
-                        label: 'Edit Profile',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Opening Profile Editor...')),
-                          );
-                        },
-                      ),
-                      _buildActionPill(
-                        icon: Icons.push_pin_rounded,
-                        label: 'Pin Song',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Select a song to pin to top')),
-                          );
-                        },
-                      ),
-                      _buildActionPill(
-                        icon: Icons.analytics_outlined,
-                        label: 'Studio Analytics',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Opening Analytics Console...')),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // 3. Top Genres Analytics Chips
-                  Text(
-                    'TOP GENRES',
-                    style: AppTypography.caption.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _buildGenreChip('🎵 House', '1'),
-                      _buildGenreChip('🎹 Amapiano', '4'),
-                      _buildGenreChip('🎸 Maskandi', '2'),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // 3b. Creator DNA Profile Card (Phase 2 — REQ-DNA-HOME-01)
-                  const CreatorDnaProfileCard(isOwner: true),
-
-                  const SizedBox(height: 24),
-
-                  // 4. Your Songs Shelf with Public/Private Visibility Switch
-                  Row(
-                    children: [
-                      Text(
-                        'Your Songs',
-                        style: AppTypography.titleMedium.copyWith(
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(height: 12),
+                        _buildOwnerTrackTile(
+                          trackId: 'track_own_01',
+                          rank: 1,
+                          title: 'ZaYN',
+                          genre: 'House',
+                          duration: '3:20',
+                          plays: 4,
+                          likes: 0,
                         ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${profile.songCount} total',
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.textSecondary,
+                        const SizedBox(height: 10),
+                        _buildOwnerTrackTile(
+                          trackId: 'track_own_02',
+                          rank: 2,
+                          title: 'Ndo Mufuna Matibe',
+                          genre: 'Amapiano',
+                          duration: '3:18',
+                          plays: 12,
+                          likes: 3,
                         ),
+                        const SizedBox(height: 14),
+                        const _OwnerReelsShelf(),
+                      ] else if (_activeTab == OwnerStudioTab.releases) ...[
+                        ReleasesManagerCard(
+                          releases: profile.releases,
+                          onNewRelease: _showNewReleaseDialog,
+                        ),
+                      ] else ...[
+                        const OwnerBeatstoreCockpit(),
+                      ],
+
+                      const SizedBox(height: 14),
+
+                      // 4c. Creator Wallet & Cultural Gifting (Phase 20)
+                      const CreatorWalletDeck(),
+
+                      const SizedBox(height: 14),
+
+                      // 6. Tip History Ledger
+                      TipHistoryLedger(
+                        tipHistory: profile.tipHistory,
+                        tipsEnabled: profile.tipsEnabled,
+                        onToggleTips: (val) {
+                          ref
+                              .read(ownerProfileOperationProvider.notifier)
+                              .toggleTipsEnabled();
+                        },
                       ),
+
+                      // 7. Profile Referral Link Card
+                      ProfileReferralCard(username: profile.username),
+
+                      const SizedBox(height: 40),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  _buildOwnerTrackTile(
-                    trackId: 'track_own_01',
-                    rank: 1,
-                    title: 'ZaYN',
-                    genre: 'House',
-                    duration: '3:20',
-                    plays: 4,
-                    likes: 0,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildOwnerTrackTile(
-                    trackId: 'track_own_02',
-                    rank: 2,
-                    title: 'Ndo Mufuna Matibe',
-                    genre: 'Amapiano',
-                    duration: '3:18',
-                    plays: 12,
-                    likes: 3,
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // 4b. My Clips & Reels (Phase 18 · REQ-SOC-07)
-                  const _OwnerReelsShelf(),
-
-                  const SizedBox(height: 14),
-
-                  // 4c. Creator Wallet & Cultural Gifting (Phase 20)
-                  const CreatorWalletDeck(),
-
-                  const SizedBox(height: 14),
-
-                  // 5. Discography Releases Manager
-                  ReleasesManagerCard(
-                    releases: profile.releases,
-                    onNewRelease: _showNewReleaseDialog,
-                  ),
-
-                  // 6. Tip History Ledger
-                  TipHistoryLedger(
-                    tipHistory: profile.tipHistory,
-                    tipsEnabled: profile.tipsEnabled,
-                    onToggleTips: (val) {
-                      ref.read(ownerProfileOperationProvider.notifier).toggleTipsEnabled();
-                    },
-                  ),
-
-                  // 7. Profile Referral Link Card
-                  ProfileReferralCard(username: profile.username),
-
-                  const SizedBox(height: 40),
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
-    ),
+    );
+  }
+
+  Widget _buildStudioSegmentedSelector() {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSecondary,
+        borderRadius: AppRadius.pillBorder,
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Row(
+        children: OwnerStudioTab.values.map((tab) {
+          final isSelected = _activeTab == tab;
+          return Expanded(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: InkWell(
+                key: Key('owner_studio_tab_${tab.name}'),
+                onTap: () => setState(() => _activeTab = tab),
+                borderRadius: AppRadius.pillBorder,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.brandPrimary
+                        : Colors.transparent,
+                    borderRadius: AppRadius.pillBorder,
+                  ),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 8,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        PhosphorIcon(
+                          switch (tab) {
+                            OwnerStudioTab.songs => AppIcons.songs,
+                            OwnerStudioTab.releases => AppIcons.releases,
+                            OwnerStudioTab.beatstore => AppIcons.beatstore,
+                          },
+                          size: 14,
+                          color: isSelected
+                              ? AppColors.brandContrast
+                              : AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          tab.label,
+                          style: AppTypography.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isSelected
+                                ? AppColors.brandContrast
+                                : AppColors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -533,7 +651,11 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
               gradient: AppGradients.forGenre(genre),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Icon(Icons.music_note_rounded, color: Colors.white, size: 18),
+            child: const Icon(
+              Icons.music_note_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -549,7 +671,10 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                 ),
                 Text(
                   '$genre • $duration • ▶ $plays • ❤️ $likes',
-                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -580,7 +705,9 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: isPublic ? const Color(0xFF34D399) : AppColors.textSecondary,
+                  color: isPublic
+                      ? const Color(0xFF34D399)
+                      : AppColors.textSecondary,
                 ),
               ),
             ),
@@ -595,7 +722,9 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
               color: AppColors.brandPrimary,
             ),
             onPressed: () {
-              ref.read(playerStateProvider.notifier).playTrack(
+              ref
+                  .read(playerStateProvider.notifier)
+                  .playTrack(
                     Track(
                       id: trackId,
                       title: title,
@@ -625,16 +754,25 @@ class _OwnerReelsShelf extends ConsumerWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.movie_filter_rounded,
-                color: AppColors.brandPrimary, size: 18),
+            const Icon(
+              Icons.movie_filter_rounded,
+              color: AppColors.brandPrimary,
+              size: 18,
+            ),
             const SizedBox(width: 8),
-            Text('My Clips & Reels',
-                style: AppTypography.titleMedium
-                    .copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'My Clips & Reels',
+              style: AppTypography.titleMedium.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const Spacer(),
-            Text('${clips.length}',
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textSecondary)),
+            Text(
+              '${clips.length}',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),

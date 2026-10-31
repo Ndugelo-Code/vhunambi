@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../../core/utils/creator_id_utils.dart';
 import '../../domain/models/profile_models.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../../presentation/providers/profile_providers.dart';
@@ -20,8 +21,14 @@ class ProfileRepositoryImpl implements ProfileRepository {
     }
 
     final cleanId = artistId.toLowerCase().trim();
+    final rawId = extractRawCreatorId(cleanId);
     final match = _profiles.firstWhere(
-      (p) => p.id == cleanId || p.username == cleanId,
+      (p) =>
+          p.id.toLowerCase() == cleanId ||
+          p.username.toLowerCase() == cleanId ||
+          p.id.toLowerCase() == rawId ||
+          p.username.toLowerCase() == rawId ||
+          p.id.toLowerCase() == 'creator_$rawId',
       orElse: () => ArtistProfileEntity(
         id: cleanId,
         username: cleanId,

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/utils/creator_id_utils.dart';
 import '../../../../shared/models/track.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
@@ -31,6 +32,26 @@ final marketplaceBeatsProvider =
 );
 
 /// Listings matching the active search / genre / BPM / price filters.
+/// Beat listings by a specific producer/creator (Phase 30 REQ-PROF-BEAT-CAT-01).
+final creatorBeatsFamilyProvider =
+    Provider.family<List<BeatListingEntity>, String>((ref, creatorId) {
+  final allBeats = ref.watch(marketplaceBeatsProvider);
+  final normalized = normalizeCreatorId(creatorId).toLowerCase();
+  final raw = extractRawCreatorId(creatorId).toLowerCase();
+
+  return allBeats.where((beat) {
+    final prodId = beat.producerId.toLowerCase();
+    final handle = beat.producerHandle.toLowerCase();
+    final name = beat.producerName.toLowerCase();
+    return prodId == normalized ||
+        prodId == raw ||
+        prodId == 'creator_$raw' ||
+        handle == '@$raw' ||
+        handle == raw ||
+        name == raw;
+  }).toList();
+});
+
 final filteredBeatsProvider = Provider<List<BeatListingEntity>>((ref) {
   return filterBeats(
     beats: ref.watch(marketplaceBeatsProvider),

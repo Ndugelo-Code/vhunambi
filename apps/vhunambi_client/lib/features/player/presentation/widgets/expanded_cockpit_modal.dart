@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/navigation/app_navigator.dart';
 import '../../../../core/design_system/services/haptics_service.dart';
 import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
 import '../../../../core/design_system/tokens/design_enums.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -19,6 +22,9 @@ import '../../../offline/presentation/widgets/offline_indicator_badge.dart';
 import '../providers/mini_player_controller.dart';
 import '../providers/player_provider.dart';
 import 'queue_drawer.dart';
+import '../../../content_studio/presentation/providers/master_media_object_provider.dart';
+import '../../../mastering/presentation/providers/mastering_session_provider.dart';
+import '../../../studio/presentation/providers/studio_form_provider.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
 import 'package:vhunambi_client/features/content_studio/presentation/views/content_studio_dock_view.dart';
 import 'package:vhunambi_client/features/social/domain/models/video_export_job.dart';
@@ -36,11 +42,13 @@ class ExpandedCockpitModal extends ConsumerStatefulWidget {
   const ExpandedCockpitModal({super.key});
 
   static void show(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height;
+    final nav = Navigator.maybeOf(context);
+    final navContext = nav != null ? context : (appNavigatorKey.currentContext ?? context);
+    final height = MediaQuery.sizeOf(navContext).height;
     // Organic expand: scale/fade/rise out of the pill while the shared
     // artwork Hero flies up. showGeneralDialog gives barrier + tap-to-dismiss.
     showGeneralDialog(
-      context: context,
+      context: navContext,
       useRootNavigator: false,
       barrierDismissible: true,
       barrierLabel: 'Dismiss now playing',
@@ -121,6 +129,20 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
     final extension = VhunambiThemeExtension.of(context);
     final accent = extension.genreAccent(genre);
 
+    final masteringState = ref.watch(masteringSessionProvider);
+    final isMasteredActive = masteringState.isMasteredPreviewActive;
+
+    final dna = SongMetadataDna.fromTrackInfo(
+      id: track.id,
+      title: track.title,
+      genre: track.genre,
+      language: track.language,
+      durationSec: track.duration.inSeconds,
+      coverUrl: track.coverUrl,
+    );
+    final mmo = ref.watch(masterMediaObjectProvider(dna));
+    final rmsBytes = mmo.modulationBus.masterRmsBytes;
+
     return Material(
       type: MaterialType.transparency,
       child: Container(
@@ -137,9 +159,10 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
           ],
         ),
         child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
+          top: false,
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
             const SizedBox(height: 12),
             // Drag Handle
             Container(
@@ -160,7 +183,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: Colors.white),
+                    icon: const PhosphorIcon(AppIcons.caretDown, size: 28, color: Colors.white),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   Text(
@@ -213,7 +236,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                   ),
                   IconButton(
                     key: const Key('player_more_actions_btn'),
-                    icon: const Icon(Icons.more_horiz_rounded, size: 24, color: Colors.white),
+                    icon: const PhosphorIcon(AppIcons.dotsHorizontal, size: 24, color: Colors.white),
                     tooltip: 'More actions',
                     onPressed: () {
                       final libraryTrack = ref
@@ -235,12 +258,19 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
             const SizedBox(height: 16),
 
             // Hero Artwork / Lyrics surface (flip via the header toggle)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: _showLyrics
-                    ? _buildLyricsCard(context, ref, track, accent)
-                    : Center(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: _showLyrics
+                  ? SizedBox(
+                      height: MediaQuery.sizeOf(context).height < 700 ? 200 : 260,
+                      child: _buildLyricsCard(context, ref, track, accent),
+                    )
+                  : Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.sizeOf(context).height < 700 ? 200 : 260,
+                          maxHeight: MediaQuery.sizeOf(context).height < 700 ? 200 : 260,
+                        ),
                         child: AspectRatio(
                           aspectRatio: 1,
                           child: Hero(
@@ -269,7 +299,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                           ),
                         ),
                       ),
-              ),
+                    ),
             ),
 
             const SizedBox(height: 24),
@@ -299,7 +329,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                               track.creatorName,
                               style: AppTypography.bodyMuted.copyWith(fontSize: 15),
                             ),
-                            Icon(Icons.verified_rounded, color: accent, size: 16),
+                            PhosphorIcon(AppIcons.verified, color: accent, size: 16),
                             Text('• ${track.genre}', style: AppTypography.caption),
                             if (ref.watch(libraryTracksProvider).any(
                               (t) => t.id == track.id && t.isOfflineAvailable,
@@ -338,7 +368,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                   ),
                   IconButton(
                     key: const Key('player_meta_share_btn'),
-                    icon: const Icon(Icons.ios_share_rounded, color: AppColors.textSecondary, size: 22),
+                    icon: const PhosphorIcon(AppIcons.share, color: AppColors.textSecondary, size: 22),
                     tooltip: 'Share Track',
                     onPressed: () async {
                       await _handleShare(context, track);
@@ -350,12 +380,13 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
 
             const SizedBox(height: 20),
 
-            // Waveform Scrubber
+            // Waveform Scrubber with 60 Hz masterRmsBytes Visualizer
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(
                 children: [
                   GestureDetector(
+                    key: const Key('cockpit_waveform_scrubber'),
                     onHorizontalDragUpdate: (details) {
                       final box = context.findRenderObject() as RenderBox?;
                       if (box != null) {
@@ -364,18 +395,27 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       }
                     },
                     child: Container(
-                      height: 42,
+                      height: 44,
                       alignment: Alignment.center,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
-                        children: List.generate(40, (index) {
-                          final barRatio = index / 40;
+                        children: List.generate(60, (index) {
+                          final barRatio = index / 60.0;
                           final isElapsed = barRatio <= playerState.progressRatio;
-                          final barHeight = 10.0 + (index % 5) * 6.0;
+
+                          double amplitude = 0.35;
+                          if (rmsBytes.isNotEmpty) {
+                            final sampleIndex = (barRatio * (rmsBytes.length - 1)).toInt().clamp(0, rmsBytes.length - 1);
+                            amplitude = (rmsBytes[sampleIndex] / 255.0).clamp(0.15, 1.0);
+                          } else {
+                            amplitude = 0.2 + ((index % 6) * 0.12);
+                          }
+
+                          final barHeight = 8.0 + (amplitude * 34.0);
 
                           return Expanded(
                             child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                              margin: const EdgeInsets.symmetric(horizontal: 1.0),
                               height: barHeight,
                               decoration: BoxDecoration(
                                 color: isElapsed ? accent : AppColors.borderSubtle,
@@ -411,7 +451,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                     label: playerState.isShuffle ? 'Shuffle on' : 'Shuffle off',
                     child: IconButton(
                       icon: Icon(
-                        Icons.shuffle_rounded,
+                        AppIcons.shuffle,
                         color: playerState.isShuffle ? accent : AppColors.textSecondary,
                         size: 24,
                       ),
@@ -424,7 +464,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                   Semantics(
                     label: 'Skip previous track',
                     child: IconButton(
-                      icon: const Icon(Icons.skip_previous_rounded, size: 36, color: Colors.white),
+                      icon: const PhosphorIcon(AppIcons.skipBack, size: 36, color: Colors.white),
                       onPressed: () {
                         HapticsService().lightImpact();
                         notifier.skipPrevious();
@@ -451,8 +491,8 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       child: IconButton(
                         icon: Icon(
                           playerState.isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
+                              ? AppIcons.pause
+                              : AppIcons.play,
                           size: 36,
                           color: _contrastTextColor(accent),
                         ),
@@ -466,7 +506,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                   Semantics(
                     label: 'Skip next track',
                     child: IconButton(
-                      icon: const Icon(Icons.skip_next_rounded, size: 36, color: Colors.white),
+                      icon: const PhosphorIcon(AppIcons.skipForward, size: 36, color: Colors.white),
                       onPressed: () {
                         HapticsService().lightImpact();
                         notifier.skipNext();
@@ -482,8 +522,8 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                     child: IconButton(
                       icon: Icon(
                         playerState.repeatMode == AudioRepeatMode.one
-                            ? Icons.repeat_one_rounded
-                            : Icons.repeat_rounded,
+                            ? AppIcons.repeat
+                            : AppIcons.repeat,
                         color: playerState.repeatMode != AudioRepeatMode.off
                             ? accent
                             : AppColors.textTertiary,
@@ -591,6 +631,22 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       label: 'Queue',
                       onTap: () => QueueDrawer.show(context),
                     ),
+                    // 1-Tap Master A/B Auditioning Chip (Phase 25)
+                    _UtilityItem(
+                      key: const Key('cockpit_master_ab_btn'),
+                      icon: isMasteredActive
+                          ? Icons.auto_fix_high_rounded
+                          : Icons.auto_fix_normal_rounded,
+                      label: isMasteredActive ? 'Mastered' : 'Raw AI',
+                      onTap: _toggleMasterAB,
+                    ),
+                    // Studio Remixing Preset Chip (Phase 21/27)
+                    _UtilityItem(
+                      key: const Key('cockpit_remix_studio_btn'),
+                      icon: Icons.refresh_rounded,
+                      label: 'Remix',
+                      onTap: () => _remixInStudio(context, track),
+                    ),
                   ],
                 ),
               ),
@@ -600,8 +656,9 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
         ),
       ),
     ),
-    );
-  }
+  ),
+);
+}
 
   /// Builds the scrollable Lyrics reading card shown when [_showLyrics] is on.
   ///
@@ -756,6 +813,34 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
     await Share.share(
       'Check out "${track.title}" by ${track.creatorName} on Vhunambi!\nhttps://vhunambi.com/track/${track.id}',
       subject: track.title,
+    );
+  }
+
+  void _toggleMasterAB() {
+    ref.read(masteringSessionProvider.notifier).togglePreviewBypass();
+    final isMastered = ref.read(masteringSessionProvider).isMasteredPreviewActive;
+    HapticsService().mediumImpact();
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(
+          isMastered
+              ? 'Studio Master DSP: ACTIVE'
+              : 'Studio Master DSP: BYPASSED (Raw AI)',
+        ),
+        duration: const Duration(milliseconds: 1500),
+      ),
+    );
+  }
+
+  void _remixInStudio(BuildContext context, Track track) {
+    ref.read(studioFormProvider.notifier).setGenre(track.genre);
+    ref.read(studioFormProvider.notifier).updatePrompt('Remix of ${track.title} (${track.genre})');
+    Navigator.of(context).pop();
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text('Loaded "${track.title}" into Studio for remixing'),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 

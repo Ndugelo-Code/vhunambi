@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design_system/services/haptics_service.dart';
 import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
 import '../../../../core/design_system/tokens/design_enums.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -84,7 +86,7 @@ class DesktopTransportBar extends ConsumerWidget {
                       gradient: AppGradients.forGenre(track.genre),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.piano_rounded, color: Colors.white, size: 26),
+                    child: const PhosphorIcon(AppIcons.piano, color: Colors.white, size: 26),
                   ),
                   const SizedBox(width: 14),
 
@@ -125,7 +127,7 @@ class DesktopTransportBar extends ConsumerWidget {
                   Semantics(
                     label: 'Skip previous track',
                     child: IconButton(
-                      icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 24),
+                      icon: const PhosphorIcon(AppIcons.skipBack, color: Colors.white, size: 24),
                       onPressed: notifier.skipPrevious,
                       tooltip: 'Previous Track',
                     ),
@@ -144,8 +146,8 @@ class DesktopTransportBar extends ConsumerWidget {
                       child: IconButton(
                         icon: Icon(
                           playerState.isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
+                              ? AppIcons.pause
+                              : AppIcons.play,
                           color: _contrastTextColor(accent),
                           size: 24,
                         ),
@@ -161,7 +163,7 @@ class DesktopTransportBar extends ConsumerWidget {
                   Semantics(
                     label: 'Skip next track',
                     child: IconButton(
-                      icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 24),
+                      icon: const PhosphorIcon(AppIcons.skipForward, color: Colors.white, size: 24),
                       onPressed: notifier.skipNext,
                       tooltip: 'Next Track',
                     ),
@@ -174,7 +176,7 @@ class DesktopTransportBar extends ConsumerWidget {
                     child: IconButton(
                       key: const Key('transport_shuffle_button'),
                       icon: Icon(
-                        Icons.shuffle_rounded,
+                        AppIcons.shuffle,
                         color: playerState.isShuffle
                             ? accent
                             : AppColors.textSecondary,
@@ -197,8 +199,8 @@ class DesktopTransportBar extends ConsumerWidget {
                     child: IconButton(
                       icon: Icon(
                         playerState.repeatMode == AudioRepeatMode.one
-                            ? Icons.repeat_one_rounded
-                            : Icons.repeat_rounded,
+                            ? AppIcons.repeat
+                            : AppIcons.repeat,
                         color: playerState.repeatMode != AudioRepeatMode.off
                             ? accent
                             : AppColors.textTertiary,
@@ -245,7 +247,7 @@ class DesktopTransportBar extends ConsumerWidget {
                                 ),
                               )
                             : Icon(
-                                isOffline ? Icons.offline_pin_rounded : Icons.download_rounded,
+                                isOffline ? AppIcons.checkCircle : AppIcons.download,
                                 color: isOffline ? accent : AppColors.textSecondary,
                                 size: 20,
                               ),
@@ -295,8 +297,8 @@ class DesktopTransportBar extends ConsumerWidget {
                         key: const Key('transport_favorite_button'),
                         icon: Icon(
                           isFavorite
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
+                              ? AppIcons.heart
+                              : AppIcons.heartOutline,
                           color: isFavorite ? accent : AppColors.textSecondary,
                           size: 20,
                         ),
@@ -335,7 +337,7 @@ class DesktopTransportBar extends ConsumerWidget {
                   const SizedBox(width: 16),
 
                   // 5. Volume Slider & Window Controls
-                  const Icon(Icons.volume_up_rounded, color: AppColors.textSecondary, size: 20),
+                  const PhosphorIcon(AppIcons.volumeHigh, color: AppColors.textSecondary, size: 20),
                   SizedBox(
                     width: 90,
                     child: SliderTheme(
@@ -356,13 +358,13 @@ class DesktopTransportBar extends ConsumerWidget {
                   const SizedBox(width: 10),
 
                   IconButton(
-                    icon: const Icon(Icons.keyboard_arrow_up_rounded, color: AppColors.textSecondary, size: 20),
+                    icon: const PhosphorIcon(AppIcons.caretUp, color: AppColors.textSecondary, size: 20),
                     onPressed: onExpand,
                     tooltip: 'Expand Cockpit',
                   ),
 
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.textTertiary, size: 18),
+                    icon: const PhosphorIcon(AppIcons.close, color: AppColors.textTertiary, size: 18),
                     onPressed: notifier.dismiss,
                     tooltip: 'Dismiss Player',
                   ),

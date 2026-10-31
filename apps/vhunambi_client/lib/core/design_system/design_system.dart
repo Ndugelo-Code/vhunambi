@@ -9,6 +9,7 @@
 library;
 
 // Tokens
+export 'tokens/app_icons.dart';
 export 'tokens/color_token.dart';
 export 'tokens/contrast_utils.dart';
 export 'tokens/design_enums.dart';

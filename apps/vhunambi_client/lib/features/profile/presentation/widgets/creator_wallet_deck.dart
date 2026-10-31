@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -145,7 +146,7 @@ class CreatorWalletDeck extends ConsumerWidget {
               shape: const RoundedRectangleBorder(
                   borderRadius: AppRadius.inputBorder),
             ),
-            icon: const Icon(Icons.payments_rounded,
+            icon: const PhosphorIcon(PhosphorIconsRegular.creditCard,
                 color: AppColors.brandContrast, size: 18),
             label: Text('Request Payout (Ozow / Capitec Pay / EFT)',
                 style: AppTypography.bodySmall.copyWith(

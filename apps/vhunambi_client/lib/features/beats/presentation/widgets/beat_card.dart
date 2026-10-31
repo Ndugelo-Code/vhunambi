@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -146,8 +148,8 @@ class _BeatArtwork extends StatelessWidget {
             children: [
               BeatStatusBadge(status: beat.status, compact: true),
               const Spacer(),
-              const Icon(
-                Icons.graphic_eq_rounded,
+              const PhosphorIcon(
+                AppIcons.waveform,
                 size: 18,
                 color: AppColors.textPrimary,
               ),
@@ -216,8 +218,8 @@ class _AuditionButton extends StatelessWidget {
             borderRadius: AppRadius.thumbBorder,
             border: Border.all(color: AppColors.borderSubtle),
           ),
-          child: Icon(
-            isAuditioning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          child: PhosphorIcon(
+            isAuditioning ? AppIcons.pause : AppIcons.play,
             size: 18,
             color: isAuditioning
                 ? AppColors.brandContrast
@@ -251,8 +253,8 @@ class _BeatOverflowMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       key: Key('beat_menu_$beatId'),
-      icon: const Icon(
-        Icons.more_vert_rounded,
+      icon: const PhosphorIcon(
+        AppIcons.dotsVertical,
         size: 18,
         color: AppColors.textSecondary,
       ),

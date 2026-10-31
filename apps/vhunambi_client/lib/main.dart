@@ -4,18 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'core/theme/app_colors.dart';
+import 'core/navigation/app_navigator.dart';
 import 'core/theme/app_theme.dart';
-import 'core/theme/app_typography.dart';
 import 'core/utils/responsive_utils.dart';
 import 'core/widgets/vhunambi_bottom_dock_kit.dart';
+import 'core/widgets/vhunambi_mobile_bottom_nav.dart';
 import 'core/design_system/design_system.dart';
+import 'features/explore/presentation/providers/explore_providers.dart';
 import 'features/explore/presentation/views/explore_view.dart';
 import 'features/home/presentation/views/home_dashboard_view.dart';
 import 'features/library/presentation/providers/library_providers.dart';
 import 'features/library/presentation/views/library_view.dart';
 import 'features/marketplace/presentation/views/marketplace_view.dart';
 import 'features/onboarding/presentation/views/splash_view.dart';
+import 'features/player/presentation/providers/mini_player_controller.dart';
 import 'features/player/presentation/providers/player_provider.dart';
 import 'features/player/presentation/widgets/mini_player_host.dart';
 import 'features/player/presentation/widgets/desktop_transport_bar.dart';
@@ -51,6 +53,7 @@ class VhunambiApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'VHUNAMBI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
@@ -86,6 +89,16 @@ class _RootShellState extends ConsumerState<RootShell> {
   void _switchTab(int index) {
     if (index == _currentIndex) return;
     HapticsService().selectionClick();
+    if (index == 1) {
+      resetExploreTitleFade(ref);
+    } else {
+      // When leaving Explore tab, restore player to Bar form if in Auto mode
+      final playerController = ref.read(miniPlayerControllerProvider);
+      if (playerController.form == PlayerForm.pill &&
+          playerController.mode == PlayerMode.auto) {
+        ref.read(miniPlayerControllerProvider.notifier).setForm(PlayerForm.bar);
+      }
+    }
     setState(() {
       _tabHistory.add(index);
       _currentIndex = index;
@@ -201,50 +214,9 @@ class _RootShellState extends ConsumerState<RootShell> {
       bottomNavigationBar: isDesktop
           ? null
           : VhunambiBottomDockSurface(
-              child: BottomNavigationBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                type: BottomNavigationBarType.fixed,
-                selectedItemColor: AppColors.brandPrimary,
-                unselectedItemColor: AppColors.textTertiary,
-                showUnselectedLabels: true,
-                selectedLabelStyle: AppTypography.caption.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
-                ),
-                unselectedLabelStyle: AppTypography.caption.copyWith(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 11,
-                ),
+              child: VhunambiMobileBottomNav(
                 currentIndex: _currentIndex,
                 onTap: _switchTab,
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.home_outlined),
-                    activeIcon: Icon(Icons.home_filled),
-                    label: 'Home',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.explore_outlined),
-                    activeIcon: Icon(Icons.explore_rounded),
-                    label: 'Explore',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.auto_awesome),
-                    activeIcon: Icon(Icons.auto_awesome),
-                    label: 'Create',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.library_music_outlined),
-                    activeIcon: Icon(Icons.library_music_rounded),
-                    label: 'Library',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.storefront_outlined),
-                    activeIcon: Icon(Icons.storefront_rounded),
-                    label: 'Market',
-                  ),
-                ],
               ),
             ),
     );

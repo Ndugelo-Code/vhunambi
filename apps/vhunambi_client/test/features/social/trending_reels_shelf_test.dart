@@ -20,8 +20,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Trending Kinetic Reels 🎬'), findsOneWidget);
-    expect(find.text('Discover African Creators'), findsOneWidget);
+    expect(find.text('Kinetic Reels'), findsOneWidget);
+    expect(find.byKey(const Key('explore_post_kinetic_reel_card')), findsOneWidget);
     expect(find.text('All'), findsOneWidget);
     expect(find.text('#Amapiano'), findsOneWidget);
     expect(find.byType(TrendingReelCard), findsWidgets);

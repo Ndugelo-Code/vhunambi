@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../../features/creator_dna/domain/entities/creator_dna_profile.dart';
 
 /// Top tipping fan on the supporter leaderboard (REQ-TRK-14).
 @immutable
@@ -52,6 +53,10 @@ class TipRecordEntity {
   final String senderHandle;
   final String recipientName;
   final int amountCredits;
+  final int amountCoins;
+  final double amountZar;
+  final String giftEmoji;
+  final String giftName;
   final String trackTitle;
   final DateTime timestamp;
   final bool isReceived;
@@ -62,10 +67,21 @@ class TipRecordEntity {
     required this.senderHandle,
     required this.recipientName,
     required this.amountCredits,
+    this.amountCoins = 0,
+    this.amountZar = 0.0,
+    this.giftEmoji = '🪙',
+    this.giftName = 'Cultural Tip',
     required this.trackTitle,
     required this.timestamp,
     required this.isReceived,
   });
+
+  String get amountLabel {
+    if (amountCoins > 0) {
+      return '$giftEmoji $amountCoins Coins (R${amountZar.toStringAsFixed(0)})';
+    }
+    return '⚡ $amountCredits';
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -73,6 +89,10 @@ class TipRecordEntity {
         'senderHandle': senderHandle,
         'recipientName': recipientName,
         'amountCredits': amountCredits,
+        'amountCoins': amountCoins,
+        'amountZar': amountZar,
+        'giftEmoji': giftEmoji,
+        'giftName': giftName,
         'trackTitle': trackTitle,
         'timestamp': timestamp.toIso8601String(),
         'isReceived': isReceived,
@@ -85,6 +105,10 @@ class TipRecordEntity {
         senderHandle: json['senderHandle'] as String? ?? '',
         recipientName: json['recipientName'] as String? ?? '',
         amountCredits: json['amountCredits'] as int? ?? 0,
+        amountCoins: json['amountCoins'] as int? ?? 0,
+        amountZar: (json['amountZar'] as num?)?.toDouble() ?? 0.0,
+        giftEmoji: json['giftEmoji'] as String? ?? '🪙',
+        giftName: json['giftName'] as String? ?? 'Cultural Tip',
         trackTitle: json['trackTitle'] as String? ?? '',
         timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
             DateTime.now(),
@@ -94,6 +118,19 @@ class TipRecordEntity {
 
 /// Discography bundle classification (REQ-TRK-15).
 enum ReleaseType { single, ep, album }
+
+/// 3-segment switcher for the Account Owner Creator Studio (Phase 30 REQ-PROF-STUDIO-01).
+enum OwnerStudioTab {
+  songs,
+  releases,
+  beatstore;
+
+  String get label => switch (this) {
+        OwnerStudioTab.songs => 'Songs',
+        OwnerStudioTab.releases => 'Releases',
+        OwnerStudioTab.beatstore => 'Beatstore',
+      };
+}
 
 @immutable
 class MusicReleaseEntity {
@@ -168,6 +205,10 @@ class ArtistProfileEntity {
   final List<SupporterEntity> topSupporters;
   final List<MusicReleaseEntity> releases;
   final List<TipRecordEntity> tipHistory;
+  final String? vocalArchetypeTitle;
+  final String? vocalArchetypeLanguage;
+  final String? vocalSampleUrl;
+  final CreatorDnaProfile? creatorDna;
 
   const ArtistProfileEntity({
     required this.id,
@@ -188,6 +229,10 @@ class ArtistProfileEntity {
     this.topSupporters = const [],
     this.releases = const [],
     this.tipHistory = const [],
+    this.vocalArchetypeTitle,
+    this.vocalArchetypeLanguage,
+    this.vocalSampleUrl,
+    this.creatorDna,
   });
 
   String get handle => '@$username';
@@ -211,6 +256,10 @@ class ArtistProfileEntity {
     int? followerCount,
     List<MusicReleaseEntity>? releases,
     List<TipRecordEntity>? tipHistory,
+    String? vocalArchetypeTitle,
+    String? vocalArchetypeLanguage,
+    String? vocalSampleUrl,
+    CreatorDnaProfile? creatorDna,
   }) {
     return ArtistProfileEntity(
       id: id,
@@ -231,6 +280,11 @@ class ArtistProfileEntity {
       topSupporters: topSupporters,
       releases: releases ?? this.releases,
       tipHistory: tipHistory ?? this.tipHistory,
+      vocalArchetypeTitle: vocalArchetypeTitle ?? this.vocalArchetypeTitle,
+      vocalArchetypeLanguage:
+          vocalArchetypeLanguage ?? this.vocalArchetypeLanguage,
+      vocalSampleUrl: vocalSampleUrl ?? this.vocalSampleUrl,
+      creatorDna: creatorDna ?? this.creatorDna,
     );
   }
 
@@ -253,6 +307,9 @@ class ArtistProfileEntity {
         'topSupporters': topSupporters.map((s) => s.toJson()).toList(),
         'releases': releases.map((r) => r.toJson()).toList(),
         'tipHistory': tipHistory.map((t) => t.toJson()).toList(),
+        'vocalArchetypeTitle': vocalArchetypeTitle,
+        'vocalArchetypeLanguage': vocalArchetypeLanguage,
+        'vocalSampleUrl': vocalSampleUrl,
       };
 
   factory ArtistProfileEntity.fromJson(Map<String, dynamic> json) =>
@@ -271,6 +328,9 @@ class ArtistProfileEntity {
         dayStreak: json['dayStreak'] as int? ?? 1,
         isFollowing: json['isFollowing'] as bool? ?? false,
         tipsEnabled: json['tipsEnabled'] as bool? ?? true,
+        vocalArchetypeTitle: json['vocalArchetypeTitle'] as String?,
+        vocalArchetypeLanguage: json['vocalArchetypeLanguage'] as String?,
+        vocalSampleUrl: json['vocalSampleUrl'] as String?,
         topGenres: (json['topGenres'] as List<dynamic>?)
                 ?.map((e) => e.toString())
                 .toList() ??

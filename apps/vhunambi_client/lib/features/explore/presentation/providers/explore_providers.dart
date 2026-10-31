@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/models/track.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/explore_models.dart';
+import '../../domain/models/social_music_post.dart';
+import '../../../social/domain/models/published_clip.dart';
+import '../../../social/presentation/providers/trending_reels_provider.dart';
 
 /// Catalog page size driving the `Load more` pagination cursor (REQ-EXP-08).
 const int exploreCatalogPageSize = 6;
@@ -361,4 +364,116 @@ List<Track> _seedTracks() {
       mood: 'Energetic',
     ),
   ];
+}
+
+/// Controls the transient 4-second title pill visibility (REQ-EXP-TOPBAR-02).
+final exploreTitlePillVisibleProvider = StateProvider<bool>((ref) => true);
+
+/// Helper to trigger / reset the transient 4s title pill whenever Tab 1 (Explore)
+/// becomes the active visible tab in RootShell's IndexedStack.
+void resetExploreTitleFade(WidgetRef ref) {
+  ref.read(exploreTitlePillVisibleProvider.notifier).state = true;
+}
+
+/// Active reel feed filter tab inside [KineticReelsModal] (REQ-EXP-REEL-TABS-01).
+final activeReelTabProvider =
+    StateProvider<ReelFeedTab>((ref) => ReelFeedTab.trending);
+
+/// Returns the reels stream sorted/filtered by [activeReelTabProvider] (REQ-EXP-REEL-TABS-02).
+final filteredReelsByTabProvider = Provider<List<PublishedClip>>((ref) {
+  final tab = ref.watch(activeReelTabProvider);
+  final allClips = ref.watch(trendingReelsProvider);
+  final following = ref.watch(followingCreatorIdsProvider);
+
+  return switch (tab) {
+    ReelFeedTab.trending => [...allClips]
+      ..sort((a, b) => b.likeCount.compareTo(a.likeCount)),
+    ReelFeedTab.forYou => allClips,
+    ReelFeedTab.following =>
+      allClips.where((c) => following.contains(c.creatorId)).toList(),
+    ReelFeedTab.newest => [...allClips]
+      ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt)),
+  };
+});
+
+/// Set of creator IDs that the current user is following.
+final followingCreatorIdsProvider =
+    StateNotifierProvider<FollowingCreatorsNotifier, Set<String>>((ref) {
+  return FollowingCreatorsNotifier();
+});
+
+class FollowingCreatorsNotifier extends StateNotifier<Set<String>> {
+  FollowingCreatorsNotifier() : super({'creator_makhadzi'});
+
+  void toggleFollow(String creatorId) {
+    if (state.contains(creatorId)) {
+      state = state.where((id) => id != creatorId).toSet();
+    } else {
+      state = {...state, creatorId};
+    }
+  }
+
+  bool isFollowing(String creatorId) => state.contains(creatorId);
+}
+
+/// Social music posts feed provider (REQ-EXP-FEED-01).
+final socialFeedPostsProvider =
+    StateNotifierProvider<SocialFeedPostsNotifier, List<SocialMusicPost>>(
+        (ref) {
+  return SocialFeedPostsNotifier();
+});
+
+class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
+  SocialFeedPostsNotifier() : super(seedSocialPosts());
+
+  void toggleLike(String postId) {
+    state = [
+      for (final post in state)
+        if (post.id == postId)
+          post.copyWith(
+            isLikedByMe: !post.isLikedByMe,
+            likeCount:
+                post.isLikedByMe ? post.likeCount - 1 : post.likeCount + 1,
+          )
+        else
+          post,
+    ];
+  }
+
+  void addPost(SocialMusicPost post) {
+    state = [post, ...state];
+  }
+}
+
+/// Persisted recent searches provider (REQ-EXP-SEARCH-02).
+final recentSearchesProvider =
+    StateNotifierProvider<RecentSearchesNotifier, List<String>>((ref) {
+  return RecentSearchesNotifier();
+});
+
+class RecentSearchesNotifier extends StateNotifier<List<String>> {
+  RecentSearchesNotifier()
+      : super(const [
+          'Kabza de Small log drum',
+          'Amapiano 2026 drops',
+          'Makhadzi live vocals',
+          'Gqom bass kick',
+        ]);
+
+  void addQuery(String query) {
+    final clean = query.trim();
+    if (clean.isEmpty) return;
+    state = [
+      clean,
+      ...state.where((q) => q.toLowerCase() != clean.toLowerCase())
+    ].take(10).toList();
+  }
+
+  void removeQuery(String query) {
+    state = state.where((q) => q != query).toList();
+  }
+
+  void clearAll() {
+    state = const [];
+  }
 }
