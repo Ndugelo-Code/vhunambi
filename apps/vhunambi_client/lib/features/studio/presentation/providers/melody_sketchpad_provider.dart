@@ -10,11 +10,14 @@ import '../../domain/models/melody_sketchpad_models.dart';
 import '../../domain/services/melody_wav_synthesizer.dart';
 import 'studio_form_provider.dart';
 
-/// Immutable state for the Phase 27 Device-Adaptive Melody, Chord & Log-Drum Sketchpad.
+/// Immutable state for the FL Studio-Style Multi-Track Master Groove Sketchpad (Phase 32).
 @immutable
 class MelodySketchpadState {
   const MelodySketchpadState({
     required this.activePattern,
+    required this.multiTrackGroove,
+    this.activeChannelRole = SketchpadChannelRole.lead,
+    this.isFullscreen = false,
     this.attachedPattern,
     this.savedPatterns = const [],
     this.starterPresets = kStarterMelodyPatterns,
@@ -29,6 +32,9 @@ class MelodySketchpadState {
   });
 
   final MelodyPatternEntity activePattern;
+  final MultiTrackGrooveEntity multiTrackGroove;
+  final SketchpadChannelRole activeChannelRole;
+  final bool isFullscreen;
   final MelodyPatternEntity? attachedPattern;
   final List<MelodyPatternEntity> savedPatterns;
   final List<MelodyPatternEntity> starterPresets;
@@ -43,8 +49,19 @@ class MelodySketchpadState {
 
   bool get hasAttachedReference => attachedPattern != null;
 
+  bool get isDrumOrHatChannel =>
+      activeChannelRole == SketchpadChannelRole.drums ||
+      activeChannelRole == SketchpadChannelRole.hats;
+
+  SketchpadChannelTrack get currentChannelTrack =>
+      multiTrackGroove.channels[activeChannelRole] ??
+      multiTrackGroove.channels[SketchpadChannelRole.lead]!;
+
   MelodySketchpadState copyWith({
     MelodyPatternEntity? activePattern,
+    MultiTrackGrooveEntity? multiTrackGroove,
+    SketchpadChannelRole? activeChannelRole,
+    bool? isFullscreen,
     MelodyPatternEntity? attachedPattern,
     bool clearAttachedPattern = false,
     List<MelodyPatternEntity>? savedPatterns,
@@ -60,6 +77,9 @@ class MelodySketchpadState {
   }) {
     return MelodySketchpadState(
       activePattern: activePattern ?? this.activePattern,
+      multiTrackGroove: multiTrackGroove ?? this.multiTrackGroove,
+      activeChannelRole: activeChannelRole ?? this.activeChannelRole,
+      isFullscreen: isFullscreen ?? this.isFullscreen,
       attachedPattern: clearAttachedPattern
           ? null
           : (attachedPattern ?? this.attachedPattern),
@@ -78,11 +98,24 @@ class MelodySketchpadState {
   }
 }
 
-/// Manages the 8×16 scale-locked sequencer, Local Hive Pattern Vault (`melodySketchesBoxKey`),
-/// Ephemeral In-Memory 16-bit PCM WAV synthesis, and Phase 3/23/25 synergy (REQ-SKP-01..15).
+/// Manages the 5-channel FL Studio-style multi-track sequencer, Local Hive Vault,
+/// and 44.1 kHz stereo Master Drive summing (REQ-SKP2-TRACK-01..04).
 class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   MelodySketchpadNotifier(this._ref)
-    : super(MelodySketchpadState(activePattern: kStarterMelodyPatterns.first)) {
+      : super(
+          MelodySketchpadState(
+            activePattern: kStarterMelodyPatterns.first,
+            multiTrackGroove: MultiTrackGrooveEntity.createDefault(
+              id: kStarterMelodyPatterns.first.id,
+              name: kStarterMelodyPatterns.first.name,
+              bpm: kStarterMelodyPatterns.first.bpm,
+              musicalKey: kStarterMelodyPatterns.first.musicalKey,
+              scaleMode: kStarterMelodyPatterns.first.scaleMode,
+              leadInstrument: kStarterMelodyPatterns.first.instrument,
+              initialLeadNotes: kStarterMelodyPatterns.first.notes,
+            ),
+          ),
+        ) {
     _loadSavedPatternsFromHive();
   }
 
@@ -94,28 +127,43 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 
   void _auditionSingleScaleRow(int scaleRow, {bool? hasGlide}) {
     final pattern = state.activePattern;
-    final freqHz = resolveScaleFrequencyHz(
-      pattern.musicalKey,
-      pattern.scaleMode,
-      scaleRow,
-      instrument: pattern.instrument,
+    if (state.isDrumOrHatChannel) {
+      final voiceWav = _synthesizeSingleDrumHit(
+        state.currentChannelTrack.beatKit,
+        scaleRow,
+      );
+      unawaited(_audioService.playSingleNoteHit(voiceWav));
+    } else {
+      final freqHz = resolveScaleFrequencyHz(
+        pattern.musicalKey,
+        pattern.scaleMode,
+        scaleRow,
+        instrument: pattern.instrument,
+      );
+      final hitWav = MelodyWavSynthesizer.synthesizeSingleNoteWavBytes(
+        instrument: pattern.instrument,
+        freqHz: freqHz,
+        hasGlide: hasGlide ?? state.isGlideModeEnabled,
+      );
+      unawaited(_audioService.playSingleNoteHit(hitWav));
+    }
+  }
+
+  Uint8List _synthesizeSingleDrumHit(BeatKitGenre kit, int row) {
+    return MelodyWavSynthesizer.synthesizeSingleNoteWavBytes(
+      instrument: SketchpadInstrument.amapianoLogDrum,
+      freqHz: 55.0,
     );
-    final hitWav = MelodyWavSynthesizer.synthesizeSingleNoteWavBytes(
-      instrument: pattern.instrument,
-      freqHz: freqHz,
-      hasGlide: hasGlide ?? state.isGlideModeEnabled,
-    );
-    unawaited(_audioService.playSingleNoteHit(hitWav));
   }
 
   void _refreshLoopIfPlaying() {
     if (!state.isPlayingPreview) return;
-    final wavBytes = MelodyWavSynthesizer.synthesizePatternToWavBytes(
-      state.activePattern,
+    final wavBytes = MelodyWavSynthesizer.synthesizeMasterGrooveToWavBytes(
+      state.multiTrackGroove,
     );
     state = state.copyWith(lastSynthesizedWavBytes: wavBytes);
     unawaited(
-      _audioService.updateLoopBuffer(wavBytes, bpm: state.activePattern.bpm),
+      _audioService.updateLoopBuffer(wavBytes, bpm: state.multiTrackGroove.bpm),
     );
   }
 
@@ -154,16 +202,163 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     }
   }
 
-  /// Loads a starter preset or saved vault pattern into the active sequencer.
-  void loadPattern(MelodyPatternEntity pattern) {
-    state = state.copyWith(activePattern: pattern, currentPlayheadStep: 0);
+  // ---------------------------------------------------------------------------
+  // Multi-Track Channel Controls (Phase 32)
+  // ---------------------------------------------------------------------------
+
+  /// Switches the active channel track being viewed and edited on the 16-step matrix.
+  void switchChannel(SketchpadChannelRole role) {
+    if (state.activeChannelRole == role) return;
+    final channel = state.multiTrackGroove.channels[role] ??
+        state.multiTrackGroove.channels[SketchpadChannelRole.lead]!;
+
+    final patternForChannel = state.multiTrackGroove.toLegacyPattern(role);
+    state = state.copyWith(
+      activeChannelRole: role,
+      activePattern: patternForChannel.copyWith(instrument: channel.instrument),
+    );
+  }
+
+  /// Sets volume for a specific channel track (`0.0..1.2`).
+  void setChannelVolume(SketchpadChannelRole role, double volume) {
+    final channel = state.multiTrackGroove.channels[role];
+    if (channel == null) return;
+    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+      state.multiTrackGroove.channels,
+    );
+    updatedChannels[role] = channel.copyWith(volume: volume.clamp(0.0, 1.2));
+    state = state.copyWith(
+      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
+    );
     _refreshLoopIfPlaying();
   }
 
-  /// Changes the active African instrument (non-destructively re-voicing existing steps).
+  /// Toggles mute on a channel track.
+  void toggleChannelMute(SketchpadChannelRole role) {
+    final channel = state.multiTrackGroove.channels[role];
+    if (channel == null) return;
+    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+      state.multiTrackGroove.channels,
+    );
+    updatedChannels[role] = channel.copyWith(isMuted: !channel.isMuted);
+    state = state.copyWith(
+      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
+    );
+    _refreshLoopIfPlaying();
+  }
+
+  /// Toggles solo on a channel track.
+  void toggleChannelSolo(SketchpadChannelRole role) {
+    final channel = state.multiTrackGroove.channels[role];
+    if (channel == null) return;
+    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+      state.multiTrackGroove.channels,
+    );
+    updatedChannels[role] = channel.copyWith(isSolo: !channel.isSolo);
+    state = state.copyWith(
+      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
+    );
+    _refreshLoopIfPlaying();
+  }
+
+  /// Clears notes from a specific channel track.
+  void clearChannel(SketchpadChannelRole role) {
+    final channel = state.multiTrackGroove.channels[role];
+    if (channel == null) return;
+    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+      state.multiTrackGroove.channels,
+    );
+    updatedChannels[role] = channel.copyWith(steps: const []);
+
+    final updatedGroove = state.multiTrackGroove.copyWith(channels: updatedChannels);
+    state = state.copyWith(
+      multiTrackGroove: updatedGroove,
+      activePattern: state.activeChannelRole == role
+          ? state.activePattern.copyWith(notes: const [])
+          : state.activePattern,
+    );
+    _refreshLoopIfPlaying();
+  }
+
+  /// Sets the BeatKitGenre for the drums channel.
+  void setBeatKitGenre(BeatKitGenre kit) {
+    final drumsChan = state.multiTrackGroove.channels[SketchpadChannelRole.drums];
+    final hatsChan = state.multiTrackGroove.channels[SketchpadChannelRole.hats];
+    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+      state.multiTrackGroove.channels,
+    );
+    if (drumsChan != null) {
+      updatedChannels[SketchpadChannelRole.drums] = drumsChan.copyWith(beatKit: kit);
+    }
+    if (hatsChan != null) {
+      updatedChannels[SketchpadChannelRole.hats] = hatsChan.copyWith(beatKit: kit);
+    }
+    state = state.copyWith(
+      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
+    );
+    _refreshLoopIfPlaying();
+  }
+
+  /// Toggles modal full-screen expansion mode.
+  void toggleFullscreen() {
+    state = state.copyWith(isFullscreen: !state.isFullscreen);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Single-Channel & Sequencer Editing (Preserves Phase 27 backward compatibility)
+  // ---------------------------------------------------------------------------
+
+  /// Loads a starter preset or saved vault pattern into the active sequencer.
+  void loadPattern(MelodyPatternEntity pattern) {
+    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+      state.multiTrackGroove.channels,
+    );
+    final currentRole = state.activeChannelRole;
+    final currentChannel = updatedChannels[currentRole] ??
+        updatedChannels[SketchpadChannelRole.lead]!;
+
+    updatedChannels[currentRole] = currentChannel.copyWith(
+      instrument: pattern.instrument,
+      steps: pattern.notes,
+    );
+
+    final updatedGroove = state.multiTrackGroove.copyWith(
+      id: pattern.id,
+      name: pattern.name,
+      bpm: pattern.bpm,
+      musicalKey: pattern.musicalKey,
+      scaleMode: pattern.scaleMode,
+      channels: updatedChannels,
+    );
+
+    state = state.copyWith(
+      activePattern: pattern,
+      multiTrackGroove: updatedGroove,
+      currentPlayheadStep: 0,
+    );
+    _refreshLoopIfPlaying();
+  }
+
+  /// Loads and immediately triggers loop playback audition for [pattern].
+  void previewPattern(MelodyPatternEntity pattern) {
+    loadPattern(pattern);
+    togglePreviewPlayback();
+  }
+
+  /// Changes the active instrument of the current channel.
   void setInstrument(SketchpadInstrument instrument) {
+    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+      state.multiTrackGroove.channels,
+    );
+    final currentRole = state.activeChannelRole;
+    final currentChannel = updatedChannels[currentRole];
+    if (currentChannel != null) {
+      updatedChannels[currentRole] = currentChannel.copyWith(instrument: instrument);
+    }
+
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(instrument: instrument),
+      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
     );
     _auditionSingleScaleRow(0, hasGlide: false);
     _refreshLoopIfPlaying();
@@ -173,24 +368,29 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   void setMusicalKey(String musicalKey) {
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(musicalKey: musicalKey),
+      multiTrackGroove: state.multiTrackGroove.copyWith(musicalKey: musicalKey),
     );
     _auditionSingleScaleRow(0, hasGlide: false);
     _refreshLoopIfPlaying();
   }
 
-  /// Changes the scale mode ladder (`minorPentatonic`, `naturalMinor`, `maskandiHexatonic`, `gqomPhrygianDark`).
+  /// Changes the scale mode ladder.
   void setScaleMode(AfricanScaleMode scaleMode) {
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(scaleMode: scaleMode),
+      multiTrackGroove: state.multiTrackGroove.copyWith(scaleMode: scaleMode),
     );
     _refreshLoopIfPlaying();
   }
 
   /// Updates pattern BPM (`60..180`).
   void setBpm(int bpm) {
+    final clampedBpm = bpm.clamp(60, 180);
     state = state.copyWith(
-      activePattern: state.activePattern.copyWith(bpm: bpm.clamp(60, 180)),
+      activePattern: state.activePattern.copyWith(bpm: clampedBpm),
+      multiTrackGroove: state.multiTrackGroove.copyWith(bpm: clampedBpm),
     );
+    _refreshLoopIfPlaying();
   }
 
   /// Updates the ACE-Step 1.5 audio conditioning strength (`0.15..0.95`).
@@ -202,7 +402,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     );
   }
 
-  /// Toggles Log-Drum Pitch Glide mode (`-5 semitone` slide on newly placed or tapped notes).
+  /// Toggles Log-Drum Pitch Glide mode.
   void toggleGlideMode() {
     state = state.copyWith(isGlideModeEnabled: !state.isGlideModeEnabled);
   }
@@ -222,8 +422,14 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     state = state.copyWith(isMobileLivePadMode: !state.isMobileLivePadMode);
   }
 
-  /// Toggles a cell at (`scaleRow`, `stepIndex`), respecting `isGlideModeEnabled` and `chordStampMode`.
-  void toggleCell(int scaleRow, int stepIndex, {bool? forceGlide}) {
+  /// Toggles a cell at (`scaleRow`, `stepIndex`), synchronizing both activePattern & multiTrackGroove.
+  void toggleCell(
+    int scaleRow,
+    int stepIndex, {
+    bool? forceGlide,
+    double? velocity,
+    int? durationSteps,
+  }) {
     final r = scaleRow.clamp(0, 7);
     final s = stepIndex.clamp(0, 15);
     final currentNotes = List<MelodyStepNote>.from(state.activePattern.notes);
@@ -235,7 +441,6 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 
     if (existingIdx >= 0) {
       final existing = currentNotes[existingIdx];
-      // If Glide mode is active and note didn't have glide yet, upgrade it to Glide instead of deleting
       if (useGlide && !existing.hasGlide) {
         currentNotes[existingIdx] = existing.copyWith(
           hasGlide: true,
@@ -246,20 +451,19 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
         currentNotes.removeAt(existingIdx);
       }
     } else {
-      // Determine rows to stamp based on ChordStampMode
       final targetRows = switch (state.chordStampMode) {
         ChordStampMode.single => <int>[r],
         ChordStampMode.triad => <int>{
-          r,
-          (r + 2).clamp(0, 7),
-          (r + 4).clamp(0, 7),
-        }.toList(),
+            r,
+            (r + 2).clamp(0, 7),
+            (r + 4).clamp(0, 7),
+          }.toList(),
         ChordStampMode.seventh => <int>{
-          r,
-          (r + 2).clamp(0, 7),
-          (r + 4).clamp(0, 7),
-          (r + 6).clamp(0, 7),
-        }.toList(),
+            r,
+            (r + 2).clamp(0, 7),
+            (r + 4).clamp(0, 7),
+            (r + 6).clamp(0, 7),
+          }.toList(),
       };
 
       for (final targetRow in targetRows) {
@@ -271,9 +475,9 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
             MelodyStepNote(
               stepIndex: s,
               scaleRow: targetRow,
-              velocity: (s % 4 == 0) ? 0.95 : 0.85,
+              velocity: velocity ?? ((s % 4 == 0) ? 0.95 : 0.85),
               hasGlide: useGlide,
-              durationSteps: useGlide ? 2 : 1,
+              durationSteps: durationSteps ?? (useGlide ? 2 : 1),
             ),
           );
         }
@@ -281,8 +485,18 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       _auditionSingleScaleRow(r, hasGlide: useGlide);
     }
 
+    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+      state.multiTrackGroove.channels,
+    );
+    final currentRole = state.activeChannelRole;
+    final currentChannel = updatedChannels[currentRole];
+    if (currentChannel != null) {
+      updatedChannels[currentRole] = currentChannel.copyWith(steps: currentNotes);
+    }
+
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(notes: currentNotes),
+      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
     );
     _refreshLoopIfPlaying();
   }
@@ -300,7 +514,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     );
   }
 
-  /// Toggles `hasGlide` on all notes in column `stepIndex` (Desktop Velocity & Glide Stalk Lane).
+  /// Toggles `hasGlide` on all notes in column `stepIndex`.
   void toggleStepColumnGlide(int stepIndex) {
     final s = stepIndex.clamp(0, 15);
     final currentNotes = state.activePattern.notes.map((n) {
@@ -309,12 +523,10 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       return n.copyWith(hasGlide: nextGlide, durationSteps: nextGlide ? 2 : 1);
     }).toList();
 
-    state = state.copyWith(
-      activePattern: state.activePattern.copyWith(notes: currentNotes),
-    );
+    _syncCurrentChannelNotes(currentNotes);
   }
 
-  /// Updates velocity (`0.1..1.0`) for all notes in column `stepIndex` (Desktop Velocity Stalk Lane).
+  /// Updates velocity (`0.1..1.0`) for all notes in column `stepIndex`.
   void setStepColumnVelocity(int stepIndex, double velocity) {
     final s = stepIndex.clamp(0, 15);
     final v = velocity.clamp(0.1, 1.0);
@@ -323,9 +535,24 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       return n.copyWith(velocity: v);
     }).toList();
 
+    _syncCurrentChannelNotes(currentNotes);
+  }
+
+  void _syncCurrentChannelNotes(List<MelodyStepNote> currentNotes) {
+    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+      state.multiTrackGroove.channels,
+    );
+    final currentRole = state.activeChannelRole;
+    final currentChannel = updatedChannels[currentRole];
+    if (currentChannel != null) {
+      updatedChannels[currentRole] = currentChannel.copyWith(steps: currentNotes);
+    }
+
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(notes: currentNotes),
+      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
     );
+    _refreshLoopIfPlaying();
   }
 
   /// Generates an in-key syncopated Euclidean groove across the 16 steps (REQ-SKP-07).
@@ -335,22 +562,14 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       pulses: k,
       instrument: state.activePattern.instrument,
     );
-    state = state.copyWith(
-      euclideanPulses: k,
-      activePattern: state.activePattern.copyWith(notes: generated),
-    );
+    _syncCurrentChannelNotes(generated);
+    state = state.copyWith(euclideanPulses: k);
     _auditionSingleScaleRow(0, hasGlide: true);
-    _refreshLoopIfPlaying();
   }
 
-  /// Clears all active notes from the 16-step grid.
+  /// Clears all active notes from the active channel's 16-step grid.
   void clearGrid() {
-    state = state.copyWith(
-      activePattern: state.activePattern.copyWith(notes: const []),
-    );
-    if (state.isPlayingPreview) {
-      stopPreviewPlayback();
-    }
+    clearChannel(state.activeChannelRole);
   }
 
   /// Stops loop audition preview and halts the hardware audio player.
@@ -361,14 +580,14 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     }
   }
 
-  /// Toggles loop audition preview, synthesizes the 16-bit PCM WAV buffer in RAM,
+  /// Toggles loop audition preview, synthesizes the 44.1 kHz master groove in RAM,
   /// and plays it in a continuous loop via `ISketchpadAudioPlayerService`.
   void togglePreviewPlayback() {
     if (state.isPlayingPreview) {
       stopPreviewPlayback();
     } else {
-      final wavBytes = MelodyWavSynthesizer.synthesizePatternToWavBytes(
-        state.activePattern,
+      final wavBytes = MelodyWavSynthesizer.synthesizeMasterGrooveToWavBytes(
+        state.multiTrackGroove,
       );
       state = state.copyWith(
         isPlayingPreview: true,
@@ -378,7 +597,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       unawaited(
         _audioService.startLoopPlayback(
           wavBytes,
-          bpm: state.activePattern.bpm,
+          bpm: state.multiTrackGroove.bpm,
           onStepTick: (stepIndex) {
             if (!mounted || !state.isPlayingPreview) return;
             state = state.copyWith(
@@ -391,7 +610,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     }
   }
 
-  /// Saves the active pattern to the local Hive Melody Vault (< 2 KB JSON blueprint) (REQ-SKP-05).
+  /// Saves the active pattern to the local Hive Melody Vault (< 2 KB JSON blueprint).
   Future<MelodyPatternEntity> saveCurrentToVault({String? customName}) async {
     final cleanName = (customName != null && customName.trim().isNotEmpty)
         ? customName.trim()
@@ -425,11 +644,11 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     await _persistSavedPatterns(updated);
   }
 
-  /// Renders the pattern to an ephemeral RAM WAV buffer, attaches it to `studioFormProvider`
-  /// (`ReferenceAudioDropzone`), and sets `sketchpadLayerMix = 0.35` in `masteringSessionProvider` (REQ-SKP-12..14).
+  /// Renders the multi-track master groove to an ephemeral RAM WAV buffer,
+  /// attaches it to `studioFormProvider`, and sets `sketchpadLayerMix = 0.35`.
   Uint8List attachAsSongReferenceAndMasterLayer() {
-    final wavBytes = MelodyWavSynthesizer.synthesizePatternToWavBytes(
-      state.activePattern,
+    final wavBytes = MelodyWavSynthesizer.synthesizeMasterGrooveToWavBytes(
+      state.multiTrackGroove,
     );
 
     state = state.copyWith(
@@ -458,7 +677,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     });
   }
 
-  /// Seeds and aligns the sketchpad from parent reel DNA for viral remixing (Phase D).
+  /// Seeds and aligns the sketchpad from parent reel DNA for viral remixing.
   void initializeFromRemixDna({
     String? musicalKey,
     int? bpm,
@@ -489,12 +708,12 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       scaleMode: scale,
     );
 
-    state = state.copyWith(activePattern: remixedPattern);
+    loadPattern(remixedPattern);
   }
 }
 
-/// Global Riverpod provider for the Phase 27 Melody, Chord & Log-Drum Sketchpad.
+/// Global Riverpod provider for the Phase 32 Melody, Chord & Log-Drum Sketchpad.
 final melodySketchpadProvider =
     StateNotifierProvider<MelodySketchpadNotifier, MelodySketchpadState>((ref) {
-      return MelodySketchpadNotifier(ref);
-    });
+  return MelodySketchpadNotifier(ref);
+});

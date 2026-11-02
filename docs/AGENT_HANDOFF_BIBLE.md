@@ -2,12 +2,12 @@
 
 > **DOCUMENT PURPOSE:** This is the single, authoritative handoff document for the Vhunambi monorepo. Any AI agent (Antigravity, Cline, Cursor, Windsurf) or human engineer resuming work on this repository can read this document and resume seamlessly with zero loss of context.
 >
-> **Last Updated:** 2026-10-27T21:30:00+02:00
+> **Last Updated:** 2026-11-02T02:50:00+02:00
 > **Repository Root:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\`  
 > **Client Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\`  
 > **Backend Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_api\`  
-> **Current Health:** `flutter analyze` = **0 issues (100% clean)** | `flutter test` = **1093/1093 tests passing (100%)** | Backend API = **0 errors (7/7 suites passing, 100%)**  
-> **Active Phase:** Phase 23 (Master Media Object v2.0) Complete & Verified (1,093 tests) | Phase 24 (Multi-Stem Audio Engine & Offline Frame Renderer) Active Specification
+> **Current Health:** `dart analyze` = **0 issues (100% clean)** | `flutter test` = **100% passing (1,154+ tests green)** | Backend API = **0 errors (11/11 suites passing, 100%)**  
+> **Active Phase:** Phase 33 (Multi-Dimensional Creator Profile Hub, Adaptive Light/Dark Theme Engine & Synchronized Platform Analytics) Complete & Verified (11/11 Phase 33 Tests Passing · 61/61 Profile Suite Tests Green)
 
 ---
 
@@ -980,6 +980,107 @@ Current gate benchmark: **0 analyzer issues** | **657+ tests passed (100%)**.
   - **Client Static Analysis**: `dart analyze lib/features/track lib/features/collections lib/features/social test/features/track test/features/collections` = **0 issues found (`No issues found!`)**.
   - **Track & Split Integration Suite**: `flutter test test/features/track test/features/collections/domain/services/royalty_distribution_service_test.dart` = **23/23 tests passing 100%**.
   - **Collections Suite**: `flutter test test/features/collections/` = **67/67 tests passing 100%**.
+
+### 11.13 Phase 32 (COMPLETE & VERIFIED ✅): Studio-Grade 44.1 kHz Multi-Track Melody & Drum Engine, Hybrid Sound Pack Manager & Curvy Minimalist UI (`STD-UIUX-001`)
+> Solves the "glitchy demo synthesizer" problem and declutters the sketchpad modal into an FL Studio-style 5-channel Multi-Track Groove Workstation with native 44.1 kHz DSP synthesis, continuous phase accumulation, physical string/bore waveguides, genre-tuned 8-row drum racks, in-app downloadable VIP sound pack manager, and curvy minimalist UI adhering strictly to `STD-UIUX-001`.
+
+- **Specification & Artifacts**:
+  - Audit Report: [`docs/audits/MELODY_SKETCHPAD_AUDIO_ENGINE_AND_UI_AUDIT.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/MELODY_SKETCHPAD_AUDIO_ENGINE_AND_UI_AUDIT.md)
+  - Blueprint: [`docs/phases/phase_32_multitrack_sketchpad_v2/blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_32_multitrack_sketchpad_v2/blueprint.md)
+  - Requirements: [`docs/phases/phase_32_multitrack_sketchpad_v2/requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_32_multitrack_sketchpad_v2/requirements.md)
+  - Design: [`docs/phases/phase_32_multitrack_sketchpad_v2/design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_32_multitrack_sketchpad_v2/design.md)
+  - Tasks: [`docs/phases/phase_32_multitrack_sketchpad_v2/tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_32_multitrack_sketchpad_v2/tasks.md)
+
+- **Verified Deliverables**:
+  1. **Track A — 44.1 kHz Audio DSP Engine (`melody_wav_synthesizer.dart`)**:
+     - **Continuous Phase Accumulation**: Eliminated destructive static sine evaluation $\sin(2\pi f(t)t)$ with sample-by-sample integration $\phi[n] = (\phi[n-1] + \frac{2\pi f[n]}{44100}) \pmod{2\pi}$, turning glitchy clicks into deep, chest-hitting studio kicks and 808s.
+     - **Physical String & Bowed Waveguides**: Karplus-Strong plucked nylon/electric string models with loop attenuation filters, and continuous bowed waveguide (65ms swell + 5.5 Hz vibrato) for Solo Violin.
+     - **Breath-Bore Wind Models**: Noise breath excitation with cubic saturation non-linearity for Bamboo Flutes and Soprano Saxophone.
+     - **8-Row Genre-Tuned Drum Rack**: Dedicated 8-voice drum rack across 6 genres (`amapiano`, `hipHop`, `gqom`, `afrobeats`, `house`, `pop`).
+  2. **Track B — FL Studio 5-Channel Master Groove Drive (`melody_sketchpad_models.dart`, `melody_sketchpad_provider.dart`)**:
+     - 5 Synchronized Channels (`Lead`, `Chords`, `Bass`, `Drums`, `Hats`) with multi-track state management.
+     - Master stereo summing bus with `isSolo` and `isMuted` gating logic:
+       $$\text{isAudible}_c = \neg \text{channel.isMuted} \land (\neg \text{anySolo} \lor \text{channel.isSolo})$$
+     - Tube soft-saturation limiter ($f(x) = \frac{x}{1 + 0.3|x|}$) preventing clipping past $\pm 32767$.
+  3. **Track C — Hybrid Sound Pack Manager (`StudioSoundPackSheet` & API)**:
+     - 0 MB Native Packaged Core Kit (16 instruments + 6 drum kits) bundled within the APK ($< 3.5\text{ MB}$ code footprint), ready offline on first launch.
+     - In-App Downloadable VIP Expansion Packs via `StudioSoundPackSheet` and backend endpoint `GET /v1/melodies/sound-packs` in `melody_routes.ts`.
+  4. **Track D — Curvy Minimalist UI/UX (`STD-UIUX-001`)**:
+     - **Row 1 (48dp Top Bar)**: Horizontal flex-scroll holding Instrument/Kit picker, Musical Key & Scale pill (`[ Am • Pentatonic • 112 BPM ▾ ]`), Sound Packs launcher, Fullscreen toggle, and Close button.
+     - **Row 2 (44dp Channel Tabs)**: Segmented pill tabs with active note indicators (`●`), solo/mute badges (`M`/`S`), and long-press channel mixer sheet (`_ChannelMixerSheet`).
+     - **Row 3 (Curvy 16-Step Matrix)**: Rounded squircle cells ($10\text{dp}$ radius, $\ge 44 \times 44\text{dp}$ touch target) with dynamic voice labels when on drums/hats (`Sub 808`, `Snare`, `Rim`, `Clap`, etc.) and long-press note inspector (`_StepNoteInspectorSheet`).
+     - **Row 4 (52dp Master Transport Dock)**: Master Play/Pause circular gradient button, Reference conditioning slider, Vault Save, and Song Reference Attach.
+     - **Zero-Emoji Compliance**: Replaced all literal emojis with tree-shaken Phosphor vector glyphs and zero-bleed touch physics (`splashColor: Colors.transparent`).
+
+- **Verification Gates**:
+  - **Client Static Analysis**: `dart analyze lib/features/studio test/features/studio` & `dart analyze lib test` = **0 issues found (`No issues found!`)**.
+  - **Backend API Tests**: `pnpm test` in `apps/vhunambi_api` = **11/11 test suites passing (100% green)**.
+  - **Sketchpad & Synth Unit Tests**: `flutter test test/features/studio/widgets/melody_sketchpad_modal_test.dart test/features/studio/phase32_multitrack_sketchpad_test.dart test/features/studio/melody_sketchpad_provider_and_synth_test.dart` = **21/21 tests passing (100% green)**.
+  - **Release APK Footprint**: `app-release.apk` = **41.6 MB** (well under 45 MB budget).
+  - **Physical Device Installation**: Streamed install confirmed successful on connected Android device `EPHUT20917014649` (`JNY LX1`), launched live.
+
+---
+
+### 11.14 Master Audit: Flaws, Inconsistencies & Unfinished Features (`AUDIT-FLAWS-UNFINISHED-001`)
+
+- **Audit Document Canonical Path**: [`docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md)  
+- **Quick Reference Pointer**: [`docs/FLAWS_AND_UNFINISHED_FEATURES.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/FLAWS_AND_UNFINISHED_FEATURES.md)  
+- **Audit ID**: `AUDIT-FLAWS-UNFINISHED-001`  
+- **Standard Reference**: `STD-UIUX-001`  
+- **Target Surfaces**: All 5 Root Tabs (Home, Explore, Studio, Library, Marketplace), Player Cockpit, Social Reels, and Backend API.
+- **Core Problem Statements**:
+  1. **Top Bar & Notification Asymmetry**: While Home Dashboard implements the golden standard (56dp safe-area geometry, 44×44px `CreatorAvatar` with tap/long-press shortcuts, dynamic greeting + time glyph, Phosphor chips, and 1-step direct push to `NotificationsView`), Studio (`VhunambiAppBar`), Marketplace (`MarketplaceTopBar`), and Library (`LibraryAppBar`) still run legacy chrome, lack avatar shortcuts, use stock Material icons (`Icons.bolt_rounded`, `Icons.music_note_rounded`, `Icons.analytics_outlined`), and default to the desktop-focused 360px `NotificationsPopover` dialog.
+  2. **The "SnackBar Dead-End" Anti-Pattern**: Numerous high-visibility UI actions pop modals and show cosmetic SnackBars without executing real business logic or backend workflows:
+     - Subscription Upgrade Modal: Pops and shows `'Selected plan: Pro ($19/mo)'` with zero payment gateway or credit allocation.
+     - Track Detail "Add to Playlist": Emits `'Added to My Playlist ✨'` despite `AddToPlaylistSheet.show(context, track)` already existing in `lib/features/playlists/presentation/widgets/add_to_playlist_sheet.dart`!
+     - Profile Hero Actions: 'Edit Profile', 'Pin Song', and 'Studio Analytics' all trigger empty SnackBars (`'Opening Profile Editor...'`).
+     - Video Export & Content Studio: 'Share to TikTok / Reels' and 'Save to Gallery' emit SnackBars without invoking `Share.shareXFiles` or the OS media store.
+     - Royalty Cashout: Collects payout method name (Ozow, EFT) but does not collect bank account numbers or branch codes.
+  3. **Strict Zero-Emoji & Iconography Violations**: Residual stock Material icons (`Icons.*`) and raw emojis (`💿`, `📋`, `✨`, `🔗`, `🎵`, `🎹`, `🎙️`, `🎤`, `🎛️`) in UI labels and toasts.
+  4. **Dormant & Orphaned Code**: Unmounted components sitting in codebase: `AfricanChartsBanner`, `CreatorCard`, `ExploreHeaderSection`, `GenreRadioTile`, `FluidDeckSwitcher`, and `fake_stem_download_service.dart`.
+  5. **Simulated Production Pipelines**: Silent stem mix bounce (`isSimulated: true`), `simulateDownloads: true` hardcoded in `offline_providers.dart`, and mock storage mastering fallbacks (`/mock-storage/...`).
+- **Remediation Roadmap**: Structured into Sprints M4 (Top Bar Harmonization), M5 (Notifications Consolidation), M6 (SnackBar Dead-End Elimination), M7 (Dead Code Purge), and M8 (Real Pipelines & Backend Expansion).
+- **Physical Device Field Notes**: Dedicated Section 10 reserved in the audit for user observations from hands-on device testing sessions.
+
+---
+
+### 11.15 Phase 33 (COMPLETE & VERIFIED ✅): Multi-Dimensional Creator Profile Hub, Adaptive Light/Dark Theme Engine & Synchronized Platform Analytics (`STD-UIUX-001`)
+> Solves the physical device audit findings (P0 profile stubs, missing light theme, glaring white SnackBars, and unwired analytics) by delivering a complete adaptive theme engine (`System | Light | Dark`), reactive cross-surface analytics aggregator with Bézier velocity charting, and an expanded 5-dimension creator studio hub with pinned track spotlight, edit profile sheet, and mini-player docking insets.
+
+- **Specification & Artifacts**:
+  - Blueprint: [`docs/phases/phase_33_profile_theme_analytics_convergence/blueprint.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_33_profile_theme_analytics_convergence/blueprint.md)
+  - Requirements: [`docs/phases/phase_33_profile_theme_analytics_convergence/requirements.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_33_profile_theme_analytics_convergence/requirements.md)
+  - Design: [`docs/phases/phase_33_profile_theme_analytics_convergence/design.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_33_profile_theme_analytics_convergence/design.md)
+  - Tasks: [`docs/phases/phase_33_profile_theme_analytics_convergence/tasks.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_33_profile_theme_analytics_convergence/tasks.md)
+  - Field Audit Integration: [`docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md) (Section 10)
+
+- **Verified Deliverables**:
+  1. **Track A — Adaptive Light & Dark Theme Engine (`theme_provider.dart`, `app_colors.dart`, `app_theme.dart`)**:
+     - `themeModeProvider` (`StateNotifierProvider<ThemeModeNotifier, ThemeMode>`) with Hive persistence (`vhunambi_theme_prefs_box`) and headless fallback.
+     - Complete dual-palette token definition (`darkSurfaceCanvas`, `lightSurfaceCanvas`, `darkSurfaceElevated`, `lightSurfaceElevated`, etc.) maintaining compile-time `const` backward compatibility with dynamic contextual adapters (`surfaceCanvasOf`, `surfaceElevatedOf`, etc.).
+     - Themed floating `snackBarTheme` in `AppTheme.darkTheme` and `AppTheme.lightTheme` eliminating the white SnackBar glare bug.
+     - Wired `themeModeProvider` directly into `VhunambiApp` in `lib/main.dart`.
+  2. **Track B — Synchronized Platform Analytics (`synchronized_analytics_provider.dart`, `StudioAnalyticsConsoleSheet`)**:
+     - Reactive platform analytics aggregator synthesizing tracks, plays, likes, reels engagement, beat sales, ZAR royalties, genre distribution, and 7-day velocity streams.
+     - `StudioAnalyticsConsoleSheet` bottom modal featuring 4 KPI cards, time range switcher (7D, 30D, All-Time), smooth cubic Bézier area chart (`_StreamVelocityChartPainter`), genre breakdown bars, and synthesis asset counter.
+     - Replaced cosmetic SnackBar dead-ends on `OwnerProfileView` ('Analytics') and `LibraryAppBar` (`Key('library_vault_analytics_btn')`) with `StudioAnalyticsConsoleSheet.show(context)`.
+  3. **Track C — Multi-Dimensional Creator Profile Hub (`owner_profile_view.dart`, `artist_profile_view.dart`)**:
+     - Modernized app bars and hero actions strictly with Phosphor vector glyphs (`AppIcons.*`) and 0 raw emojis.
+     - Working `EditProfileSheet` enabling live updates to displayName, handle, bio, and signature genre chips.
+     - Working `PinSongSelectorSheet` enabling 1-tap track pinning/unpinning from the creator's vault.
+     - `PinnedSpotlightCard` (`Key('profile_pinned_spotlight_card')`) hero banner with 1-tap playback via `playerStateProvider`.
+     - `ProfileSettingsDrawer` featuring a 3-way segmented theme mode controller (`[ 📱 System | ☀️ Light | 🌙 Dark ]`).
+     - Expanded 5-tab studio vault (`songs`, `reels`, `beatstore`, `voicesAndMelodies`, `releases`) showcasing AI Voice Archetypes and Saved Multi-Track Melodies with 1-tap audition.
+     - Mini-player docking insets preventing bottom player overlap over profile content.
+
+- **Verification Gates**:
+  - **Client Static Analysis**: `dart analyze lib test` = **0 issues found (`No issues found!`)**.
+  - **Phase 33 Test Suite**: `flutter test test/features/profile/phase33_profile_theme_analytics_test.dart` = **11/11 tests passing (100% green)**.
+  - **Profile Feature Suite**: `flutter test test/features/profile/` = **61/61 tests passing (100% green)**.
+  - **Home & Studio Suites**: `flutter test test/features/home/ test/features/studio/` = **133+ tests passing (100% green)**.
+
+
+
 
 
 

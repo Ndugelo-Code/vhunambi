@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/utils/creator_id_utils.dart';
+import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../../player/presentation/providers/player_provider.dart';
@@ -22,6 +24,7 @@ import '../widgets/producer_beat_listing_tile.dart';
 import '../../../creator_dna/presentation/widgets/creator_dna_profile_card.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 import '../widgets/artist_voice_showcase_card.dart';
+import '../widgets/pinned_spotlight_card.dart';
 import '../providers/profile_providers.dart';
 import '../../domain/models/profile_models.dart';
 import '../../domain/models/profile_operation_type.dart';
@@ -38,22 +41,24 @@ import '../widgets/top_supporters_leaderboard.dart';
 class ArtistProfileView extends ConsumerWidget {
   final String artistId;
 
-  const ArtistProfileView({
-    super.key,
-    required this.artistId,
-  });
+  const ArtistProfileView({super.key, required this.artistId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(artistProfileFamilyProvider(artistId));
     final opState = ref.watch(profileOperationProvider(artistId));
-    final clips =
-        ref.watch(creatorClipsFamilyProvider(normalizeCreatorId(profile.id)));
+    final clips = ref.watch(
+      creatorClipsFamilyProvider(normalizeCreatorId(profile.id)),
+    );
 
     // Listen for mutation errors to display snackbars
-    ref.listen<ProfileOperationState>(profileOperationProvider(artistId), (previous, current) {
+    ref.listen<ProfileOperationState>(profileOperationProvider(artistId), (
+      previous,
+      current,
+    ) {
       final followError = current.errorFor(ProfileOperationType.follow);
-      if (followError != null && previous?.errorFor(ProfileOperationType.follow) != followError) {
+      if (followError != null &&
+          previous?.errorFor(ProfileOperationType.follow) != followError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(followError.message),
@@ -62,7 +67,8 @@ class ArtistProfileView extends ConsumerWidget {
         );
       }
       final tipError = current.errorFor(ProfileOperationType.tip);
-      if (tipError != null && previous?.errorFor(ProfileOperationType.tip) != tipError) {
+      if (tipError != null &&
+          previous?.errorFor(ProfileOperationType.tip) != tipError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(tipError.message),
@@ -73,7 +79,8 @@ class ArtistProfileView extends ConsumerWidget {
     });
 
     // Initial fetch loading state
-    if (opState.isLoading(ProfileOperationType.fetch) && opState.cachedProfile == null) {
+    if (opState.isLoading(ProfileOperationType.fetch) &&
+        opState.cachedProfile == null) {
       return const ProfileSkeletonScreen();
     }
 
@@ -96,11 +103,19 @@ class ArtistProfileView extends ConsumerWidget {
       );
     }
 
-    final isMutating = opState.isLoading(ProfileOperationType.follow) ||
+    final isMutating =
+        opState.isLoading(ProfileOperationType.follow) ||
         opState.isLoading(ProfileOperationType.tip);
     final mutationMessage = opState.isLoading(ProfileOperationType.follow)
         ? 'Updating follow status...'
         : 'Processing tip...';
+
+    final hasActiveTrack = ref.watch(
+      playerStateProvider.select((s) => s.hasActiveTrack),
+    );
+    final bottomInset =
+        VhunambiBottomDockMetrics.scrollInset(hasActiveTrack: hasActiveTrack) +
+        24;
 
     return DefaultTabController(
       length: 3,
@@ -176,37 +191,65 @@ class ArtistProfileView extends ConsumerWidget {
                           creatorAvatarUrl: profile.avatarUrl,
                         ),
                         onShare: () {
-                          Clipboard.setData(ClipboardData(
-                            text:
-                                'https://vhunambi.com/profile/${profile.username}',
-                          ));
+                          Clipboard.setData(
+                            ClipboardData(
+                              text:
+                                  'https://vhunambi.com/profile/${profile.username}',
+                            ),
+                          );
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content: Text('Profile link copied! 🔗')),
+                              content: Text('Profile link copied! 🔗'),
+                            ),
                           );
                         },
                         onReport: () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content: Text('Report submitted for review')),
+                              content: Text('Report submitted for review'),
+                            ),
                           );
                         },
                       ),
                       ProfileStatsGrid(profile: profile),
+                      if (profile.pinnedTrackId != null &&
+                          profile.pinnedTrackId!.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: ResponsiveUtils.isDesktop(context)
+                                ? 32
+                                : 16,
+                          ),
+                          child: PinnedSpotlightCard(
+                            pinnedTrackId: profile.pinnedTrackId,
+                            fallbackCreatorName: profile.displayName,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: _ProfileTabBarDelegate(
-                    const TabBar(
+                    TabBar(
                       labelColor: AppColors.brandPrimary,
                       indicatorColor: AppColors.brandPrimary,
                       unselectedLabelColor: AppColors.textSecondary,
-                      tabs: [
-                        Tab(icon: Icon(Icons.movie_filter_rounded), text: 'Clips'),
-                        Tab(icon: Icon(Icons.album_rounded), text: 'Music'),
-                        Tab(icon: Icon(Icons.storefront_rounded), text: 'Beats'),
+                      tabs: const [
+                        Tab(
+                          icon: Icon(AppIcons.reels, size: 20),
+                          text: 'Clips',
+                        ),
+                        Tab(
+                          icon: Icon(AppIcons.songs, size: 20),
+                          text: 'Music',
+                        ),
+                        Tab(
+                          icon: Icon(AppIcons.beatstore, size: 20),
+                          text: 'Beats',
+                        ),
                       ],
                     ),
                   ),
@@ -214,8 +257,8 @@ class ArtistProfileView extends ConsumerWidget {
               ],
               body: TabBarView(
                 children: [
-                  _reelsGrid(context, ref, clips),
-                  _discographyTab(context, ref, profile),
+                  _reelsGrid(context, ref, clips, bottomInset),
+                  _discographyTab(context, ref, profile, bottomInset),
                   _beatsCommunityTab(
                     context,
                     ref,
@@ -227,6 +270,7 @@ class ArtistProfileView extends ConsumerWidget {
                       creatorUsername: profile.username,
                       creatorAvatarUrl: profile.avatarUrl,
                     ),
+                    bottomInset,
                   ),
                 ],
               ),
@@ -351,7 +395,9 @@ class ArtistProfileView extends ConsumerWidget {
                 color: AppColors.brandPrimary,
               ),
               onPressed: () {
-                ref.read(playerStateProvider.notifier).playTrack(
+                ref
+                    .read(playerStateProvider.notifier)
+                    .playTrack(
                       Track(
                         id: trackId,
                         title: title,
@@ -389,7 +435,11 @@ class ArtistProfileView extends ConsumerWidget {
               gradient: AppGradients.forGenre(genre),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.music_note_rounded, color: Colors.white, size: 18),
+            child: const Icon(
+              Icons.music_note_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -405,7 +455,10 @@ class ArtistProfileView extends ConsumerWidget {
                 ),
                 Text(
                   '$timeAgo • $genre',
-                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -418,7 +471,11 @@ class ArtistProfileView extends ConsumerWidget {
   // --- Tri-modal profile tabs (REQ-SOC-06 / REQ-SOC-07) ---
 
   Widget _reelsGrid(
-      BuildContext context, WidgetRef ref, List<PublishedClip> clips) {
+    BuildContext context,
+    WidgetRef ref,
+    List<PublishedClip> clips,
+    double bottomInset,
+  ) {
     if (clips.isEmpty) {
       return _TabEmptyState(
         icon: Icons.movie_filter_outlined,
@@ -427,7 +484,12 @@ class ArtistProfileView extends ConsumerWidget {
     }
     final columns = ResponsiveUtils.isDesktop(context) ? 4 : 3;
     return GridView.builder(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        bottomInset,
+      ),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: columns,
         crossAxisSpacing: AppSpacing.sm,
@@ -450,12 +512,21 @@ class ArtistProfileView extends ConsumerWidget {
   }
 
   Widget _discographyTab(
-      BuildContext context, WidgetRef ref, ArtistProfileEntity profile) {
+    BuildContext context,
+    WidgetRef ref,
+    ArtistProfileEntity profile,
+    double bottomInset,
+  ) {
     final artistDna =
         profile.creatorDna ?? ref.watch(artistDnaFamilyProvider(profile.id));
 
     return ListView(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        bottomInset,
+      ),
       children: [
         // 1. Sovereign Bantu Voice Identity Showcase (Phase 30 REQ-PROF-VOICE-01)
         ArtistVoiceShowcaseCard(
@@ -467,14 +538,15 @@ class ArtistProfileView extends ConsumerWidget {
         const SizedBox(height: AppSpacing.md),
 
         // 2. Scoped Creator DNA Profile Card (Phase 30 REQ-PROF-DNA-01)
-        CreatorDnaProfileCard(
-          isOwner: false,
-          customDna: artistDna,
-        ),
+        CreatorDnaProfileCard(isOwner: false, customDna: artistDna),
         const SizedBox(height: AppSpacing.lg),
 
-        Text('Top Songs',
-            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+        Text(
+          'Top Songs',
+          style: AppTypography.titleMedium.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: AppSpacing.sm),
         _buildTopSongTile(
           context: context,
@@ -500,53 +572,76 @@ class ArtistProfileView extends ConsumerWidget {
           likes: 412,
         ),
         const SizedBox(height: AppSpacing.lg),
-        Text('Releases',
-            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+        Text(
+          'Releases',
+          style: AppTypography.titleMedium.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: AppSpacing.sm),
         if (profile.releases.isEmpty)
           Text('No releases yet.', style: AppTypography.bodyMuted)
         else
-          for (final release in profile.releases)
-            _ReleaseRow(release: release),
+          for (final release in profile.releases) _ReleaseRow(release: release),
         const SizedBox(height: AppSpacing.lg),
-        Text('Recent Activity',
-            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+        Text(
+          'Recent Activity',
+          style: AppTypography.titleMedium.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: AppSpacing.sm),
         _buildActivityRow(
-            title: 'Ndo Mufuna Matibe',
-            genre: 'Amapiano',
-            timeAgo: 'Released 2 days ago'),
+          title: 'Ndo Mufuna Matibe',
+          genre: 'Amapiano',
+          timeAgo: 'Released 2 days ago',
+        ),
       ],
     );
   }
 
-  Widget _beatsCommunityTab(BuildContext context, WidgetRef ref,
-      ArtistProfileEntity profile, VoidCallback onTip) {
+  Widget _beatsCommunityTab(
+    BuildContext context,
+    WidgetRef ref,
+    ArtistProfileEntity profile,
+    VoidCallback onTip,
+    double bottomInset,
+  ) {
     final beats = ref.watch(creatorBeatsFamilyProvider(profile.id));
     final currentTrack = ref.watch(playerStateProvider).currentTrack;
 
     return ListView(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        bottomInset,
+      ),
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
-                const Icon(Icons.storefront_rounded,
-                    color: AppColors.brandPrimary, size: 20),
+                const Icon(
+                  Icons.storefront_rounded,
+                  color: AppColors.brandPrimary,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Beats & Stems',
-                  style: AppTypography.titleMedium
-                      .copyWith(fontWeight: FontWeight.bold),
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
             Text(
               '${beats.length} available',
-              style: AppTypography.caption
-                  .copyWith(color: AppColors.textSecondary),
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -562,8 +657,11 @@ class ArtistProfileView extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                const Icon(Icons.music_off_rounded,
-                    size: 32, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.music_off_rounded,
+                  size: 32,
+                  color: AppColors.textSecondary,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   'No beats listed yet by this producer.',
@@ -588,8 +686,10 @@ class ArtistProfileView extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         if (profile.topSupporters.isEmpty)
-          Text('No supporters yet — be the first to tip!',
-              style: AppTypography.bodyMuted),
+          Text(
+            'No supporters yet — be the first to tip!',
+            style: AppTypography.bodyMuted,
+          ),
       ],
     );
   }
@@ -607,7 +707,10 @@ class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(color: AppColors.surfaceCanvas, child: tabBar);
   }
 
@@ -630,8 +733,11 @@ class _TabEmptyState extends StatelessWidget {
           children: [
             Icon(icon, size: 48, color: AppColors.textTertiary),
             const SizedBox(height: AppSpacing.md),
-            Text(message,
-                textAlign: TextAlign.center, style: AppTypography.bodyMuted),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyMuted,
+            ),
           ],
         ),
       ),
@@ -662,20 +768,29 @@ class _ReleaseRow extends StatelessWidget {
               gradient: AppGradients.forGenre(release.genre),
               borderRadius: AppRadius.thumbBorder,
             ),
-            child: const Icon(Icons.album_rounded, color: Colors.white, size: 20),
+            child: const Icon(
+              Icons.album_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(release.title,
-                    style: AppTypography.bodyLarge
-                        .copyWith(fontWeight: FontWeight.w600)),
                 Text(
-                    '${release.typeLabel} • ${release.trackCount} tracks • ${release.releaseYear}',
-                    style: AppTypography.caption
-                        .copyWith(color: AppColors.textSecondary)),
+                  release.title,
+                  style: AppTypography.bodyLarge.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '${release.typeLabel} • ${release.trackCount} tracks • ${release.releaseYear}',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -684,6 +799,3 @@ class _ReleaseRow extends StatelessWidget {
     );
   }
 }
-
-
-

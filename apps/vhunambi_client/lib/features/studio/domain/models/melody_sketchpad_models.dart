@@ -1,18 +1,40 @@
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 
-/// 5 Sovereign African Sketchpad Instruments (REQ-SKP-01).
+/// Sovereign African & Studio Sketchpad Instruments (REQ-SKP-01, Phase 32).
 enum SketchpadInstrument {
   amapianoLogDrum('Amapiano Log Drum', 'amapiano_log_drum', '🥁'),
   privateSchoolRhodes('Private School Rhodes', 'private_school_rhodes', '🎹'),
   maskandiGuitar('Maskandi Guitar', 'maskandi_guitar', '🎸'),
   vendaMbira('Venda Mbira', 'venda_mbira', '🎼'),
-  marimbaWood('Wooden Marimba', 'marimba_wood', '🪵');
+  marimbaWood('Wooden Marimba', 'marimba_wood', '🪵'),
+  // Phase 32 Studio-Grade Core Kit
+  concertGrandPiano('Concert Grand Piano', 'concert_grand_piano', '🎹'),
+  classicPiano('Classic Upright Piano', 'classic_piano', '🎹'),
+  nylonGuitar('Nylon Acoustic Guitar', 'nylon_guitar', '🎸'),
+  electricGuitar('Clean Electric Guitar', 'electric_guitar', '🎸'),
+  bambooFlute('African Bamboo Flute', 'bamboo_flute', '🪈'),
+  sopranoSax('Soprano Saxophone', 'soprano_sax', '🎷'),
+  soloViolin('Solo Violin', 'solo_violin', '🎻'),
+  hipHop808Sub('Hip-Hop 808 Sub', 'hiphop_808_sub', '🔊'),
+  gqomDarkSub('Gqom Dark Sub', 'gqom_dark_sub', '🔊'),
+  neoSoulPad('Warm Neo-Soul Pad', 'neo_soul_pad', '✨'),
+  mbaqangaOrgan('Mbaqanga Organ', 'mbaqanga_organ', '🎹');
 
   const SketchpadInstrument(this.label, this.wireValue, this.emoji);
   final String label;
   final String wireValue;
   final String emoji;
+
+  bool get isSubBass =>
+      this == SketchpadInstrument.amapianoLogDrum ||
+      this == SketchpadInstrument.hipHop808Sub ||
+      this == SketchpadInstrument.gqomDarkSub;
+
+  bool get isHighLead =>
+      this == SketchpadInstrument.soloViolin ||
+      this == SketchpadInstrument.bambooFlute ||
+      this == SketchpadInstrument.sopranoSax;
 
   static SketchpadInstrument fromWire(String? wire) {
     if (wire == null) return SketchpadInstrument.amapianoLogDrum;
@@ -22,6 +44,62 @@ enum SketchpadInstrument {
     );
   }
 }
+
+/// The 5 synchronized channel tracks of the FL Studio Master Groove Engine (Phase 32).
+enum SketchpadChannelRole {
+  lead('Lead Melody', 'lead', 0),
+  chords('Chords & Keys', 'chords', 1),
+  bass('Bass & Sub', 'bass', 2),
+  drums('Beat & Drums', 'drums', 3),
+  hats('Hi-Hats & Percs', 'hats', 4);
+
+  const SketchpadChannelRole(this.label, this.wireValue, this.channelIndex);
+  final String label;
+  final String wireValue;
+  final int channelIndex;
+
+  static SketchpadChannelRole fromWire(String? wire) {
+    if (wire == null) return SketchpadChannelRole.lead;
+    return SketchpadChannelRole.values.firstWhere(
+      (r) => r.wireValue == wire || r.name == wire,
+      orElse: () => SketchpadChannelRole.lead,
+    );
+  }
+}
+
+/// 6 Dedicated Genre Drum & Beat Kits (Phase 32).
+enum BeatKitGenre {
+  amapiano('Amapiano Groove Kit', 'amapiano'),
+  hipHop('Hip-Hop Trap Kit', 'hiphop'),
+  gqom('Durban Gqom Kit', 'gqom'),
+  afrobeats('Lagos Afrobeats Kit', 'afrobeats'),
+  house('Deep House 4x4 Kit', 'house'),
+  pop('Studio Pop Kit', 'pop');
+
+  const BeatKitGenre(this.label, this.wireValue);
+  final String label;
+  final String wireValue;
+
+  static BeatKitGenre fromWire(String? wire) {
+    if (wire == null) return BeatKitGenre.amapiano;
+    return BeatKitGenre.values.firstWhere(
+      (k) => k.wireValue == wire || k.name == wire,
+      orElse: () => BeatKitGenre.amapiano,
+    );
+  }
+}
+
+/// 8 Dedicated Studio Drum Voices per Beat Kit.
+const List<String> kDrumRackVoiceNames = [
+  'Sub 808 / Log Kick',
+  'Studio Punch Kick',
+  'Crisp Snare',
+  'Rimshot / Clack',
+  'Club Clap',
+  'Closed Hi-Hat',
+  'Open Shimmer Hat',
+  'Mbaḓi Shaker / Conga',
+];
 
 /// 4 Scale-Locked Modal Ladders guaranteeing zero wrong notes (REQ-SKP-02).
 enum AfricanScaleMode {
@@ -122,8 +200,9 @@ double resolveScaleFrequencyHz(
   final rawRoot = _rootKeyToSemitone[cleanRoot] ?? 6; // Default F#
   // Wrap G, G#, A, A#, B down by 12 semitones so Amapiano keys like Am sit at 55Hz (A1) instead of 110Hz/440Hz
   final effectiveRoot = rawRoot >= 7 ? rawRoot - 12 : rawRoot;
-  final baseMidi =
-      instrument == SketchpadInstrument.amapianoLogDrum ? 36 : 48; // C2 vs C3
+  final baseMidi = instrument.isSubBass
+      ? 36
+      : (instrument.isHighLead ? 60 : 48); // C2 vs C4 vs C3
   final clampedRow = scaleRow.clamp(0, 7);
   final midiNote =
       baseMidi + effectiveRoot + scaleMode.semitoneOffsets[clampedRow];
@@ -143,8 +222,9 @@ String resolveScaleNoteLabel(
       .trim();
   final rawRoot = _rootKeyToSemitone[cleanRoot] ?? 6;
   final effectiveRoot = rawRoot >= 7 ? rawRoot - 12 : rawRoot;
-  final baseMidi =
-      instrument == SketchpadInstrument.amapianoLogDrum ? 36 : 48;
+  final baseMidi = instrument.isSubBass
+      ? 36
+      : (instrument.isHighLead ? 60 : 48);
   final clampedRow = scaleRow.clamp(0, 7);
   final midiNote =
       baseMidi + effectiveRoot + scaleMode.semitoneOffsets[clampedRow];
@@ -299,6 +379,186 @@ class MelodyPatternEntity {
           (json['conditioningStrength'] as num?)?.toDouble().clamp(0.1, 1.0) ??
               0.70,
       notes: rawNotes,
+    );
+  }
+}
+
+/// A single channel track within the 5-channel Master Groove Engine (Phase 32).
+@immutable
+class SketchpadChannelTrack {
+  final SketchpadChannelRole role;
+  final SketchpadInstrument instrument;
+  final BeatKitGenre beatKit;
+  final List<MelodyStepNote> steps;
+  final double volume; // 0.0 to 1.2
+  final double pan; // -1.0 to 1.0
+  final bool isMuted;
+  final bool isSolo;
+
+  const SketchpadChannelTrack({
+    required this.role,
+    required this.instrument,
+    this.beatKit = BeatKitGenre.amapiano,
+    this.steps = const [],
+    this.volume = 1.0,
+    this.pan = 0.0,
+    this.isMuted = false,
+    this.isSolo = false,
+  });
+
+  bool get hasNotes => steps.isNotEmpty;
+
+  SketchpadChannelTrack copyWith({
+    SketchpadChannelRole? role,
+    SketchpadInstrument? instrument,
+    BeatKitGenre? beatKit,
+    List<MelodyStepNote>? steps,
+    double? volume,
+    double? pan,
+    bool? isMuted,
+    bool? isSolo,
+  }) {
+    return SketchpadChannelTrack(
+      role: role ?? this.role,
+      instrument: instrument ?? this.instrument,
+      beatKit: beatKit ?? this.beatKit,
+      steps: steps ?? this.steps,
+      volume: volume ?? this.volume,
+      pan: pan ?? this.pan,
+      isMuted: isMuted ?? this.isMuted,
+      isSolo: isSolo ?? this.isSolo,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'role': role.wireValue,
+        'instrument': instrument.wireValue,
+        'beatKit': beatKit.wireValue,
+        'steps': steps.map((s) => s.toJson()).toList(),
+        'volume': volume,
+        'pan': pan,
+        'isMuted': isMuted,
+        'isSolo': isSolo,
+      };
+
+  factory SketchpadChannelTrack.fromJson(Map<String, dynamic> json) {
+    return SketchpadChannelTrack(
+      role: SketchpadChannelRole.fromWire(json['role'] as String?),
+      instrument: SketchpadInstrument.fromWire(json['instrument'] as String?),
+      beatKit: BeatKitGenre.fromWire(json['beatKit'] as String?),
+      steps: (json['steps'] as List<dynamic>? ?? const [])
+          .map((e) => MelodyStepNote.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+      volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
+      pan: (json['pan'] as num?)?.toDouble() ?? 0.0,
+      isMuted: (json['isMuted'] as bool?) ?? false,
+      isSolo: (json['isSolo'] as bool?) ?? false,
+    );
+  }
+}
+
+/// A unified 5-channel FL Studio-style Master Groove (Phase 32).
+@immutable
+class MultiTrackGrooveEntity {
+  final String id;
+  final String name;
+  final int bpm;
+  final String musicalKey;
+  final AfricanScaleMode scaleMode;
+  final Map<SketchpadChannelRole, SketchpadChannelTrack> channels;
+  final double masterDriveAmount;
+  final double swingPercent;
+
+  const MultiTrackGrooveEntity({
+    required this.id,
+    required this.name,
+    required this.bpm,
+    required this.musicalKey,
+    required this.scaleMode,
+    required this.channels,
+    this.masterDriveAmount = 0.20,
+    this.swingPercent = 12.0,
+  });
+
+  /// Factory creating an empty or initialized default 5-channel master groove.
+  factory MultiTrackGrooveEntity.createDefault({
+    String id = 'groove_default',
+    String name = 'Master Groove Session',
+    int bpm = 113,
+    String musicalKey = 'F#m',
+    AfricanScaleMode scaleMode = AfricanScaleMode.minorPentatonic,
+    SketchpadInstrument leadInstrument = SketchpadInstrument.concertGrandPiano,
+    List<MelodyStepNote> initialLeadNotes = const [],
+  }) {
+    return MultiTrackGrooveEntity(
+      id: id,
+      name: name,
+      bpm: bpm,
+      musicalKey: musicalKey,
+      scaleMode: scaleMode,
+      channels: {
+        SketchpadChannelRole.lead: SketchpadChannelTrack(
+          role: SketchpadChannelRole.lead,
+          instrument: leadInstrument,
+          steps: initialLeadNotes,
+        ),
+        SketchpadChannelRole.chords: const SketchpadChannelTrack(
+          role: SketchpadChannelRole.chords,
+          instrument: SketchpadInstrument.privateSchoolRhodes,
+        ),
+        SketchpadChannelRole.bass: const SketchpadChannelTrack(
+          role: SketchpadChannelRole.bass,
+          instrument: SketchpadInstrument.amapianoLogDrum,
+        ),
+        SketchpadChannelRole.drums: const SketchpadChannelTrack(
+          role: SketchpadChannelRole.drums,
+          instrument: SketchpadInstrument.amapianoLogDrum,
+          beatKit: BeatKitGenre.amapiano,
+        ),
+        SketchpadChannelRole.hats: const SketchpadChannelTrack(
+          role: SketchpadChannelRole.hats,
+          instrument: SketchpadInstrument.amapianoLogDrum,
+          beatKit: BeatKitGenre.amapiano,
+        ),
+      },
+    );
+  }
+
+  /// Extracts single-channel pattern for Phase 27 backward compatibility.
+  MelodyPatternEntity toLegacyPattern([
+    SketchpadChannelRole role = SketchpadChannelRole.lead,
+  ]) {
+    final channel = channels[role] ?? channels[SketchpadChannelRole.lead]!;
+    return MelodyPatternEntity(
+      id: id,
+      name: name,
+      bpm: bpm,
+      musicalKey: musicalKey,
+      scaleMode: scaleMode,
+      instrument: channel.instrument,
+      notes: channel.steps,
+    );
+  }
+
+  MultiTrackGrooveEntity copyWith({
+    String? id,
+    String? name,
+    int? bpm,
+    String? musicalKey,
+    AfricanScaleMode? scaleMode,
+    Map<SketchpadChannelRole, SketchpadChannelTrack>? channels,
+    double? masterDriveAmount,
+    double? swingPercent,
+  }) {
+    return MultiTrackGrooveEntity(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      bpm: bpm ?? this.bpm,
+      musicalKey: musicalKey ?? this.musicalKey,
+      scaleMode: scaleMode ?? this.scaleMode,
+      channels: channels ?? this.channels,
+      masterDriveAmount: masterDriveAmount ?? this.masterDriveAmount,
+      swingPercent: swingPercent ?? this.swingPercent,
     );
   }
 }

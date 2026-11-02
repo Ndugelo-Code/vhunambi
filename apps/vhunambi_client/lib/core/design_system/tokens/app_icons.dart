@@ -60,6 +60,21 @@ abstract final class AppIcons {
   /// Social share network action.
   static const IconData share = PhosphorIconsRegular.shareNetwork;
 
+  /// Kinetic Reels & Clips icon.
+  static const IconData reels = PhosphorIconsRegular.filmStrip;
+
+  /// Studio multi-track & waveform icon.
+  static const IconData studio = PhosphorIconsRegular.waveform;
+
+  /// Sound pack & instruments kit icon.
+  static const IconData soundPack = PhosphorIconsRegular.package;
+
+  /// Pinned anthem push-pin icon.
+  static const IconData pin = PhosphorIconsRegular.pushPin;
+
+  /// Cross-platform Studio Analytics icon.
+  static const IconData analytics = PhosphorIconsRegular.chartLineUp;
+
   // =========================================================================
   // 3. Studio, DAW & Producer Cockpit (Replaces Studio Emojis)
   // =========================================================================

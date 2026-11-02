@@ -7,19 +7,29 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/profile_models.dart';
 import '../providers/profile_providers.dart';
+import '../providers/synchronized_analytics_provider.dart';
+import '../widgets/artist_voice_showcase_card.dart';
+import '../widgets/edit_profile_sheet.dart';
+import '../widgets/pin_song_selector_sheet.dart';
+import '../widgets/pinned_spotlight_card.dart';
 import '../widgets/profile_referral_card.dart';
+import '../widgets/profile_settings_drawer.dart';
 import '../widgets/releases_manager_card.dart';
+import '../widgets/studio_analytics_console_sheet.dart';
 import '../widgets/tip_history_ledger.dart';
 import '../widgets/creator_wallet_deck.dart';
 import '../widgets/owner_beatstore_cockpit.dart';
 import '../../../social/presentation/providers/creator_clips_provider.dart';
 import '../../../social/presentation/widgets/creator_reel_thumbnail_card.dart';
 import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
+import '../../../studio/presentation/providers/melody_sketchpad_provider.dart';
+import '../../../studio/presentation/widgets/melody_sketchpad_modal.dart';
 import '../widgets/avatar_customization_modal.dart';
 import '../widgets/creator_avatar.dart';
 import '../../domain/models/profile_operation_type.dart';
@@ -175,6 +185,13 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
     final isDesktop = ResponsiveUtils.isDesktop(context);
     final profile = ref.watch(ownerProfileProvider);
     final opState = ref.watch(ownerProfileOperationProvider);
+    final syncAnalytics = ref.watch(synchronizedAnalyticsProvider);
+    final hasActiveTrack = ref.watch(
+      playerStateProvider.select((s) => s.hasActiveTrack),
+    );
+    final bottomInset =
+        VhunambiBottomDockMetrics.scrollInset(hasActiveTrack: hasActiveTrack) +
+        36;
 
     // Listen for mutation error notifications
     ref.listen<ProfileOperationState>(ownerProfileOperationProvider, (
@@ -231,25 +248,41 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const VhunambiBackButton(color: Colors.white),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.music_note_rounded,
-              color: AppColors.brandPrimary,
-              size: 20,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'CREATOR STUDIO',
-              style: AppTypography.titleMedium.copyWith(
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                AppIcons.studio,
+                color: AppColors.brandPrimary,
+                size: 20,
               ),
-            ),
-          ],
+              const SizedBox(width: 6),
+              Text(
+                'CREATOR STUDIO',
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            key: const Key('owner_header_settings_btn'),
+            icon: const PhosphorIcon(
+              AppIcons.settings,
+              color: Colors.white,
+              size: 20,
+            ),
+            tooltip: 'Studio Settings',
+            onPressed: () => ProfileSettingsDrawer.show(context),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: LoadingOverlay(
         isLoading: isMutating,
@@ -329,43 +362,43 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                         runSpacing: 10,
                         children: [
                           _buildActionPill(
-                            icon: Icons.auto_awesome_rounded,
-                            label: 'Change Avatar ✨',
+                            key: const Key('owner_change_avatar_btn'),
+                            icon: AppIcons.sparkle,
+                            label: 'Change Avatar',
                             onTap: () {
                               AvatarCustomizationModal.show(context);
                             },
                           ),
                           _buildActionPill(
-                            icon: Icons.edit_rounded,
+                            key: const Key('owner_edit_profile_btn'),
+                            icon: AppIcons.edit,
                             label: 'Edit Profile',
                             onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Opening Profile Editor...'),
-                                ),
-                              );
+                              EditProfileSheet.show(context);
                             },
                           ),
                           _buildActionPill(
-                            icon: Icons.push_pin_rounded,
+                            key: const Key('owner_pin_song_btn'),
+                            icon: AppIcons.pin,
                             label: 'Pin Song',
                             onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Select a song to pin to top'),
-                                ),
-                              );
+                              PinSongSelectorSheet.show(context);
                             },
                           ),
                           _buildActionPill(
-                            icon: Icons.analytics_outlined,
+                            key: const Key('owner_analytics_btn'),
+                            icon: AppIcons.analytics,
                             label: 'Studio Analytics',
                             onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Opening Analytics Console...'),
-                                ),
-                              );
+                              StudioAnalyticsConsoleSheet.show(context);
+                            },
+                          ),
+                          _buildActionPill(
+                            key: const Key('owner_theme_settings_btn'),
+                            icon: AppIcons.settings,
+                            label: 'Settings',
+                            onTap: () {
+                              ProfileSettingsDrawer.show(context);
                             },
                           ),
                         ],
@@ -395,7 +428,17 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
 
                       const SizedBox(height: 24),
 
-                      // 3b. Creator DNA Profile Card (Phase 2 — REQ-DNA-HOME-01)
+                      // 3b. Pinned Spotlight Card (if pinned)
+                      if (profile.pinnedTrackId != null &&
+                          profile.pinnedTrackId!.isNotEmpty) ...[
+                        PinnedSpotlightCard(
+                          pinnedTrackId: profile.pinnedTrackId,
+                          fallbackCreatorName: profile.displayName,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // 3c. Creator DNA Profile Card (Phase 2 — REQ-DNA-HOME-01)
                       const CreatorDnaProfileCard(isOwner: true),
 
                       const SizedBox(height: 24),
@@ -445,13 +488,18 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                         ),
                         const SizedBox(height: 14),
                         const _OwnerReelsShelf(),
+                      ] else if (_activeTab == OwnerStudioTab.reels) ...[
+                        const _OwnerReelsShelf(),
+                      ] else if (_activeTab == OwnerStudioTab.beatstore) ...[
+                        const OwnerBeatstoreCockpit(),
+                      ] else if (_activeTab ==
+                          OwnerStudioTab.voicesAndMelodies) ...[
+                        _buildVoicesAndMelodiesTab(context, ref, profile, syncAnalytics),
                       ] else if (_activeTab == OwnerStudioTab.releases) ...[
                         ReleasesManagerCard(
                           releases: profile.releases,
                           onNewRelease: _showNewReleaseDialog,
                         ),
-                      ] else ...[
-                        const OwnerBeatstoreCockpit(),
                       ],
 
                       const SizedBox(height: 14),
@@ -475,7 +523,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                       // 7. Profile Referral Link Card
                       ProfileReferralCard(username: profile.username),
 
-                      const SizedBox(height: 40),
+                      SizedBox(height: bottomInset),
                     ],
                   ),
                 ),
@@ -488,39 +536,41 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
   }
 
   Widget _buildStudioSegmentedSelector() {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
-        borderRadius: AppRadius.pillBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: Row(
-        children: OwnerStudioTab.values.map((tab) {
-          final isSelected = _activeTab == tab;
-          return Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44),
-              child: InkWell(
-                key: Key('owner_studio_tab_${tab.name}'),
-                onTap: () => setState(() => _activeTab = tab),
-                borderRadius: AppRadius.pillBorder,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.brandPrimary
-                        : Colors.transparent,
-                    borderRadius: AppRadius.pillBorder,
-                  ),
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 8,
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceSecondary,
+          borderRadius: AppRadius.pillBorder,
+          border: Border.all(color: AppColors.borderSubtle),
+        ),
+        child: Row(
+          children: OwnerStudioTab.values.map((tab) {
+            final isSelected = _activeTab == tab;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: InkWell(
+                  key: Key('owner_studio_tab_${tab.name}'),
+                  onTap: () => setState(() => _activeTab = tab),
+                  borderRadius: AppRadius.pillBorder,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.brandPrimary
+                          : Colors.transparent,
+                      borderRadius: AppRadius.pillBorder,
+                    ),
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
@@ -528,15 +578,18 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                         PhosphorIcon(
                           switch (tab) {
                             OwnerStudioTab.songs => AppIcons.songs,
-                            OwnerStudioTab.releases => AppIcons.releases,
+                            OwnerStudioTab.reels => AppIcons.reels,
                             OwnerStudioTab.beatstore => AppIcons.beatstore,
+                            OwnerStudioTab.voicesAndMelodies =>
+                              AppIcons.soundPack,
+                            OwnerStudioTab.releases => AppIcons.releases,
                           },
                           size: 14,
                           color: isSelected
                               ? AppColors.brandContrast
                               : AppColors.textSecondary,
                         ),
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 6),
                         Text(
                           tab.label,
                           style: AppTypography.caption.copyWith(
@@ -546,21 +599,21 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                                 : AppColors.textSecondary,
                           ),
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 
   Widget _buildActionPill({
+    Key? key,
     required IconData icon,
     required String label,
     required VoidCallback onTap,
@@ -568,6 +621,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 44),
       child: InkWell(
+        key: key,
         onTap: onTap,
         borderRadius: AppRadius.pillBorder,
         child: Container(
@@ -580,7 +634,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: AppColors.brandPrimary),
+              PhosphorIcon(icon, size: 16, color: AppColors.brandPrimary),
               const SizedBox(width: 6),
               Text(
                 label,
@@ -593,6 +647,198 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildVoicesAndMelodiesTab(
+    BuildContext context,
+    WidgetRef ref,
+    ArtistProfileEntity profile,
+    SynchronizedPlatformAnalytics syncAnalytics,
+  ) {
+    final sketchpad = ref.watch(melodySketchpadProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Sovereign Bantu Vocal Identity Card
+        ArtistVoiceShowcaseCard(
+          artistName: profile.displayName,
+          vocalArchetypeTitle: profile.vocalArchetypeTitle,
+          vocalArchetypeLanguage: profile.vocalArchetypeLanguage,
+          vocalSampleUrl: profile.vocalSampleUrl,
+        ),
+        const SizedBox(height: 20),
+
+        // 2. Saved Multi-Track Grooves & Melodies Header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  AppIcons.studio,
+                  color: AppColors.brandPrimary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Multi-Track Grooves & Melodies',
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSecondary,
+                borderRadius: AppRadius.pillBorder,
+                border: Border.all(color: AppColors.borderSubtle),
+              ),
+              child: Text(
+                '${syncAnalytics.totalSavedMelodiesCount} Saved',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.brandPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (sketchpad.savedPatterns.isEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: AppRadius.cardBorder,
+              border: Border.all(color: AppColors.borderSubtle),
+            ),
+            child: Column(
+              children: [
+                const Icon(
+                  AppIcons.soundPack,
+                  size: 36,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Compose African Grooves in the Sketchpad',
+                  style: AppTypography.titleSmall.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Build 5-channel harmonies combining log drums, nylon guitars, bowed violins, and brass riffs.',
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  key: const Key('owner_launch_sketchpad_btn'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.brandPrimary,
+                    foregroundColor: AppColors.brandContrast,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.pillBorder,
+                    ),
+                  ),
+                  icon: const Icon(AppIcons.studio, size: 16),
+                  label: const Text('Launch Sketchpad'),
+                  onPressed: () => MelodySketchpadModal.show(context),
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          ...sketchpad.savedPatterns.map((pattern) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: AppRadius.cardBorder,
+                border: Border.all(color: AppColors.borderSubtle),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: AppGradients.forGenre(pattern.genre),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      AppIcons.soundPack,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          pattern.name,
+                          style: AppTypography.bodySmall.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          '${pattern.genre} • ${pattern.bpm} BPM • ${pattern.notes.length} notes',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Audition Groove',
+                    icon: const Icon(
+                      AppIcons.play,
+                      color: AppColors.brandPrimary,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      ref
+                          .read(melodySketchpadProvider.notifier)
+                          .previewPattern(pattern);
+                    },
+                  ),
+                  IconButton(
+                    tooltip: 'Open in Studio',
+                    icon: const Icon(
+                      AppIcons.edit,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
+                    onPressed: () {
+                      ref
+                          .read(melodySketchpadProvider.notifier)
+                          .loadPattern(pattern);
+                      MelodySketchpadModal.show(context);
+                    },
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ],
     );
   }
 

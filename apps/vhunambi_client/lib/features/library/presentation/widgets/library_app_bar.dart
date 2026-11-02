@@ -10,6 +10,7 @@ import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../../../offline/presentation/widgets/vault_storage_modal.dart';
+import '../../../profile/presentation/widgets/studio_analytics_console_sheet.dart';
 import '../../domain/models/library_models.dart';
 import '../providers/library_providers.dart';
 
@@ -99,9 +100,7 @@ class LibraryAppBar extends ConsumerWidget {
     return Row(
       children: [
         if (showBackChevron) ...[
-          VhunambiBackButton(
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
+          VhunambiBackButton(onPressed: () => Navigator.of(context).maybePop()),
           const SizedBox(width: AppSpacing.xxs),
         ],
         Container(
@@ -248,9 +247,7 @@ class _CreateButton extends StatelessWidget {
         backgroundColor: AppColors.brandPrimary,
         foregroundColor: AppColors.brandContrast,
         elevation: 0,
-        shape: const RoundedRectangleBorder(
-          borderRadius: AppRadius.pillBorder,
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.pillBorder),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.xs,
@@ -279,6 +276,7 @@ class _AnalyticsButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return InkWell(
+      key: const Key('library_vault_analytics_btn'),
       onTap: () => _showVaultAnalytics(context, ref),
       borderRadius: AppRadius.pillBorder,
       child: Container(
@@ -431,37 +429,20 @@ class _OverflowMenu extends ConsumerWidget {
   }
 
   static IconData _sortIcon(LibrarySortOrder order) => switch (order) {
-        LibrarySortOrder.newestFirst => PhosphorIconsRegular.clock,
-        LibrarySortOrder.oldestFirst => PhosphorIconsRegular.clockCounterClockwise,
-        LibrarySortOrder.titleAscending => AppIcons.sort,
-        LibrarySortOrder.mostPlayed => AppIcons.flame,
-      };
+    LibrarySortOrder.newestFirst => PhosphorIconsRegular.clock,
+    LibrarySortOrder.oldestFirst => PhosphorIconsRegular.clockCounterClockwise,
+    LibrarySortOrder.titleAscending => AppIcons.sort,
+    LibrarySortOrder.mostPlayed => AppIcons.flame,
+  };
 
   static String _sortLabel(LibrarySortOrder order) => switch (order) {
-        LibrarySortOrder.newestFirst => 'Newest first',
-        LibrarySortOrder.oldestFirst => 'Oldest first',
-        LibrarySortOrder.titleAscending => 'Title A–Z',
-        LibrarySortOrder.mostPlayed => 'Most played',
-      };
+    LibrarySortOrder.newestFirst => 'Newest first',
+    LibrarySortOrder.oldestFirst => 'Oldest first',
+    LibrarySortOrder.titleAscending => 'Title A–Z',
+    LibrarySortOrder.mostPlayed => 'Most played',
+  };
 }
 
 void _showVaultAnalytics(BuildContext context, WidgetRef ref) {
-  final tracks = ref.read(libraryTracksProvider);
-  final offlineCount = tracks.where((track) => track.isOfflineAvailable).length;
-  final totalSeconds =
-      tracks.fold<int>(0, (sum, track) => sum + track.durationSeconds);
-  final runtime =
-      '${totalSeconds ~/ 60}m ${(totalSeconds % 60).toString().padLeft(2, '0')}s';
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      backgroundColor: AppColors.surfaceModal,
-      duration: const Duration(seconds: 4),
-      content: Text(
-        'Vault analytics — ${tracks.length} assets • $offlineCount offline • $runtime of audio.',
-        style: AppTypography.bodySmall.copyWith(color: AppColors.textPrimary),
-      ),
-    ),
-  );
+  StudioAnalyticsConsoleSheet.show(context);
 }
-

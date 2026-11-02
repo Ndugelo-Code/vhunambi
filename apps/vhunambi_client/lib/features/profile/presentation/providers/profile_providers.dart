@@ -124,6 +124,45 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
     state = state.copyWith(releases: [release, ...state.releases]);
   }
 
+  /// Updates profile metadata details (display name, username, bio, signature genres) (Phase 33 REQ-PRF-02).
+  void updateProfileDetails({
+    String? displayName,
+    String? username,
+    String? bio,
+    List<String>? topGenres,
+  }) {
+    state = state.copyWith(
+      displayName: displayName,
+      username: username,
+      bio: bio,
+      topGenres: topGenres,
+    );
+  }
+
+  /// Sets or clears the pinned featured spotlight track (Phase 33 REQ-PRF-03).
+  void setPinnedTrack(String? trackId) {
+    if (trackId == null) {
+      state = state.copyWith(clearPinnedTrack: true);
+    } else {
+      state = state.copyWith(pinnedTrackId: trackId);
+    }
+  }
+
+  /// Synchronizes dynamic cross-platform analytics metrics onto profile state.
+  void updateMetrics({
+    int? songCount,
+    int? playCount,
+    int? likeCount,
+    List<String>? topGenres,
+  }) {
+    state = state.copyWith(
+      songCount: songCount,
+      playCount: playCount,
+      likeCount: likeCount,
+      topGenres: topGenres,
+    );
+  }
+
   /// Seeds or updates the profile state from a cached or fresh entity.
   void seedFromCache(ArtistProfileEntity cached) {
     state = cached;
@@ -370,6 +409,7 @@ final List<ArtistProfileEntity> seededArtistProfiles = [
     playCount: 22000,
     followerCount: 1540,
     dayStreak: 3,
+    pinnedTrackId: 'beat_zulu_acoustic',
     topGenres: ['Maskandi', 'Mbaqanga'],
   ),
   const ArtistProfileEntity(

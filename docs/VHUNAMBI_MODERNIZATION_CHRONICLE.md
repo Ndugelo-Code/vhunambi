@@ -707,9 +707,9 @@ void main() async {
 
 ---
 
-### Sprint M2 — Spec 3: Adaptive Mini Player & Now Playing Cockpit (VH-014 to VH-017) 🟡
+### Sprint M2 — Spec 3: Adaptive Mini Player & Now Playing Cockpit (VH-014 to VH-017) ✅
 
-* **Status:** 🟡 **Specification & Handoff Complete (Implementation In Progress)**
+* **Status:** ✅ **Complete & Verified**
 * **4-Document Specification Suite:**
   - **Blueprint:** [`docs/phases/adaptive-mini-player/blueprint.md`](file:///docs/phases/adaptive-mini-player/blueprint.md)
   - **Requirements:** [`docs/phases/adaptive-mini-player/requirements.md`](file:///docs/phases/adaptive-mini-player/requirements.md)
@@ -719,9 +719,66 @@ void main() async {
 * **Audit Prompt & Scorecard:** [`docs/audits/ADAPTIVE_MINI_PLAYER_AUDIT_PROMPT.md`](file:///docs/audits/ADAPTIVE_MINI_PLAYER_AUDIT_PROMPT.md)
 
 #### Scope & Architecture:
-1. **VH-014**: Three morphing forms (Bar, Card, Pill), auto-mode obstacle avoidance (`PlayerObstacle`), hold-drag gesture, extreme zones, and horizontal fling dismiss (>250 px/s).
+1. **VH-014**: Two morphing forms (Standard Bar, Pill Form), drag physics, bin icon bottom dismiss zone, and round playback buttons.
 2. **VH-015**: Elimination of yellow underlines on text via `Material(type: MaterialType.transparency)` wrapper.
 3. **VH-016**: Complete wiring of 12 Now Playing controls (Repeat, Shuffle, Stems, Share, Lyrics, Like).
 4. **VH-017**: Layout hardening in `ExpandedCockpitModal` removing horizontal action row overflow on 360dp viewports.
 
 ---
+
+### Sprint M3 — Phase 32: Studio-Grade 44.1 kHz Multi-Track Melody & Drum Workstation (`STD-UIUX-001`) ✅
+
+* **Status:** ✅ **Complete & Verified (21/21 Tests Passing · 0 Analyzer Issues · 41.6 MB Release APK Installed on Device)**
+* **4-Document Specification Suite:** [`docs/phases/phase_32_multitrack_sketchpad_v2/`](file:///docs/phases/phase_32_multitrack_sketchpad_v2/) (`blueprint.md`, `requirements.md`, `design.md`, `tasks.md`)
+* **Audit Document:** [`docs/audits/MELODY_SKETCHPAD_AUDIO_ENGINE_AND_UI_AUDIT.md`](file:///docs/audits/MELODY_SKETCHPAD_AUDIO_ENGINE_AND_UI_AUDIT.md)
+* **Standard:** [`docs/standards/VHUNAMBI_UI_UX_AND_ICONOGRAPHY_STANDARD.md`](file:///docs/standards/VHUNAMBI_UI_UX_AND_ICONOGRAPHY_STANDARD.md) (`STD-UIUX-001`)
+
+#### Key Transformations:
+1. **Audio DSP Transformation (Track A)**:
+   - Upgraded to 44,100 Hz stereo synthesis.
+   - Continuous Phase Accumulator $\phi[n] = (\phi[n-1] + \frac{2\pi f[n]}{44100}) \pmod{2\pi}$ eliminating harsh digital phase discontinuities on kicks and 808s.
+   - Karplus-Strong physical plucked-string models for Maskandi Acoustic & Zulu Electric Guitars.
+   - Continuous bowed waveguide with 65ms swell + 5.5 Hz vibrato for Solo Violin.
+   - Breath-bore wind models for Bamboo Flute and Soprano Saxophone.
+   - 8-row genre-tuned drum rack across 6 genres (`amapiano`, `hipHop`, `gqom`, `afrobeats`, `house`, `pop`).
+2. **FL Studio 5-Channel Multi-Track Master Groove Engine (Track B)**:
+   - 5 synchronized channels: `Lead`, `Chords`, `Bass`, `Drums`, `Hats`.
+   - Master Drive stereo summing bus with `isSolo` and `isMuted` gating:
+     $$\text{isAudible}_c = \neg \text{channel.isMuted} \land (\neg \text{anySolo} \lor \text{channel.isSolo})$$
+   - Tube soft-saturation limiter ($f(x) = \frac{x}{1 + 0.3|x|}$) preventing clipping beyond $\pm 32767$.
+3. **Hybrid Sound Pack Architecture (Track C)**:
+   - Bundled 0 MB Native Core Kit (16 instruments + 6 drum kits) keeping APK under 42 MB.
+   - In-app downloadable VIP expansion packs via `StudioSoundPackSheet` & API endpoint `GET /v1/melodies/sound-packs`.
+4. **De-Clustered Curvy Minimalist Interface (Track D)**:
+   - 48dp compact top bar with horizontal flex-scroll for Musical Key & Scale pill, Instrument picker, Sound Pack launcher, and Fullscreen toggle.
+   - 44dp sliding curvy channel rack tabs with note indicators (`●`), solo/mute badges (`M`/`S`), and long-press mixer sheet.
+   - 16-step squircle matrix ($\ge 44 \times 44\text{dp}$) with dynamic voice labels when on drums/hats and long-press note inspector.
+   - Strict `STD-UIUX-001` zero-emoji compliance using tree-shaken Phosphor vector icons and zero-bleed touch physics (`splashColor: Colors.transparent`).
+
+---
+
+### Sprint M4 — Phase 33: Multi-Dimensional Creator Profile Hub, Adaptive Light/Dark Theme Engine & Synchronized Platform Analytics (`STD-UIUX-001`) ✅
+
+* **Status:** ✅ **Complete & Verified (11/11 Phase 33 Tests Passing · 61/61 Profile Tests Green · 0 Analyzer Warnings)**
+* **4-Document Specification Suite:** [`docs/phases/phase_33_profile_theme_analytics_convergence/`](file:///docs/phases/phase_33_profile_theme_analytics_convergence/) (`blueprint.md`, `requirements.md`, `design.md`, `tasks.md`)
+* **Standard:** [`docs/standards/VHUNAMBI_UI_UX_AND_ICONOGRAPHY_STANDARD.md`](file:///docs/standards/VHUNAMBI_UI_UX_AND_ICONOGRAPHY_STANDARD.md) (`STD-UIUX-001`)
+
+#### Key Transformations:
+1. **Adaptive Light/Dark Theme Engine (Track A)**:
+   - Hive-persisted `themeModeProvider` supporting `ThemeMode.system`, `ThemeMode.light`, and `ThemeMode.dark`.
+   - Dual-palette dynamic tokens in `AppColors` with compile-time const backwards compatibility and contextual getters (`surfaceCanvasOf`, `surfaceElevatedOf`, etc.).
+   - Themed floating `snackBarTheme` in both palettes banishing the stark white SnackBar glare bug.
+2. **Synchronized Platform Analytics (Track B)**:
+   - Reactive cross-domain provider `synchronizedAnalyticsProvider` aggregating vault tracks, streams, likes, reels engagement, beat marketplace sales, and ZAR royalties.
+   - `StudioAnalyticsConsoleSheet` bottom modal with 4 responsive KPI cards, 7D/30D/All-Time filters, custom cubic Bézier velocity area chart, and genre breakdown metrics.
+   - Cross-surface integration replacing SnackBar dead-ends in both Creator Profile and `LibraryAppBar`.
+3. **Multi-Dimensional Creator Profile Hub (Track C)**:
+   - Modernized app bars and hero actions strictly with Phosphor vector glyphs (`AppIcons.*`) and 0 raw emojis.
+   - Working `EditProfileSheet` enabling live updates to displayName, handle, bio, and signature genre chips.
+   - Working `PinSongSelectorSheet` enabling 1-tap track pinning/unpinning from the creator's vault.
+   - `PinnedSpotlightCard` (`Key('profile_pinned_spotlight_card')`) hero banner with 1-tap playback via `playerStateProvider`.
+   - `ProfileSettingsDrawer` featuring a 3-way segmented theme mode controller (`[ 📱 System | ☀️ Light | 🌙 Dark ]`).
+   - Expanded 5-tab studio vault (`songs`, `reels`, `beatstore`, `voicesAndMelodies`, `releases`) showcasing AI Voice Archetypes and Saved Multi-Track Melodies with 1-tap audition.
+   - Mini-player docking insets preventing bottom player overlap over profile content.
+
+

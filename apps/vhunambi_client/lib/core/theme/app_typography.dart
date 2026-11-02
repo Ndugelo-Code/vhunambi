@@ -35,6 +35,13 @@ abstract final class AppTypography {
     color: AppColors.textPrimary,
   );
 
+  static TextStyle get titleSmall => GoogleFonts.inter(
+    fontSize: 14,
+    height: 18 / 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+  );
+
   static TextStyle get bodyLarge => GoogleFonts.inter(
     fontSize: 14,
     height: 20 / 14,

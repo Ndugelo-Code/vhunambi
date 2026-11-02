@@ -1,22 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../domain/models/profile_models.dart';
 
-/// 5-Metric Statistical Grid (REQ-TRK-13).
+/// 5-Metric Statistical Grid conforming to STD-UIUX-001 (REQ-TRK-13).
+///
+/// Supports reactive overrides from [synchronizedAnalyticsProvider] to ensure
+/// live platform stats update seamlessly across Library, Reels, and Beatstore.
 class ProfileStatsGrid extends StatelessWidget {
   final ArtistProfileEntity profile;
+  final int? songCountOverride;
+  final int? likeCountOverride;
+  final int? playCountOverride;
 
   const ProfileStatsGrid({
     super.key,
     required this.profile,
+    this.songCountOverride,
+    this.likeCountOverride,
+    this.playCountOverride,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
+    final effectiveSongs = songCountOverride ?? profile.songCount;
+    final effectiveLikes = likeCountOverride ?? profile.likeCount;
+    final effectivePlays = playCountOverride ?? profile.playCount;
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -33,39 +48,49 @@ class ProfileStatsGrid extends StatelessWidget {
             runSpacing: 10,
             children: [
               _buildStatTile(
-                icon: Icons.music_note_rounded,
-                value: '${profile.songCount}',
+                icon: AppIcons.songs,
+                value: '$effectiveSongs',
                 label: 'Songs',
                 color: AppColors.brandPrimary,
-                width: isNarrow ? (constraints.maxWidth - 20) / crossAxisCount : 110,
+                width: isNarrow
+                    ? (constraints.maxWidth - 20) / crossAxisCount
+                    : 110,
               ),
               _buildStatTile(
-                icon: Icons.favorite_rounded,
-                value: _formatNumber(profile.likeCount),
+                icon: AppIcons.heart,
+                value: _formatNumber(effectiveLikes),
                 label: 'Likes',
                 color: Colors.redAccent,
-                width: isNarrow ? (constraints.maxWidth - 20) / crossAxisCount : 110,
+                width: isNarrow
+                    ? (constraints.maxWidth - 20) / crossAxisCount
+                    : 110,
               ),
               _buildStatTile(
-                icon: Icons.play_arrow_rounded,
-                value: _formatNumber(profile.playCount),
+                icon: AppIcons.play,
+                value: _formatNumber(effectivePlays),
                 label: 'Plays',
                 color: const Color(0xFF3B82F6),
-                width: isNarrow ? (constraints.maxWidth - 20) / crossAxisCount : 110,
+                width: isNarrow
+                    ? (constraints.maxWidth - 20) / crossAxisCount
+                    : 110,
               ),
               _buildStatTile(
-                icon: Icons.people_outline_rounded,
+                icon: AppIcons.user,
                 value: _formatNumber(profile.followerCount),
                 label: 'Followers',
-                color: const Color(0xFF10B981),
-                width: isNarrow ? (constraints.maxWidth - 20) / crossAxisCount : 110,
+                color: AppColors.success,
+                width: isNarrow
+                    ? (constraints.maxWidth - 20) / crossAxisCount
+                    : 110,
               ),
               _buildStatTile(
-                icon: Icons.local_fire_department_rounded,
-                value: '🔥 ${profile.dayStreak}',
+                icon: AppIcons.flame,
+                value: '${profile.dayStreak}',
                 label: 'Day Streak',
                 color: AppColors.brandPrimary,
-                width: isNarrow ? (constraints.maxWidth - 20) / crossAxisCount : 110,
+                width: isNarrow
+                    ? (constraints.maxWidth - 20) / crossAxisCount
+                    : 110,
               ),
             ],
           );
@@ -92,28 +117,28 @@ class ProfileStatsGrid extends StatelessWidget {
           borderRadius: AppRadius.cardBorder,
           border: Border.all(color: AppColors.borderSubtle),
         ),
-      child: Column(
-        children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: AppTypography.titleMedium.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
+        child: Column(
+          children: [
+            PhosphorIcon(icon, size: 20, color: color),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: AppTypography.titleMedium.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppColors.textSecondary,
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 

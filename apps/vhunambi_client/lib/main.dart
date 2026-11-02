@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/navigation/app_navigator.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_provider.dart';
 import 'core/utils/responsive_utils.dart';
 import 'core/widgets/vhunambi_bottom_dock_kit.dart';
 import 'core/widgets/vhunambi_mobile_bottom_nav.dart';
@@ -37,9 +39,7 @@ Future<void> main() async {
 
   runApp(
     ProviderScope(
-      overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
-      ],
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
       child: const VhunambiApp(),
     ),
   );
@@ -52,18 +52,26 @@ class VhunambiApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp(
       navigatorKey: appNavigatorKey,
       title: 'VHUNAMBI',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       builder: (context, child) {
-        return Stack(
-          children: [
-            ?child,
-            const MiniPlayerHost(),
-          ],
-        );
+        // Synchronize dynamic AppColors with active platform/theme brightness
+        final platformBrightness = MediaQuery.platformBrightnessOf(context);
+        final effectiveBrightness = switch (themeMode) {
+          ThemeMode.light => Brightness.light,
+          ThemeMode.dark => Brightness.dark,
+          ThemeMode.system => platformBrightness,
+        };
+        AppColors.syncWithBrightness(effectiveBrightness);
+
+        return Stack(children: [?child, const MiniPlayerHost()]);
       },
       home: initialHome ?? const SplashView(),
     );
@@ -123,21 +131,22 @@ class _RootShellState extends ConsumerState<RootShell> {
   }
 
   List<Widget> _buildPages() => [
-        HomeDashboardView(
-          onNavigateToStudio: _openStudio,
-          onNavigateToMarket: _openMarket,
-          onNavigateToLibrary: _openLibrary,
-        ),
-        ExploreView(onCreateRequested: _openStudio),
-        const StudioView(),
-        LibraryView(onCreateRequested: _openStudio),
-        MarketplaceView(onNavigateToLibrary: _openLibrary),
-      ];
+    HomeDashboardView(
+      onNavigateToStudio: _openStudio,
+      onNavigateToMarket: _openMarket,
+      onNavigateToLibrary: _openLibrary,
+    ),
+    ExploreView(onCreateRequested: _openStudio),
+    const StudioView(),
+    LibraryView(onCreateRequested: _openStudio),
+    MarketplaceView(onNavigateToLibrary: _openLibrary),
+  ];
 
   bool _isTypingInTextField() {
     final primaryFocus = FocusManager.instance.primaryFocus;
     if (primaryFocus == null || primaryFocus.context == null) return false;
-    return primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>() !=
+    return primaryFocus.context!
+            .findAncestorWidgetOfExactType<EditableText>() !=
         null;
   }
 
@@ -151,9 +160,9 @@ class _RootShellState extends ConsumerState<RootShell> {
     final player = ref.read(playerStateProvider);
     if (!player.hasActiveTrack) return;
     final target = player.position - const Duration(seconds: 5);
-    ref.read(playerStateProvider.notifier).seek(
-          target < Duration.zero ? Duration.zero : target,
-        );
+    ref
+        .read(playerStateProvider.notifier)
+        .seek(target < Duration.zero ? Duration.zero : target);
   }
 
   void _handleSeekForwardShortcut() {
@@ -162,9 +171,7 @@ class _RootShellState extends ConsumerState<RootShell> {
     if (!player.hasActiveTrack) return;
     final target = player.position + const Duration(seconds: 5);
     final max = player.duration;
-    ref.read(playerStateProvider.notifier).seek(
-          target > max ? max : target,
-        );
+    ref.read(playerStateProvider.notifier).seek(target > max ? max : target);
   }
 
   void _handleSearchShortcut() {
@@ -181,14 +188,14 @@ class _RootShellState extends ConsumerState<RootShell> {
     // Jukebox play-count tracking: whenever the persistent player advances to a
     // new active track, register a play against the matching vault record.
     // Covers playTrack / skipNext / skipPrevious / playPlaylist uniformly.
-    ref.listen<String?>(
-      playerStateProvider.select((s) => s.currentTrack?.id),
-      (previousId, currentId) {
-        if (currentId == null || currentId == previousId) return;
-        ref.read(libraryTracksProvider.notifier).incrementPlayCount(currentId);
-        ref.read(recentlyPlayedIdsProvider.notifier).register(currentId);
-      },
-    );
+    ref.listen<String?>(playerStateProvider.select((s) => s.currentTrack?.id), (
+      previousId,
+      currentId,
+    ) {
+      if (currentId == null || currentId == previousId) return;
+      ref.read(libraryTracksProvider.notifier).incrementPlayCount(currentId);
+      ref.read(recentlyPlayedIdsProvider.notifier).register(currentId);
+    });
 
     final shell = Scaffold(
       body: NotificationListener<ScrollNotification>(
@@ -220,10 +227,7 @@ class _RootShellState extends ConsumerState<RootShell> {
         },
         child: Stack(
           children: [
-            IndexedStack(
-              index: _currentIndex,
-              children: _buildPages(),
-            ),
+            IndexedStack(index: _currentIndex, children: _buildPages()),
 
             // Persistent Audio Transport Bar (Desktop only; Mobile is hosted by global MiniPlayerHost)
             if (hasActiveTrack && isDesktop)
@@ -267,10 +271,7 @@ class _RootShellState extends ConsumerState<RootShell> {
           const SingleActivator(LogicalKeyboardKey.arrowRight):
               _handleSeekForwardShortcut,
         },
-        child: Focus(
-          autofocus: true,
-          child: shell,
-        ),
+        child: Focus(autofocus: true, child: shell),
       ),
     );
   }

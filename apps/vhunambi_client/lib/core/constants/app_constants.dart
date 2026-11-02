@@ -36,5 +36,11 @@ abstract final class AppConstants {
 
   // In-Key Melody, Chord & Log-Drum Sketchpad Vault — Phase 27 Hive persistence
   static const String melodySketchesBoxKey = 'vhunambi_melody_sketches_box';
+
+  // Sound Pack Expansion Manager — Phase 32 Hive persistence
+  static const String soundPacksBoxKey = 'vhunambi_sound_packs_box';
+
+  // Adaptive Theme Mode & Appearance Preferences — Phase 33 Hive persistence
+  static const String themePrefsBoxKey = 'vhunambi_theme_prefs_box';
 }
 
