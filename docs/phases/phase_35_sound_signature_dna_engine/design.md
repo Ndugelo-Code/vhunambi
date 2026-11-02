@@ -1,7 +1,7 @@
 # Phase 35: Sound Signature ID & Vocal Idealizer - Design
 
-**Document Version:** 1.0.0
-**Status:** Specification Draft for sign-off
+**Document Version:** 1.1.0 (v1.1: sign-off decisions recorded; Argon DSP guards G1-G4 folded into §4.2, §4.5, §5.1, §5.2, §10)
+**Status:** Approved for implementation - **implementation has NOT started; waiting for the user's explicit command**
 **Conventions:** $m$ = MIDI pitch (float semitones, $m = 69 + 12\log_2(f/440)$); $F_s$ = sample rate; frame hop $H$; "st" = semitones. All numeric defaults are starting points to be tuned in Track B/C against the acceptance tests in §10.
 
 ---
@@ -171,7 +171,8 @@ $$d(\tau)=\sum_{j=1}^{W}\bigl(x_j-x_{j+\tau}\bigr)^2,\qquad
 d'(\tau)=\begin{cases}1 & \tau=0\\ \dfrac{d(\tau)}{\frac1\tau\sum_{j=1}^{\tau}d(j)} & \tau>0\end{cases}$$
 
 Candidates: local minima of $d'$ below 0.35 (top 3). Pick via Viterbi over frames with cost
-$$C = d'(\tau) + \lambda\,\bigl|\log_2 (f_t/f_{t-1})\bigr|,\quad \lambda=0.5$$
+$$C = d'(\tau) + \lambda\,\bigl|\log_2 (f_t/f_{t-1})\bigr| - 0.05\,\mathbb 1_{\text{first}},\quad \lambda=0.5$$
+where $\mathbb 1_{\text{first}}=1$ for the **first** local minimum of $d'$ in that frame that falls below the 0.15 absolute threshold (**guard G1**). On periodic signals $d'(2\tau)$ is often almost as small as $d'(\tau)$; this small-lag preference stops the tracker locking an octave low, and still lets continuity override it when the true pitch genuinely jumps.
 to suppress octave jumps. Parabolic interpolation of the chosen minimum gives sub-sample $\tau^\*$, $f_0=F_s/\tau^\*$. Voiced iff $d'(\tau^\*)<0.20$ and frame RMS > noise-floor + 6 dB. Output smoothed by a 5-tap median, then stored at 50 Hz in cents.
 
 **Cost:** $2000$ frames $\times$ $512\times 252$ MACs $\approx 2.6\times10^8$ - roughly 1 s in Dart AOT on typed lists (estimate, validated in spike T-B0). FFT autocorrelation is the fallback optimisation.
@@ -186,6 +187,8 @@ Pick argmax; confidence $=(s_1-s_2)/s_1$. Minor-pentatonic is a subset of natura
 
 ### 4.5 Formants (LPC)
 Voiced, high-HNR, above-median-energy frames only (vowel-like). Per frame: pre-emphasis 0.97, Hamming 25 ms, autocorrelation, Levinson-Durbin order 18 (at 16 kHz), polynomial roots (Durand-Kerner), keep conjugate poles with $\theta\in(90\,\mathrm{Hz},\,F_s/2-200)$ and bandwidth $-\frac{F_s}{\pi}\ln|z| < 400$ Hz, sort by frequency; assign $F_1..F_4$ by standard ranges (200-1000, 600-2800, 1500-3500, 2500-4500 Hz). Median across frames. Confidence drops if < 15 usable frames -> formants stored as 0 and UI hides formant markers.
+
+**Convergence guard (G2):** Durand-Kerner is capped at **30 iterations, tolerance $10^{-5}$**. A frame whose roots fail to converge, or produce any non-finite value, falls back to parabolic peak-picking on the 512-point all-pole power spectrum $1/|A(e^{j\omega})|^2$ (bandwidth from the $-3$ dB width of the peak). $F_1$-$F_4$ extraction is therefore NaN/Inf-free by construction. A per-take counter records the fraction of fallback frames; > 40% lowers formant confidence.
 
 ### 4.6 Descriptor, HNR, warmth
 - **Descriptor:** per voiced frame: 512-pt FFT -> 24 mel bands (200-7500 Hz) -> log -> DCT-II -> $c_1..c_{16}$; mean over voiced frames.
@@ -209,7 +212,7 @@ raw PCM(44.1k) -> [1 denoise] -> [2 pocket quantize] -> [3 pitch/vibrato/formant
 ### 5.1 Pitch trajectory editing
 Work in semitones $m(t)$ at 100 Hz frame rate, per note $n$ with median $\tilde m_n$:
 
-1. **Decompose** (zero-phase 2nd-order Butterworth, forward-backward):
+1. **Decompose per contiguous voiced run** (**guard G3** - never filter across the `-32768` unvoiced sentinel). Unvoiced gaps shorter than 60 ms between voiced frames are first bridged by linear interpolation **in semitone space** (bridged frames remain flagged unvoiced for rendering). Each run is then filtered with a zero-phase 2nd-order Butterworth (forward-backward) using **10-frame reflected boundary padding**; filter state is re-initialised per run so no ringing crosses a gap; runs shorter than 20 frames skip the split (trend only). Components:
    $m = m_{\text{trend}} + m_{\text{vib}} + m_{\text{trem}}$, with $m_{\text{trend}}$ = LP @ 2.5 Hz, $m_{\text{vib}}$ = BP 4-8 Hz of the residual, $m_{\text{trem}}$ = remainder (> 8 Hz).
 2. **Target:** allowed pitches $\mathcal P=\{r_0+o+12k\}$ (root $r_0$, offsets $o$ of the chosen `AfricanScaleMode`). $m^\star_n=\arg\min_{p\in\mathcal P}|p-\tilde m_n|$, $\Delta_n=\mathrm{clamp}(m^\star_n-\tilde m_n,\,\pm7)$ (REQ-IDEAL-03: if the unclamped value exceeds 7 st the note is **left unchanged** and reported).
 3. **Glide detection:** a segment with $|dm/dt|>10$ st/s, monotone, $\ge 80$ ms, sets $g(t)=1$ (no snap; constant offset only).
@@ -224,9 +227,9 @@ $$\varphi[k]=\bigl(\varphi[k-1]+2\pi\cdot 5.2/F_{100}\bigr)\bmod 2\pi,\quad F_{1
 ### 5.2 TD-PSOLA with formant control
 - **Analysis marks** $p_i$: start at the first voiced sample's local waveform peak, advance by local $T_a=1/f_0$, snapping each mark to the max $|x|$ within $\pm T_a/4$.
 - **Synthesis marks** $q_k$: $q_0=p_0$, $q_{k+1}=q_k+T_s(q_k)$, $T_s=T_a/\rho$. Each $q_k$ selects the analysis mark nearest in (time-scaled) position.
-- **Grain:** $g_i[n]=x[p_i+n]\,w[n]$, $n\in[-T_a,T_a]$, Hann $w$.
-- **Formant shift** $s=2^{\Delta_f/12}$: resample each grain by factor $1/s$ (spectral envelope scales by $s$) **before** overlap-add, while $q_k$ spacing stays $T_s$ - pitch and formants are therefore independent.
-- **OLA** with a parallel window-sum buffer; output divided by the accumulated window weight (keeps level constant when $\rho\neq1$).
+- **Grain:** $g_i[n]=x[p_i+n]\,w[n]$, Hann $w$, extracted over $n\in[-\lceil T_a s'\rceil,\ +\lceil T_a s'\rceil]$ with $s'=\max(1,s)$ (**guard G4**). With no upward formant shift this is the usual $[-T_a,T_a]$.
+- **Formant shift** $s=2^{\Delta_f/12}$: resample each grain by factor $1/s$ (spectral envelope scales by $s$) **before** overlap-add, while $q_k$ spacing stays $T_s$ - pitch and formants are therefore independent. Because the grain was extracted at half-width $T_a s'$, after resampling it still spans $\approx[-T_a,+T_a]$ for $s>1$, so raising formants never leaves gaps between synthesis marks (**guard G4**).
+- **OLA** with a parallel window-sum buffer; output divided by $\max(W_{\text{sum}}[n],\,0.20)$ (**guard G4** soft floor: keeps level constant when $\rho\neq1$ and prevents amplitude spikes/buzz where the window sum dips toward 0). The floor matters for pitch-**down** too ($\rho<1$ makes spacing $T_s>T_a$, so the Hann sum dips even with no formant shift), not only for formant-up. A debug counter records the fraction of samples that hit the floor; > 2% is reported as an artifact warning in the idealizer result.
 - **Unvoiced / protected segments** are copied through unchanged with 5 ms crossfades at voiced boundaries. **This is how Bantu consonants and Nguni clicks stay sharp by construction** - they are never pitch-processed.
 - **Sustain extension** (REQ-IDEAL-06): re-use two alternating mid-note grains for up to +120 ms of extra synthesis marks, then crossfade into the natural release.
 - **Known limits:** PSOLA is clean to about $\pm4$-$5$ st, usable to $\pm7$; very breathy/noisy voiced frames reduce epoch accuracy (they fall back to bypass when epoch confidence is low).
@@ -373,6 +376,10 @@ All three are *candidates to be verified* - none are assumed to work or to be li
 | Onsets | click/tone trains | F1-score >= 0.9 |
 | Hum -> notes | synthetic hums on known rows/steps | >= 90% exact row+step |
 | Codec | round-trip + golden | exact; size <= 8 KB at 20 s |
+| Sub-octave guard (G1) | harmonic stack with strong subharmonic (equal energy at $f_0/2$) | no octave-low lock; octave errors <= 2% |
+| LPC convergence (G2) | noisy/nasal synthetic frames + forced non-convergence | zero NaN/Inf; fallback used; $F_1$-$F_3$ within 8% |
+| Segment filtering (G3) | phrase with 40 ms and 200 ms unvoiced gaps | no ringing: in-run trend differs <= 1 cent from an isolated-run reference; sentinel never reaches the filter |
+| Window-sum floor (G4) | grid $\rho\in\{0.67,1,1.5\}\times s\in\{0.84,1,1.19\}$ | no sample > +3 dB over the input envelope; floor-hit rate < 2%; no NaN |
 | Performance | 20 s analysis / render on Huawei ARM64 | < 3 s / < 4 s |
 | UI | widget tests Light+Dark, A/B, permission states | green |
 | Cloud | worker tests | stage `executed` asserted; refuses fake success |

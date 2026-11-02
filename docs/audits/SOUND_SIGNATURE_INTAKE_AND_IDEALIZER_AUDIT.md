@@ -128,8 +128,9 @@ Phase 35 inserts, between `Rec`/`Drop` and persistence, a real **intake -> analy
 
 ---
 
-## 7. Open Questions for Sign-off (also in `blueprint.md` §9)
+## 7. Open Questions for Sign-off - ALL RESOLVED 2026-11-03 (see `blueprint.md` §9)
 1. Confirm inclusion of the **"Sing it yourself -> idealized vocal stem"** workflow (new capability, not just a better clone).
 2. Approve adding the `record` plugin (+ `RECORD_AUDIO` permission, +~0.1-0.3 MB).
 3. Accept **Track F** being gated by two cloud spikes (F0-conditioned Seed-VC and hybrid blending) with documented fallbacks.
 4. Folder naming: `phase_35_mini_player_drag_dismiss` already exists. This suite keeps the requested name `phase_35_sound_signature_dna_engine`; confirm or renumber.
+

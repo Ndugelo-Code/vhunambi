@@ -1,7 +1,7 @@
 # Phase 35: Sovereign Sound Signature ID (`VHU-SIG`) & Neural Vocal Idealizer Engine - Blueprint
 
 **Document Version:** 1.0.0
-**Status:** Specification Draft for sign-off (no implementation yet)
+**Status:** Sign-off APPROVED 2026-11-03 - **no implementation yet; waiting for the user's explicit command to start**
 **Depends on:** Phase 26 (voice identity), Phase 32 (44.1 kHz sketchpad), Phase 33 (profile vault, reactive theme)
 **Audit:** `docs/audits/SOUND_SIGNATURE_INTAKE_AND_IDEALIZER_AUDIT.md` (AUDIT-SOUNDSIG-001)
 **Standards:** `STD-UIUX-001` (Phosphor only, 44x44dp, zero raw emojis, zero raw hex, `AppColors` getters, no `const` over theme tokens)
@@ -107,12 +107,21 @@ flowchart LR
 - No cloning from imported audio as a voice *identity* without live calibration (safety).
 - Not replacing ACE-Step generation.
 
-## 9. Decisions requested at sign-off
+## 9. Sign-off decisions - ALL APPROVED (2026-11-03)
 1. **Include W2 "Sing-it-yourself Idealizer"** as a deliverable (new capability) - recommended.
 2. **Approve `record` plugin + `RECORD_AUDIO` permission.**
 3. **Accept two cloud spikes** (S1: pitch-corrected source into Seed-VC; S2: hybrid blending) with the fallbacks in `design.md` §8.
 4. **Folder number:** `phase_35_mini_player_drag_dismiss` already exists; keep this name or renumber.
-5. **Retention default:** raw takes kept on device until the user deletes them (cap 50 MB, managed in the vault storage modal)?
+5. **Retention default:** raw takes kept on device until the user deletes them (cap 50 MB, managed in the vault storage modal).
+
+**Resolutions:**
+1. W2 "Sing-it-yourself Idealizer" - **APPROVED** (pitch lock, vibrato polish, formant depth, pocket quantize turn a rough take into a studio vocal stem).
+2. Dependencies - **APPROVED:** `record` **and `file_picker`** plugins + `RECORD_AUDIO` permission.
+3. Cloud spikes S1, S2, S3 - **APPROVED** with the fallbacks in `design.md` §8.4. Release 1 (Tracks A-D), Release 2 (Track E) and F-foundation have zero dependency on spike outcomes.
+4. Folder name - **KEEP** `phase_35_sound_signature_dna_engine` (committed in `1db21d9`); both Phase 35 folders are indexed in `AGENT_HANDOFF_BIBLE.md`.
+5. Retention - **APPROVED:** raw mono 44.1 kHz WAV at `<docs>/signatures/<ulid>/raw.wav`, 50 MB user-managed cap surfaced in `VaultStorageModal`.
+
+**Design review (Argon, 2026-11-03):** four numerical DSP guards were reviewed and folded into the spec (`design.md` v1.1): G1 YIN sub-octave protection, G2 LPC convergence fallback, G3 per-voiced-run F0 filtering, G4 PSOLA window-sum floor and grain width. See `requirements.md` REQ-SIG-ANALYSIS-12/13, REQ-SIG-IDEAL-13/14, REQ-SIG-TEST-08.
 
 ## 10. Success criteria
 - Real voice in -> real, voice-dependent descriptors out (two speakers reading the same script produce measurably different signatures).
@@ -121,3 +130,4 @@ flowchart LR
 - Hum -> 16-step notes: >= 90% of intended notes land on the correct row/step on clean synthetic hums.
 - Cloud: a cloned voice **audibly changes** the generated vocal (the stage is verifiably executed and logged).
 - APK <= 45 MB; `dart analyze` 0 issues; all existing suites remain green.
+

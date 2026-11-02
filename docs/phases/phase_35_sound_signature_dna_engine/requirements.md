@@ -40,6 +40,8 @@
 - **REQ-SIG-ANALYSIS-09 (P0) Onsets & grid.** Log-compressed spectral flux with adaptive median threshold; offsets measured against a BPM grid (user/project BPM, else tempo estimate).
 - **REQ-SIG-ANALYSIS-10 (P1) Quality profile.** SNR (speech vs noise-floor percentile), clipping %, bandwidth (-20 dB rolloff), integrated loudness, reverb estimate (early-decay time from offsets).
 - **REQ-SIG-ANALYSIS-11 (P1) Performance budget.** Full analysis of a 20 s take < 3 s on the Huawei ARM64 test device, in an isolate; UI shows progress and stays responsive.
+- **REQ-SIG-ANALYSIS-12 (P0) Sub-octave protection (guard G1).** The first local minimum of $d'$ below 0.15 receives a $-0.05$ cost bonus in the Viterbi candidate scorer so a $2\tau$ minimum never beats the true period; verified with a strong-subharmonic synthetic signal.
+- **REQ-SIG-ANALYSIS-13 (P0) NaN-free formants (guard G2).** Durand-Kerner capped at 30 iterations / 1e-5; non-convergence or non-finite roots fall back to parabolic peak-picking on the 512-point all-pole spectrum $1/|A(e^{j\omega})|^2$. No `NaN`/`Infinity` may ever be written into a `SoundSignatureDna`; the codec rejects non-finite values.
 
 ### 1.4 Track C - Vocal Idealizer (non-destructive, recipe over raw take)
 
@@ -55,6 +57,8 @@
 - **REQ-SIG-IDEAL-10 (P1) Hybrid preview (approximate).** On-device hybrid uses formant shift + spectral-tilt EQ toward the archetype descriptor, labelled **"Approximate preview - final blend rendered in cloud"**.
 - **REQ-SIG-IDEAL-11 (P0) Non-destructive.** The raw take is never modified; recipe changes re-render from raw; "Reset" restores defaults instantly.
 - **REQ-SIG-IDEAL-12 (P1) Reference Cleanup.** Spectral-subtractive/Wiener denoise (decision-directed, gain floor 0.1) with strength control; heavy dereverb deferred to cloud.
+- **REQ-SIG-IDEAL-13 (P0) Segment-wise trajectory filtering (guard G3).** The F0 decomposition never filters across the `-32768` unvoiced sentinel: unvoiced gaps < 60 ms are bridged linearly in semitone space; each contiguous voiced run is filtered independently (forward-backward Butterworth, 10-frame reflected padding, state reset per run); runs < 20 frames are trend-only.
+- **REQ-SIG-IDEAL-14 (P0) PSOLA overlap-add safety (guard G4).** Grains are extracted at half-width $\lceil T_a\max(1,s)\rceil$ before $1/s$ resampling so upward formant shifts keep full coverage; the OLA divisor is $\max(W_{\text{sum}}[n],0.20)$ for **all** ratios (including pitch-down); floor-hit rate > 2% raises an artifact warning.
 
 ### 1.5 A/B Audition
 
@@ -122,6 +126,7 @@
 - **REQ-SIG-TEST-05** API tests: signature CRUD, consent required, delete purges, imported-source identity rejection.
 - **REQ-SIG-TEST-06** GPU worker tests: stage-executed assertions; refuses to fake success when model missing.
 - **REQ-SIG-TEST-07** Manual device matrix: Huawei ARM64 mic capture, headset mic, noisy room, quiet room.
+- **REQ-SIG-TEST-08** Guard tests G1-G4 exactly as listed in design §10 (sub-octave, LPC convergence, segment filtering, window-sum floor), including a NaN/Inf sweep over the whole recipe space.
 
 ## 4. Traceability
 

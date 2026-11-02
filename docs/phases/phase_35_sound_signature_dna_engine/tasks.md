@@ -1,7 +1,7 @@
 # Phase 35: Sound Signature ID & Vocal Idealizer - Tasks
 
 **Document Version:** 1.0.0
-**Status:** Specification Draft for sign-off - **no task below has been started**
+**Status:** Sign-off approved 2026-11-03 - **implementation NOT started; waiting for the user's explicit command**
 **Rule for every task:** `dart analyze lib test` = 0 issues; existing suites stay green; `STD-UIUX-001` for any UI; no `const` over `AppColors` getters.
 
 Legend: `[ ]` not started - **(Spike)** time-boxed investigation that can change later tasks - **Gate** = must pass before the next track starts.
@@ -9,7 +9,7 @@ Legend: `[ ]` not started - **(Spike)** time-boxed investigation that can change
 ---
 
 ## Pre-flight (T-0)
-- [ ] **T-0.1** Sign-off on `blueprint.md` §9 decisions (W2 inclusion, `record` plugin, spikes, folder number, retention).
+- [x] **T-0.1** Sign-off on `blueprint.md` §9 decisions - **APPROVED 2026-11-03** (W2 included; `record` + `file_picker` + `RECORD_AUDIO`; spikes S1-S3 with fallbacks; folder name kept; raw-take retention with 50 MB cap).
 - [ ] **T-0.2** Re-verify audit F03: confirm no R2 upload exists for voice clones (grep `apps/vhunambi_api` + client upload services).
 - [ ] **T-0.3** Create `docs/phases/phase_35_sound_signature_dna_engine/` checklist mirror in `AGENT_HANDOFF_BIBLE.md`.
 
@@ -17,7 +17,7 @@ Legend: `[ ]` not started - **(Spike)** time-boxed investigation that can change
 
 ## Track A - Real Intake Foundation (REQ-SIG-INTAKE-*, DNA-*)
 
-- [ ] **T-A1** Add `record` to `pubspec.yaml`; add `RECORD_AUDIO` to `AndroidManifest.xml`; measure APK delta (report in doc). Verify build on Huawei ARM64.
+- [ ] **T-A1** Add `record` and `file_picker` to `pubspec.yaml` (both approved); add `RECORD_AUDIO` to `AndroidManifest.xml`; measure APK delta (report in doc). Verify build on Huawei ARM64.
 - [ ] **T-A2** `IAudioIntakeRecorder` + `RealAudioIntakeRecorder` (PCM16, 44.1 kHz mono, EC/NS/AGC off); wrap behind existing `IVoiceCalibrationRecorder`; keep `DeterministicVoiceCalibrationRecorder` for tests; real RMS `amplitudeStream`.
 - [ ] **T-A3** Permission flow + rationale sheet + denied / permanently-denied states (Phosphor icons, "Open settings" action).
 - [ ] **T-A4** `AudioImportService`: file picker, decode to PCM, 3-60 s limits, real waveform + duration; replace the mock in `ReferenceAudioDropzone`.
@@ -31,21 +31,21 @@ Legend: `[ ]` not started - **(Spike)** time-boxed investigation that can change
 
 - [ ] **T-B0 (Spike)** Benchmark direct-form YIN in Dart AOT on the Huawei device (20 s take). Decide direct vs FFT. Record numbers in `design.md` §4.2.
 - [ ] **T-B1** `resampler.dart` (polyphase 44.1k -> 16k), `fft.dart`.
-- [ ] **T-B2** `yin_pitch_tracker.dart` + Viterbi continuity + voicing + median smoothing. Tests: F0 RMSE, octave errors, voicing accuracy.
+- [ ] **T-B2** `yin_pitch_tracker.dart` + Viterbi continuity + voicing + median smoothing + **guard G1** (first-below-0.15 minimum gets a -0.05 cost bonus). Tests: F0 RMSE, octave errors, voicing accuracy, **strong-subharmonic signal never locks an octave low**.
 - [ ] **T-B3** `note_segmenter.dart` (hysteresis rules) + tests.
 - [ ] **T-B4** `key_scale_estimator.dart` (four `AfricanScaleMode`s) + confidence + tests incl. pentatonic/natural-minor ambiguity.
-- [ ] **T-B5** `lpc_formants.dart` (Levinson-Durbin, root solve, bandwidth filter) + all-pole synthetic tests.
+- [ ] **T-B5** `lpc_formants.dart` (Levinson-Durbin, root solve capped at 30 it / 1e-5, bandwidth filter) + **guard G2** all-pole-spectrum peak-picking fallback + all-pole synthetic tests + forced-non-convergence test (zero NaN/Inf; codec rejects non-finite).
 - [ ] **T-B6** `cepstral_descriptor.dart`, `hnr.dart`, warmth proxy; speaker-difference sanity test using two synthetic "voices" (different formant sets) -> cosine distance > threshold.
 - [ ] **T-B7** `onset_detector.dart` + grid offsets + tests.
 - [ ] **T-B8** `sound_analyzer.dart` orchestration in an isolate with progress stream; produce `SoundSignatureDna`.
 - [ ] **T-B9** Replace text-derived `clarityScore` / `cadenceWpm` with measured values (DNA-06) and update affected tests.
-- [ ] **Gate B:** all acceptance numbers in design §10 (F0, voicing, formants, key, onsets) met; 20 s analysis < 3 s on device.
+- [ ] **Gate B:** all acceptance numbers in design §10 (F0, voicing, formants, key, onsets, **G1 and G2 tests**) met; 20 s analysis < 3 s on device.
 
 ## Track C - Vocal Idealizer DSP (REQ-SIG-IDEAL-*, AB-*)
 
-- [ ] **T-C1** `pitch_trajectory_editor.dart`: Butterworth decomposition, glide detection, snap + smoothing, 700-cent rail; tests (detune +-40 cents -> <= 10 cents; glide kept).
-- [ ] **T-C2** `psola.dart`: epoch marking, synthesis marks, grain OLA with window-sum normalisation; unvoiced bypass; tests (level constant, unvoiced bit-exact).
-- [ ] **T-C3** `formant_shifter.dart` (grain resampling) + LPC verification tests (+-3 st within +-6%).
+- [ ] **T-C1** `pitch_trajectory_editor.dart`: **guard G3** per-voiced-run Butterworth decomposition (linear bridging of gaps < 60 ms in semitone space, 10-frame reflected padding, state reset per run, runs < 20 frames trend-only), glide detection, snap + smoothing, 700-cent rail; tests (detune +-40 cents -> <= 10 cents; glide kept; 40 ms / 200 ms gap no-ringing test; sentinel never reaches the filter).
+- [ ] **T-C2** `psola.dart`: epoch marking, synthesis marks, grain OLA with **guard G4** soft-floored window-sum normalisation (`max(windowSum, 0.20)`, floor-hit counter, >2% warning); unvoiced bypass; tests (level constant, unvoiced bit-exact, pitch-down $\rho<1$ has no amplitude spikes).
+- [ ] **T-C3** `formant_shifter.dart` (**guard G4** wider analysis grain $\lceil T_a\max(1,s)\rceil$ then $1/s$ resampling) + LPC verification tests (+-3 st within +-6%) + $\rho\times s$ grid test (no sample > +3 dB over envelope, no NaN).
 - [ ] **T-C4** `vibrato.dart` (phase-accumulator LFO, ramp-in, tremor removal) + sustain extension.
 - [ ] **T-C5** `tone_chain.dart`: RBJ biquads, compressor, exciter, limiter; `denoiser.dart` (Wiener, decision-directed); `loudness.dart`.
 - [ ] **T-C6** `pocket_quantizer.dart` (segment shift, silence pad, WSOLA <= 15%) + tests (+-60 ms -> <= 10 ms).
@@ -119,3 +119,4 @@ flowchart LR
 - **Release 1 (A+B+C+D)** is already a coherent product: real voice capture, honest quality feedback, on-device "Perfect My Voice" with A/B.
 - **F-foundation is independently valuable** and fixes the audit's cloud P0s even if neural work is deferred.
 - Track F-neural is the schedule risk; it must not block Releases 1-2.
+
