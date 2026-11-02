@@ -1087,3 +1087,35 @@ Current gate benchmark: **0 analyzer issues** | **657+ tests passed (100%)**.
 
 
 
+
+---
+
+## Phase 33.1 Hotfix & Modernization Convergence (Sprint M4 - M6)
+- **Commit**: `8984716` (*feat(theme): true reactive light/dark mode engine, universal 56dp top chrome & dead-end elimination*)
+- **Binary**: `41.8 MB` release APK verified and deployed to physical Huawei device (`EPHUT20917014649` / `JNY LX1`).
+
+### 1. The True Reactive Light Mode Engine (Dart const Trap Resolution)
+- **The Issue**: In the initial Phase 33 build, custom containers, cards, and app bars hardcoded `static const Color surfaceCanvas = #0A0A0C`, baking pitch-black values directly into machine code. Only `TextField` inputs responded to theme mode.
+- **The Solution**:
+  1. Converted all `AppColors` surface, text, and border tokens (`surfaceCanvas`, `surfaceElevated`, `surfaceSecondary`, `surfaceModal`, `borderSubtle`, `textPrimary`, etc.) from static const fields to dynamic `static Color get` getters that read `_currentBrightness`.
+  2. Wrapped root `VhunambiApp` in `KeyedSubtree(key: ValueKey<Brightness>(effectiveBrightness))`, forcing Flutter's element tree to invalidate and rebuild all mounted routes and `IndexedStack` tabs upon theme changes.
+  3. Performed an automated codebase sweep across 117 files to strip invalid `const` modifiers from widgets now consuming dynamic theme tokens.
+
+### 2. Universal 56dp Top Chrome Harmonization (Sprint M4)
+- **Studio (`VhunambiAppBar`)**: Upgraded to 56dp safe-area geometry, replaced stock `Icons.bolt_rounded` with Phosphor `PhosphorIconsRegular.lightning`, and added `CreatorAvatar` shortcut (`Key('studio_top_bar_user_avatar')`) routing to `/profile/me`.
+- **Marketplace (`MarketplaceTopBar`)**: Standardized with Phosphor vector glyphs, cleaned up badge alignment, and added profile avatar navigation (`Key('marketplace_top_bar_user_avatar')`).
+- **Library (`LibraryAppBar`)**: Replaced all stock icons with Phosphor tokens, removed redundant mobile row clutter, and added profile avatar shortcut on desktop row.
+
+### 3. Notification Center Harmonization (Sprint M5)
+- Retired the legacy 360px floating `NotificationsPopover`.
+- `NotificationBellButton` now executes direct 1-step navigation to `NotificationsView()` via smooth `MaterialPageRoute`.
+
+### 4. Dead-End Elimination & Instant Cash Out (Sprint M6)
+- **Track Detail**: Replaced dummy SnackBar on `onAddToPlaylist` with real `AddToPlaylistSheet.show(context, track)`.
+- **Creator Tipping**: `CreatorTippingSheet` resolves dynamic sender identity from `ownerProfileProvider` instead of hardcoded `ndugelo_musician`.
+- **Creator Wallet Payout**: Updated `CreatorWalletDeck` so instant payment methods (Ozow, Capitec Pay) execute cash out immediately, reserving the manual banking details modal exclusively for batch `EFT`.
+
+### 5. Verification Gate Status
+- **Static Analysis**: `dart analyze lib test` -> **0 issues found (100% clean)**.
+- **Test Suites**: **127 / 127 tests passed (100% green)** across profile, library, and track suites.
+- **Device Deployment**: Streamed install confirmed successful on device `EPHUT20917014649`.
