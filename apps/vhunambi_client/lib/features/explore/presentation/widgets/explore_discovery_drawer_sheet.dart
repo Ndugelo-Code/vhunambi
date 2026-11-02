@@ -65,7 +65,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
                   width: 44,
                   height: 44,
                   child: IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       color: AppColors.textSecondary,
                     ),
@@ -223,7 +223,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
               color: AppColors.textSecondary,
               size: 20,

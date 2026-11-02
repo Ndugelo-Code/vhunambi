@@ -41,7 +41,7 @@ class DesktopTransportBar extends ConsumerWidget {
 
     return Container(
       height: 72,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceElevated,
         border: Border(
           top: BorderSide(color: AppColors.borderSubtle, width: 1),
@@ -213,7 +213,7 @@ class DesktopTransportBar extends ConsumerWidget {
 
                   PopupMenuButton<double>(
                     tooltip: 'Playback Speed',
-                    icon: const Icon(Icons.speed_rounded, color: AppColors.textSecondary, size: 20),
+                    icon: Icon(Icons.speed_rounded, color: AppColors.textSecondary, size: 20),
                     onSelected: notifier.setPlaybackSpeed,
                     itemBuilder: (context) => [
                       const PopupMenuItem(value: 0.75, child: Text('0.75x')),
@@ -317,7 +317,7 @@ class DesktopTransportBar extends ConsumerWidget {
 
                   IconButton(
                     key: const Key('transport_add_to_playlist_button'),
-                    icon: const Icon(Icons.playlist_add_rounded, color: AppColors.textSecondary, size: 22),
+                    icon: Icon(Icons.playlist_add_rounded, color: AppColors.textSecondary, size: 22),
                     onPressed: () {
                       final track = ref.read(playerStateProvider).currentTrack;
                       if (track != null) {
@@ -329,7 +329,7 @@ class DesktopTransportBar extends ConsumerWidget {
 
                   IconButton(
                     key: const Key('transport_queue_button'),
-                    icon: const Icon(Icons.queue_music_rounded, color: AppColors.textSecondary, size: 20),
+                    icon: Icon(Icons.queue_music_rounded, color: AppColors.textSecondary, size: 20),
                     onPressed: () => QueueDrawer.show(context),
                     tooltip: 'Queue Drawer',
                   ),
@@ -337,7 +337,7 @@ class DesktopTransportBar extends ConsumerWidget {
                   const SizedBox(width: 16),
 
                   // 5. Volume Slider & Window Controls
-                  const PhosphorIcon(AppIcons.volumeHigh, color: AppColors.textSecondary, size: 20),
+                  PhosphorIcon(AppIcons.volumeHigh, color: AppColors.textSecondary, size: 20),
                   SizedBox(
                     width: 90,
                     child: SliderTheme(
@@ -358,13 +358,13 @@ class DesktopTransportBar extends ConsumerWidget {
                   const SizedBox(width: 10),
 
                   IconButton(
-                    icon: const PhosphorIcon(AppIcons.caretUp, color: AppColors.textSecondary, size: 20),
+                    icon: PhosphorIcon(AppIcons.caretUp, color: AppColors.textSecondary, size: 20),
                     onPressed: onExpand,
                     tooltip: 'Expand Cockpit',
                   ),
 
                   IconButton(
-                    icon: const PhosphorIcon(AppIcons.close, color: AppColors.textTertiary, size: 18),
+                    icon: PhosphorIcon(AppIcons.close, color: AppColors.textTertiary, size: 18),
                     onPressed: notifier.dismiss,
                     tooltip: 'Dismiss Player',
                   ),

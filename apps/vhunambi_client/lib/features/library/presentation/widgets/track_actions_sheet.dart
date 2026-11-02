@@ -37,7 +37,7 @@ class TrackActionsSheet extends ConsumerWidget {
       backgroundColor: AppColors.surfaceModal,
       barrierColor: Colors.black54,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -484,7 +484,7 @@ class _ActionTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
               size: 18,
               color: AppColors.textTertiary,
@@ -508,7 +508,7 @@ Future<void> showLibraryLicenseDialog(
     barrierColor: Colors.black54,
     builder: (dialogContext) => Dialog(
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.cardBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),

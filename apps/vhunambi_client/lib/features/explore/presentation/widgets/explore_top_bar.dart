@@ -32,7 +32,7 @@ class DesktopExploreTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: barHeight,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceCanvas,
         border: Border(
           bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
@@ -300,7 +300,7 @@ class _DiscoveryDrawerButton extends StatelessWidget {
       height: 40,
       child: IconButton(
         padding: EdgeInsets.zero,
-        icon: const PhosphorIcon(
+        icon: PhosphorIcon(
           PhosphorIconsRegular.squaresFour,
           color: AppColors.textPrimary,
           size: 20,
@@ -322,7 +322,7 @@ class _SearchIconButton extends StatelessWidget {
       height: 40,
       child: IconButton(
         padding: EdgeInsets.zero,
-        icon: const PhosphorIcon(
+        icon: PhosphorIcon(
           AppIcons.search,
           color: AppColors.textPrimary,
           size: 22,
@@ -485,7 +485,7 @@ class _ExploreSearchFieldState extends ConsumerState<_ExploreSearchField> {
       child: Row(
         children: [
           const SizedBox(width: AppSpacing.sm),
-          const PhosphorIcon(
+          PhosphorIcon(
             AppIcons.search,
             size: 18,
             color: AppColors.textSecondary,

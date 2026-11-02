@@ -21,7 +21,7 @@ Future<void> showMarketplaceFilterModal(BuildContext context) {
     backgroundColor: AppColors.surfaceModal,
     barrierColor: Colors.black54,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
+    shape: RoundedRectangleBorder(
       borderRadius: AppRadius.modalBorder,
       side: BorderSide(color: AppColors.borderSubtle),
     ),

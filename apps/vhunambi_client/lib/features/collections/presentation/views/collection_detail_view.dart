@@ -379,7 +379,7 @@ class _CollectionPlaybackDeck extends ConsumerWidget {
                     : () => start(List<Track>.of(tracks)..shuffle(Random())),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.textPrimary,
-                  side: const BorderSide(color: AppColors.borderSubtle),
+                  side: BorderSide(color: AppColors.borderSubtle),
                   shape: pill,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
@@ -404,7 +404,7 @@ class _CollectionPlaybackDeck extends ConsumerWidget {
             ),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textPrimary,
-              side: const BorderSide(color: AppColors.borderSubtle),
+              side: BorderSide(color: AppColors.borderSubtle),
               shape: pill,
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
@@ -532,7 +532,7 @@ class _CollectionTrackRow extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Material(
         color: AppColors.surfaceElevated,
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: AppRadius.cardBorder,
           side: BorderSide(color: AppColors.borderSubtle),
         ),
@@ -546,7 +546,7 @@ class _CollectionTrackRow extends ConsumerWidget {
             children: [
               ReorderableDragStartListener(
                 index: index,
-                child: const PhosphorIcon(
+                child: PhosphorIcon(
                   PhosphorIconsRegular.dotsSixVertical,
                   size: 18,
                   color: AppColors.textTertiary,
@@ -589,7 +589,7 @@ class _CollectionTrackRow extends ConsumerWidget {
               const SizedBox(width: AppSpacing.xxs),
               IconButton(
                 key: Key('collection_remove_${track.id}'),
-                icon: const PhosphorIcon(
+                icon: PhosphorIcon(
                   PhosphorIconsRegular.x,
                   size: 18,
                   color: AppColors.textTertiary,
@@ -637,7 +637,7 @@ class _SplitParticipantsSection extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: Material(
                 color: AppColors.surfaceElevated,
-                shape: const RoundedRectangleBorder(
+                shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.cardBorder,
                   side: BorderSide(color: AppColors.borderSubtle),
                 ),
@@ -669,7 +669,7 @@ class _SplitParticipantsSection extends ConsumerWidget {
                       ),
                       IconButton(
                         key: Key('participant_edit_${participant.name}'),
-                        icon: const PhosphorIcon(
+                        icon: PhosphorIcon(
                           PhosphorIconsRegular.pencilSimple,
                           size: 16,
                           color: AppColors.textSecondary,
@@ -683,7 +683,7 @@ class _SplitParticipantsSection extends ConsumerWidget {
                       ),
                       IconButton(
                         key: Key('participant_remove_${participant.name}'),
-                        icon: const PhosphorIcon(
+                        icon: PhosphorIcon(
                           PhosphorIconsRegular.x,
                           size: 16,
                           color: AppColors.textTertiary,

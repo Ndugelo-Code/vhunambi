@@ -8,6 +8,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/published_clip.dart';
 import '../providers/creator_wallet_provider.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 
 /// TikTok-style cultural micro-gifting sheet for supporting a creator
 /// (REQ-GFT-01 / REQ-GFT-02 / Phase 30 REQ-PROF-TIP-01). Sends African cultural gifts via the coin wallet.
@@ -90,11 +91,12 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
       return;
     }
 
+    final owner = ref.read(ownerProfileProvider);
     final ok = await wallet.sendGift(
       clipId: _effectiveClipId,
       recipientCreatorId: _effectiveCreatorId,
-      senderUsername: 'ndugelo_musician',
-      senderDisplayName: 'Ndugelo Musician',
+      senderUsername: owner.username.isNotEmpty ? owner.username : 'ndugelo_musician',
+      senderDisplayName: owner.displayName.isNotEmpty ? owner.displayName : 'Ndugelo Musician',
       gift: _selected,
       message: _messageController.text.trim(),
     );
@@ -116,7 +118,7 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
     final state = ref.watch(creatorWalletProvider);
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceModal,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

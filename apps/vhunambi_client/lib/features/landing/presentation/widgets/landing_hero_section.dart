@@ -172,7 +172,7 @@ class _LandingHeroSectionState extends ConsumerState<LandingHeroSection> {
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.edit_outlined,
                     size: 18,
                     color: AppColors.textTertiary,

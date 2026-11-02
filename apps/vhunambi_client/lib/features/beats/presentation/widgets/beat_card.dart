@@ -43,7 +43,7 @@ class BeatCard extends StatelessWidget {
 
     return Material(
       color: AppColors.surfaceElevated,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.cardBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -148,7 +148,7 @@ class _BeatArtwork extends StatelessWidget {
             children: [
               BeatStatusBadge(status: beat.status, compact: true),
               const Spacer(),
-              const PhosphorIcon(
+              PhosphorIcon(
                 AppIcons.waveform,
                 size: 18,
                 color: AppColors.textPrimary,
@@ -253,7 +253,7 @@ class _BeatOverflowMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       key: Key('beat_menu_$beatId'),
-      icon: const PhosphorIcon(
+      icon: PhosphorIcon(
         AppIcons.dotsVertical,
         size: 18,
         color: AppColors.textSecondary,
@@ -267,7 +267,7 @@ class _BeatOverflowMenu extends StatelessWidget {
         if (action == 'delete') onDelete();
       },
       itemBuilder: (_) => [
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'edit',
           child: Row(
             children: [
@@ -298,7 +298,7 @@ class _BeatOverflowMenu extends StatelessWidget {
             ],
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'stems',
           child: Row(
             children: [

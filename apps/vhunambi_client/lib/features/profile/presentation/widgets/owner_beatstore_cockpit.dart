@@ -222,7 +222,7 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                const Icon(
+                Icon(
                   Icons.music_off_rounded,
                   size: 36,
                   color: AppColors.textSecondary,
@@ -281,7 +281,7 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     color: AppColors.textSecondary,
                   ),
@@ -398,7 +398,7 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
               ),
               Text(
                 '${beat.totalSales} sales',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   color: AppColors.textSecondary,
                 ),
@@ -472,7 +472,7 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
               ),
               Text(
                 '${mb.totalSales} sales',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   color: AppColors.textSecondary,
                 ),

@@ -164,7 +164,7 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
                       fillColor: AppColors.surfaceElevated,
                       hintText: 'Search playlists...',
                       hintStyle: AppTypography.caption.copyWith(color: AppColors.textTertiary),
-                      prefixIcon: const Icon(Icons.search_rounded, size: 18, color: AppColors.textSecondary),
+                      prefixIcon: Icon(Icons.search_rounded, size: 18, color: AppColors.textSecondary),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear_rounded, size: 16),
@@ -177,11 +177,11 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                       border: OutlineInputBorder(
                         borderRadius: AppRadius.pillBorder,
-                        borderSide: const BorderSide(color: AppColors.borderSubtle),
+                        borderSide: BorderSide(color: AppColors.borderSubtle),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: AppRadius.pillBorder,
-                        borderSide: const BorderSide(color: AppColors.borderSubtle),
+                        borderSide: BorderSide(color: AppColors.borderSubtle),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: AppRadius.pillBorder,
@@ -339,14 +339,14 @@ class _PlaylistGridCard extends StatelessWidget {
                     ),
                   ),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppColors.textSecondary),
+                    icon: Icon(Icons.more_vert_rounded, size: 18, color: AppColors.textSecondary),
                     color: AppColors.surfaceModal,
                     onSelected: (action) {
                       if (action == 'rename') onRename();
                       if (action == 'delete') onDelete();
                     },
                     itemBuilder: (_) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'rename',
                         child: Row(
                           children: [
@@ -403,7 +403,7 @@ class _PlaylistListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surfaceElevated,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.cardBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -430,14 +430,14 @@ class _PlaylistListTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         trailing: PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert_rounded, size: 20, color: AppColors.textSecondary),
+          icon: Icon(Icons.more_vert_rounded, size: 20, color: AppColors.textSecondary),
           color: AppColors.surfaceModal,
           onSelected: (action) {
             if (action == 'rename') onRename();
             if (action == 'delete') onDelete();
           },
           itemBuilder: (_) => [
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'rename',
               child: Row(
                 children: [

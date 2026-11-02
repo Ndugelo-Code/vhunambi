@@ -116,7 +116,7 @@ class SplitSheetModal extends StatelessWidget {
             label: 'Created',
             value: formatCollectionDate(collection.createdAt),
           ),
-          const Divider(color: AppColors.borderSubtle, height: AppSpacing.xl),
+          Divider(color: AppColors.borderSubtle, height: AppSpacing.xl),
           Text(
             'PARTICIPANTS',
             style: AppTypography.bodyLarge.copyWith(

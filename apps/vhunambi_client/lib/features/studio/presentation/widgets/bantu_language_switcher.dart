@@ -72,7 +72,7 @@ class _BantuLanguageSwitcherState
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surfaceModal,
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: AppRadius.cardBorder,
           side: BorderSide(color: AppColors.borderSubtle),
         ),

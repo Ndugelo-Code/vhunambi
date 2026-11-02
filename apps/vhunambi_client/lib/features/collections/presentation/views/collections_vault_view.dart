@@ -185,7 +185,7 @@ class _CollectionsVaultViewState extends ConsumerState<CollectionsVaultView> {
                       hintText: 'Search collections...',
                       hintStyle: AppTypography.caption
                           .copyWith(color: AppColors.textTertiary),
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.search_rounded,
                         size: 18,
                         color: AppColors.textSecondary,
@@ -202,7 +202,7 @@ class _CollectionsVaultViewState extends ConsumerState<CollectionsVaultView> {
                       border: OutlineInputBorder(
                         borderRadius: AppRadius.pillBorder,
                         borderSide:
-                            const BorderSide(color: AppColors.borderSubtle),
+                            BorderSide(color: AppColors.borderSubtle),
                       ),
                     ),
                   ),
@@ -397,7 +397,7 @@ class _CollectionListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surfaceElevated,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.cardBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -447,7 +447,7 @@ class _CollectionOverflowMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       key: Key('collection_menu_$collectionId'),
-      icon: const Icon(
+      icon: Icon(
         Icons.more_vert_rounded,
         size: 18,
         color: AppColors.textSecondary,
@@ -458,7 +458,7 @@ class _CollectionOverflowMenu extends StatelessWidget {
         if (action == 'rename') onRename();
         if (action == 'delete') onDelete();
       },
-      itemBuilder: (_) => const [
+      itemBuilder: (_) => [
         PopupMenuItem<String>(
           value: 'rename',
           child: Row(

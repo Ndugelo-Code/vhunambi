@@ -80,7 +80,7 @@ class NotificationsView extends ConsumerWidget {
             ),
             const NotificationCategoryRail(),
             const NotificationSearchBar(),
-            const Divider(height: 1, color: AppColors.borderSubtle),
+            Divider(height: 1, color: AppColors.borderSubtle),
             Expanded(
               child: notifications.isEmpty
                   ? const NotificationEmptyState()

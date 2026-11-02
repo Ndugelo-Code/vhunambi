@@ -27,7 +27,7 @@ class ExportActionSheet extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceElevated,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -49,7 +49,7 @@ class ExportActionSheet extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                icon: Icon(Icons.close_rounded, color: AppColors.textSecondary),
                 onPressed: onDismiss,
               ),
             ],
@@ -174,19 +174,19 @@ class ExportActionSheet extends StatelessWidget {
                         ClipboardData(text: exportedFilePath!),
                       );
                       messenger.showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text('Reel path copied to clipboard'),
                           backgroundColor: AppColors.surfaceModal,
                         ),
                       );
                     },
-                    icon: const Icon(Icons.copy_rounded, size: 16, color: AppColors.textSecondary),
+                    icon: Icon(Icons.copy_rounded, size: 16, color: AppColors.textSecondary),
                     label: Text(
                       'Copy Path',
                       style: AppTypography.bodySmall.copyWith(color: AppColors.textPrimary),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.borderSubtle),
+                      side: BorderSide(color: AppColors.borderSubtle),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
@@ -197,19 +197,19 @@ class ExportActionSheet extends StatelessWidget {
                     onPressed: () {
                       Navigator.of(context).pop();
                       messenger.showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text('Saved to your device gallery'),
                           backgroundColor: AppColors.surfaceModal,
                         ),
                       );
                     },
-                    icon: const Icon(Icons.download_done_rounded, size: 16, color: AppColors.textSecondary),
+                    icon: Icon(Icons.download_done_rounded, size: 16, color: AppColors.textSecondary),
                     label: Text(
                       'Save to Device',
                       style: AppTypography.bodySmall.copyWith(color: AppColors.textPrimary),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.borderSubtle),
+                      side: BorderSide(color: AppColors.borderSubtle),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),

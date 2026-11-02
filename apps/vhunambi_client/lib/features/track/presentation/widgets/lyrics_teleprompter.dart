@@ -55,7 +55,7 @@ class LyricsTeleprompter extends StatelessWidget {
                 ),
                 child: Text(
                   track.language,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
@@ -121,7 +121,7 @@ class LyricsTeleprompter extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Text(
               line,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 height: 1.6,
                 fontWeight: FontWeight.w400,

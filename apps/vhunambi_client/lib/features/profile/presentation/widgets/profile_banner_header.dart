@@ -207,7 +207,7 @@ class ProfileBannerHeader extends StatelessWidget {
                             ? Colors.white
                             : AppColors.brandContrast,
                         side: profile.isFollowing
-                            ? const BorderSide(color: AppColors.borderSubtle)
+                            ? BorderSide(color: AppColors.borderSubtle)
                             : BorderSide.none,
                         shape: const RoundedRectangleBorder(
                           borderRadius: AppRadius.pillBorder,
@@ -261,7 +261,7 @@ class ProfileBannerHeader extends StatelessWidget {
                     child: IconButton(
                       style: IconButton.styleFrom(
                         backgroundColor: AppColors.surfaceElevated,
-                        side: const BorderSide(color: AppColors.borderSubtle),
+                        side: BorderSide(color: AppColors.borderSubtle),
                       ),
                       icon: const Icon(Icons.share_rounded, size: 18, color: Colors.white),
                       onPressed: onShare,
@@ -275,9 +275,9 @@ class ProfileBannerHeader extends StatelessWidget {
                     child: IconButton(
                       style: IconButton.styleFrom(
                         backgroundColor: AppColors.surfaceElevated,
-                        side: const BorderSide(color: AppColors.borderSubtle),
+                        side: BorderSide(color: AppColors.borderSubtle),
                       ),
-                      icon: const Icon(Icons.flag_outlined, size: 18, color: AppColors.textSecondary),
+                      icon: Icon(Icons.flag_outlined, size: 18, color: AppColors.textSecondary),
                       onPressed: onReport,
                     ),
                   ),

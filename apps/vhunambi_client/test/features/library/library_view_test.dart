@@ -1,3 +1,4 @@
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,7 +76,7 @@ void main() {
     expect(find.text('Analytics'), findsNothing);
     expect(find.text('Create'), findsNothing);
     // The create action collapses to a square sparkle button.
-    expect(find.byIcon(Icons.auto_awesome), findsOneWidget);
+    expect(find.byIcon(PhosphorIconsRegular.sparkle), findsOneWidget);
     expect(find.byType(LibraryTrackTile), findsNWidgets(2));
   });
 

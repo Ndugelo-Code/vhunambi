@@ -135,7 +135,7 @@ class StudioSessionRecoveryBanner extends ConsumerWidget {
             tooltip: 'Dismiss',
             constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             onPressed: notifier.dismissRecovery,
-            icon: const Icon(
+            icon: Icon(
               Icons.close_rounded,
               size: 18,
               color: AppColors.textTertiary,

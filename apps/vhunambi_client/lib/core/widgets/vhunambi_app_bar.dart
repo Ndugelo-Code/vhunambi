@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../features/profile/presentation/views/owner_profile_view.dart';
+import '../../features/profile/presentation/widgets/creator_avatar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimensions.dart';
@@ -64,8 +67,8 @@ class VhunambiAppBar extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.bolt_rounded,
+                    const PhosphorIcon(
+                      PhosphorIconsRegular.lightning,
                       size: 15,
                       color: AppColors.brandPrimary,
                     ),
@@ -85,6 +88,19 @@ class VhunambiAppBar extends ConsumerWidget {
 
               // Live Alert Centre (Phase 11)
               const NotificationBellButton(),
+              const SizedBox(width: AppSpacing.xs),
+
+              // Creator Profile Shortcut
+              InkWell(
+                key: const Key('studio_top_bar_user_avatar'),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const OwnerProfileView()),
+                  );
+                },
+                borderRadius: BorderRadius.circular(18),
+                child: const CreatorAvatar(size: 32),
+              ),
             ],
           ),
         ),

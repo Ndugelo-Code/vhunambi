@@ -22,7 +22,7 @@ class AddToPlaylistSheet extends ConsumerStatefulWidget {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -99,7 +99,7 @@ class _AddToPlaylistSheetState extends ConsumerState<AddToPlaylistSheet> {
               onPressed: () => setState(() => _isCreating = !_isCreating),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.borderSubtle),
+                side: BorderSide(color: AppColors.borderSubtle),
                 shape: const RoundedRectangleBorder(
                   borderRadius: AppRadius.pillBorder,
                 ),
@@ -219,7 +219,7 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const border = OutlineInputBorder(
+    final border = OutlineInputBorder(
       borderRadius: AppRadius.pillBorder,
       borderSide: BorderSide(color: AppColors.borderSubtle),
     );
@@ -233,7 +233,7 @@ class _SearchField extends StatelessWidget {
         isDense: true,
         hintText: 'Search playlists...',
         hintStyle: AppTypography.bodySmall,
-        prefixIcon: const Icon(
+        prefixIcon: Icon(
           Icons.search_rounded,
           size: 18,
           color: AppColors.textTertiary,
@@ -336,7 +336,7 @@ class _PlaylistCheckboxTile extends StatelessWidget {
               Container(
                 width: 34,
                 height: 34,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.surfaceSecondary,
                   shape: BoxShape.circle,
                 ),
@@ -370,7 +370,7 @@ class _PlaylistCheckboxTile extends StatelessWidget {
                 onChanged: (_) => onToggle(),
                 activeColor: AppColors.brandPrimary,
                 checkColor: AppColors.brandContrast,
-                side: const BorderSide(color: AppColors.borderActive),
+                side: BorderSide(color: AppColors.borderActive),
               ),
             ],
           ),
@@ -392,7 +392,7 @@ class _EmptyPlaylistPicker extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.queue_music_rounded,
             size: 28,
             color: AppColors.textTertiary,

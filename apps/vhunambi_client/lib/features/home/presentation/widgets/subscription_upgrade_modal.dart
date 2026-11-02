@@ -27,7 +27,7 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.9,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceElevated,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -239,7 +239,7 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          const Divider(color: AppColors.borderSubtle, height: 1),
+          Divider(color: AppColors.borderSubtle, height: 1),
           const SizedBox(height: 12),
           ...tier.features.take(3).map((f) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),

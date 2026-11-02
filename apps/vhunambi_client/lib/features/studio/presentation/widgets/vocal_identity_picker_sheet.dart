@@ -16,7 +16,7 @@ class VocalIdentityPickerSheet extends ConsumerStatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -84,7 +84,7 @@ class _VocalIdentityPickerSheetState
                     minHeight: 44,
                   ),
                   onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close_rounded,
                     color: AppColors.textSecondary,
                   ),
@@ -179,7 +179,7 @@ class _VocalIdentityPickerSheetState
                   hintStyle: AppTypography.caption.copyWith(
                     color: AppColors.textTertiary,
                   ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search_rounded,
                     size: 18,
                     color: AppColors.textSecondary,
@@ -187,11 +187,11 @@ class _VocalIdentityPickerSheetState
                   filled: true,
                   fillColor: AppColors.surfaceElevated,
                   isDense: true,
-                  border: const OutlineInputBorder(
+                  border: OutlineInputBorder(
                     borderRadius: AppRadius.inputBorder,
                     borderSide: BorderSide(color: AppColors.borderSubtle),
                   ),
-                  enabledBorder: const OutlineInputBorder(
+                  enabledBorder: OutlineInputBorder(
                     borderRadius: AppRadius.inputBorder,
                     borderSide: BorderSide(color: AppColors.borderSubtle),
                   ),

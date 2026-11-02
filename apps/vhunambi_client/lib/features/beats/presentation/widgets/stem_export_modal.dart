@@ -55,7 +55,7 @@ class StemExportModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceModal,
         borderRadius: AppRadius.modalBorder,
       ),
@@ -164,7 +164,7 @@ class _StemRow extends StatelessWidget {
 
     return Material(
       color: AppColors.surfaceSecondary,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.inputBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),

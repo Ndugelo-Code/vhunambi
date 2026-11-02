@@ -88,7 +88,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
           child: Container(
             height: 60,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
               ),
@@ -100,7 +100,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
                   height: 44,
                   child: IconButton(
                     key: const Key('explore_search_back_btn'),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back_rounded,
                       color: AppColors.textPrimary,
                     ),
@@ -121,7 +121,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
                     ),
                     child: Row(
                       children: [
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.symmetric(horizontal: 10),
                           child: Icon(
                             Icons.search_rounded,
@@ -164,7 +164,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
                             height: 36,
                             child: IconButton(
                               key: const Key('explore_search_clear_btn'),
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.close_rounded,
                                 size: 16,
                                 color: AppColors.textSecondary,
@@ -235,7 +235,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
                   ),
                   backgroundColor: AppColors.surfaceElevated,
                   deleteIconColor: AppColors.textSecondary,
-                  side: const BorderSide(color: AppColors.borderSubtle),
+                  side: BorderSide(color: AppColors.borderSubtle),
                   shape: RoundedRectangleBorder(
                     borderRadius: AppRadius.pillBorder,
                   ),
@@ -281,7 +281,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
                   ),
                 ),
                 backgroundColor: AppColors.surfaceElevated,
-                side: const BorderSide(color: AppColors.borderSubtle),
+                side: BorderSide(color: AppColors.borderSubtle),
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.pillBorder,
                 ),
@@ -358,7 +358,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
             ],
           ),
         ),
-        const Divider(color: AppColors.borderSubtle, height: 1),
+        Divider(color: AppColors.borderSubtle, height: 1),
 
         // Result Body
         Expanded(
@@ -589,7 +589,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
         '${creator.handle} • ${creator.primaryGenreLabel}',
         style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
       ),
-      trailing: const Icon(
+      trailing: Icon(
         Icons.chevron_right_rounded,
         color: AppColors.textSecondary,
       ),
@@ -608,7 +608,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
+          Icon(
             Icons.search_off_rounded,
             size: 48,
             color: AppColors.textSecondary,

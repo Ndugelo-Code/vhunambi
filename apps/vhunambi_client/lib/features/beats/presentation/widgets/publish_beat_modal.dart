@@ -24,7 +24,7 @@ class PublishBeatModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceModal,
         borderRadius: AppRadius.modalBorder,
       ),
@@ -106,7 +106,7 @@ class PublishBeatModal extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textSecondary,
-                    side: const BorderSide(color: AppColors.borderSubtle),
+                    side: BorderSide(color: AppColors.borderSubtle),
                     padding: const EdgeInsets.symmetric(
                       vertical: AppSpacing.sm,
                     ),

@@ -18,7 +18,7 @@ class ProfileSettingsDrawer extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),

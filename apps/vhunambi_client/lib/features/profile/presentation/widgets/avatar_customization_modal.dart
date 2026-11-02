@@ -292,7 +292,7 @@ class _AvatarCustomizationModalState
           // Bottom Action Bar
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.surfaceElevated,
               border: Border(top: BorderSide(color: AppColors.borderSubtle)),
             ),
@@ -456,16 +456,16 @@ class _AvatarCustomizationModalState
             style: AppTypography.bodySmall,
             decoration: InputDecoration(
               hintText: 'e.g. Maskandi acoustic bard with royal Zulu crown in golden sunset...',
-              hintStyle: const TextStyle(color: AppColors.textTertiary),
+              hintStyle: TextStyle(color: AppColors.textTertiary),
               filled: true,
               fillColor: AppColors.surfaceElevated,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                borderSide: BorderSide(color: AppColors.borderSubtle),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                borderSide: BorderSide(color: AppColors.borderSubtle),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -559,16 +559,16 @@ class _AvatarCustomizationModalState
             style: AppTypography.bodySmall,
             decoration: InputDecoration(
               hintText: 'https://example.com/avatar.jpg',
-              hintStyle: const TextStyle(color: AppColors.textTertiary),
+              hintStyle: TextStyle(color: AppColors.textTertiary),
               filled: true,
               fillColor: AppColors.surfaceElevated,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                borderSide: BorderSide(color: AppColors.borderSubtle),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                borderSide: BorderSide(color: AppColors.borderSubtle),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),

@@ -64,10 +64,46 @@ class CreatorWalletDeck extends ConsumerWidget {
       ),
     );
 
-    if (method == null) return;
+    if (method == null || !context.mounted) return;
+
+    String selectedPayoutMethod = method;
+
+    if (method == 'EFT') {
+      final bankCtrl = TextEditingController(text: 'Standard Bank');
+      final holderCtrl = TextEditingController(text: 'Ndugelo Musician');
+      final accountCtrl = TextEditingController(text: '10192837465');
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.surfaceModal,
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+          title: Text('Banking Details ($method)',
+              style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: bankCtrl, decoration: const InputDecoration(labelText: 'Bank Name')),
+              const SizedBox(height: 8),
+              TextField(controller: holderCtrl, decoration: const InputDecoration(labelText: 'Account Holder')),
+              const SizedBox(height: 8),
+              TextField(controller: accountCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Account Number')),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Confirm Cash Out')),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+      selectedPayoutMethod = '$method - ${accountCtrl.text.trim()}';
+    }
+
     final ok = await ref
         .read(creatorWalletProvider.notifier)
-        .requestPayout(amountZar: state.creatorEarnedZar, payoutMethod: method);
+        .requestPayout(amountZar: state.creatorEarnedZar, payoutMethod: selectedPayoutMethod);
     if (ok && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -40,7 +40,7 @@ class GuidedLyricsComposer extends ConsumerStatefulWidget {
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.95,
         ),
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: AppRadius.modalBorder,
           side: BorderSide(color: AppColors.borderSubtle),
         ),
@@ -54,7 +54,7 @@ class GuidedLyricsComposer extends ConsumerStatefulWidget {
       builder: (_) => Dialog(
         backgroundColor: AppColors.surfaceModal,
         insetPadding: const EdgeInsets.all(AppSpacing.xl),
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: AppRadius.cardBorder,
           side: BorderSide(color: AppColors.borderSubtle),
         ),

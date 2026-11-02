@@ -156,7 +156,7 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
     final displayClips = _resolveClipsForTab(activeTab, followingIds);
 
     if (displayClips.isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.surfaceCanvas,
         body: Center(child: Text('No clips to show yet')),
       );
@@ -388,7 +388,7 @@ class _ReelPageState extends ConsumerState<_ReelPage>
               opacity: isPlaying ? 0.0 : 1.0,
               child: Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.surfaceCanvas,
                   shape: BoxShape.circle,
                 ),
@@ -439,7 +439,7 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                           child: IconButton(
                             key: const Key('reel_close_btn'),
                             onPressed: () => Navigator.of(context).pop(),
-                            icon: const PhosphorIcon(
+                            icon: PhosphorIcon(
                               AppIcons.arrowLeft,
                               color: AppColors.textPrimary,
                             ),
@@ -476,7 +476,7 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                         height: 44,
                         child: IconButton(
                           key: const Key('reels_modal_search_btn'),
-                          icon: const PhosphorIcon(
+                          icon: PhosphorIcon(
                             AppIcons.search,
                             color: AppColors.textPrimary,
                           ),

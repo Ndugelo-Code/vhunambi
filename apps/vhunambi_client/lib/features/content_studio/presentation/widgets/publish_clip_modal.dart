@@ -155,7 +155,7 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
     final viewInsets = MediaQuery.viewInsetsOf(context).bottom;
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceModal,
         borderRadius: AppRadius.modalBorder,
       ),
@@ -177,7 +177,7 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
               ),
               IconButton(
                 key: const Key('publish_modal_close'),
-                icon: const Icon(
+                icon: Icon(
                   Icons.close_rounded,
                   color: AppColors.textSecondary,
                 ),
@@ -242,7 +242,7 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
                         ),
                         border: OutlineInputBorder(
                           borderRadius: AppRadius.inputBorder,
-                          borderSide: const BorderSide(
+                          borderSide: BorderSide(
                             color: AppColors.borderSubtle,
                           ),
                         ),
@@ -321,7 +321,7 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
         height: 88 * 16 / 9,
         decoration: BoxDecoration(gradient: AppGradients.forGenre(genre)),
         child: coverUrl == null
-            ? const Icon(
+            ? Icon(
                 Icons.music_note_rounded,
                 color: AppColors.textPrimary,
                 size: 32,
@@ -329,7 +329,7 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
             : Image.network(
                 coverUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const Icon(
+                errorBuilder: (_, _, _) => Icon(
                   Icons.music_note_rounded,
                   color: AppColors.textPrimary,
                   size: 32,

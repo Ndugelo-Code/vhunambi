@@ -178,7 +178,7 @@ class _DesktopMasteringStudioViewState
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceElevated,
         border: Border(
           bottom: BorderSide(color: AppColors.borderSubtle, width: 1.0),
@@ -187,7 +187,7 @@ class _DesktopMasteringStudioViewState
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back_rounded,
+            icon: Icon(Icons.arrow_back_rounded,
                 color: AppColors.textPrimary),
             tooltip: 'Return to Player',
             onPressed: () => Navigator.of(context).maybePop(),
@@ -336,7 +336,7 @@ class _DesktopMasteringStudioViewState
                       final success = await notifier.bakeMaster();
                       if (context.mounted && success) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
+                          SnackBar(
                             content: Text(
                               '✨ Studio master baked successfully on RunPod GPU!',
                             ),

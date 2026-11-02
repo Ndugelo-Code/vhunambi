@@ -103,7 +103,7 @@ class _AdvancedOptionsAccordionState
           ),
 
           if (_isExpanded) ...[
-            const Divider(color: AppColors.borderSubtle, height: 1),
+            Divider(color: AppColors.borderSubtle, height: 1),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
@@ -112,7 +112,7 @@ class _AdvancedOptionsAccordionState
                   // 1. Instrumental Only Switch
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.music_off_outlined,
                         size: 20,
                         color: AppColors.textSecondary,
@@ -154,7 +154,7 @@ class _AdvancedOptionsAccordionState
                     children: [
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.timer_outlined,
                             size: 18,
                             color: AppColors.textSecondary,

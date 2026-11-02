@@ -362,13 +362,13 @@ class _EmbeddedTrackCard extends StatelessWidget {
                   ? Image.network(
                       track.coverUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const PhosphorIcon(
+                      errorBuilder: (_, _, _) => PhosphorIcon(
                         AppIcons.waveform,
                         color: AppColors.textPrimary,
                         size: 26,
                       ),
                     )
-                  : const PhosphorIcon(
+                  : PhosphorIcon(
                       AppIcons.waveform,
                       color: AppColors.textPrimary,
                       size: 26,

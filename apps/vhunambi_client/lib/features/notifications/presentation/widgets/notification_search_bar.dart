@@ -76,7 +76,7 @@ class _NotificationSearchBarState
         ),
         child: Row(
           children: <Widget>[
-            const Icon(
+            Icon(
               Icons.search_rounded,
               size: 18,
               color: AppColors.textSecondary,
@@ -116,7 +116,7 @@ class _NotificationSearchBarState
                   onPressed: _clear,
                   splashRadius: 22,
                   padding: EdgeInsets.zero,
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close_rounded,
                     size: 18,
                     color: AppColors.textSecondary,

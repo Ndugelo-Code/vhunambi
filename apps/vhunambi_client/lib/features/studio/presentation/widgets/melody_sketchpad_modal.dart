@@ -38,7 +38,7 @@ class MelodySketchpadModal extends ConsumerStatefulWidget {
         builder: (_) => Dialog(
           backgroundColor: AppColors.surfaceModal,
           insetPadding: const EdgeInsets.all(AppSpacing.lg),
-          shape: const RoundedRectangleBorder(
+          shape: RoundedRectangleBorder(
             borderRadius: AppRadius.cardBorder,
             side: BorderSide(color: AppColors.borderSubtle),
           ),
@@ -54,7 +54,7 @@ class MelodySketchpadModal extends ConsumerStatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -126,7 +126,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -154,7 +154,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -181,7 +181,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -198,7 +198,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -288,7 +288,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                                       ),
                                     ),
                                     const SizedBox(width: 4),
-                                    const PhosphorIcon(
+                                    PhosphorIcon(
                                       PhosphorIconsRegular.caretDown,
                                       color: AppColors.textSecondary,
                                       size: 13,
@@ -392,7 +392,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                         notifier.stopPreviewPlayback();
                         Navigator.of(context).maybePop();
                       },
-                      icon: const PhosphorIcon(
+                      icon: PhosphorIcon(
                         PhosphorIconsRegular.x,
                         color: AppColors.textSecondary,
                         size: 20,
@@ -586,7 +586,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                         key: const Key('mobile_input_mode_toggle'),
                         visualDensity: VisualDensity.compact,
                         backgroundColor: AppColors.surfaceSecondary,
-                        side: const BorderSide(color: AppColors.borderSubtle),
+                        side: BorderSide(color: AppColors.borderSubtle),
                         avatar: PhosphorIcon(
                           state.isMobileLivePadMode
                               ? PhosphorIconsRegular.squaresFour
@@ -688,8 +688,8 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                       key: const Key('sketchpad_clear_grid_btn'),
                       visualDensity: VisualDensity.compact,
                       backgroundColor: AppColors.surfaceElevated,
-                      side: const BorderSide(color: AppColors.borderSubtle),
-                      avatar: const PhosphorIcon(
+                      side: BorderSide(color: AppColors.borderSubtle),
+                      avatar: PhosphorIcon(
                         PhosphorIconsRegular.trash,
                         size: 13,
                         color: AppColors.textSecondary,
@@ -1258,7 +1258,7 @@ class _KeyScalePickerSheet extends StatelessWidget {
                           key: Key('sketchpad_preset_${preset.id}'),
                           visualDensity: VisualDensity.compact,
                           backgroundColor: AppColors.surfaceElevated,
-                          side: const BorderSide(color: AppColors.borderSubtle),
+                          side: BorderSide(color: AppColors.borderSubtle),
                           label: Text(
                             preset.name,
                             style: AppTypography.caption.copyWith(
@@ -1357,7 +1357,7 @@ class _ChannelMixerSheet extends ConsumerWidget {
             // Volume Slider
             Row(
               children: [
-                const PhosphorIcon(
+                PhosphorIcon(
                   PhosphorIconsRegular.speakerHigh,
                   color: AppColors.textSecondary,
                   size: 18,
@@ -1442,7 +1442,7 @@ class _ChannelMixerSheet extends ConsumerWidget {
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textSecondary,
-                      side: const BorderSide(color: AppColors.borderSubtle),
+                      side: BorderSide(color: AppColors.borderSubtle),
                       shape: const RoundedRectangleBorder(
                         borderRadius: AppRadius.buttonBorder,
                       ),

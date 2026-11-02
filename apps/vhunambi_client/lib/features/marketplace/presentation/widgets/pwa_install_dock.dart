@@ -62,7 +62,7 @@ class _PwaInstallDockState extends State<PwaInstallDock> {
           Container(
             width: 32,
             height: 32,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.surfaceSecondary,
               shape: BoxShape.circle,
             ),

@@ -132,19 +132,19 @@ class MpcSlicerDeck extends ConsumerWidget {
               onPressed: () {
                 HapticFeedback.mediumImpact();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text('Chop kit routed into Studio prompt context 🎙️'),
                     backgroundColor: AppColors.surfaceModal,
                   ),
                 );
               },
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.borderSubtle),
+                side: BorderSide(color: AppColors.borderSubtle),
                 minimumSize: const Size.fromHeight(48),
                 shape: const RoundedRectangleBorder(
                     borderRadius: AppRadius.inputBorder),
               ),
-              icon: const Icon(Icons.mic_none_rounded, color: AppColors.textPrimary),
+              icon: Icon(Icons.mic_none_rounded, color: AppColors.textPrimary),
               label: Text('🎙️ Record into Studio',
                   style: AppTypography.bodyLarge
                       .copyWith(color: AppColors.textPrimary)),
@@ -252,7 +252,7 @@ class _ModulationDeck extends ConsumerWidget {
                   color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
           Row(
             children: [
-              const SizedBox(
+              SizedBox(
                   width: 60,
                   child: Text('Pitch',
                       style:
@@ -277,7 +277,7 @@ class _ModulationDeck extends ConsumerWidget {
           ),
           Row(
             children: [
-              const SizedBox(
+              SizedBox(
                   width: 60,
                   child: Text('Volume',
                       style:
@@ -300,7 +300,7 @@ class _ModulationDeck extends ConsumerWidget {
           ),
           Row(
             children: [
-              const Text('Reverse',
+              Text('Reverse',
                   style:
                       TextStyle(color: AppColors.textSecondary, fontSize: 11)),
               const Spacer(),

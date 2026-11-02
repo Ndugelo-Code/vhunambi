@@ -119,7 +119,7 @@ class TrendingReelCard extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Row(
                         children: [
-                          const Icon(Icons.play_arrow_rounded,
+                          Icon(Icons.play_arrow_rounded,
                               size: 13, color: AppColors.textSecondary),
                           const SizedBox(width: 2),
                           Text(formatLikes(clip.playCount),
@@ -197,7 +197,7 @@ class _PostKineticReelCard extends StatelessWidget {
             color: AppColors.brandPrimary.withValues(alpha: 0.5),
             width: 1.5,
           ),
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
@@ -222,7 +222,7 @@ class _PostKineticReelCard extends StatelessWidget {
                       shape: BoxShape.circle,
                       border: Border.all(color: AppColors.borderSubtle, width: 2),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.person_rounded,
                       size: 28,
                       color: AppColors.textSecondary,
@@ -288,7 +288,7 @@ class TrendingReelsShelf extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.music_off_rounded,
                   size: 48,
                   color: AppColors.textSecondary,

@@ -128,7 +128,7 @@ class ProducerBeatListingTile extends StatelessWidget {
               ),
               Text(
                 'R$zarPrice',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   color: AppColors.textTertiary,
                 ),
@@ -147,7 +147,7 @@ class ProducerBeatListingTile extends StatelessWidget {
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
                     ),
-                    side: const BorderSide(color: AppColors.borderSubtle),
+                    side: BorderSide(color: AppColors.borderSubtle),
                   ),
                   child: const Text(
                     'License',

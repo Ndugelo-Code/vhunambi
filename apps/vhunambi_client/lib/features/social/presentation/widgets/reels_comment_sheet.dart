@@ -85,7 +85,7 @@ class _ReelsCommentSheetState extends ConsumerState<ReelsCommentSheet> {
 
     return Container(
       constraints: BoxConstraints(maxHeight: media.size.height * 0.75),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceModal,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -112,7 +112,7 @@ class _ReelsCommentSheetState extends ConsumerState<ReelsCommentSheet> {
                 const Spacer(),
                 IconButton(
                   key: const Key('comment_sheet_close'),
-                  icon: const Icon(Icons.close_rounded,
+                  icon: Icon(Icons.close_rounded,
                       color: AppColors.textSecondary),
                   onPressed: () => Navigator.of(context).pop(),
                 ),

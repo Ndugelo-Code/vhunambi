@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
+import '../../../profile/presentation/views/owner_profile_view.dart';
+import '../../../profile/presentation/widgets/creator_avatar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -47,8 +51,8 @@ class MarketplaceTopBar extends StatelessWidget {
                   width: 32,
                   height: 32,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Icon(
-                    Icons.music_note_rounded,
+                  errorBuilder: (context, error, stackTrace) => const PhosphorIcon(
+                    PhosphorIconsRegular.musicNotes,
                     size: 18,
                     color: AppColors.brandContrast,
                   ),
@@ -78,6 +82,17 @@ class MarketplaceTopBar extends StatelessWidget {
             const _CreditChip(),
             const SizedBox(width: AppSpacing.xxs),
             const NotificationBellButton(),
+            const SizedBox(width: AppSpacing.xs),
+            InkWell(
+              key: const Key('marketplace_top_bar_user_avatar'),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const OwnerProfileView()),
+                );
+              },
+              borderRadius: BorderRadius.circular(18),
+              child: const CreatorAvatar(size: 32),
+            ),
           ],
         ),
       ),
@@ -132,8 +147,8 @@ class _MarketplaceSearchFieldState
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.search_rounded,
+          Icon(
+            AppIcons.search,
             size: 18,
             color: AppColors.textTertiary,
           ),
@@ -192,8 +207,8 @@ class _CreditChip extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.bolt_rounded,
+          const PhosphorIcon(
+            PhosphorIconsRegular.lightning,
             size: 15,
             color: AppColors.brandPrimary,
           ),

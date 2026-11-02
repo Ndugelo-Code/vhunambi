@@ -136,7 +136,7 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
           ),
 
           if (_isExpanded) ...[
-            const Divider(color: AppColors.borderSubtle, height: 1),
+            Divider(color: AppColors.borderSubtle, height: 1),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
@@ -157,7 +157,7 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                       ),
                       cursorColor: AppColors.brandPrimary,
                       decoration: InputDecoration(
-                        prefixIcon: const Icon(
+                        prefixIcon: Icon(
                           Icons.search_rounded,
                           size: 18,
                           color: AppColors.textSecondary,

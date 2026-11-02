@@ -104,14 +104,14 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                   hintText: 'Search your vault...',
                   hintStyle: AppTypography.caption
                       .copyWith(color: AppColors.textTertiary),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search_rounded,
                     size: 18,
                     color: AppColors.textSecondary,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: AppRadius.pillBorder,
-                    borderSide: const BorderSide(color: AppColors.borderSubtle),
+                    borderSide: BorderSide(color: AppColors.borderSubtle),
                   ),
                 ),
               ),
@@ -145,7 +145,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                         final track = candidates[index];
                         return Material(
                           color: AppColors.surfaceElevated,
-                          shape: const RoundedRectangleBorder(
+                          shape: RoundedRectangleBorder(
                             borderRadius: AppRadius.cardBorder,
                             side: BorderSide(color: AppColors.borderSubtle),
                           ),

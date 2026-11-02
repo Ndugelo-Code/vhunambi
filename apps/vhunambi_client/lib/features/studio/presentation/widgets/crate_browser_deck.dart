@@ -84,7 +84,7 @@ class CrateBrowserDeck extends ConsumerWidget {
               hintStyle:
                   AppTypography.caption.copyWith(color: AppColors.textTertiary),
               prefixIcon:
-                  const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                  Icon(Icons.search_rounded, color: AppColors.textSecondary),
               filled: true,
               fillColor: AppColors.surfaceSecondary,
               isDense: true,
@@ -258,7 +258,7 @@ class _VinylDiskWidgetState extends State<_VinylDiskWidget>
                 Container(
                   width: 6,
                   height: 6,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: AppColors.surfaceCanvas,
                   ),

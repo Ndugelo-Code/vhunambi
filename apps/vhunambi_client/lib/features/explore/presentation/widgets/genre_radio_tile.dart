@@ -101,7 +101,7 @@ class GenreRadioTile extends ConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.radio_button_checked_rounded,
                       size: 13,
                       color: AppColors.textPrimary,

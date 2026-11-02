@@ -125,7 +125,7 @@ class LibraryTrackTile extends ConsumerWidget {
                   padding: EdgeInsets.zero,
                   iconSize: 18,
                   tooltip: 'Asset actions',
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.more_vert_rounded,
                     color: AppColors.textSecondary,
                   ),

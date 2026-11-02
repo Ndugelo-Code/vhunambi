@@ -39,7 +39,7 @@ class LyricsReviewModal extends ConsumerWidget {
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: AppRadius.modalBorder,
           side: BorderSide(color: AppColors.borderSubtle),
         ),
@@ -53,7 +53,7 @@ class LyricsReviewModal extends ConsumerWidget {
       builder: (_) => Dialog(
         backgroundColor: AppColors.surfaceModal,
         insetPadding: const EdgeInsets.all(AppSpacing.xl),
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: AppRadius.cardBorder,
           side: BorderSide(color: AppColors.borderSubtle),
         ),
@@ -221,7 +221,7 @@ class _LyricsReviewHeader extends StatelessWidget {
             key: const Key('lyrics_copy'),
             tooltip: 'Copy lyrics',
             onPressed: onCopy,
-            icon: const Icon(
+            icon: Icon(
               Icons.copy_rounded,
               size: 18,
               color: AppColors.textSecondary,
@@ -231,7 +231,7 @@ class _LyricsReviewHeader extends StatelessWidget {
             key: const Key('lyrics_close'),
             tooltip: 'Close',
             onPressed: onClose,
-            icon: const Icon(
+            icon: Icon(
               Icons.close_rounded,
               size: 18,
               color: AppColors.textSecondary,
@@ -482,7 +482,7 @@ class _CulturalIdiomsRail extends StatelessWidget {
                 ),
               ),
               backgroundColor: AppColors.surfaceSecondary,
-              side: const BorderSide(color: AppColors.borderSubtle),
+              side: BorderSide(color: AppColors.borderSubtle),
               onPressed: () => onInsert(idioms[index]),
             ),
           ),
@@ -565,7 +565,7 @@ class _LyricsReviewActionBar extends ConsumerWidget {
             onPressed: () => unawaited(notifier.regenerate()),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textPrimary,
-              side: const BorderSide(color: AppColors.borderSubtle),
+              side: BorderSide(color: AppColors.borderSubtle),
               shape: const RoundedRectangleBorder(
                 borderRadius: AppRadius.pillBorder,
               ),

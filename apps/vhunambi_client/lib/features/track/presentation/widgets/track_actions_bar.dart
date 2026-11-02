@@ -82,7 +82,7 @@ class TrackActionsBar extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const PhosphorIcon(
+                PhosphorIcon(
                   PhosphorIconsRegular.play,
                   color: AppColors.textSecondary,
                   size: 18,
@@ -104,7 +104,7 @@ class TrackActionsBar extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.surfaceElevated,
               foregroundColor: AppColors.brandPrimary,
-              side: const BorderSide(color: AppColors.borderSubtle),
+              side: BorderSide(color: AppColors.borderSubtle),
               shape: const RoundedRectangleBorder(
                 borderRadius: AppRadius.pillBorder,
               ),

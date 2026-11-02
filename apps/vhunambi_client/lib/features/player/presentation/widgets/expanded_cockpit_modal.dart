@@ -147,7 +147,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
       type: MaterialType.transparency,
       child: Container(
         height: MediaQuery.sizeOf(context).height * 0.88,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.surfaceModal,
           borderRadius: AppRadius.modalBorder,
           boxShadow: [
@@ -371,7 +371,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                   ),
                   IconButton(
                     key: const Key('player_meta_share_btn'),
-                    icon: const PhosphorIcon(AppIcons.share, color: AppColors.textSecondary, size: 22),
+                    icon: PhosphorIcon(AppIcons.share, color: AppColors.textSecondary, size: 22),
                     tooltip: 'Share Track',
                     onPressed: () async {
                       await _handleShare(context, track);
@@ -576,7 +576,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                           backgroundColor: Colors.transparent,
                           builder: (_) => Container(
                             height: MediaQuery.sizeOf(context).height * 0.85,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: AppColors.surfaceModal,
                               borderRadius: AppRadius.modalBorder,
                             ),
@@ -709,7 +709,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                   IconButton(
                     key: const Key('cockpit_copy_lyrics'),
                     tooltip: 'Copy lyrics',
-                    icon: const PhosphorIcon(
+                    icon: PhosphorIcon(
                       AppIcons.edit,
                       size: 18,
                       color: AppColors.textSecondary,
@@ -733,7 +733,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
               ],
             ),
           ),
-          const Divider(height: 1, color: AppColors.borderSubtle),
+          Divider(height: 1, color: AppColors.borderSubtle),
           Expanded(
             child: (lyrics == null || lyrics.trim().isEmpty)
                 ? _LyricsEmptyState()
@@ -884,7 +884,7 @@ class _LyricsEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const PhosphorIcon(
+          PhosphorIcon(
             AppIcons.songs,
             size: 48,
             color: AppColors.textTertiary,

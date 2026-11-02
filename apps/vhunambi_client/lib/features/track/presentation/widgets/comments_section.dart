@@ -87,7 +87,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                   child: TextField(
                     controller: _commentController,
                     style: AppTypography.bodySmall,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Add a comment...',
                       hintStyle: TextStyle(
                         color: AppColors.textTertiary,
@@ -120,7 +120,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Column(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.forum_outlined,
                       size: 36,
                       color: AppColors.textTertiary,
@@ -203,7 +203,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                     const SizedBox(width: 6),
                     Text(
                       comment.authorHandle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: AppColors.textSecondary,
                       ),
@@ -211,7 +211,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                     const Spacer(),
                     Text(
                       _formatTimeAgo(comment.createdAt),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: AppColors.textTertiary,
                       ),

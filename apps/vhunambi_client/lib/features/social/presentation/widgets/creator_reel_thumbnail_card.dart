@@ -110,14 +110,14 @@ class _CoverArt extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(gradient: AppGradients.forGenre(clip.genre)),
       child: clip.coverUrl.isEmpty
-          ? const Center(
+          ? Center(
               child: Icon(Icons.music_note_rounded,
                   color: AppColors.textPrimary, size: 32),
             )
           : Image.network(
               clip.coverUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const Center(
+              errorBuilder: (_, _, _) => Center(
                 child: Icon(Icons.music_note_rounded,
                     color: AppColors.textPrimary, size: 32),
               ),

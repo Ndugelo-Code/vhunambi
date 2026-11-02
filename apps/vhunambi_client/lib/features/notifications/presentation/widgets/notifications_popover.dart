@@ -106,7 +106,7 @@ class NotificationsPopover extends ConsumerWidget {
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.check,
                     size: 14,
                     color: AppColors.textSecondary,
@@ -268,7 +268,7 @@ class _NotificationCard extends StatelessWidget {
             Container(
               width: 36,
               height: 36,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.surfaceSecondary,
                 shape: BoxShape.circle,
               ),
@@ -313,7 +313,7 @@ class _NotificationCard extends StatelessWidget {
             const SizedBox(width: 4),
             GestureDetector(
               onTap: onDismiss,
-              child: const Icon(
+              child: Icon(
                 Icons.close_rounded,
                 size: 14,
                 color: AppColors.textTertiary,
@@ -336,7 +336,7 @@ class _EmptyNotificationsState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.notifications_off_outlined,
             size: 32,
             color: AppColors.textTertiary,

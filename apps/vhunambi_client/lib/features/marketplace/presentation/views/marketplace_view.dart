@@ -159,7 +159,7 @@ class MarketplaceView extends ConsumerWidget {
                 onPressed: () => showMarketplaceFilterModal(context),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.textPrimary,
-                  side: const BorderSide(color: AppColors.borderSubtle),
+                  side: BorderSide(color: AppColors.borderSubtle),
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.sm,
                     vertical: 6,

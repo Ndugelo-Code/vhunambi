@@ -200,7 +200,7 @@ class _LanguageDropdown extends ConsumerWidget {
     return PopupMenuButton<String>(
       tooltip: 'Filter by language',
       color: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.inputBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -284,7 +284,7 @@ class _LanguageDropdown extends ConsumerWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const Icon(
+            Icon(
               Icons.keyboard_arrow_down_rounded,
               size: 14,
               color: AppColors.textSecondary,
@@ -300,13 +300,13 @@ class _FilterPill extends StatelessWidget {
   final String label;
   final bool isActive;
   final VoidCallback onTap;
-  final Color inactiveSurface;
+  final Color? inactiveSurface;
 
   const _FilterPill({
     required this.label,
     required this.isActive,
     required this.onTap,
-    this.inactiveSurface = AppColors.surfaceSecondary,
+    this.inactiveSurface,
   });
 
   @override
@@ -325,7 +325,7 @@ class _FilterPill extends StatelessWidget {
           vertical: isMobile ? 8 : 6,
         ),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.brandPrimary : inactiveSurface,
+          color: isActive ? AppColors.brandPrimary : (inactiveSurface ?? AppColors.surfaceSecondary),
           borderRadius: AppRadius.pillBorder,
           border: Border.all(
             color: isActive ? AppColors.brandPrimary : AppColors.borderSubtle,

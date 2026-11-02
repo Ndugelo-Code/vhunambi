@@ -33,7 +33,7 @@ class MobileQuickMasterSheet extends ConsumerWidget {
 
     return Container(
       key: const Key('mobile_quick_master_sheet'),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceModal,
         borderRadius: AppRadius.modalBorder,
         border: Border(
@@ -95,7 +95,7 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded,
+                    icon: Icon(Icons.close_rounded,
                         color: AppColors.textSecondary),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -456,7 +456,7 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                           final success = await notifier.bakeMaster();
                           if (context.mounted && success) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
                                   '✨ Studio master baked successfully! WAV & MP3 ready.',
                                 ),

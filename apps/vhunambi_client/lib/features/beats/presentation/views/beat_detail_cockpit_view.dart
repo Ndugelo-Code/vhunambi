@@ -51,7 +51,7 @@ class BeatDetailCockpitView extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: AppColors.surfaceCanvas,
         elevation: 0,
-        leading: const VhunambiBackButton(
+        leading: VhunambiBackButton(
           key: Key('cockpit_back'),
           tooltip: 'Back to Vault',
           color: AppColors.textPrimary,
@@ -229,7 +229,7 @@ class _CockpitMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       key: const Key('cockpit_menu'),
-      icon: const Icon(
+      icon: Icon(
         Icons.more_vert_rounded,
         color: AppColors.textPrimary,
       ),
@@ -349,7 +349,7 @@ class _HeroSection extends StatelessWidget {
                   label: const Text('Edit'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textPrimary,
-                    side: const BorderSide(color: AppColors.borderSubtle),
+                    side: BorderSide(color: AppColors.borderSubtle),
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
                     ),
@@ -362,7 +362,7 @@ class _HeroSection extends StatelessWidget {
                   label: const Text('Export Stems'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textPrimary,
-                    side: const BorderSide(color: AppColors.borderSubtle),
+                    side: BorderSide(color: AppColors.borderSubtle),
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
                     ),
@@ -534,7 +534,7 @@ class _MarketplaceStatusCard extends StatelessWidget {
                   foregroundColor: beat.isPublished
                       ? AppColors.textPrimary
                       : AppColors.brandContrast,
-                  side: const BorderSide(color: AppColors.borderSubtle),
+                  side: BorderSide(color: AppColors.borderSubtle),
                   shape: const RoundedRectangleBorder(
                     borderRadius: AppRadius.pillBorder,
                   ),
@@ -653,7 +653,7 @@ class _StemsCard extends StatelessWidget {
             label: const Text('Export Stems Bundle (ZIP)'),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.brandPrimary,
-              side: const BorderSide(color: AppColors.borderSubtle),
+              side: BorderSide(color: AppColors.borderSubtle),
               shape: const RoundedRectangleBorder(
                 borderRadius: AppRadius.pillBorder,
               ),

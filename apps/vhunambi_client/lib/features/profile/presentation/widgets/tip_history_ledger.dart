@@ -147,7 +147,7 @@ class _TipHistoryLedgerState extends State<TipHistoryLedger> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: filteredTips.length,
               separatorBuilder: (context, index) =>
-                  const Divider(color: AppColors.borderSubtle, height: 16),
+                  Divider(color: AppColors.borderSubtle, height: 16),
               itemBuilder: (context, index) {
                 final tip = filteredTips[index];
                 return Row(
@@ -179,7 +179,7 @@ class _TipHistoryLedgerState extends State<TipHistoryLedger> {
                           ),
                           Text(
                             'on "${tip.trackTitle}" • ${_formatTimeAgo(tip.timestamp)}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               color: AppColors.textSecondary,
                             ),

@@ -302,7 +302,7 @@ class PlaylistDetailView extends ConsumerWidget {
                           },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textPrimary,
-                      side: const BorderSide(color: AppColors.borderSubtle),
+                      side: BorderSide(color: AppColors.borderSubtle),
                       shape: const RoundedRectangleBorder(borderRadius: AppRadius.pillBorder),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
@@ -366,7 +366,7 @@ class PlaylistDetailView extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                     child: Material(
                       color: AppColors.surfaceElevated,
-                      shape: const RoundedRectangleBorder(
+                      shape: RoundedRectangleBorder(
                         borderRadius: AppRadius.cardBorder,
                         side: BorderSide(color: AppColors.borderSubtle),
                       ),
@@ -380,7 +380,7 @@ class PlaylistDetailView extends ConsumerWidget {
                           children: [
                             ReorderableDragStartListener(
                               index: index,
-                              child: const Icon(
+                              child: Icon(
                                 Icons.drag_handle_rounded,
                                 color: AppColors.textTertiary,
                               ),
@@ -426,7 +426,7 @@ class PlaylistDetailView extends ConsumerWidget {
                             ),
                             const SizedBox(width: AppSpacing.xs),
                             IconButton(
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.close_rounded,
                                 size: 18,
                                 color: AppColors.textTertiary,

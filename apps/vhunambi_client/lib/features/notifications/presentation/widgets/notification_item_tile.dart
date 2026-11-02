@@ -168,7 +168,7 @@ class _NotificationCardBody extends StatelessWidget {
       color: AppColors.surfaceElevated,
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.cardBorder,
-        side: const BorderSide(color: AppColors.borderSubtle),
+        side: BorderSide(color: AppColors.borderSubtle),
       ),
       child: InkWell(
         onTap: onTap,

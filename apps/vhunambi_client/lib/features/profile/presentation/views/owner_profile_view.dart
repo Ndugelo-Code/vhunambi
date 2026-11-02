@@ -83,7 +83,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                   TextField(
                     controller: titleController,
                     style: AppTypography.bodySmall,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Release Title',
                       labelStyle: TextStyle(color: AppColors.textSecondary),
                       enabledBorder: UnderlineInputBorder(
@@ -92,7 +92,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Release Type',
                     style: TextStyle(
                       fontSize: 12,
@@ -134,7 +134,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text(
+                  child: Text(
                     'Cancel',
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
@@ -343,7 +343,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                                 const SizedBox(height: 2),
                                 Text(
                                   '@${profile.username} • Verified Creator',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     color: AppColors.textSecondary,
                                   ),
@@ -721,7 +721,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
             ),
             child: Column(
               children: [
-                const Icon(
+                Icon(
                   AppIcons.soundPack,
                   size: 36,
                   color: AppColors.textSecondary,
@@ -798,7 +798,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                         ),
                         Text(
                           '${pattern.genre} • ${pattern.bpm} BPM • ${pattern.notes.length} notes',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textSecondary,
                           ),
@@ -852,7 +852,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
       ),
       child: Text(
         '$label ($count)',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
@@ -917,7 +917,7 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                 ),
                 Text(
                   '$genre • $duration • ▶ $plays • ❤️ $likes',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary,
                   ),

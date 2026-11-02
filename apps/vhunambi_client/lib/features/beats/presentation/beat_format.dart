@@ -51,16 +51,16 @@ List<Color> beatGenreGradient(String genre) {
     'Amapiano' => const <Color>[AppColors.brandPrimary, AppColors.amberInset],
     'Kwaito' => const <Color>[AppColors.coinGold, AppColors.amberInset],
     'Gqom' => const <Color>[AppColors.badgeCyan, AppColors.badgeCyanBg],
-    'Maskandi' => const <Color>[AppColors.success, AppColors.surfaceSecondary],
+    'Maskandi' => <Color>[AppColors.success, AppColors.surfaceSecondary],
     'Mbaqanga' => const <Color>[AppColors.brandPrimaryDark, AppColors.amberInset],
-    'Marabi' => const <Color>[AppColors.coinGold, AppColors.surfaceSecondary],
-    'Bubblegum' => const <Color>[AppColors.brandPrimary, AppColors.surfaceSecondary],
+    'Marabi' => <Color>[AppColors.coinGold, AppColors.surfaceSecondary],
+    'Bubblegum' => <Color>[AppColors.brandPrimary, AppColors.surfaceSecondary],
     'Afro House' => const <Color>[AppColors.brandPrimaryDark, AppColors.badgeCyanBg],
     'Afrobeats' => const <Color>[AppColors.coinGold, AppColors.brandPrimaryDark],
-    'Afro Jazz' => const <Color>[AppColors.badgeCyan, AppColors.surfaceSecondary],
+    'Afro Jazz' => <Color>[AppColors.badgeCyan, AppColors.surfaceSecondary],
     'Afro Soul' => const <Color>[AppColors.success, AppColors.badgeCyanBg],
-    'Afro-Arabic' => const <Color>[AppColors.brandPrimary, AppColors.badgeCyanBg],
-    _ => const <Color>[AppColors.borderActive, AppColors.surfaceSecondary],
+    'Afro-Arabic' => <Color>[AppColors.brandPrimary, AppColors.badgeCyanBg],
+    _ => <Color>[AppColors.borderActive, AppColors.surfaceSecondary],
   };
 }
 

@@ -55,7 +55,7 @@ class TopSupportersLeaderboard extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.military_tech_outlined,
                     size: 36,
                     color: AppColors.textTertiary,
@@ -134,7 +134,7 @@ class TopSupportersLeaderboard extends StatelessWidget {
                                 ),
                                 Text(
                                   supporter.handle,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     color: AppColors.textSecondary,
                                   ),

@@ -124,7 +124,7 @@ class MoreLikeThisShelf extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${item.creatorName} • ${item.genre} • ${item.formattedDuration}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: AppColors.textSecondary,
                     ),
@@ -144,7 +144,7 @@ class MoreLikeThisShelf extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   '${item.likesCount}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textSecondary,

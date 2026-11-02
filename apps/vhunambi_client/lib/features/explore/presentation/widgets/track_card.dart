@@ -117,7 +117,7 @@ class TrackCard extends ConsumerWidget {
                 const SizedBox(width: 3),
                 Text('${track.likeCount}', style: AppTypography.caption),
                 const SizedBox(width: AppSpacing.xs),
-                const Icon(
+                Icon(
                   Icons.play_arrow_rounded,
                   size: 13,
                   color: AppColors.textTertiary,

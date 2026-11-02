@@ -27,7 +27,7 @@ class AfricanChartsBanner extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(
+            Icon(
               Icons.trending_up_rounded,
               size: 28,
               color: AppColors.textPrimary,

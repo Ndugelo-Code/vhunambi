@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../profile/presentation/views/owner_profile_view.dart';
+import '../../../profile/presentation/widgets/creator_avatar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_assets.dart';
-import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -60,6 +62,17 @@ class LibraryAppBar extends ConsumerWidget {
                   const _CreditBalancePill(),
                   const SizedBox(width: AppSpacing.xs),
                   const NotificationBellButton(),
+        const SizedBox(width: AppSpacing.xxs),
+        InkWell(
+          key: const Key('library_mobile_user_avatar'),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const OwnerProfileView()),
+            );
+          },
+          borderRadius: BorderRadius.circular(18),
+          child: const CreatorAvatar(size: 32),
+        ),
                   const SizedBox(width: AppSpacing.xxs),
                   const _AnalyticsButton(),
                   const SizedBox(width: AppSpacing.xxs),
@@ -162,7 +175,7 @@ class _CreditBalancePill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(
-            Icons.bolt_rounded,
+            PhosphorIconsRegular.lightning,
             size: 15,
             color: AppColors.brandPrimary,
           ),
@@ -230,7 +243,7 @@ class _CreateButton extends StatelessWidget {
                 borderRadius: AppRadius.thumbBorder,
               ),
               child: const Icon(
-                Icons.auto_awesome,
+                PhosphorIconsRegular.sparkle,
                 size: 18,
                 color: AppColors.brandContrast,
               ),
@@ -254,7 +267,7 @@ class _CreateButton extends StatelessWidget {
         ),
       ),
       icon: const Icon(
-        Icons.auto_awesome,
+        PhosphorIconsRegular.sparkle,
         size: 16,
         color: AppColors.brandContrast,
       ),
@@ -293,8 +306,8 @@ class _AnalyticsButton extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.analytics_outlined,
+            Icon(
+              PhosphorIconsRegular.chartLineUp,
               size: 15,
               color: AppColors.textSecondary,
             ),
@@ -328,12 +341,12 @@ class _OverflowMenu extends ConsumerWidget {
         iconSize: 20,
         tooltip: 'Library options',
         color: AppColors.surfaceModal,
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: AppRadius.inputBorder,
           side: BorderSide(color: AppColors.borderSubtle),
         ),
-        icon: const Icon(
-          Icons.more_vert_rounded,
+        icon: Icon(
+          PhosphorIconsRegular.dotsThreeVertical,
           color: AppColors.textSecondary,
         ),
         onSelected: (value) {
@@ -373,7 +386,7 @@ class _OverflowMenu extends ConsumerWidget {
                   ),
                   if (order == activeOrder)
                     const Icon(
-                      Icons.check_rounded,
+                      PhosphorIconsRegular.check,
                       size: 14,
                       color: AppColors.brandPrimary,
                     ),
@@ -386,8 +399,8 @@ class _OverflowMenu extends ConsumerWidget {
             height: 40,
             child: Row(
               children: [
-                const Icon(
-                  Icons.storage_rounded,
+                Icon(
+                  PhosphorIconsRegular.hardDrives,
                   size: 16,
                   color: AppColors.textSecondary,
                 ),
@@ -407,8 +420,8 @@ class _OverflowMenu extends ConsumerWidget {
             height: 40,
             child: Row(
               children: [
-                const Icon(
-                  Icons.analytics_outlined,
+                Icon(
+                  PhosphorIconsRegular.chartLineUp,
                   size: 16,
                   color: AppColors.textSecondary,
                 ),

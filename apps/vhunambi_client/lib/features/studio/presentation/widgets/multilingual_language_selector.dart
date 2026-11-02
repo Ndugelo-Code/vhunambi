@@ -122,7 +122,7 @@ class _MultilingualLanguageSelectorState
           ),
 
           if (_isExpanded) ...[
-            const Divider(color: AppColors.borderSubtle, height: 1),
+            Divider(color: AppColors.borderSubtle, height: 1),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(

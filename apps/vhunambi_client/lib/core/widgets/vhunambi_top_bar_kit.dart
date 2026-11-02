@@ -1,5 +1,7 @@
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../design_system/tokens/app_icons.dart';
 
 import '../theme/app_colors.dart';
 import '../utils/responsive_utils.dart';
@@ -83,7 +85,7 @@ class VhunambiTopBarSurface extends StatelessWidget {
       return Container(
         width: double.infinity,
         decoration: decoration ??
-            const BoxDecoration(
+            BoxDecoration(
               color: AppColors.surfaceCanvas,
               border: Border(
                 bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
@@ -96,7 +98,7 @@ class VhunambiTopBarSurface extends StatelessWidget {
     final effectiveDecoration = decoration ??
         BoxDecoration(
           color: AppColors.surfaceCanvas.withValues(alpha: surfaceOpacity),
-          border: const Border(
+          border: Border(
             bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
           ),
         );
@@ -134,7 +136,7 @@ class VhunambiBackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       tooltip: tooltip,
-      icon: const Icon(Icons.chevron_left_rounded),
+      icon: const PhosphorIcon(AppIcons.caretLeft, size: 20),
       color: color ?? AppColors.textPrimary,
       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
       onPressed: onPressed ?? () => Navigator.of(context).maybePop(),

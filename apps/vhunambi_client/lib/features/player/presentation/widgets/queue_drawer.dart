@@ -25,7 +25,7 @@ class QueueDrawer extends ConsumerWidget {
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: AppRadius.modalBorder,
           side: BorderSide(color: AppColors.borderSubtle),
         ),
@@ -198,7 +198,7 @@ class _QueueDrawerHeader extends StatelessWidget {
             tooltip: 'Close queue',
             visualDensity: VisualDensity.compact,
             onPressed: onClose,
-            icon: const Icon(
+            icon: Icon(
               Icons.close_rounded,
               size: 18,
               color: AppColors.textSecondary,
@@ -223,7 +223,7 @@ class _EmptyQueueState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.queue_music_rounded,
             size: 30,
             color: AppColors.textTertiary,
@@ -365,7 +365,7 @@ class _QueueTrackTile extends StatelessWidget {
             children: [
               ReorderableDragStartListener(
                 index: dragIndex,
-                child: const Icon(
+                child: Icon(
                   Icons.drag_handle_rounded,
                   size: 18,
                   color: AppColors.textTertiary,
@@ -375,7 +375,7 @@ class _QueueTrackTile extends StatelessWidget {
               Container(
                 width: 36,
                 height: 36,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.surfaceSecondary,
                   shape: BoxShape.circle,
                 ),
@@ -415,7 +415,7 @@ class _QueueTrackTile extends StatelessWidget {
                 tooltip: 'Remove from queue',
                 visualDensity: VisualDensity.compact,
                 onPressed: onRemove,
-                icon: const Icon(
+                icon: Icon(
                   Icons.close_rounded,
                   size: 16,
                   color: AppColors.textSecondary,

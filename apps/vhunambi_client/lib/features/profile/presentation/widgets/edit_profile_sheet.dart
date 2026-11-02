@@ -18,7 +18,7 @@ class EditProfileSheet extends ConsumerStatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -149,7 +149,7 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
                 style: AppTypography.bodyMedium,
                 decoration: InputDecoration(
                   hintText: 'e.g. Ndugelo Musician',
-                  prefixIcon: const PhosphorIcon(
+                  prefixIcon: PhosphorIcon(
                     AppIcons.user,
                     size: 18,
                     color: AppColors.textSecondary,
@@ -173,7 +173,7 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
                 style: AppTypography.bodyMedium,
                 decoration: InputDecoration(
                   hintText: 'e.g. ndugelo_musician',
-                  prefixIcon: const PhosphorIcon(
+                  prefixIcon: PhosphorIcon(
                     PhosphorIconsRegular.at,
                     size: 18,
                     color: AppColors.textSecondary,

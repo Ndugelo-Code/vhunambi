@@ -30,7 +30,7 @@ class VoiceCloneRecorderSheet extends ConsumerStatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -101,7 +101,7 @@ class _VoiceCloneRecorderSheetState
                     gradient: AppGradients.primaryButton,
                     borderRadius: AppRadius.buttonBorder,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.mic_external_on_rounded,
                     color: AppColors.textPrimary,
                     size: 20,
@@ -134,7 +134,7 @@ class _VoiceCloneRecorderSheetState
                     minHeight: 44,
                   ),
                   onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close_rounded,
                     color: AppColors.textSecondary,
                   ),
@@ -192,11 +192,11 @@ class _VoiceCloneRecorderSheetState
                 filled: true,
                 fillColor: AppColors.surfaceElevated,
                 isDense: true,
-                border: const OutlineInputBorder(
+                border: OutlineInputBorder(
                   borderRadius: AppRadius.inputBorder,
                   borderSide: BorderSide(color: AppColors.borderSubtle),
                 ),
-                enabledBorder: const OutlineInputBorder(
+                enabledBorder: OutlineInputBorder(
                   borderRadius: AppRadius.inputBorder,
                   borderSide: BorderSide(color: AppColors.borderSubtle),
                 ),

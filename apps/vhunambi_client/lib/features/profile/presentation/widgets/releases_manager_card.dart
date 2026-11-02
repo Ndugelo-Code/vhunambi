@@ -81,7 +81,7 @@ class ReleasesManagerCard extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.library_music_outlined,
                     size: 38,
                     color: AppColors.textTertiary,
@@ -166,7 +166,7 @@ class ReleasesManagerCard extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               '${rel.typeLabel} • ${rel.trackCount} ${rel.trackCount == 1 ? 'track' : 'tracks'} • ${rel.releaseYear} • ${rel.genre}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textSecondary,
                               ),

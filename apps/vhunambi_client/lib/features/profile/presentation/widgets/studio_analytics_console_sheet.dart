@@ -22,7 +22,7 @@ class StudioAnalyticsConsoleSheet extends ConsumerStatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -104,7 +104,7 @@ class _StudioAnalyticsConsoleSheetState
                       IconButton(
                         tooltip: 'Close',
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const PhosphorIcon(
+                        icon: PhosphorIcon(
                           AppIcons.close,
                           size: 20,
                           color: AppColors.textSecondary,
@@ -172,7 +172,7 @@ class _StudioAnalyticsConsoleSheetState
               ),
             ),
 
-            const Divider(height: 1, color: AppColors.borderSubtle),
+            Divider(height: 1, color: AppColors.borderSubtle),
 
             // Scrollable Analytics Dashboard Body
             Expanded(

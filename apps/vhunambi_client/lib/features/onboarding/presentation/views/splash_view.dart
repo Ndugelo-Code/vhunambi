@@ -274,7 +274,7 @@ class _SplashViewState extends ConsumerState<SplashView>
                       width: 140,
                       child: ClipRRect(
                         borderRadius: AppRadius.pillBorder,
-                        child: const LinearProgressIndicator(
+                        child: LinearProgressIndicator(
                           minHeight: 2.5,
                           backgroundColor: AppColors.surfaceSecondary,
                           valueColor: AlwaysStoppedAnimation<Color>(

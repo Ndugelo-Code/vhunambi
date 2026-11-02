@@ -140,7 +140,7 @@ class TrackHeroSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(
               TrackDetailEntity.ownershipNotice,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 height: 1.4,
                 color: AppColors.textTertiary,
@@ -193,7 +193,7 @@ class TrackHeroSection extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   track.creatorHandle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),

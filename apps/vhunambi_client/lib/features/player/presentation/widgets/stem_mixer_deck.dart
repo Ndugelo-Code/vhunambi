@@ -408,7 +408,7 @@ class _ChannelStrip extends ConsumerWidget {
                     : null,
               ),
             ),
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
@@ -594,7 +594,7 @@ class _MasterDspSection extends ConsumerWidget {
                   ),
                 ),
                 backgroundColor: AppColors.surfaceSecondary,
-                side: const BorderSide(color: AppColors.borderSubtle),
+                side: BorderSide(color: AppColors.borderSubtle),
                 onPressed: () {
                   HapticFeedback.lightImpact();
                   notifier.applyPreset(preset);

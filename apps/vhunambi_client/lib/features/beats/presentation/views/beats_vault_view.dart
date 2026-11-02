@@ -579,7 +579,7 @@ class _VaultActionStrip extends StatelessWidget {
               isDense: true,
               filled: true,
               fillColor: AppColors.surfaceSecondary,
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.search_rounded,
                 size: 16,
                 color: AppColors.textTertiary,
@@ -589,11 +589,11 @@ class _VaultActionStrip extends StatelessWidget {
               ),
               border: OutlineInputBorder(
                 borderRadius: AppRadius.inputBorder,
-                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                borderSide: BorderSide(color: AppColors.borderSubtle),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: AppRadius.inputBorder,
-                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                borderSide: BorderSide(color: AppColors.borderSubtle),
               ),
             ),
           ),
@@ -719,7 +719,7 @@ class _SortMenu extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.swap_vert_rounded,
               size: 14,
               color: AppColors.textSecondary,

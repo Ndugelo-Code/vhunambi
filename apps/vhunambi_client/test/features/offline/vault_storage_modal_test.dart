@@ -258,7 +258,7 @@ Future<void> _pumpModal(WidgetTester tester) async {
       container: _container,
       child: MaterialApp(
         theme: AppTheme.darkTheme,
-        home: const Scaffold(
+        home: Scaffold(
           backgroundColor: AppColors.surfaceCanvas,
           body: VaultStorageModal(),
         ),

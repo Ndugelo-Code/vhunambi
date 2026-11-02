@@ -148,7 +148,7 @@ class CreatorDnaProfileCard extends ConsumerWidget {
 
           if (isOwner) ...[
             const SizedBox(height: AppSpacing.md),
-            const Divider(color: AppColors.borderSubtle),
+            Divider(color: AppColors.borderSubtle),
             const SizedBox(height: AppSpacing.xs),
 
             // Privacy Guarantee & Reset Action
@@ -205,7 +205,7 @@ class CreatorDnaProfileCard extends ConsumerWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
               color: AppColors.textSecondary,
             ),
@@ -213,7 +213,7 @@ class CreatorDnaProfileCard extends ConsumerWidget {
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
@@ -233,20 +233,20 @@ class CreatorDnaProfileCard extends ConsumerWidget {
         backgroundColor: AppColors.surfaceModal,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.cardBorder,
-          side: const BorderSide(color: AppColors.borderSubtle),
+          side: BorderSide(color: AppColors.borderSubtle),
         ),
         title: const Text(
           'Reset Creator DNA?',
           style: TextStyle(color: Colors.white),
         ),
-        content: const Text(
+        content: Text(
           'This will erase your on-device taste weights, prompt pre-fills, and telemetry log. This action cannot be undone.',
           style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text(
+            child: Text(
               'Cancel',
               style: TextStyle(color: AppColors.textSecondary),
             ),

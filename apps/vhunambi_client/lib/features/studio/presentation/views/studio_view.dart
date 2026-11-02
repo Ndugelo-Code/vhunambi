@@ -219,7 +219,7 @@ class _StudioViewState extends ConsumerState<StudioView> {
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.borderSubtle),
+                      side: BorderSide(color: AppColors.borderSubtle),
                       minimumSize: const Size.fromHeight(48),
                       shape: const RoundedRectangleBorder(
                         borderRadius: AppRadius.inputBorder,
@@ -233,7 +233,7 @@ class _StudioViewState extends ConsumerState<StudioView> {
           PlayerObstacle(
             id: 'studio_action_bar',
             child: Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.surfaceElevated,
                 border: Border(
                   top: BorderSide(color: AppColors.borderSubtle, width: 1),
@@ -315,7 +315,7 @@ void _openHeritageStudio(BuildContext context) {
     builder: (_) => FractionallySizedBox(
       heightFactor: 0.9,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.surfaceModal,
           borderRadius: AppRadius.modalBorder,
           boxShadow: [

@@ -213,7 +213,7 @@ class _BeatFormDialogState extends State<BeatFormDialog> {
                     label: const Text('Tap Tempo'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.brandPrimary,
-                      side: const BorderSide(color: AppColors.borderSubtle),
+                      side: BorderSide(color: AppColors.borderSubtle),
                     ),
                   ),
                 ],

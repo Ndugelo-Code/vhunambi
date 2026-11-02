@@ -22,7 +22,7 @@ class TrackDetailsModal extends StatelessWidget {
       backgroundColor: AppColors.surfaceModal,
       barrierColor: Colors.black54,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -95,7 +95,7 @@ class TrackDetailsModal extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-              const Divider(color: AppColors.borderSubtle, height: 1),
+              Divider(color: AppColors.borderSubtle, height: 1),
               const SizedBox(height: AppSpacing.md),
 
               // Musical specs

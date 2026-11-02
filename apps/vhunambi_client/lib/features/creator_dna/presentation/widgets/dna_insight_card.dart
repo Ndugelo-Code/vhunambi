@@ -70,7 +70,7 @@ class DnaInsightCard extends ConsumerWidget {
               ),
               IconButton(
                 key: const Key('dna_insight_card_dismiss_button'),
-                icon: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
+                icon: Icon(Icons.close, size: 18, color: AppColors.textSecondary),
                 constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 padding: EdgeInsets.zero,
                 tooltip: 'Dismiss DNA Insight',

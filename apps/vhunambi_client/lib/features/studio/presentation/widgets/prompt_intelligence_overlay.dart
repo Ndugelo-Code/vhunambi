@@ -103,7 +103,7 @@ class PromptIntelligenceOverlay extends StatelessWidget {
                       const BoxConstraints(minWidth: 44, minHeight: 44),
                   padding: EdgeInsets.zero,
                   onPressed: onDismiss,
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close_rounded,
                     size: 16,
                     color: AppColors.textTertiary,
@@ -224,7 +224,7 @@ class _AutoFillChip extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.expand(),
                 onPressed: onDismiss,
-                icon: const Icon(
+                icon: Icon(
                   Icons.close_rounded,
                   size: 14,
                   color: AppColors.textTertiary,

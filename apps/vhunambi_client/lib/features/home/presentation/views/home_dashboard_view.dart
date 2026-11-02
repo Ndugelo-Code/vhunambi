@@ -321,7 +321,7 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
                           minWidth: 36,
                           minHeight: 44,
                         ),
-                        child: const Center(
+                        child: Center(
                           child: PhosphorIcon(
                             AppIcons.bell,
                             size: 20,
@@ -504,7 +504,7 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
                               child: TextField(
                                 controller: _promptController,
                                 style: AppTypography.bodySmall,
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   hintText:
                                       'Describe a vibe, story, or melody...',
                                   hintStyle: TextStyle(
@@ -869,7 +869,7 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
         labelStyle: AppTypography.caption.copyWith(
           color: AppColors.textPrimary,
         ),
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: AppRadius.pillBorder,
           side: BorderSide(color: AppColors.borderSubtle),
         ),
@@ -1049,7 +1049,7 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
             ),
             Text(
               subtitle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
                 color: AppColors.textTertiary,
               ),
@@ -1134,7 +1134,7 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
           IconButton(
             key: const Key('home_jump_back_master_btn'),
             tooltip: 'Polish Stems & Master',
-            icon: const PhosphorIcon(
+            icon: PhosphorIcon(
               AppIcons.beatstore,
               color: AppColors.textSecondary,
               size: 22,
@@ -1207,7 +1207,7 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
             ),
             Text(
               '${track.genre} • ${track.formattedDuration}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
                 color: AppColors.textSecondary,
               ),

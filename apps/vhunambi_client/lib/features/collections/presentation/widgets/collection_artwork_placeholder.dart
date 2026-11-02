@@ -30,7 +30,7 @@ class CollectionArtworkPlaceholder extends StatelessWidget {
           color: AppColors.surfaceSecondary,
           borderRadius: AppRadius.squircleBorder,
           border: Border.all(color: AppColors.borderSubtle),
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             colors: [AppColors.surfaceSecondary, AppColors.surfaceElevated],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,

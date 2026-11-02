@@ -71,63 +71,81 @@ abstract final class AppColors {
   ); // Warm Muted Hint Text
 
   // --------------------------------------------------------------------------
-  // Surfaces & Canvases (Compile-Time Const Defaults)
+  // Surfaces & Canvases (Dynamic Adapters)
   // --------------------------------------------------------------------------
-  static const Color surfaceCanvas    = darkSurfaceCanvas;
-  static const Color surfaceElevated  = darkSurfaceElevated;
-  static const Color surfaceSecondary = darkSurfaceSecondary;
-  static const Color surfaceModal     = darkSurfaceModal;
+  static Color get surfaceCanvas => _currentBrightness == Brightness.dark
+      ? darkSurfaceCanvas
+      : lightSurfaceCanvas;
+  static Color get surfaceElevated => _currentBrightness == Brightness.dark
+      ? darkSurfaceElevated
+      : lightSurfaceElevated;
+  static Color get surfaceSecondary => _currentBrightness == Brightness.dark
+      ? darkSurfaceSecondary
+      : lightSurfaceSecondary;
+  static Color get surfaceModal => _currentBrightness == Brightness.dark
+      ? darkSurfaceModal
+      : lightSurfaceModal;
 
   // --------------------------------------------------------------------------
-  // Borders & Dividers (Compile-Time Const Defaults)
+  // Borders & Dividers (Dynamic Adapters)
   // --------------------------------------------------------------------------
-  static const Color borderSubtle     = darkBorderSubtle;
-  static const Color borderActive     = darkBorderActive;
+  static Color get borderSubtle => _currentBrightness == Brightness.dark
+      ? darkBorderSubtle
+      : lightBorderSubtle;
+  static Color get borderActive => _currentBrightness == Brightness.dark
+      ? darkBorderActive
+      : lightBorderActive;
 
   // --------------------------------------------------------------------------
-  // Text Tokens (Compile-Time Const Defaults)
+  // Text Tokens (Dynamic Adapters)
   // --------------------------------------------------------------------------
-  static const Color textPrimary      = darkTextPrimary;
-  static const Color textSecondary    = darkTextSecondary;
-  static const Color textTertiary     = darkTextTertiary;
+  static Color get textPrimary => _currentBrightness == Brightness.dark
+      ? darkTextPrimary
+      : lightTextPrimary;
+  static Color get textSecondary => _currentBrightness == Brightness.dark
+      ? darkTextSecondary
+      : lightTextSecondary;
+  static Color get textTertiary => _currentBrightness == Brightness.dark
+      ? darkTextTertiary
+      : lightTextTertiary;
 
   // --------------------------------------------------------------------------
   // Contextual Dynamic Adapters (Auto-Switching based on Theme)
   // --------------------------------------------------------------------------
   static Color surfaceCanvasOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? darkSurfaceCanvas
-          : lightSurfaceCanvas;
+      ? darkSurfaceCanvas
+      : lightSurfaceCanvas;
 
   static Color surfaceElevatedOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? darkSurfaceElevated
-          : lightSurfaceElevated;
+      ? darkSurfaceElevated
+      : lightSurfaceElevated;
 
   static Color surfaceSecondaryOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? darkSurfaceSecondary
-          : lightSurfaceSecondary;
+      ? darkSurfaceSecondary
+      : lightSurfaceSecondary;
 
   static Color surfaceModalOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? darkSurfaceModal
-          : lightSurfaceModal;
+      ? darkSurfaceModal
+      : lightSurfaceModal;
 
   static Color borderSubtleOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? darkBorderSubtle
-          : lightBorderSubtle;
+      ? darkBorderSubtle
+      : lightBorderSubtle;
 
   static Color textPrimaryOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? darkTextPrimary
-          : lightTextPrimary;
+      ? darkTextPrimary
+      : lightTextPrimary;
 
   static Color textSecondaryOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? darkTextSecondary
-          : lightTextSecondary;
+      ? darkTextSecondary
+      : lightTextSecondary;
 
   // --------------------------------------------------------------------------
   // Invariant Brand Accents & Tokens (Vibrant in both modes)

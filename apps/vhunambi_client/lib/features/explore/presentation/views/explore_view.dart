@@ -132,7 +132,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
                       onPressed: () => loadMoreExploreTracks(ref),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.textPrimary,
-                        side: const BorderSide(color: AppColors.borderSubtle),
+                        side: BorderSide(color: AppColors.borderSubtle),
                         shape: RoundedRectangleBorder(
                           borderRadius: AppRadius.pillBorder,
                         ),
@@ -151,7 +151,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
                   child: Center(
                     child: Column(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.person_search_rounded,
                           size: 48,
                           color: AppColors.textSecondary,
@@ -455,7 +455,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
           ),
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [AppColors.surfaceElevated, AppColors.surfaceSecondary],
             ),
             borderRadius: AppRadius.cardBorder,

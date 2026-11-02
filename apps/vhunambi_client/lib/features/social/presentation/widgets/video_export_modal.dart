@@ -42,7 +42,7 @@ class _VideoExportModalState extends ConsumerState<VideoExportModal> {
 
     return Container(
       height: MediaQuery.sizeOf(context).height * 0.85,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceModal,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -114,7 +114,7 @@ class _VideoExportModalState extends ConsumerState<VideoExportModal> {
             const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
-                const Text('Holographic Watermark',
+                Text('Holographic Watermark',
                     style: TextStyle(color: AppColors.textSecondary)),
                 const Spacer(),
                 Switch(
@@ -237,7 +237,7 @@ class _SharePanel extends ConsumerWidget {
               const SnackBar(content: Text('Caption copied to clipboard')),
             );
           },
-          icon: const Icon(Icons.copy_rounded, size: 16, color: AppColors.textSecondary),
+          icon: Icon(Icons.copy_rounded, size: 16, color: AppColors.textSecondary),
           label: Text('Copy Caption',
               style: AppTypography.bodySmall.copyWith(color: AppColors.textPrimary)),
         ),

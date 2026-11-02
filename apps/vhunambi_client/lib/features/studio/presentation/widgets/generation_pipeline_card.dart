@@ -95,7 +95,7 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
                 onTap: widget.onNewSong,
                 child: Row(
                   children: [
-                    const Icon(Icons.refresh_rounded, size: 16, color: AppColors.textSecondary),
+                    Icon(Icons.refresh_rounded, size: 16, color: AppColors.textSecondary),
                     const SizedBox(width: 4),
                     Text(
                       'New song',
@@ -362,7 +362,7 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
         alignment: Alignment.center,
         child: Text(
           '$stepNumber',
-          style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+          style: TextStyle(fontSize: 11, color: AppColors.textTertiary),
         ),
       );
       textColor = AppColors.textTertiary;
@@ -650,7 +650,7 @@ class _ReadyTrackCard extends ConsumerWidget {
                       ),
                     );
                   },
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.download_rounded,
                     size: 16,
                     color: AppColors.textPrimary,
@@ -662,7 +662,7 @@ class _ReadyTrackCard extends ConsumerWidget {
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.borderSubtle),
+                    side: BorderSide(color: AppColors.borderSubtle),
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
                     ),

@@ -438,7 +438,7 @@ class _A11yAuditModeState extends State<A11yAuditMode> {
               children: [
                 Text(
                   'Targets: ${report.touchTargetCompliance.round()}% | Contrast: ${report.contrastCompliance.round()}%',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                 ),
                 const Spacer(),
                 TextButton.icon(
@@ -459,11 +459,11 @@ class _A11yAuditModeState extends State<A11yAuditMode> {
                 ),
               ],
             ),
-            const Divider(color: AppColors.borderSubtle, height: 12),
+            Divider(color: AppColors.borderSubtle, height: 12),
             // Simulated announcements scrollable list
             Expanded(
               child: _controller.screenReaderAnnouncements.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         'No announcements recorded yet.\nInteract with elements to simulate TalkBack/VoiceOver.',
                         textAlign: TextAlign.center,

@@ -71,7 +71,10 @@ class VhunambiApp extends ConsumerWidget {
         };
         AppColors.syncWithBrightness(effectiveBrightness);
 
-        return Stack(children: [?child, const MiniPlayerHost()]);
+        return KeyedSubtree(
+          key: ValueKey<Brightness>(effectiveBrightness),
+          child: Stack(children: [?child, const MiniPlayerHost()]),
+        );
       },
       home: initialHome ?? const SplashView(),
     );

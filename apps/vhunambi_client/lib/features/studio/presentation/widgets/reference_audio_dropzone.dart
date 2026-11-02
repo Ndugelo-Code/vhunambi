@@ -210,7 +210,7 @@ class _ReferenceAudioDropzoneState
                             onTap: () => ref
                                 .read(melodySketchpadProvider.notifier)
                                 .detachSongReference(),
-                            child: const Padding(
+                            child: Padding(
                               padding: EdgeInsets.only(left: 4),
                               child: Icon(
                                 Icons.close_rounded,
@@ -230,7 +230,7 @@ class _ReferenceAudioDropzoneState
 
           // Collapsible Content
           if (_isExpanded) ...[
-            const Divider(color: AppColors.borderSubtle, height: 1),
+            Divider(color: AppColors.borderSubtle, height: 1),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
@@ -282,7 +282,7 @@ class _ReferenceAudioDropzoneState
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.close_rounded,
                               color: AppColors.textSecondary,
                             ),
@@ -323,7 +323,7 @@ class _ReferenceAudioDropzoneState
                           children: [
                             Container(
                               padding: const EdgeInsets.all(AppSpacing.sm),
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 color: AppColors.surfaceElevated,
                                 shape: BoxShape.circle,
                               ),
@@ -364,7 +364,7 @@ class _ReferenceAudioDropzoneState
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),

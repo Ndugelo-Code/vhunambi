@@ -18,7 +18,7 @@ class VaultStorageModal extends ConsumerWidget {
       context: context,
       backgroundColor: AppColors.surfaceModal,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -90,7 +90,7 @@ class VaultStorageModal extends ConsumerWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close_rounded,
                     color: AppColors.textSecondary,
                   ),
@@ -198,7 +198,7 @@ class VaultStorageModal extends ConsumerWidget {
                 ),
                 child: Column(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.cloud_download_outlined,
                       size: 32,
                       color: AppColors.textTertiary,
@@ -229,7 +229,7 @@ class VaultStorageModal extends ConsumerWidget {
                   shrinkWrap: true,
                   itemCount: cachedTracks.length,
                   separatorBuilder: (_, _) =>
-                      const Divider(color: AppColors.borderSubtle, height: 1),
+                      Divider(color: AppColors.borderSubtle, height: 1),
                   itemBuilder: (context, index) {
                     final track = cachedTracks[index];
                     return _CachedTrackTile(track: track);
@@ -251,7 +251,7 @@ class VaultStorageModal extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.wifi_off_rounded,
                     size: 18,
                     color: AppColors.textSecondary,
@@ -289,7 +289,7 @@ class VaultStorageModal extends ConsumerWidget {
       builder: (dialogCtx) {
         return AlertDialog(
           backgroundColor: AppColors.surfaceModal,
-          shape: const RoundedRectangleBorder(
+          shape: RoundedRectangleBorder(
             borderRadius: AppRadius.cardBorder,
             side: BorderSide(color: AppColors.borderSubtle),
           ),
@@ -330,7 +330,7 @@ class VaultStorageModal extends ConsumerWidget {
                     .clearAllOfflineTracks();
                 Navigator.of(dialogCtx).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text('All offline audio files cleared from device.'),
                     backgroundColor: AppColors.surfaceElevated,
                   ),
@@ -394,7 +394,7 @@ class _CachedTrackTile extends ConsumerWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.delete_outline_rounded,
               color: AppColors.textTertiary,
               size: 18,

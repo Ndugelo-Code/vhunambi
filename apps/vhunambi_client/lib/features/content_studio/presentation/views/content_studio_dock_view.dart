@@ -137,7 +137,7 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
       appBar: AppBar(
         backgroundColor: AppColors.surfaceElevated,
         elevation: 0,
-        leading: const VhunambiBackButton(color: AppColors.textPrimary),
+        leading: VhunambiBackButton(color: AppColors.textPrimary),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -280,14 +280,14 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                   onSeek: notifier.seekTo,
                 ),
                 const SizedBox(height: 28),
-                const Divider(color: AppColors.borderSubtle),
+                Divider(color: AppColors.borderSubtle),
                 const SizedBox(height: 20),
                 TypographyPresetPicker(
                   selectedPreset: state.typographyPreset,
                   onPresetSelected: notifier.setPreset,
                 ),
                 const SizedBox(height: 28),
-                const Divider(color: AppColors.borderSubtle),
+                Divider(color: AppColors.borderSubtle),
                 const SizedBox(height: 20),
                 AtmosphericEffectsDeck(
                   effects: state.effects,

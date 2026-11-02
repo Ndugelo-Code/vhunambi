@@ -6,7 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/notification_entity.dart';
 import '../providers/notifications_provider.dart';
 import '../utils/notifications_haptics.dart';
-import 'notifications_popover.dart';
+import '../views/notifications_view.dart';
 
 /// Reusable header bell with a live unread badge (T11.4).
 ///
@@ -69,7 +69,7 @@ class _NotificationBellButtonState
     if (onPressed != null) {
       onPressed();
     } else {
-      NotificationsPopover.show(context);
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NotificationsView()));
     }
   }
 

@@ -347,7 +347,7 @@ class ArtistProfileView extends ConsumerWidget {
                   const SizedBox(height: 2),
                   Text(
                     '$genre • $duration',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: AppColors.textSecondary,
                     ),
@@ -357,14 +357,14 @@ class ArtistProfileView extends ConsumerWidget {
             ),
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.play_arrow_rounded,
                   size: 14,
                   color: AppColors.textSecondary,
                 ),
                 Text(
                   plays,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary,
                   ),
@@ -378,7 +378,7 @@ class ArtistProfileView extends ConsumerWidget {
                 const SizedBox(width: 2),
                 Text(
                   '$likes',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary,
                   ),
@@ -455,7 +455,7 @@ class ArtistProfileView extends ConsumerWidget {
                 ),
                 Text(
                   '$timeAgo • $genre',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary,
                   ),
@@ -657,7 +657,7 @@ class ArtistProfileView extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                const Icon(
+                Icon(
                   Icons.music_off_rounded,
                   size: 32,
                   color: AppColors.textSecondary,

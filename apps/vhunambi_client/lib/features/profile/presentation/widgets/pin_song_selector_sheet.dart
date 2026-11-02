@@ -20,7 +20,7 @@ class PinSongSelectorSheet extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -117,7 +117,7 @@ class PinSongSelectorSheet extends ConsumerWidget {
               ),
             ),
 
-            const Divider(height: 1, color: AppColors.borderSubtle),
+            Divider(height: 1, color: AppColors.borderSubtle),
 
             // Selectable List of Songs and Beats
             Expanded(
@@ -258,7 +258,7 @@ class PinSongSelectorSheet extends ConsumerWidget {
                 color: AppColors.brandPrimary,
                 size: 20,
               )
-            : const PhosphorIcon(
+            : PhosphorIcon(
                 PhosphorIconsRegular.pushPin,
                 color: AppColors.textTertiary,
                 size: 20,

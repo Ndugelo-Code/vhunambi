@@ -43,7 +43,7 @@ class BeatListTile extends StatelessWidget {
 
         return Material(
           color: AppColors.surfaceElevated,
-          shape: const RoundedRectangleBorder(
+          shape: RoundedRectangleBorder(
             borderRadius: AppRadius.cardBorder,
             side: BorderSide(color: AppColors.borderSubtle),
           ),
@@ -128,7 +128,7 @@ class BeatTileOverflowMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       key: Key('beat_tile_menu_${beat.id}'),
-      icon: const Icon(
+      icon: Icon(
         Icons.more_vert_rounded,
         size: 18,
         color: AppColors.textSecondary,

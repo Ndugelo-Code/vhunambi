@@ -15,7 +15,7 @@ class StudioSoundPackSheet extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
@@ -85,7 +85,7 @@ class StudioSoundPackSheet extends ConsumerWidget {
                   splashColor: Colors.transparent,
                   highlightColor: Colors.transparent,
                   onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const PhosphorIcon(
+                  icon: PhosphorIcon(
                     PhosphorIconsRegular.x,
                     color: AppColors.textSecondary,
                     size: 20,

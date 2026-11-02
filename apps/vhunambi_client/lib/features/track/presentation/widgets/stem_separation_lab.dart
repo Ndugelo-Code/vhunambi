@@ -165,7 +165,7 @@ class StemSeparationLab extends StatelessWidget {
           // Ready State: 4 Isolated Stem Cards
           if (stemState.isReady) ...[
             const SizedBox(height: 16),
-            const Divider(color: AppColors.borderSubtle),
+            Divider(color: AppColors.borderSubtle),
             const SizedBox(height: 12),
             ...stemState.stems.map((stem) => _buildStemCard(stem, context)),
             if (onOpenFullMixer != null) ...[
@@ -207,7 +207,7 @@ class StemSeparationLab extends StatelessWidget {
           Container(
             width: 32,
             height: 32,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.surfaceElevated,
               shape: BoxShape.circle,
             ),
@@ -293,7 +293,7 @@ class StemSeparationLab extends StatelessWidget {
             iconSize: 20,
             padding: const EdgeInsets.all(10),
             constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            icon: const PhosphorIcon(
+            icon: PhosphorIcon(
               PhosphorIconsRegular.downloadSimple,
               color: AppColors.textSecondary,
             ),

@@ -34,7 +34,7 @@ class MarketplaceEmptyState extends ConsumerWidget {
                   borderRadius: AppRadius.squircleBorder,
                   border: Border.all(color: AppColors.borderSubtle),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.shopping_bag_outlined,
                   size: 22,
                   color: AppColors.textPrimary,
@@ -60,7 +60,7 @@ class MarketplaceEmptyState extends ConsumerWidget {
                 onPressed: () => clearMarketplaceFilters(ref),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.textPrimary,
-                  side: const BorderSide(color: AppColors.borderSubtle),
+                  side: BorderSide(color: AppColors.borderSubtle),
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.lg,
                     vertical: AppSpacing.sm,

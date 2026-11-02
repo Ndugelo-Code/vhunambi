@@ -1,6 +1,7 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import '../../../playlists/presentation/widgets/add_to_playlist_sheet.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
@@ -293,7 +294,7 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                   'MP3 (320 kbps)',
                   style: TextStyle(color: Colors.white),
                 ),
-                subtitle: const Text(
+                subtitle: Text(
                   'High-quality stereo stream',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
@@ -332,7 +333,7 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                   'WAV (Lossless 24-bit)',
                   style: TextStyle(color: Colors.white),
                 ),
-                subtitle: const Text(
+                subtitle: Text(
                   'Studio master audio',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
@@ -457,8 +458,16 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                     onDownload: () => _showDownloadDialog(track),
                     onExportVideo: () => _openVideoExport(track),
                     onAddToPlaylist: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Added to My Playlist ✨')),
+                      AddToPlaylistSheet.show(
+                        context,
+                        Track(
+                          id: track.id,
+                          title: track.title,
+                          creatorName: track.creatorName,
+                          genre: track.genre,
+                          language: track.language,
+                          duration: track.duration,
+                        ),
                       );
                     },
                     onStartRadio: () {

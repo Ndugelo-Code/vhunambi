@@ -132,7 +132,7 @@ class ArtistVoiceShowcaseCard extends ConsumerWidget {
                     ),
                     Text(
                       archetype.accentDescription,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
                         color: AppColors.textTertiary,
                       ),

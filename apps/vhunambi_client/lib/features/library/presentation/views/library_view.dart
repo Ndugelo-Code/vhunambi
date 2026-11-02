@@ -285,7 +285,7 @@ class _VaultSearchStripState extends ConsumerState<_VaultSearchStrip> {
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.search_rounded,
                     size: 18,
                     color: AppColors.textTertiary,
@@ -347,7 +347,7 @@ class _SyncFilterButton extends ConsumerWidget {
     return PopupMenuButton<LibrarySyncFilter>(
       tooltip: 'Filter assets',
       color: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: AppRadius.inputBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
