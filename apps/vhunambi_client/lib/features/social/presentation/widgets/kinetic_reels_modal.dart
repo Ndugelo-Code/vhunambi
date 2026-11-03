@@ -665,7 +665,7 @@ class _ActionRailState extends State<_ActionRail> {
   bool _translateActive = false;
   static const List<String> _culturalEmojis = ['🔥', '👑', '🇿🇦', '🎹', '❤️'];
 
-    void _showTranslationSheet(BuildContext context, PublishedClip clip) {
+  void _showTranslationSheet(BuildContext context, PublishedClip clip) {
     final String rawLyrics;
     if (clip.dna.alignment.isNotEmpty) {
       final buffer = StringBuffer();
@@ -710,10 +710,17 @@ class _ActionRailState extends State<_ActionRail> {
                     color: AppColors.brandPrimary,
                   ),
                   const SizedBox(width: AppSpacing.xs),
-                  Text('Bantu Sing-Along & Meaning', style: AppTypography.titleMedium),
+                  Text(
+                    'Bantu Sing-Along & Meaning',
+                    style: AppTypography.titleMedium,
+                  ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
                     onPressed: () => Navigator.of(ctx).pop(),
                   ),
                 ],
@@ -725,7 +732,9 @@ class _ActionRailState extends State<_ActionRail> {
                         padding: const EdgeInsets.all(AppSpacing.md),
                         child: Text(
                           'No lyrics available to translate',
-                          style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       )
                     : ListView.separated(
@@ -737,24 +746,54 @@ class _ActionRailState extends State<_ActionRail> {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(item.originalLine, style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+                              Text(
+                                item.originalLine,
+                                style: AppTypography.bodySmall.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                               const SizedBox(height: 2),
-                              Text(item.phoneticSingAlongGuide, style: AppTypography.caption.copyWith(color: AppColors.brandPrimary)),
+                              BantuLyricTranslationService.buildStyledPhoneticGuide(
+                                item.phoneticSingAlongGuide,
+                                baseStyle: AppTypography.caption.copyWith(
+                                  color: AppColors.brandPrimary.withAlpha(200),
+                                ),
+                                accentColor: AppColors.brandPrimary,
+                              ),
                               if (item.hasMeaning)
-                                Text(item.translatedMeaning, style: AppTypography.caption.copyWith(color: AppColors.textSecondary, fontStyle: FontStyle.italic)),
+                                Text(
+                                  item.translatedMeaning,
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.textSecondary,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
                               if (item.cognateMatches.isNotEmpty)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 2),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: AppColors.brandPrimary.withAlpha(20),
+                                      color: AppColors.brandPrimary.withAlpha(
+                                        20,
+                                      ),
                                       borderRadius: AppRadius.pillBorder,
-                                      border: Border.all(color: AppColors.brandPrimary.withAlpha(50)),
+                                      border: Border.all(
+                                        color: AppColors.brandPrimary.withAlpha(
+                                          50,
+                                        ),
+                                      ),
                                     ),
                                     child: Text(
                                       'Cognate: ${item.cognateMatches.first.target.displayName} (${item.cognateMatches.first.score}%) • indicative',
-                                      style: TextStyle(fontSize: 10, color: AppColors.brandPrimary, fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.brandPrimary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -875,7 +914,9 @@ class _ActionRailState extends State<_ActionRail> {
             _RailButton(
               key: const Key('reel_translate_lyrics_toggle'),
               icon: PhosphorIcons.translate(PhosphorIconsStyle.regular),
-              color: _translateActive ? AppColors.brandPrimary : AppColors.textPrimary,
+              color: _translateActive
+                  ? AppColors.brandPrimary
+                  : AppColors.textPrimary,
               label: 'Translate',
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -963,7 +1004,9 @@ class _RailButton extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
-              style: AppTypography.caption.copyWith(color: AppColors.textPrimary),
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textPrimary,
+              ),
             ),
           ],
         ),

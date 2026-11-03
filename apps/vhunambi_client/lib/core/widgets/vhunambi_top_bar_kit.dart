@@ -5,6 +5,13 @@ import '../design_system/tokens/app_icons.dart';
 
 import '../theme/app_colors.dart';
 import '../utils/responsive_utils.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../theme/app_dimensions.dart';
+import '../theme/app_typography.dart';
+import '../../features/profile/presentation/providers/profile_providers.dart';
+import '../../features/social/presentation/providers/creator_wallet_provider.dart';
+import '../../features/profile/presentation/views/owner_profile_view.dart';
+import '../../features/profile/presentation/widgets/creator_avatar.dart';
 
 /// Shared top-bar geometry, surface and affordances for the Vhunambi shell.
 ///
@@ -74,17 +81,14 @@ class VhunambiTopBarSurface extends StatelessWidget {
     final bar = toolbarHeight ?? VhunambiTopBarMetrics.toolbarHeight(context);
     final content = Padding(
       padding: EdgeInsets.only(top: VhunambiTopBarMetrics.topInset(context)),
-      child: SizedBox(
-        height: bar,
-        width: double.infinity,
-        child: child,
-      ),
+      child: SizedBox(height: bar, width: double.infinity, child: child),
     );
 
     if (!enableBlur) {
       return Container(
         width: double.infinity,
-        decoration: decoration ??
+        decoration:
+            decoration ??
             BoxDecoration(
               color: AppColors.surfaceCanvas,
               border: Border(
@@ -95,7 +99,8 @@ class VhunambiTopBarSurface extends StatelessWidget {
       );
     }
 
-    final effectiveDecoration = decoration ??
+    final effectiveDecoration =
+        decoration ??
         BoxDecoration(
           color: AppColors.surfaceCanvas.withValues(alpha: surfaceOpacity),
           border: Border(
@@ -140,6 +145,69 @@ class VhunambiBackButton extends StatelessWidget {
       color: color ?? AppColors.textPrimary,
       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
       onPressed: onPressed ?? () => Navigator.of(context).maybePop(),
+    );
+  }
+}
+
+/// Standardized user coins chip synchronized across all top bars.
+class VhunambiUserCoinsChip extends ConsumerWidget {
+  const VhunambiUserCoinsChip({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final creatorWallet = ref.watch(creatorWalletProvider);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.coinGold.withAlpha(20),
+        borderRadius: AppRadius.pillBorder,
+        border: Border.all(color: AppColors.coinGold.withAlpha(120), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const PhosphorIcon(
+            PhosphorIconsFill.coins,
+            size: 14,
+            color: AppColors.coinGold,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${creatorWallet.userCoinsBalance} Coins',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.coinGold,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Standardized owner profile avatar button synchronized across all top bars.
+class VhunambiUserAvatarButton extends ConsumerWidget {
+  final double size;
+  const VhunambiUserAvatarButton({super.key, this.size = 32});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ownerProfile = ref.watch(ownerProfileProvider);
+    return InkWell(
+      onTap: () {
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const OwnerProfileView()));
+      },
+      borderRadius: BorderRadius.circular(size / 2),
+      child: CreatorAvatar(
+        size: size,
+        monogram: ownerProfile.monogram,
+        avatarUrl: ownerProfile.avatarUrl,
+      ),
     );
   }
 }

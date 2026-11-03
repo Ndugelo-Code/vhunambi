@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import '../../../sound_signature/domain/dsp/bantu_phonology.dart';
 import '../../../sound_signature/domain/dsp/bantu_similarity.dart';
 
@@ -23,40 +24,186 @@ class BantuLyricTranslationItem {
 /// Fallback sentinel when a phrase or word is not in the curated glossary.
 const String kMeaningUnavailable = 'meaning unavailable';
 
+/// Curated glossary entry with designated source language.
+class BantuGlossaryEntry {
+  const BantuGlossaryEntry({
+    required this.phrase,
+    required this.meaning,
+    required this.language,
+  });
+
+  final String phrase;
+  final String meaning;
+  final BantuLanguage language;
+}
+
 /// Small curated glossary of verified cultural phrases and lyric staples.
-///
-/// v1 requirement (REQ-BANTU-LYR-02): lexicon-based ONLY. Unknown words/lines
-/// yield [kMeaningUnavailable]. Zero AI/LLM fabrication of indigenous translations.
-const Map<String, String> kBantuCuratedGlossary = {
-  'sawubona': 'hello / I see you (isiZulu)',
-  'molo': 'hello (isiXhosa)',
-  'dumelang': 'greetings to all (Sesotho/Setswana)',
-  'ndaa': 'reverent greeting (Tshivenḓa male)',
-  'aa': 'reverent greeting (Tshivenḓa female)',
-  'avuxeni': 'good morning / greetings (Xitsonga)',
-  'yebo': 'yes / affirmation (Nguni)',
-  'ewe': 'yes (isiXhosa)',
-  'ee': 'yes (Sesotho)',
-  'ndi zwone': 'it is true / agreed (Tshivenḓa)',
-  'hi swona': 'it is correct (Xitsonga)',
-  'ngiyabonga': 'thank you (isiZulu)',
-  'enkosi': 'thank you (isiXhosa)',
-  'ke a leboga': 'thank you (Setswana/Sesotho)',
-  'ndo livhuwa': 'thank you (Tshivenḓa)',
-  'inkomu': 'thank you (Xitsonga)',
-  'hambani kahle': 'go well / peace be with you (isiZulu)',
-  'sala kahle': 'stay well (isiZulu)',
-  'tshimbilani zwavhudi': 'travel well (Tshivenḓa)',
-  'thando lwami': 'my love / my beloved (isiZulu)',
-  'mufunwa wanga': 'my beloved (Tshivenḓa)',
-  'moratuwa wa ka': 'my love (Sesotho)',
-  'shisa': 'bring the heat / burn bright',
-  'woza': 'come here / step forward',
-  'masambe': 'let us journey forward (isiXhosa)',
-  'kha ri tshimbile': 'let us move / let us walk (Tshivenḓa)',
-  'mutsho wa vhonala': 'the dawn appears / a new morning shines (Tshivenḓa)',
-  'taba ke yeo': 'that is the matter / the truth (Sepedi)',
-  'kuleli lizwe': 'in this beautiful country (isiZulu)',
+const List<BantuGlossaryEntry> kBantuCuratedEntries = [
+  BantuGlossaryEntry(
+    phrase: 'sawubona',
+    meaning: 'hello / I see you (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'molo',
+    meaning: 'hello (isiXhosa)',
+    language: BantuLanguage.xh,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'dumelang',
+    meaning: 'greetings to all (Sesotho/Setswana)',
+    language: BantuLanguage.st,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ndaa',
+    meaning: 'reverent greeting (Tshivenḓa male)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'aa',
+    meaning: 'reverent greeting (Tshivenḓa female)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'avuxeni',
+    meaning: 'good morning / greetings (Xitsonga)',
+    language: BantuLanguage.ts,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'yebo',
+    meaning: 'yes / affirmation (Nguni)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ewe',
+    meaning: 'yes (isiXhosa)',
+    language: BantuLanguage.xh,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ee',
+    meaning: 'yes (Sesotho)',
+    language: BantuLanguage.st,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ndi zwone',
+    meaning: 'it is true / agreed (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'hi swona',
+    meaning: 'it is correct (Xitsonga)',
+    language: BantuLanguage.ts,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ngiyabonga',
+    meaning: 'thank you (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'enkosi',
+    meaning: 'thank you (isiXhosa)',
+    language: BantuLanguage.xh,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ke a leboga',
+    meaning: 'thank you (Setswana/Sesotho)',
+    language: BantuLanguage.tn,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ndo livhuwa',
+    meaning: 'thank you (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'inkomu',
+    meaning: 'thank you (Xitsonga)',
+    language: BantuLanguage.ts,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'hambani kahle',
+    meaning: 'go well / peace be with you (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'sala kahle',
+    meaning: 'stay well (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'tshimbilani zwavhudi',
+    meaning: 'travel well (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'thando lwami',
+    meaning: 'my love / my beloved (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'mufunwa wanga',
+    meaning: 'my beloved (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'moratuwa wa ka',
+    meaning: 'my love (Sesotho)',
+    language: BantuLanguage.st,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'shisa',
+    meaning: 'bring the heat / burn bright',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'woza',
+    meaning: 'come here / step forward',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'masambe',
+    meaning: 'let us journey forward (isiXhosa)',
+    language: BantuLanguage.xh,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'kha ri tshimbile',
+    meaning: 'let us move / let us walk (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'mutsho wa vhonala',
+    meaning: 'the dawn appears / a new morning shines (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'taba ke yeo',
+    meaning: 'that is the matter / the truth (Sepedi)',
+    language: BantuLanguage.nso,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'kuleli lizwe',
+    meaning: 'in this beautiful country (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'matsheloni',
+    meaning: 'morning / greetings (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ndi matsheloni',
+    meaning: 'it is morning / morning greetings (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'makhado',
+    meaning: 'historical Venda town & heritage (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+];
+
+/// Backwards-compatible map view of curated glossary.
+final Map<String, String> kBantuCuratedGlossary = {
+  for (final entry in kBantuCuratedEntries) entry.phrase: entry.meaning,
 };
 
 /// Service providing deterministic lyric translation, phonetic guides, and cognate matches.
@@ -97,7 +244,10 @@ class BantuLyricTranslationService {
     final phonetic = generatePhoneticGuide(line);
 
     // 2. Lexicon lookup (REQ-BANTU-LYR-02)
-    final norm = line.toLowerCase().replaceAll(RegExp(r'[^\w\s\u00C0-\u017F]'), '').trim();
+    final norm = line
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s\u00C0-\u017F]'), '')
+        .trim();
     String meaning = kMeaningUnavailable;
     bool isMatch = false;
 
@@ -116,21 +266,57 @@ class BantuLyricTranslationService {
     }
 
     // 3. Cognate detection via BantuSimilarity (REQ-BANTU-LYR-06)
-    final sourceLang = BantuLanguage.fromCode(baseLanguageCode) ?? BantuLanguage.zu;
+    final sourceLang =
+        BantuLanguage.fromCode(baseLanguageCode) ?? BantuLanguage.zu;
     final cognates = <BantuSimilarityResult>[];
 
-    final words = norm.split(RegExp(r'\s+')).where((w) => w.length >= 3).toList();
+    const nonBantuTokens = {
+      'sunrise',
+      'sunset',
+      'morning',
+      'love',
+      'baby',
+      'yeah',
+      'the',
+      'and',
+      'in',
+      'on',
+      'at',
+      'to',
+      'for',
+      'of',
+      'with',
+      'from',
+      'remix',
+      'feat',
+      'ft',
+    };
+
+    final words = norm
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length >= 3 && !nonBantuTokens.contains(w))
+        .toList();
     for (final targetCode in targetCognateLanguages) {
       final targetLang = BantuLanguage.fromCode(targetCode);
       if (targetLang == null || targetLang == sourceLang) continue;
 
       for (final w in words) {
-        for (final glossKey in kBantuCuratedGlossary.keys) {
-          final candWords = glossKey.split(' ');
+        // Authentically compare only against candidate words originating in targetLang
+        for (final entry in kBantuCuratedEntries) {
+          if (entry.language != targetLang) continue;
+          final candWords = entry.phrase.split(' ');
           for (final cw in candWords) {
             if (cw.length >= 3) {
-              final sim = BantuSimilarity.compare(w, sourceLang, cw, targetLang);
-              if (sim.score >= 60 && !cognates.any((c) => c.sourceWord == w && c.targetWord == cw)) {
+              final sim = BantuSimilarity.compare(
+                w,
+                sourceLang,
+                cw,
+                targetLang,
+              );
+              if (sim.score >= 65 &&
+                  !cognates.any(
+                    (c) => c.sourceWord == w && c.targetWord == cw,
+                  )) {
                 cognates.add(sim);
               }
             }
@@ -223,5 +409,32 @@ class BantuLyricTranslationService {
     }
 
     return syllables;
+  }
+
+  /// Renders a phonetic guide string (with **bold** markdown tags) as a styled Widget
+  /// with zero raw markdown asterisks rendered on screen.
+  static Widget buildStyledPhoneticGuide(
+    String guideText, {
+    TextStyle? baseStyle,
+    Color? accentColor,
+  }) {
+    final parts = guideText.split('**');
+    final spans = <TextSpan>[];
+    for (int i = 0; i < parts.length; i++) {
+      if (parts[i].isEmpty) continue;
+      final isBold = i % 2 == 1;
+      spans.add(
+        TextSpan(
+          text: parts[i],
+          style: isBold
+              ? (baseStyle ?? const TextStyle()).copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: accentColor,
+                )
+              : baseStyle,
+        ),
+      );
+    }
+    return Text.rich(TextSpan(children: spans));
   }
 }

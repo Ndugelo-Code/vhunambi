@@ -618,20 +618,7 @@ class _UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.brandPrimary, width: 1.5),
-      ),
-      child: const PhosphorIcon(
-        AppIcons.user,
-        size: 18,
-        color: AppColors.brandPrimary,
-      ),
-    );
+    return const VhunambiUserAvatarButton(size: 36);
   }
 }
 

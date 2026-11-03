@@ -1,3 +1,4 @@
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design_system/services/haptics_service.dart';
@@ -24,26 +25,21 @@ class StudioActionBar extends ConsumerWidget {
 
     // VH-002: Visibility subtitle tracks current state ("public" | "private").
     final isPublic = state.visibility == 'public';
-    final visibilitySubtitle = isPublic
-        ? 'Visible on Explore & your profile'
-        : 'Only you can see this';
     final isAiLyrics =
         !state.isInstrumental && state.lyricsMode == LyricsMode.aiWrite;
     final ctaLabel = isAiLyrics ? 'Write Lyrics First' : 'Generate Song';
-    final ctaIcon =
-        isAiLyrics ? Icons.description_outlined : Icons.auto_awesome;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Compact Single-Row Action Deck: Visibility Toggle + Primary CTA Button (Reclaims ~85dp!)
+        // Sleek Single-Row Action Deck: Compact Visibility Pill + Un-truncated CTA
         Row(
           children: [
             Container(
               key: const Key('studio_visibility_toggle'),
               height: 46,
-              padding: const EdgeInsets.only(left: AppSpacing.sm, right: 4),
+              padding: const EdgeInsets.only(left: AppSpacing.sm, right: 2),
               decoration: BoxDecoration(
                 color: AppColors.surfaceSecondary,
                 borderRadius: AppRadius.pillBorder,
@@ -52,36 +48,21 @@ class StudioActionBar extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    isPublic ? Icons.public_rounded : Icons.lock_outline_rounded,
+                  PhosphorIcon(
+                    isPublic ? PhosphorIconsRegular.globe : PhosphorIconsRegular.lockKey,
                     color: AppColors.brandPrimary,
                     size: 16,
                   ),
-                  const SizedBox(width: 6),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Public',
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          height: 1.0,
-                        ),
-                      ),
-                      Text(
-                        visibilitySubtitle,
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.textTertiary,
-                          fontSize: 8.5,
-                          height: 1.1,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 4),
+                  Text(
+                    isPublic ? 'Public' : 'Private',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   Transform.scale(
-                    scale: 0.78,
+                    scale: 0.72,
                     child: Switch(
                       value: isPublic,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -108,7 +89,7 @@ class StudioActionBar extends ConsumerWidget {
                     backgroundColor: accent,
                     foregroundColor: _contrastTextColor(accent),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
+                      horizontal: AppSpacing.md,
                     ),
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
@@ -118,21 +99,19 @@ class StudioActionBar extends ConsumerWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        ctaIcon,
+                      PhosphorIcon(
+                        isAiLyrics ? PhosphorIconsRegular.fileText : PhosphorIconsRegular.sparkle,
                         size: 18,
                         color: _contrastTextColor(accent),
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          ctaLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.bodyLarge.copyWith(
-                            color: _contrastTextColor(accent),
-                            fontWeight: FontWeight.w700,
-                          ),
+                      const SizedBox(width: 8),
+                      Text(
+                        ctaLabel,
+                        maxLines: 1,
+                        style: AppTypography.titleSmall.copyWith(
+                          color: _contrastTextColor(accent),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ],

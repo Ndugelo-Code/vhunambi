@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
-import '../../../profile/presentation/views/owner_profile_view.dart';
-import '../../../profile/presentation/widgets/creator_avatar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -69,7 +67,7 @@ class MarketplaceTopBar extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(width: AppSpacing.sm),
+            const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: Center(
                 child: ConstrainedBox(
@@ -78,21 +76,12 @@ class MarketplaceTopBar extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: AppSpacing.sm),
+            const SizedBox(width: AppSpacing.xs),
             const _CreditChip(),
             const SizedBox(width: AppSpacing.xxs),
             const NotificationBellButton(),
-            const SizedBox(width: AppSpacing.xs),
-            InkWell(
-              key: const Key('marketplace_top_bar_user_avatar'),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const OwnerProfileView()),
-                );
-              },
-              borderRadius: BorderRadius.circular(18),
-              child: const CreatorAvatar(size: 32),
-            ),
+            const SizedBox(width: AppSpacing.xxs),
+            const VhunambiUserAvatarButton(size: 32),
           ],
         ),
       ),
@@ -139,7 +128,7 @@ class _MarketplaceSearchFieldState
 
     return Container(
       height: 42,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: AppColors.surfaceElevated,
         borderRadius: AppRadius.pillBorder,

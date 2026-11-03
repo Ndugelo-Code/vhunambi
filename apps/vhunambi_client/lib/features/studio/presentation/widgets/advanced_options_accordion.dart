@@ -1,3 +1,4 @@
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -6,6 +7,12 @@ import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../providers/studio_form_provider.dart';
 import 'guided_lyrics_composer.dart';
+
+class _MoodItem {
+  final String label;
+  final IconData icon;
+  const _MoodItem(this.label, this.icon);
+}
 
 class AdvancedOptionsAccordion extends ConsumerStatefulWidget {
   const AdvancedOptionsAccordion({super.key});
@@ -25,17 +32,17 @@ class _AdvancedOptionsAccordionState
 
   static const List<int> _durationSteps = [15, 30, 60, 120, 240, 360, 480];
 
-  static const List<String> _moods = [
-    '😊 Uplifting',
-    '🌧️ Melancholic',
-    '💕 Romantic',
-    '⚡ Energetic',
-    '🕊️ Peaceful',
-    '🔥 Angry',
-    '📻 Nostalgic',
-    '🌙 Mysterious',
-    '✨ Hopeful',
-    '🖤 Dark',
+  static const List<_MoodItem> _moods = [
+    _MoodItem('Uplifting', PhosphorIconsRegular.sun),
+    _MoodItem('Melancholic', PhosphorIconsRegular.cloudRain),
+    _MoodItem('Romantic', PhosphorIconsRegular.heart),
+    _MoodItem('Energetic', PhosphorIconsRegular.lightning),
+    _MoodItem('Peaceful', PhosphorIconsRegular.wind),
+    _MoodItem('Angry', PhosphorIconsRegular.fire),
+    _MoodItem('Nostalgic', PhosphorIconsRegular.cassetteTape),
+    _MoodItem('Mysterious', PhosphorIconsRegular.moon),
+    _MoodItem('Hopeful', PhosphorIconsRegular.sparkle),
+    _MoodItem('Dark', PhosphorIconsRegular.skull),
   ];
 
   @override
@@ -241,7 +248,8 @@ class _AdvancedOptionsAccordionState
                       child: Row(
                         children: [
                           _buildLyricsModeTab(
-                            title: '✨ AI writes lyrics',
+                            title: 'AI writes lyrics',
+                            icon: PhosphorIconsRegular.sparkle,
                             mode: LyricsMode.aiWrite,
                             activeMode: state.lyricsMode,
                             onTap: () =>
@@ -249,7 +257,8 @@ class _AdvancedOptionsAccordionState
                           ),
                           const SizedBox(width: AppSpacing.xs),
                           _buildLyricsModeTab(
-                            title: '✍️ My own lyrics',
+                            title: 'My own lyrics',
+                            icon: PhosphorIconsRegular.pen,
                             mode: LyricsMode.myOwn,
                             activeMode: state.lyricsMode,
                             onTap: () =>
@@ -257,7 +266,8 @@ class _AdvancedOptionsAccordionState
                           ),
                           const SizedBox(width: AppSpacing.xs),
                           _buildLyricsModeTab(
-                            title: '📷 From photo',
+                            title: 'From photo',
+                            icon: PhosphorIconsRegular.camera,
                             mode: LyricsMode.fromPhoto,
                             activeMode: state.lyricsMode,
                             onTap: () =>
@@ -382,10 +392,9 @@ class _AdvancedOptionsAccordionState
                     spacing: AppSpacing.xs,
                     runSpacing: AppSpacing.xs,
                     children: _moods.map((m) {
-                      final cleanName = m.split(' ').last;
-                      final isSelected = state.mood == cleanName;
+                      final isSelected = state.mood == m.label;
                       return InkWell(
-                        onTap: () => notifier.setMood(cleanName),
+                        onTap: () => notifier.setMood(m.label),
                         borderRadius: AppRadius.pillBorder,
                         child: Container(
                           constraints: const BoxConstraints(minHeight: 44),
@@ -405,16 +414,29 @@ class _AdvancedOptionsAccordionState
                                   : AppColors.borderSubtle,
                             ),
                           ),
-                          child: Text(
-                            m,
-                            style: AppTypography.bodySmall.copyWith(
-                              color: isSelected
-                                  ? AppColors.brandContrast
-                                  : AppColors.textSecondary,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w400,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              PhosphorIcon(
+                                m.icon,
+                                size: 15,
+                                color: isSelected
+                                    ? AppColors.brandContrast
+                                    : AppColors.brandPrimary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                m.label,
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: isSelected
+                                      ? AppColors.brandContrast
+                                      : AppColors.textSecondary,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );
@@ -525,21 +547,24 @@ class _AdvancedOptionsAccordionState
                     Row(
                       children: [
                         _buildChoiceChip<VocalEnergy>(
-                          label: '🌙 Soft',
+                          label: 'Soft',
+                          icon: PhosphorIconsRegular.moon,
                           value: VocalEnergy.soft,
                           current: state.vocalEnergy,
                           onSelected: notifier.setVocalEnergy,
                         ),
                         const SizedBox(width: AppSpacing.xs),
                         _buildChoiceChip<VocalEnergy>(
-                          label: '☀️ Mid',
+                          label: 'Mid',
+                          icon: PhosphorIconsRegular.sunHorizon,
                           value: VocalEnergy.mid,
                           current: state.vocalEnergy,
                           onSelected: notifier.setVocalEnergy,
                         ),
                         const SizedBox(width: AppSpacing.xs),
                         _buildChoiceChip<VocalEnergy>(
-                          label: '🔥 Intense',
+                          label: 'Intense',
+                          icon: PhosphorIconsRegular.fire,
                           value: VocalEnergy.intense,
                           current: state.vocalEnergy,
                           onSelected: notifier.setVocalEnergy,
@@ -620,16 +645,29 @@ class _AdvancedOptionsAccordionState
                                   : AppColors.borderSubtle,
                             ),
                           ),
-                          child: Text(
-                            '✨ AI picks title',
-                            style: AppTypography.bodySmall.copyWith(
-                              color: state.isAutoTitle
-                                  ? AppColors.brandContrast
-                                  : AppColors.textSecondary,
-                              fontWeight: state.isAutoTitle
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              PhosphorIcon(
+                                PhosphorIconsRegular.sparkle,
+                                size: 15,
+                                color: state.isAutoTitle
+                                    ? AppColors.brandContrast
+                                    : AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'AI picks title',
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: state.isAutoTitle
+                                      ? AppColors.brandContrast
+                                      : AppColors.textSecondary,
+                                  fontWeight: state.isAutoTitle
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -655,16 +693,29 @@ class _AdvancedOptionsAccordionState
                                   : AppColors.borderSubtle,
                             ),
                           ),
-                          child: Text(
-                            "✍️ I'll name it",
-                            style: AppTypography.bodySmall.copyWith(
-                              color: !state.isAutoTitle
-                                  ? AppColors.brandContrast
-                                  : AppColors.textSecondary,
-                              fontWeight: !state.isAutoTitle
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              PhosphorIcon(
+                                PhosphorIconsRegular.pen,
+                                size: 15,
+                                color: !state.isAutoTitle
+                                    ? AppColors.brandContrast
+                                    : AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                "I'll name it",
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: !state.isAutoTitle
+                                      ? AppColors.brandContrast
+                                      : AppColors.textSecondary,
+                                  fontWeight: !state.isAutoTitle
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -709,6 +760,7 @@ class _AdvancedOptionsAccordionState
     required LyricsMode mode,
     required LyricsMode activeMode,
     required VoidCallback onTap,
+    IconData? icon,
   }) {
     final isSelected = mode == activeMode;
     return InkWell(
@@ -731,14 +783,29 @@ class _AdvancedOptionsAccordionState
             color: isSelected ? AppColors.brandPrimary : AppColors.borderSubtle,
           ),
         ),
-        child: Text(
-          title,
-          style: AppTypography.bodySmall.copyWith(
-            color: isSelected
-                ? AppColors.brandContrast
-                : AppColors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              PhosphorIcon(
+                icon,
+                size: 15,
+                color: isSelected
+                    ? AppColors.brandContrast
+                    : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              title,
+              style: AppTypography.bodySmall.copyWith(
+                color: isSelected
+                    ? AppColors.brandContrast
+                    : AppColors.textSecondary,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -800,6 +867,7 @@ class _AdvancedOptionsAccordionState
     required T value,
     required T current,
     required void Function(T) onSelected,
+    IconData? icon,
   }) {
     final isSelected = value == current;
     return InkWell(
@@ -822,14 +890,29 @@ class _AdvancedOptionsAccordionState
             color: isSelected ? AppColors.brandPrimary : AppColors.borderSubtle,
           ),
         ),
-        child: Text(
-          label,
-          style: AppTypography.bodySmall.copyWith(
-            color: isSelected
-                ? AppColors.brandContrast
-                : AppColors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              PhosphorIcon(
+                icon,
+                size: 15,
+                color: isSelected
+                    ? AppColors.brandContrast
+                    : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: AppTypography.bodySmall.copyWith(
+                color: isSelected
+                    ? AppColors.brandContrast
+                    : AppColors.textSecondary,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

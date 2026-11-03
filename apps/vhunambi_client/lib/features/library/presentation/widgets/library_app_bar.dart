@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
-import '../../../profile/presentation/views/owner_profile_view.dart';
-import '../../../profile/presentation/widgets/creator_avatar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
@@ -63,16 +61,7 @@ class LibraryAppBar extends ConsumerWidget {
                   const SizedBox(width: AppSpacing.xs),
                   const NotificationBellButton(),
         const SizedBox(width: AppSpacing.xxs),
-        InkWell(
-          key: const Key('library_mobile_user_avatar'),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const OwnerProfileView()),
-            );
-          },
-          borderRadius: BorderRadius.circular(18),
-          child: const CreatorAvatar(size: 32),
-        ),
+        const VhunambiUserAvatarButton(size: 32),
                   const SizedBox(width: AppSpacing.xxs),
                   const _AnalyticsButton(),
                   const SizedBox(width: AppSpacing.xxs),
@@ -161,35 +150,7 @@ class _CreditBalancePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 6,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
-        borderRadius: AppRadius.pillBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            PhosphorIconsRegular.lightning,
-            size: 15,
-            color: AppColors.brandPrimary,
-          ),
-          const SizedBox(width: AppSpacing.xxs),
-          Text(
-            LibraryAppBar.creditBalanceLabel,
-            style: AppTypography.caption.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
+    return const VhunambiUserCoinsChip();
   }
 }
 

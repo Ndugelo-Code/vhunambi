@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:phosphor_icons/phosphor_icons.dart';
-import '../../features/profile/presentation/views/owner_profile_view.dart';
-import '../../features/profile/presentation/widgets/creator_avatar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_dimensions.dart';
 import '../theme/app_typography.dart';
 import '../constants/app_assets.dart';
@@ -52,55 +48,16 @@ class VhunambiAppBar extends ConsumerWidget {
               ),
               const Spacer(),
 
-              // Token Balance Badge (Centered vertically with lineHeight 1.1 so it never clips)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
-                  borderRadius: AppRadius.pillBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const PhosphorIcon(
-                      PhosphorIconsRegular.lightning,
-                      size: 15,
-                      color: AppColors.brandPrimary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '10 left',
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                        height: 1.1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // Synchronized User Coins Chip
+              const VhunambiUserCoinsChip(),
               const SizedBox(width: AppSpacing.xs),
 
               // Live Alert Centre (Phase 11)
               const NotificationBellButton(),
               const SizedBox(width: AppSpacing.xs),
 
-              // Creator Profile Shortcut
-              InkWell(
-                key: const Key('studio_top_bar_user_avatar'),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const OwnerProfileView()),
-                  );
-                },
-                borderRadius: BorderRadius.circular(18),
-                child: const CreatorAvatar(size: 32),
-              ),
+              // Synchronized Creator Profile Avatar
+              const VhunambiUserAvatarButton(size: 32),
             ],
           ),
         ),

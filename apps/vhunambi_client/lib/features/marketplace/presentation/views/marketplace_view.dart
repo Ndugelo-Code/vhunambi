@@ -15,7 +15,6 @@ import '../widgets/beat_license_modal.dart';
 import '../widgets/marketplace_empty_state.dart';
 import '../widgets/marketplace_filter_modal.dart';
 import '../widgets/marketplace_top_bar.dart';
-import '../widgets/pwa_install_dock.dart';
 import '../widgets/seller_callout_banner.dart';
 
 /// Beats Marketplace (`/market`) — mounted at tab index 4 of `RootShell`.
@@ -114,13 +113,7 @@ class MarketplaceView extends ConsumerWidget {
             ],
           ),
 
-          // Persistent PWA installation dock
-          const Positioned(
-            left: AppSpacing.md,
-            right: AppSpacing.md,
-            bottom: AppSpacing.sm,
-            child: PwaInstallDock(),
-          ),
+
         ],
       ),
     );

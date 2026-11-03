@@ -9,7 +9,6 @@ import 'package:vhunambi_client/features/marketplace/presentation/views/marketpl
 import 'package:vhunambi_client/features/marketplace/presentation/widgets/beat_card.dart';
 import 'package:vhunambi_client/features/marketplace/presentation/widgets/marketplace_empty_state.dart';
 import 'package:vhunambi_client/features/marketplace/presentation/widgets/marketplace_top_bar.dart';
-import 'package:vhunambi_client/features/marketplace/presentation/widgets/pwa_install_dock.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
 
 Future<void> _pumpMarketplace(
@@ -62,12 +61,6 @@ void main() {
     expect(find.text('⚡ 5 Credits'), findsNWidgets(6));
     expect(find.text('License Beat'), findsNWidgets(6));
     expect(find.text('@sipho_beats'), findsOneWidget);
-
-    // Persistent PWA install dock (REQ-MKT-06)
-    expect(find.byType(PwaInstallDock), findsOneWidget);
-    expect(find.text('Install VHUNAMBI'), findsOneWidget);
-    expect(find.text('Not now'), findsOneWidget);
-    expect(find.text('How?'), findsOneWidget);
   });
 
   testWidgets('Mobile marketplace keeps the compact top bar and 2-column grid',
@@ -79,17 +72,6 @@ void main() {
     expect(find.text('10 songs left'), findsOneWidget);
     expect(find.text('Beats Marketplace'), findsOneWidget);
     expect(find.byType(BeatCard), findsNWidgets(6));
-    expect(find.text('Install VHUNAMBI'), findsOneWidget);
-  });
-
-  testWidgets('PWA dock is dismissed by Not now', (WidgetTester tester) async {
-    await _pumpMarketplace(tester);
-    expect(find.byType(PwaInstallDock), findsOneWidget);
-
-    await tester.tap(find.text('Not now'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Install VHUNAMBI'), findsNothing);
   });
 
   testWidgets('Seller callout routes to the Library tab',

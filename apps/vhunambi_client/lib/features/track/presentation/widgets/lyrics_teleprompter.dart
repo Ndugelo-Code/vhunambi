@@ -184,12 +184,13 @@ class _LyricsTeleprompterState extends State<LyricsTeleprompter> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
+                  BantuLyricTranslationService.buildStyledPhoneticGuide(
                     trans.phoneticSingAlongGuide,
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.brandPrimary,
+                    baseStyle: AppTypography.caption.copyWith(
+                      color: AppColors.brandPrimary.withAlpha(200),
                       letterSpacing: 0.3,
                     ),
+                    accentColor: AppColors.brandPrimary,
                   ),
                   if (trans.hasMeaning)
                     Padding(
