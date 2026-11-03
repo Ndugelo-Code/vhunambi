@@ -588,3 +588,40 @@ export function getVoiceCloneProfile(id: string): CreatorVoiceCloneProfile | und
   return clonedVoiceStore.get(id);
 }
 
+/** Registry of Sovereign Sound Signatures (Phase 35 / Design 8.2) */
+const soundSignatureStore = new Map<string, any>();
+
+export function registerSoundSignature(data: any): any {
+  const now = new Date().toISOString();
+  const record = {
+    ...data,
+    recipe: data.recipe ?? {},
+    r2AudioKey: `signatures/${data.id}/raw.wav`,
+    createdAtIso: now,
+    updatedAtIso: now,
+  };
+  soundSignatureStore.set(data.id, record);
+  return record;
+}
+
+export function getSoundSignature(id: string): any | undefined {
+  return soundSignatureStore.get(id);
+}
+
+export function updateSoundSignatureRecipe(id: string, recipeUpdate: any): any | undefined {
+  const existing = soundSignatureStore.get(id);
+  if (!existing) return undefined;
+  const updated = {
+    ...existing,
+    recipe: { ...existing.recipe, ...recipeUpdate },
+    updatedAtIso: new Date().toISOString(),
+  };
+  soundSignatureStore.set(id, updated);
+  return updated;
+}
+
+export function deleteSoundSignature(id: string): boolean {
+  return soundSignatureStore.delete(id);
+}
+
+

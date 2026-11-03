@@ -170,6 +170,7 @@ class CreatorVoiceCloneProfile {
     required this.recordingDurationSec,
     required this.createdAtIso,
     this.r2ReferenceUrl,
+    this.signatureId,
     this.recommendedCleanseFlavor = VocalCleanseFlavor.studioClean,
   });
 
@@ -184,6 +185,9 @@ class CreatorVoiceCloneProfile {
   final double recordingDurationSec;
   final String createdAtIso;
   final String? r2ReferenceUrl;
+
+  /// Phase 35: Link to immutable local SoundSignatureDna entity (REQ-SIG-DNA-05).
+  final String? signatureId;
   final VocalCleanseFlavor recommendedCleanseFlavor;
 
   Map<String, dynamic> toJson() => {
@@ -198,6 +202,7 @@ class CreatorVoiceCloneProfile {
         'recordingDurationSec': recordingDurationSec,
         'createdAtIso': createdAtIso,
         'r2ReferenceUrl': r2ReferenceUrl,
+        'signatureId': signatureId,
         'recommendedCleanseFlavor': recommendedCleanseFlavor.wireValue,
       };
 
@@ -228,6 +233,7 @@ class CreatorVoiceCloneProfile {
       createdAtIso:
           (json['createdAtIso'] as String?) ?? DateTime.now().toIso8601String(),
       r2ReferenceUrl: json['r2ReferenceUrl'] as String?,
+      signatureId: json['signatureId'] as String?,
       recommendedCleanseFlavor: VocalCleanseFlavor.fromWire(
         (json['recommendedCleanseFlavor'] as String?) ?? 'studio_clean',
       ),

@@ -3,6 +3,8 @@
     <!-- Production permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Phase 35 Sovereign Audio Intake: Microphone recording -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Phase 9 hardware audio bridge (audio_service): background media playback. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

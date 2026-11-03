@@ -26,6 +26,7 @@ import requests
 import runpod
 import numpy as np
 import soundfile as sf
+import librosa
 
 from mmo_extractor import (
     separate_stems_with_demucs,
@@ -33,6 +34,8 @@ from mmo_extractor import (
     upload_artifacts_to_r2,
     STEM_ROLES,
 )
+from seed_vc_worker import convert_vocal_stem_with_seed_vc
+from stem_mastering_worker import master_stems_to_commercial_target
 
 WEBHOOK_SECRET = os.environ.get("ZR_WEBHOOK_SECRET", "")
 
@@ -114,6 +117,35 @@ def runpod_handler(job: dict) -> dict:
 
         stems_dir = os.path.join(work_dir, "stems")
         stem_paths = separate_stems_with_demucs(master_wav_path, stems_dir)
+
+        # 3.5. Phase 26/35: Zero-Shot Singing Voice Conversion (Seed-VC)
+        svc_config = job_input.get("svc_config")
+        if svc_config and "vocals" in stem_paths:
+            print("[GPU Worker] Applying Seed-VC Zero-Shot Singing Voice Conversion to vocals stem")
+            converted_vox_path = os.path.join(stems_dir, "vocals_converted.wav")
+            svc_result = convert_vocal_stem_with_seed_vc(
+                vocals_wav_path=stem_paths["vocals"],
+                svc_config_dict=svc_config,
+                output_wav_path=converted_vox_path,
+            )
+            if os.path.exists(converted_vox_path):
+                stem_paths["vocals"] = converted_vox_path
+
+        # 3.6. Phase 25: Stem-Targeted Studio Mastering & Sub-harmonic synthesis
+        mastering_recipe = job_input.get("mastering_recipe")
+        if mastering_recipe:
+            print("[GPU Worker] Applying Phase 25 4-stem studio mastering and true-peak limiting")
+            stems_for_mastering = {}
+            for role, p in stem_paths.items():
+                data, _ = sf.read(p, dtype="float32")
+                stems_for_mastering[role] = data.T if data.ndim > 1 else data
+            sr_mastering = 44100
+            mastered_master = master_stems_to_commercial_target(
+                stems=stems_for_mastering,
+                sr=sr_mastering,
+                recipe=mastering_recipe,
+            )
+            sf.write(master_wav_path, mastered_master.T if mastered_master.ndim > 1 else mastered_master, sr_mastering)
 
         # 4. Telemetry Extraction
         master_sig, sr = librosa.load(master_wav_path, sr=22050, mono=True)

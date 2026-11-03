@@ -16,7 +16,7 @@ import '../../domain/services/phonetic_calibration_extractor.dart';
 final voiceCalibrationRecorderProvider = Provider<IVoiceCalibrationRecorder>((
   ref,
 ) {
-  final recorder = DeterministicVoiceCalibrationRecorder();
+  final recorder = ProductionVoiceCalibrationRecorder();
   ref.onDispose(recorder.dispose);
   return recorder;
 });
@@ -343,6 +343,7 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
       recordingDurationSec: result.durationSec,
       createdAtIso: DateTime.now().toIso8601String(),
       recommendedCleanseFlavor: VocalCleanseFlavor.studioClean,
+      signatureId: result.signature?.id,
     );
 
     final updatedList = [profile, ...state.clonedProfiles];

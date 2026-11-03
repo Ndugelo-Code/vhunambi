@@ -1,3 +1,4 @@
+import '../../../sound_signature/domain/services/audio_import_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -298,11 +299,25 @@ class _ReferenceAudioDropzoneState
                   else
                     // Upload Target Box
                     InkWell(
-                      onTap: () {
-                        // Mock simulated reference audio selection
-                        ref
-                            .read(studioFormProvider.notifier)
-                            .setReferenceAudio('user_sample_stem_vocal.wav');
+                      onTap: () async {
+                        try {
+                          const importService = AudioImportService();
+                          final result = await importService.pickAndDecodeAudioFile();
+                          if (result != null && context.mounted) {
+                            ref
+                                .read(studioFormProvider.notifier)
+                                .setReferenceAudio(result.fileName);
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
                       },
                       borderRadius: AppRadius.inputBorder,
                       child: Container(

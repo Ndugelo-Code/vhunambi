@@ -75,6 +75,48 @@ export const CreatorVoiceCloneProfileSchema = z.object({
   r2ReferenceUrl: z.string(),
   recommendedCleanseFlavor: VocalCleanseFlavorSchema,
   createdAtIso: z.string(),
+  signatureId: z.string().optional(),
 });
 export type CreatorVoiceCloneProfile = z.infer<typeof CreatorVoiceCloneProfileSchema>;
+
+export const SoundIdealizerRecipeSchema = z.object({
+  pitchScaleLock: z.number().min(0).max(1).default(0.9),
+  vibratoAndSustainPolish: z.number().min(0).max(1).default(0.75),
+  formantDepthShiftSemitones: z.number().min(-3).max(3).default(0.0),
+  chestPowerAndAirBoost: z.number().min(0).max(1).default(0.8),
+  quantizePocketStrength: z.number().min(0).max(1).default(0.85),
+  hybridArchetypeId: z.string().nullable().optional(),
+  hybridBlendMix: z.number().min(0).max(0.75).default(0.25),
+  referenceCleanup: z.number().min(0).max(1).default(0.7),
+});
+export type SoundIdealizerRecipe = z.infer<typeof SoundIdealizerRecipeSchema>;
+
+export const RegisterSoundSignatureSchema = z.object({
+  id: z.string().min(1),
+  displayCode: z.string().min(1),
+  source: z.enum(['live', 'imported']),
+  durationSec: z.number().min(1).max(180),
+  recipe: SoundIdealizerRecipeSchema.optional().default({}),
+  descriptor16: z.array(z.number()).length(16),
+  formants4: z.array(z.number()).length(4),
+  consentAtIso: z.string().optional(),
+});
+export type RegisterSoundSignatureRequest = z.infer<typeof RegisterSoundSignatureSchema>;
+
+export const SoundSignatureRecordSchema = z.object({
+  id: z.string(),
+  displayCode: z.string(),
+  source: z.enum(['live', 'imported']),
+  durationSec: z.number(),
+  recipe: SoundIdealizerRecipeSchema,
+  descriptor16: z.array(z.number()),
+  formants4: z.array(z.number()),
+  consentAtIso: z.string().optional(),
+  cloudEmbeddingRef: z.string().optional(),
+  r2AudioKey: z.string().optional(),
+  createdAtIso: z.string(),
+  updatedAtIso: z.string(),
+});
+export type SoundSignatureRecord = z.infer<typeof SoundSignatureRecordSchema>;
+
 

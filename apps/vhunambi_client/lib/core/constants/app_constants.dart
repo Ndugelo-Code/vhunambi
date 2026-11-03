@@ -42,5 +42,8 @@ abstract final class AppConstants {
 
   // Adaptive Theme Mode & Appearance Preferences — Phase 33 Hive persistence
   static const String themePrefsBoxKey = 'vhunambi_theme_prefs_box';
+
+  /// Phase 35: Sovereign Sound Signature DNA Hive box key.
+  static const String soundSignaturesBoxKey = 'vhunambi_sound_signatures_box';
 }
 
