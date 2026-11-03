@@ -19,10 +19,8 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 subprojects {
-    afterEvaluate {
-        tasks.matching { it.name.startsWith("verifyReleaseResources") }.configureEach {
-            enabled = false
-        }
+    tasks.matching { it.name.startsWith("verifyReleaseResources") }.configureEach {
+        enabled = false
     }
 }
 
