@@ -21,6 +21,7 @@ import '../../../player/presentation/widgets/stem_mixer_deck.dart';
 import 'reels_comment_sheet.dart';
 import 'creator_tipping_sheet.dart';
 import 'remix_attribution_badge.dart';
+import '../../../studio/domain/services/bantu_lyric_translation_service.dart';
 import '../../../explore/domain/models/explore_models.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
 import '../../../explore/presentation/views/explore_search_view.dart';
@@ -661,7 +662,113 @@ class _ActionRail extends StatefulWidget {
 
 class _ActionRailState extends State<_ActionRail> {
   bool _showReactions = false;
+  bool _translateActive = false;
   static const List<String> _culturalEmojis = ['🔥', '👑', '🇿🇦', '🎹', '❤️'];
+
+    void _showTranslationSheet(BuildContext context, PublishedClip clip) {
+    final String rawLyrics;
+    if (clip.dna.alignment.isNotEmpty) {
+      final buffer = StringBuffer();
+      int currentStanza = clip.dna.alignment.first.stanzaIndex;
+      for (final word in clip.dna.alignment) {
+        if (word.stanzaIndex != currentStanza) {
+          buffer.write('\n');
+          currentStanza = word.stanzaIndex;
+        } else if (buffer.isNotEmpty) {
+          buffer.write(' ');
+        }
+        buffer.write(word.word);
+      }
+      rawLyrics = buffer.toString();
+    } else {
+      rawLyrics = clip.caption;
+    }
+
+    final lines = BantuLyricTranslationService.processLyrics(
+      lyricsText: rawLyrics,
+      baseLanguageCode: clip.dna.language,
+    );
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceModal,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.modalBorder,
+        side: BorderSide(color: AppColors.borderSubtle),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    PhosphorIcons.translate(PhosphorIconsStyle.regular),
+                    size: 18,
+                    color: AppColors.brandPrimary,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text('Bantu Sing-Along & Meaning', style: AppTypography.titleMedium),
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Flexible(
+                child: lines.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Text(
+                          'No lyrics available to translate',
+                          style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                        ),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: lines.length,
+                        separatorBuilder: (_, _) => const Divider(height: 12),
+                        itemBuilder: (_, i) {
+                          final item = lines[i];
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.originalLine, style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 2),
+                              Text(item.phoneticSingAlongGuide, style: AppTypography.caption.copyWith(color: AppColors.brandPrimary)),
+                              if (item.hasMeaning)
+                                Text(item.translatedMeaning, style: AppTypography.caption.copyWith(color: AppColors.textSecondary, fontStyle: FontStyle.italic)),
+                              if (item.cognateMatches.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.brandPrimary.withAlpha(20),
+                                      borderRadius: AppRadius.pillBorder,
+                                      border: Border.all(color: AppColors.brandPrimary.withAlpha(50)),
+                                    ),
+                                    child: Text(
+                                      'Cognate: ${item.cognateMatches.first.target.displayName} (${item.cognateMatches.first.score}%) • indicative',
+                                      style: TextStyle(fontSize: 10, color: AppColors.brandPrimary, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   void _recordLove(BuildContext context, WidgetRef ref, {String emoji = '❤️'}) {
     HapticFeedback.mediumImpact();
@@ -766,6 +873,18 @@ class _ActionRailState extends State<_ActionRail> {
             ),
             const SizedBox(height: 18),
             _RailButton(
+              key: const Key('reel_translate_lyrics_toggle'),
+              icon: PhosphorIcons.translate(PhosphorIconsStyle.regular),
+              color: _translateActive ? AppColors.brandPrimary : AppColors.textPrimary,
+              label: 'Translate',
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _translateActive = !_translateActive);
+                _showTranslationSheet(context, widget.clip);
+              },
+            ),
+            const SizedBox(height: 18),
+            _RailButton(
               key: const Key('reel_remix_btn'),
               icon: AppIcons.remix,
               color: AppColors.badgeCyan,
@@ -834,15 +953,20 @@ class _RailButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
-      child: Column(
-        children: [
-          PhosphorIcon(icon, color: color, size: 30),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: AppTypography.caption.copyWith(color: AppColors.textPrimary),
-          ),
-        ],
+      behavior: HitTestBehavior.opaque,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PhosphorIcon(icon, color: color, size: 30),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: AppTypography.caption.copyWith(color: AppColors.textPrimary),
+            ),
+          ],
+        ),
       ),
     );
   }

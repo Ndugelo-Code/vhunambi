@@ -21,6 +21,7 @@ class SoundSignatureIdealizerSheet extends StatefulWidget {
   const SoundSignatureIdealizerSheet({
     super.key,
     required this.signature,
+    this.initialRecipe,
     this.rawPcm441,
     this.onSaveRecipe,
     this.onApplyStem,
@@ -30,6 +31,7 @@ class SoundSignatureIdealizerSheet extends StatefulWidget {
   });
 
   final SoundSignatureDna signature;
+  final SoundIdealizerRecipe? initialRecipe;
   final Float32List? rawPcm441;
   final void Function(SoundIdealizerRecipe recipe)? onSaveRecipe;
   final void Function(Float32List idealizedPcm)? onApplyStem;
@@ -61,7 +63,7 @@ class _SoundSignatureIdealizerSheetState
   @override
   void initState() {
     super.initState();
-    _recipe = widget.signature.recipe;
+    _recipe = widget.initialRecipe ?? widget.signature.recipe;
     _updateTrajectory();
   }
 

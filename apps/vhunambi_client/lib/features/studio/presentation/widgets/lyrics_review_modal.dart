@@ -13,6 +13,9 @@ import '../providers/generation_pipeline_providers.dart';
 import '../providers/lyrics_review_provider.dart';
 import '../providers/studio_form_provider.dart';
 import 'voice_clone_recorder_sheet.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../sound_signature/domain/dsp/bantu_phonology.dart';
+import '../../../sound_signature/domain/dsp/bantu_similarity.dart';
 
 /// Section id of the stanza editor the creator focused most recently while
 /// the cockpit has been open (`null` when none has been focused this session).
@@ -27,7 +30,7 @@ final _activeStanzaIdProvider = StateProvider<String?>((ref) => null);
 ///
 /// Desktop viewports (> 1024px) get a centred elevated dialog; mobile gets an
 /// expandable 90% bottom sheet.
-class LyricsReviewModal extends ConsumerWidget {
+class LyricsReviewModal extends ConsumerStatefulWidget {
   const LyricsReviewModal({super.key});
 
   static Future<void> show(BuildContext context) {
@@ -66,7 +69,14 @@ class LyricsReviewModal extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LyricsReviewModal> createState() => _LyricsReviewModalState();
+}
+
+class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
+  bool _storyMode = false;
+
+  @override
+  Widget build(BuildContext context) {
     final draft = ref.watch(lyricsReviewProvider);
 
     // The cockpit only mounts while a draft exists — guard disposal races
@@ -81,6 +91,9 @@ class LyricsReviewModal extends ConsumerWidget {
         children: [
           _LyricsReviewHeader(
             draft: draft,
+            isStoryMode: _storyMode,
+            onToggleStoryMode: () => setState(() => _storyMode = !_storyMode),
+            onOpenCognateFinder: () => _openCognateFinder(context, draft),
             onClose: () => _handleClose(context, ref),
             onCopy: () => unawaited(_handleCopyLyrics(context, draft)),
           ),
@@ -92,6 +105,33 @@ class LyricsReviewModal extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _PromptSummaryCard(draft: draft),
+                  if (_storyMode) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.brandPrimary.withAlpha(25),
+                        borderRadius: AppRadius.cardBorder,
+                        border: Border.all(color: AppColors.brandPrimary.withAlpha(60)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            PhosphorIcons.bookOpen(PhosphorIconsStyle.fill),
+                            size: 16,
+                            color: AppColors.brandPrimary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Story-to-Lyrics Mode Active: Original narrative mapped into authentic ${draft.genre} structure without rewriting your words.',
+                              style: AppTypography.caption.copyWith(color: AppColors.textPrimary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.md),
                   if (!draft.isRawEditorMode) ...[
                     for (final section in draft.sections) ...[
@@ -128,6 +168,102 @@ class LyricsReviewModal extends ConsumerWidget {
   }
 
   /// REQ-LYR-09 — confirms before dropping an edited draft.
+    void _openCognateFinder(BuildContext context, LyricsReviewDraft draft) {
+    final lang = BantuLanguage.fromCode(draft.language) ?? BantuLanguage.zu;
+    final words = draft
+        .rebuildRawText()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s\u00C0-\u017F]'), '')
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length >= 3)
+        .take(5)
+        .toList();
+
+    final results = <BantuSimilarityResult>[];
+    for (final w in words) {
+      for (final target in BantuLanguage.values) {
+        if (target != lang) {
+          final res = BantuSimilarity.compare(w, lang, w, target);
+          if (res.score >= 50) {
+            results.add(res);
+          }
+        }
+      }
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceModal,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.modalBorder,
+        side: BorderSide(color: AppColors.borderSubtle),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    PhosphorIcons.treeStructure(PhosphorIconsStyle.regular),
+                    size: 18,
+                    color: AppColors.brandPrimary,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text('Bantu Cognate & Rhyme Finder', style: AppTypography.titleMedium),
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                'Peer-branch sound correspondences (indicative):',
+                style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Flexible(
+                child: results.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Text(
+                          'No direct cognates found above 50% threshold for current stanza words.',
+                          style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                        ),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: results.take(8).length,
+                        separatorBuilder: (_, _) => const Divider(height: 8),
+                        itemBuilder: (_, i) {
+                          final r = results[i];
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              '${r.sourceWord} (${r.source.code}) ➔ ${r.targetWord} (${r.target.code})',
+                              style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Text(
+                              'Score: ${r.score}% • Route: ${r.route.isIntraBranch ? "Intra-branch identity" : "Cross-branch pairwise shift"}',
+                              style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleClose(BuildContext context, WidgetRef ref) async {
     final notifier = ref.read(lyricsReviewProvider.notifier);
     final navigator = Navigator.of(context);
@@ -180,11 +316,17 @@ class LyricsReviewModal extends ConsumerWidget {
 class _LyricsReviewHeader extends StatelessWidget {
   const _LyricsReviewHeader({
     required this.draft,
+    required this.isStoryMode,
+    required this.onToggleStoryMode,
+    required this.onOpenCognateFinder,
     required this.onClose,
     required this.onCopy,
   });
 
   final LyricsReviewDraft draft;
+  final bool isStoryMode;
+  final VoidCallback onToggleStoryMode;
+  final VoidCallback onOpenCognateFinder;
   final VoidCallback onClose;
   final VoidCallback onCopy;
 
@@ -215,6 +357,40 @@ class _LyricsReviewHeader extends StatelessWidget {
                   style: AppTypography.caption,
                 ),
               ],
+            ),
+          ),
+          // Story-to-Lyrics Mode Toggle (REQ-BANTU-STORY-07)
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: IconButton(
+              key: const Key('lyrics_story_mode_toggle'),
+              tooltip: 'Story-to-Lyrics Mode',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              icon: Icon(
+                PhosphorIcons.bookOpen(PhosphorIconsStyle.regular),
+                size: 18,
+                color: isStoryMode ? AppColors.brandPrimary : AppColors.textSecondary,
+              ),
+              onPressed: onToggleStoryMode,
+            ),
+          ),
+          // Bantu Cognate & Rhyme Finder (REQ-BANTU-STORY-07, REQ-BANTU-STORY-08)
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: IconButton(
+              key: const Key('lyrics_cognate_finder_btn'),
+              tooltip: 'Bantu Cognate & Rhyme Finder',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              icon: Icon(
+                PhosphorIcons.treeStructure(PhosphorIconsStyle.regular),
+                size: 18,
+                color: AppColors.brandPrimary,
+              ),
+              onPressed: onOpenCognateFinder,
             ),
           ),
           IconButton(

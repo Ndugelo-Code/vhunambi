@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import '../../../../features/studio/domain/models/melody_sketchpad_models.dart';
+import '../dsp/bantu_phonology.dart';
 import '../dsp/note_segmenter.dart';
 import '../models/pitch_contour_profile.dart';
 import '../models/sound_idealizer_recipe.dart';
@@ -64,6 +65,7 @@ class PitchTrajectoryEditor {
     required int rootPitchClass,
     required SoundIdealizerRecipe recipe,
     List<SegmentedNote> notes = const [],
+    BantuLanguageBranch? branch,
   }) {
     final frameCount = rawF0CentsMidi.length;
     if (frameCount == 0) {
@@ -75,7 +77,9 @@ class PitchTrajectoryEditor {
       );
     }
 
-    final idealSemitones = Float64List.fromList(List<double>.filled(frameCount, double.nan));
+    final idealSemitones = Float64List.fromList(
+      List<double>.filled(frameCount, double.nan),
+    );
     final targetF0Hz = Float64List(frameCount);
     final centsCorrections = Float64List(frameCount);
     final refusedNotes = <RefusedNote>[];
@@ -142,8 +146,39 @@ class PitchTrajectoryEditor {
         .map((offset) => (rootPitchClass + offset) % 12)
         .toSet();
 
-    // 5. Process each voiced run independently with Guard G3 Butterworth filtering
+    // 4b. Pre-compute per-run median + snapped scale target. When a Bantu
+    // branch is supplied, the lexical-tone polarity guard (A2) keeps the
+    // High/Low direction between adjacent syllable runs.
+    final runMedians = <double>[];
+    final runTargets = <double>[];
     for (final run in voicedRuns) {
+      var s = 0.0;
+      for (var i = run.$1; i < run.$2; i++) {
+        s += bridgedSemitones[i];
+      }
+      final median = s / (run.$2 - run.$1);
+      runMedians.add(median);
+      runTargets.add(nearestScaleMidi(median, scalePitchClasses));
+    }
+    final List<double> effectiveTargets = branch == null
+        ? runTargets
+        : applyTonePolarityGuard(
+            rawMedians: runMedians,
+            targets: runTargets,
+            scalePitchClasses: scalePitchClasses,
+          );
+
+    // A1: depressor-consonant onset exemption window (frames).
+    final exemptFrames = branch == null
+        ? 0
+        : (BantuBranchProfile.forBranch(branch).depressorExemptMs *
+                  frameRateHz /
+                  1000.0)
+              .round();
+
+    // 5. Process each voiced run independently with Guard G3 Butterworth filtering
+    for (var runIdx = 0; runIdx < voicedRuns.length; runIdx++) {
+      final run = voicedRuns[runIdx];
       final start = run.$1;
       final end = run.$2;
       final runLen = end - start;
@@ -164,9 +199,21 @@ class PitchTrajectoryEditor {
         trem = Float64List(runLen);
       } else {
         // Guard G3: 2nd-order Butterworth zero-phase with 10-frame reflected padding
-        trend = _butterworthLowpassZeroPhase(runSemitones, cutoffHz: 2.5, fs: frameRateHz.toDouble());
-        final lp8 = _butterworthLowpassZeroPhase(runSemitones, cutoffHz: 8.0, fs: frameRateHz.toDouble());
-        final lp4 = _butterworthLowpassZeroPhase(runSemitones, cutoffHz: 4.0, fs: frameRateHz.toDouble());
+        trend = _butterworthLowpassZeroPhase(
+          runSemitones,
+          cutoffHz: 2.5,
+          fs: frameRateHz.toDouble(),
+        );
+        final lp8 = _butterworthLowpassZeroPhase(
+          runSemitones,
+          cutoffHz: 8.0,
+          fs: frameRateHz.toDouble(),
+        );
+        final lp4 = _butterworthLowpassZeroPhase(
+          runSemitones,
+          cutoffHz: 4.0,
+          fs: frameRateHz.toDouble(),
+        );
 
         vib = Float64List(runLen);
         trem = Float64List(runLen);
@@ -178,7 +225,8 @@ class PitchTrajectoryEditor {
 
       // 6. Detect intentional glides: |dm/dt| > 10 st/s monotone for >= 80 ms
       final isGlide = List<bool>.filled(runLen, false);
-      final glideMinFrames = (minGlideDurationMs * frameRateHz / 1000.0).round();
+      final glideMinFrames = (minGlideDurationMs * frameRateHz / 1000.0)
+          .round();
 
       for (var i = 0; i <= runLen - glideMinFrames; i++) {
         var monotone = true;
@@ -186,7 +234,8 @@ class PitchTrajectoryEditor {
         if (dir.abs() * frameRateHz >= glideSlopeThreshold) {
           for (var k = 1; k < glideMinFrames; k++) {
             final diff = trend[i + k] - trend[i + k - 1];
-            if (diff * dir <= 0 || diff.abs() * frameRateHz < (glideSlopeThreshold * 0.5)) {
+            if (diff * dir <= 0 ||
+                diff.abs() * frameRateHz < (glideSlopeThreshold * 0.5)) {
               monotone = false;
               break;
             }
@@ -199,40 +248,25 @@ class PitchTrajectoryEditor {
         }
       }
 
-      // 7. Calculate median pitch of run for scale target
-      var sum = 0.0;
-      for (var i = 0; i < runLen; i++) {
-        sum += runSemitones[i];
-      }
-      final runMedian = sum / runLen;
-
-      // Find closest scale note p* in P
-      var bestTarget = runMedian.roundToDouble();
-      var minDistance = double.infinity;
-
-      for (var midi = 24; midi <= 108; midi++) {
-        final pc = (midi % 12 + 12) % 12;
-        if (scalePitchClasses.contains(pc)) {
-          final dist = (midi.toDouble() - runMedian).abs();
-          if (dist < minDistance) {
-            minDistance = dist;
-            bestTarget = midi.toDouble();
-          }
-        }
-      }
+      // 7. Median pitch and scale target for this run (pre-computed above so
+      // the Bantu lexical-tone polarity guard can see neighbouring runs).
+      final runMedian = runMedians[runIdx];
+      final bestTarget = effectiveTargets[runIdx];
 
       // REQ-IDEAL-03: Refusal guard if > 7 semitones
       final rawDelta = bestTarget - runMedian;
       final isRefused = rawDelta.abs() > 7.0;
 
       if (isRefused) {
-        refusedNotes.add(RefusedNote(
-          startMs: (start * 1000) ~/ frameRateHz,
-          endMs: (end * 1000) ~/ frameRateHz,
-          originalPitchMidi: runMedian,
-          targetPitchMidi: bestTarget,
-          deviationSemitones: rawDelta,
-        ));
+        refusedNotes.add(
+          RefusedNote(
+            startMs: (start * 1000) ~/ frameRateHz,
+            endMs: (end * 1000) ~/ frameRateHz,
+            originalPitchMidi: runMedian,
+            targetPitchMidi: bestTarget,
+            deviationSemitones: rawDelta,
+          ),
+        );
       }
 
       final deltaN = isRefused ? 0.0 : rawDelta.clamp(-7.0, 7.0);
@@ -261,8 +295,18 @@ class PitchTrajectoryEditor {
         final mVib = vib[i];
         final mTrem = trem[i];
 
-        final mIdeal = mTrend +
-            lambdaP * (deltaN - kappa * (mTrend - runMedian)) * (1.0 - g) +
+        // A1: voiced depressor onsets naturally dip F0; ramp the scale-lock
+        // correction in over the exemption window instead of flattening it.
+        final onsetRamp = (exemptFrames > 0 && i < exemptFrames)
+            ? i / exemptFrames
+            : 1.0;
+
+        final mIdeal =
+            mTrend +
+            onsetRamp *
+                lambdaP *
+                (deltaN - kappa * (mTrend - runMedian)) *
+                (1.0 - g) +
             (1.0 - nu) * mVib +
             nu * vs +
             (1.0 - nu) * mTrem * 0.1;
@@ -284,8 +328,64 @@ class PitchTrajectoryEditor {
     );
   }
 
+  /// Nearest scale MIDI note to [medianSemitones] within [scalePitchClasses].
+  static double nearestScaleMidi(
+    double medianSemitones,
+    Set<int> scalePitchClasses,
+  ) {
+    var best = medianSemitones.roundToDouble();
+    var minDistance = double.infinity;
+    for (var midi = 24; midi <= 108; midi++) {
+      final pc = (midi % 12 + 12) % 12;
+      if (scalePitchClasses.contains(pc)) {
+        final dist = (midi.toDouble() - medianSemitones).abs();
+        if (dist < minDistance) {
+          minDistance = dist;
+          best = midi.toDouble();
+        }
+      }
+    }
+    return best;
+  }
+
+  /// Lexical-tone polarity guard (A2): wherever the raw interval between two
+  /// adjacent syllable runs is at least [minRawIntervalSemitones], the
+  /// idealized interval must keep the same direction. A High-tone syllable
+  /// must never be snapped below its Low neighbour (e.g. mutu with high tone
+  /// 'person' becoming low tone 'head').
+  static List<double> applyTonePolarityGuard({
+    required List<double> rawMedians,
+    required List<double> targets,
+    required Set<int> scalePitchClasses,
+    double minRawIntervalSemitones = 2.0,
+  }) {
+    final out = List<double>.from(targets);
+    for (var n = 1; n < out.length && n < rawMedians.length; n++) {
+      final rawD = rawMedians[n] - rawMedians[n - 1];
+      if (rawD.abs() < minRawIntervalSemitones) continue;
+      final idealD = out[n] - out[n - 1];
+      if (idealD * rawD > 0) continue; // direction preserved
+      final dir = rawD > 0 ? 1 : -1;
+      var candidate = out[n - 1];
+      for (var step = 1; step <= 24; step++) {
+        final midi = out[n - 1] + dir * step;
+        final pc = ((midi.round() % 12) + 12) % 12;
+        if (scalePitchClasses.contains(pc)) {
+          candidate = midi;
+          break;
+        }
+      }
+      out[n] = candidate;
+    }
+    return out;
+  }
+
   /// 2nd-order lowpass Butterworth zero-phase filter with 10-frame reflected boundary padding.
-  Float64List _butterworthLowpassZeroPhase(Float64List signal, {required double cutoffHz, required double fs}) {
+  Float64List _butterworthLowpassZeroPhase(
+    Float64List signal, {
+    required double cutoffHz,
+    required double fs,
+  }) {
     final n = signal.length;
     if (n <= 3) return Float64List.fromList(signal);
 

@@ -24,6 +24,8 @@ import '../widgets/releases_manager_card.dart';
 import '../widgets/studio_analytics_console_sheet.dart';
 import '../widgets/tip_history_ledger.dart';
 import '../widgets/creator_wallet_deck.dart';
+import '../../../home/presentation/providers/cross_module_synergy_provider.dart';
+import '../../../home/presentation/widgets/cross_module_synergy_deck.dart';
 import '../widgets/owner_beatstore_cockpit.dart';
 import '../../../social/presentation/providers/creator_clips_provider.dart';
 import '../../../social/presentation/widgets/creator_reel_thumbnail_card.dart';
@@ -506,6 +508,15 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
 
                       // 4c. Creator Wallet & Cultural Gifting (Phase 20)
                       const CreatorWalletDeck(),
+
+                      const SizedBox(height: 14),
+
+                      // Studio Synergy Deck & Mastery Badges (Phase 36 REQ-BANTU-SYN-04/05)
+                      const CrossModuleSynergyDeck(compact: true),
+
+                      const SizedBox(height: 14),
+
+                      const _CreatorMasteryBadgesSection(),
 
                       const SizedBox(height: 14),
 
@@ -1060,6 +1071,92 @@ class _OwnerReelsShelf extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+
+class _CreatorMasteryBadgesSection extends ConsumerWidget {
+  const _CreatorMasteryBadgesSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final badges = ref.watch(creatorMasteryBadgesProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: AppRadius.cardBorder,
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                PhosphorIcons.medal(PhosphorIconsStyle.regular),
+                size: 16,
+                color: AppColors.coinGold,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                'CREATOR MASTERY BADGES',
+                style: AppTypography.caption.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: badges.map((badge) {
+              final isUnlocked = badge.isUnlocked;
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isUnlocked
+                      ? AppColors.coinGold.withAlpha(20)
+                      : AppColors.surfaceSecondary,
+                  borderRadius: AppRadius.pillBorder,
+                  border: Border.all(
+                    color: isUnlocked
+                        ? AppColors.coinGold.withAlpha(80)
+                        : AppColors.borderSubtle,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isUnlocked
+                          ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
+                          : PhosphorIcons.lock(PhosphorIconsStyle.regular),
+                      size: 14,
+                      color: isUnlocked ? AppColors.coinGold : AppColors.textTertiary,
+                    ),
+                    const SizedBox(width: AppSpacing.xxs),
+                    Text(
+                      badge.name,
+                      style: AppTypography.caption.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: isUnlocked
+                            ? AppColors.textPrimary
+                            : AppColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 }

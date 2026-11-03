@@ -52,7 +52,7 @@ The following primary documents, specifications, and codebases in `Zania-Explore
 
 | Source Artifact Path | Type | Key Technical Contributions Extracted |
 | :--- | :--- | :--- |
-| `docs/bantu-language-system-audit.md` | Strategic Audit | 85%+ cognate detection accuracy, Venda-as-pivot geographic/linguistic bridge, Proto-Bantu shift models. |
+| `docs/bantu-language-system-audit.md` | Strategic Audit | Cognate detection (accuracy figures are *Zania-reported, unverified in Vhunambi*), a Venda-as-pivot hypothesis (**rejected in Vhunambi, see §3.2**), Proto-Bantu shift models. |
 | `docs/bantu-language-system-gap-zero-spec.md` | Release Spec | Zero-gap normative rules (`BLS-GAP-001` through `BLS-GAP-008`), ZR Studio cognate integration, rhyme preservation gates. |
 | `.kiro/specs/bantu-content-pipeline/` | Pipeline Spec | Community crowdsourced validation, expert linguistic review workflows, DSAC terminology integration. |
 | `.kiro/specs/bantu-engine-completion/` | Architecture Spec | Multi-adapter neural MT (NLLB-200, MADLAD-400, WorkersAI edge fallback, Autshumato terminology). |
@@ -90,18 +90,44 @@ Where:
 2. **$S_{\text{Phonetic}}$ (30% Weight):** Evaluates systematic sound shift transformations (e.g. Proto-Bantu $*t \to$ Venda `r` / Zulu `th`). If words match after applying historical phonetic shift rules, $S_{\text{Phonetic}} = 100$.
 3. **$S_{\text{NounClass}}$ (30% Weight):** Compares noun class prefixes (Classes 1–15). If both words belong to the same semantic noun class (e.g. Class 1 *mu-/um-*, Class 2 *vha-/aba-*), $S_{\text{NounClass}} = 100$.
 
-**Empirical Accuracy:**
-- **Direct Cognates** (>80% score): 89% precision, 92% recall.
-- **Shifted Cognates** (50–80% score): 76% precision, 83% recall.
-- **False Friends** (<50% score): 94% precision in rejection.
+**Reported Accuracy (Zania-reported, unverified in Vhunambi):**
+- Direct Cognates (>80% score): 89% precision, 92% recall.
+- Shifted Cognates (50–80% score): 76% precision, 83% recall.
+- False Friends (<50% score): 94% precision in rejection.
 
-#### 3.2 The Venda-as-Pivot Bridge Strategy
-In `docs/bantu-language-system-audit.md` §4, Zania Explore established a crucial linguistic breakthrough: **Tshivenḓa is the ideal acoustic and linguistic bridge language for Southern Africa.**
+> [!WARNING]
+> These figures come from Zania's own audit documents. They have not been reproduced on Vhunambi data and must not be quoted as fact until a native-speaker-validated test set exists.
 
-* **Geographic Position:** Northernmost South African Bantu language, bordering Shona (Zimbabwe) and Sotho-Tswana communities.
-* **Linguistic Intermediary:** Tshivenḓa retains Proto-Bantu phonetic features while sharing sound shifts with both Nguni (*lapha* $\leftrightarrow$ *hafha*) and Sotho-Tswana (*motho* $\leftrightarrow$ *muthu*).
-* **The Pivot Advantage:** Instead of translating Bantu languages via English (which strips tonal and grammatical concord information), using Tshivenḓa as a pivot language achieves **60%+ cognate preservation** and improves BLEU scores by $\ge 15\%$.
+#### 3.2 Peer-Branch Cladistic Topology (replaces the rejected "Venda-as-Pivot Bridge")
+Zania's audit (`docs/bantu-language-system-audit.md` §4) proposed that Tshivenḓa be a central pivot/bridge for all Bantu languages. **Vhunambi rejects this hypothesis.** Tshivenḓa (Guthrie zone S20) is a **peer branch**, not a trunk. Southern Bantu is modelled as four equal peer branches:
 
+| Branch | Guthrie zone | Languages (code) |
+| :--- | :--- | :--- |
+| Nguni | S40 | isiZulu `zu`, isiXhosa `xh`, siSwati `ss`, isiNdebele `nr` |
+| Sotho-Tswana | S30 | Sepedi `nso`, Setswana `tn`, Sesotho `st` |
+| Tshivenḓa | S20 | Tshivenḓa `ve` |
+| Tswa-Ronga | S50 | Xitsonga `ts` |
+
+```
+   Nguni (S40) <────────────> Sotho-Tswana (S30)
+      ▲  ╲                      ╱  ▲
+      │    ╲                  ╱    │
+      │      ╲              ╱      │
+      ▼        ╲          ╱        ▼
+  Tswa-Ronga (S50) <──────> Tshivenḓa (S20)
+   (all six pairs are direct, bidirectional links; there is no hub)
+```
+
+**Why a Venda hub fails**
+1. **Intra-branch information loss.** Routing `zu → ve → xh` turns the Nguni click `q` (*qeda*) into Venda `fh` (*fhela*). Venda has no clicks, so on the return trip the system cannot recover whether `fh` was a click or a labial, which destroys a direct Nguni–Nguni match. Routing Sotho-Tswana pairs through Venda likewise loses the shared lateral affricates (`tl`/`tlh`/`kg`) and the 7-vowel height harmony.
+2. **Acoustic formant fallacy.** See doc 04 §3: each branch has its own articulatory posture, so there is no single "centroid" language.
+
+**Replacement routing rules (Pairwise Shift Matrix)**
+- **Rule 1 – Intra-branch direct path:** `zu↔xh↔ss↔nr` and `nso↔tn↔st` map directly; never through an external pivot.
+- **Rule 2 – Cross-branch pairwise matrix:** crossing branches (Nguni↔Sotho-Tswana, Tshivenḓa↔Nguni, …) applies pairwise `sourceBranch→targetBranch` shift rules plus 15-class noun-prefix alignment (Class 6 *ama-*↔*ma-*, Class 7 *isi-*↔*se-*↔*tshi-*).
+- **Rule 3 – Branch-specific DSP guards:** the Phase 35 vocal idealizer loads the phonological protection profile of the singer's selected branch (Nguni: clicks + depressor onsets; Tshivenḓa: dental plosives + breathy `vh`; Sotho-Tswana: 7-vowel spacing; Tswa-Ronga: whistled sibilants).
+
+Zania's claim that a Venda pivot yields "60%+ cognate preservation" and "≥15% BLEU improvement" is **Zania-reported, unverified in Vhunambi** and is withdrawn as a design justification.
 #### 3.3 Separation of Genre DNA and Language Context
 In `lib/bantu-engine/music/README.md`, Zania codified a fundamental cultural rule:
 > **"Genre DNA (musical style) and Language Context must be kept strictly separate."**
@@ -122,7 +148,7 @@ Traditional music creation interfaces force users to write in Western `[VERSE] /
 While Zania Explore's conceptual architecture was brilliant, the audit documents (`bantu-language-system-audit.md` and `bantu-language-system-gap-zero-spec.md`) identified several critical execution gaps that Vhunambi must avoid:
 
 1. **The Disconnection Trap (`BLS-GAP-001`):** Despite building the advanced `BantuSimilarity` algorithm, 0% of initial learning and creation UI components actually called it at launch. It remained an unused utility in `lib/bantu-engine/linguistics/`.
-2. **The Neglected Pivot Trap (`BLS-GAP-002`):** Despite identifying Tshivenḓa as the strategic pivot language, the platform launched with 0 Venda learning lessons and only 43 glossary terms (compared to 200+ for Zulu).
+2. **The Underserved Peer Branch Gap (`BLS-GAP-002`):** The platform launched with 0 Venda learning lessons and only 43 glossary terms (compared to 200+ for Zulu). This is a real **content gap for an underserved peer branch** (Zania mislabelled it a "neglected pivot"; Tshivenḓa is not a pivot, see §3.2). Vhunambi must give every branch comparable glossary depth.
 3. **Static Data Staleness (`BLS-GAP-004`):** Storing linguistic datasets in hardcoded TypeScript files (`lib/data/languages.ts`) made runtime enrichment and community contributions difficult.
 4. **Physical Audio Absence:** Zania Explore was predominantly a text/prompt engine; it lacked on-device physical DSP (YIN pitch tracking, TD-PSOLA resynthesis, LPC formant shifting).
 
@@ -138,3 +164,13 @@ To fully assimilate and weaponize this knowledge, the following document suite h
 2. **`02_BANTU_LINGUISTIC_PHONOLOGY_AND_COGNATE_DEEP_DIVE.md`**: Detailed phonetics, diacritics, click consonants, 3-tier tone systems, penultimate stress rules, and the `BantuSimilarity` algorithm.
 3. **`03_STORY_TO_LYRICS_AND_GENRE_VOCAL_PROSODY_ENGINE.md`**: Song structures (Amapiano, Maskandi, Gqom, Gospel, Kwaito), system prompts, cognate-enhanced rhyme preservation, and ACE-Step compiled captions.
 4. **`04_VHUNAMBI_SOUND_SIGNATURE_SYNTHESIS_AND_EVOLUTION_BLUEPRINT.md`**: Complete architectural integration with Vhunambi's `SoundSignatureDna`, Vocal Idealizer, African modal scales, and Studio Cockpit.
+
+
+---
+
+## Errata & Correction Log
+
+**2026-11-03**
+- **Removed the "Venda-as-Pivot" hypothesis** (§3.2, audit-table row, gap #2). Tshivenḓa (S20) is a peer branch; the four Southern Bantu branches (Nguni S40, Sotho-Tswana S30, Tshivenḓa S20, Tswa-Ronga S50) are equal. A Venda hub loses information within branches (a click `q` becomes `fh`, and the return trip cannot tell click from labial; Sotho-Tswana loses `tl`/`tlh`/`kg` and 7-vowel harmony). Replaced by the Peer-Branch Cladistic Topology + Pairwise Shift Matrix (§3.2).
+- **Reframed gap #2** from "neglected pivot" to "underserved peer branch": the low Venda glossary/lesson count is a real content gap, but not evidence of a missing pivot.
+- **Relabelled unverified numbers** (89%/92%/76%/83%/94% accuracy, 85%+ detection accuracy, 60%+ cognate preservation, +15% BLEU) as *Zania-reported, unverified in Vhunambi*.

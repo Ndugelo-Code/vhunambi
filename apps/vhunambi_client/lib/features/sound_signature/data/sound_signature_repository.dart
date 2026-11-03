@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../domain/codec/sig_codec.dart';
@@ -66,3 +67,13 @@ class SoundSignatureRepository {
     await box.delete(id);
   }
 }
+
+final soundSignatureRepositoryProvider = Provider<SoundSignatureRepository>((ref) {
+  return const SoundSignatureRepository();
+});
+
+final soundSignaturesListProvider = Provider<List<SoundSignatureDna>>((ref) {
+  final repo = ref.watch(soundSignatureRepositoryProvider);
+  return repo.getAllSignatures();
+});
+

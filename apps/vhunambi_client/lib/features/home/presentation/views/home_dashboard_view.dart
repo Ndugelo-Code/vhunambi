@@ -35,6 +35,7 @@ import '../../../track/presentation/views/track_detail_view.dart';
 import '../../domain/models/african_rhythm_matrix.dart';
 import '../utils/african_greeting_resolver.dart';
 import '../widgets/subscription_upgrade_modal.dart';
+import '../widgets/cross_module_synergy_deck.dart';
 
 class HomeDashboardView extends ConsumerStatefulWidget {
   final VoidCallback? onNavigateToStudio;
@@ -441,6 +442,17 @@ class _HomeDashboardViewState extends ConsumerState<HomeDashboardView> {
                     ),
                   );
                 },
+              ),
+            ),
+
+            // Studio Synergy Actionable Deck (Phase 36 REQ-BANTU-SYN-04)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop ? 32 : 16,
+                  vertical: 4,
+                ),
+                child: const CrossModuleSynergyDeck(),
               ),
             ),
 

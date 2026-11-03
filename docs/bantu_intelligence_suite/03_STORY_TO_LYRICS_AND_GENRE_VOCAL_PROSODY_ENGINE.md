@@ -160,3 +160,4 @@ Private School Amapiano, 114 BPM, heavy log drum bass, jazzy Rhodes chords, roll
 ```
 
 This compiled caption is passed directly to the RunPod GPU cluster, while the structured lyrics are fed into the lyrics synchronizer and vocal idealizer.
+

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 
+import '../dsp/bantu_phonology.dart';
 import '../models/pitch_contour_profile.dart';
 import '../models/sound_idealizer_recipe.dart';
 import '../models/sound_signature_dna.dart';
@@ -16,11 +17,16 @@ class ResynthesizerParams {
     required this.rawAudio441,
     required this.signature,
     required this.recipe,
+    this.bantuBranch,
   });
 
   final Float32List rawAudio441;
   final SoundSignatureDna signature;
   final SoundIdealizerRecipe recipe;
+
+  /// Singer's Bantu language branch. When set, the Phase 36 linguistic DSP
+  /// guards (depressor onset, tone polarity, penultimate anchor) are active.
+  final BantuLanguageBranch? bantuBranch;
 }
 
 /// Output of studio vocal stem idealization.
@@ -88,6 +94,7 @@ class SoundSignatureResynthesizer {
         audio: currentAudio,
         rhythmGrid: signature.rhythm,
         pocketStrength: recipe.quantizePocketStrength,
+        anchorPenultimate: params.bantuBranch != null,
       );
     }
 
@@ -100,6 +107,7 @@ class SoundSignatureResynthesizer {
       scaleMode: signature.pitch.scaleMode,
       rootPitchClass: signature.pitch.rootPitchClass,
       recipe: recipe,
+      branch: params.bantuBranch,
     );
 
     // 4. Source F0 in Hz for PSOLA epoch matching

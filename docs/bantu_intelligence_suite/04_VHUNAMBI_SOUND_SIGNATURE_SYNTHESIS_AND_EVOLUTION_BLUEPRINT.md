@@ -16,14 +16,14 @@ Vhunambi has achieved a major milestone in Phase 35 by shipping the on-device **
 
 The forensic audit of `Zania-Explore-v2.5` provides the missing half of the equation: **deep Bantu linguistic intelligence, phonological tone rules, cognate algorithms, and story-based song structures**.
 
-By synthesizing Zania Explore's linguistic science with Vhunambi's physical DSP audio engine, we create the world's first **Linguistically-Aware Sovereign Vocal Synthesis & Acoustic DNA Engine**.
+By synthesizing Zania Explore's linguistic science with Vhunambi's physical DSP audio engine, we aim to build a **Linguistically-Aware Sovereign Vocal Synthesis & Acoustic DNA Engine**.
 
 ```mermaid
 flowchart TD
     subgraph ZaniaLinguistic["Zania Bantu Intelligence Core"]
         Phonology["Phoneme Inventories & Tone Systems<br/>(High, Low, Falling Tones, Depressors)"]
         Similarity["BantuSimilarity Algorithm<br/>(Levenshtein + Shifts + Noun Classes)"]
-        Pivot["Venda-as-Pivot Bridge<br/>(60%+ Cognate Intelligibility)"]
+        PeerBranches["Peer-Branch Cladistic Topology<br/>(4 equal branches, no hub)"]
         StoryToLyrics["Story-Based Lyrics Engine<br/>(ZR-STORYLYRICS-001, Genre Prompts)"]
     end
 
@@ -40,7 +40,7 @@ flowchart TD
         BantuProtection["Phonetic Click & Diacritic Protection (PSOLA)"]
         CadenceSync["Penultimate Lengthening Pocket Quantization"]
         CognateLyrics["Story-to-Lyrics Cockpit with Cross-Dialect Rhymes"]
-        CloudCloning["Venda-Pivot Voice Cloning (Seed-VC + Demucs)"]
+        CloudCloning["Branch-Aware Voice Cloning (Seed-VC + Demucs), per-singer formant envelope retained"]
     end
 
     ZaniaLinguistic --> UnifiedEvolution
@@ -58,7 +58,7 @@ In Phase 35, `TimbreIdentityProfile` extracts:
 - Harmonic-to-Noise Ratio (HNR) and $H_1-H_2$ glottal warmth proxy.
 
 **The Linguistic Evolution:**
-- **Vocal Tract Normalization across Dialects:** Bantu languages possess distinct vowel formant spacing. By utilizing Zania's phoneme datasets (`lib/languages/tshivenda/phonology.ts` and `isizulu/phonology.ts`), `TimbreIdentityProfile` can now calculate an acoustic **Vocal Tract Resonance Centroid** that isolates the singer's physical identity from language-specific vowel coloring.
+- **Branch-specific formant envelope retained per singer; never normalised to another language.** Bantu branches have distinct vowel articulation (e.g. Sotho-Tswana 7-vowel close-mid/open-mid contrasts). `TimbreIdentityProfile` keeps the singer's own measured formant envelope and records the selected `BantuLanguageBranch` as metadata so DSP guards can load that branch's protection profile. The earlier proposal of a single "Vocal Tract Resonance Centroid" (normalising every singer to a Tshivenḓa centroid) is withdrawn: it would flatten native vowel timbre. Any cross-branch comparison is done pairwise, not through a shared centroid.
 - **Glottal Warmth Calibration:** Breathy voiced fricatives in Tshivenḓa (`vh` / [v̤]) and depressor-induced breathiness in isiZulu naturally depress HNR and elevate $H_1-H_2$. The engine now recognizes this as authentic Bantu phonation rather than mic noise or vocal weakness!
 
 #### Layer 2: PitchContourProfile $\oplus$ Bantu Tone Laws
@@ -74,16 +74,16 @@ In Phase 35, `PitchContourProfile` segments notes and snaps pitch to four Africa
 In Phase 35, `PhoneticArticulationProfile` computes unvoiced consonant energy and spectral centroid.
 
 **The Linguistic Evolution:**
-- **Bit-Exact Click Protection:** Nguni clicks (`c`, `q`, `x`) and Tshivenḓa dental plosives (`ḓ`, `ṱ`) have impulsive high-frequency transients ($>3.5\text{ kHz}$) lasting only 10–30 ms.
-- If PSOLA grain overlap-add occurs in the middle of a click, severe phase smearing and double-clicks occur.
-- Using Zania's phonetic inventories, the TD-PSOLA engine flags click windows as **Non-Overlapping Grain Zones** ($s=1$, phase-locked pass-through), guaranteeing bit-exact preservation of African clicks while pitch-shifting the surrounding vowels.
+- **Extend/verify branch-specific click windows:** Nguni clicks (`c`, `q`, `x`) and Tshivenḓa dental plosives (`ḓ`, `ṱ`) are commonly reported to be short, impulsive, high-frequency transients; their exact duration and band must be measured on Vhunambi data. Note: Phase 35 PSOLA already leaves unvoiced consonants bit-exact (unvoiced/transient regions bypass pitch processing), so this is **not a new PSOLA feature**.
+- Risk to verify: voiced click-accompaniments (`gc`, `gq`, `gx`, nasalised clicks) and voiced dental plosives may fall inside voiced runs where grain overlap-add could smear the transient.
+- Proposed work: extend the existing guard with branch-specific click/dental-plosive windows (loaded from the singer's branch profile) and add tests verifying pass-through is sample-identical for those windows, while pitch-shifting surrounding vowels.
 
 #### Layer 4: RhythmicTransientGrid $\oplus$ Penultimate Syllable Lengthening
 In Phase 35, `RhythmicTransientGrid` quantizes vocal takes to 16-step musical beats.
 
 **The Linguistic Evolution:**
-- **The Penultimate Cadence Anchor:** Bantu linguistic prosody universally lengthens the penultimate syllable ($V \to V\colon$, ~1.8× duration).
-- The `PocketQuantizer` now recognizes this elongated syllable as the metric phrase cadence. Instead of forcing all syllables to equal 16th-note durations, it dynamically expands the penultimate step window to a dotted 8th note, locking the musical cadence into the syncopated log drum groove of Amapiano and the guitar stamping of Maskandi.
+- **The Penultimate Cadence Anchor:** Penultimate lengthening ($V \to V\colon$) is commonly reported in many Bantu languages (Zania cited ~1.8×, *Zania-reported, unverified in Vhunambi*); it is not a universal law and the ratio must be measured on Vhunambi data.
+- The `PocketQuantizer` now recognizes this elongated syllable as the metric phrase cadence. Instead of forcing all syllables to equal 16th-note durations, it should preserve the interval between a clearly lengthened penultimate syllable and the final onset (a hypothesis to validate on real takes), so the cadence keeps its natural relation to the groove.
 
 #### Layer 5: SoundIdealizerRecipe $\oplus$ African Acoustic Master Chain
 In Phase 35, `SoundIdealizerRecipe` provides 6 sculpting parameters:
@@ -99,41 +99,47 @@ In Phase 35, `SoundIdealizerRecipe` provides 6 sculpting parameters:
   - **450 Hz Box Notch:** Eliminates room resonances typical of bedroom recordings on budget phone mics.
   - **160 Hz Chest Power Shelf:** Adds rich body and presence to African male storytelling vocals (Maskandi, Gospel).
   - **11.5 kHz Air Boost:** Enhances clarity and breath details for female Amapiano vocal chops.
-  - **Regional Dialect Formant Presets:** Automatically tunes formant shift ratios ($\alpha = F_{\text{target}} / F_{\text{source}}$) based on the singer's native language family (Nguni, Sotho-Tswana, Venda, Tsonga).
+  - **Regional Dialect Formant Presets:** Formant shift ratios ($\alpha = F_{\text{target}} / F_{\text{source}}$) remain within the Phase 35 +-3 st bound and are relative to the **singer's own** envelope; the singer's peer branch (Nguni, Sotho-Tswana, Tshivenḓa, Tswa-Ronga) selects the protection profile, never a normalisation target.
 
 ---
 
-### 3. The Venda-Pivot Rosetta Stone Architecture
+### 3. Peer-Branch Voice Architecture (replaces "Venda-Pivot Rosetta Stone")
 
-Zania Explore's finding that Tshivenḓa functions as the ideal linguistic and acoustic pivot bridge directly powers Vhunambi's cloud and client audio pipelines:
+The earlier draft normalised every singer to a "Tshivenḓa acoustic centroid" before routing to Nguni / Sotho / Tsonga vocals. **This is withdrawn** (acoustic formant fallacy). Each branch has its own articulatory posture:
+
+| Branch | Characteristic articulation to protect (commonly reported; verify on Vhunambi data) |
+| :--- | :--- |
+| Nguni (S40) | Clicks `c/q/x` families; depressor lowering on voiced stops `b, d, g, gc, gq, gx` |
+| Sotho-Tswana (S30) | 7-vowel system with close-mid/open-mid contrasts `e, ɛ, o, ɔ`; lateral affricates `tl/tlh/kg` |
+| Tshivenḓa (S20) | Interdental plosives/nasal/lateral `ḓ, ṱ, ṋ, ḽ`; breathy `vh`/`fh` |
+| Tswa-Ronga (S50) | Whistled sibilants `sw/zv` |
 
 ```
-                    ┌─────────────────────────┐
-                    │  Raw Audio Take / Hum   │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │  Tshivenḓa Acoustic     │  ◄── Acoustic Pivot Layer
-                    │  Centroid Normalization │
-                    └────────────┬────────────┘
-                                 │
-            ┌────────────────────┼────────────────────┐
-            ▼                    ▼                    ▼
-     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-     │ Nguni Vocals │     │ Sotho Vocals │     │ Tsonga Vocals│
-     │  (Zulu/Xhosa)│     │  (Pedi/Sotho)│     │  (Shangaan)  │
-     └──────────────┘     └──────────────┘     └──────────────┘
+                     ┌─────────────────────────┐
+                     │  Raw Audio Take / Hum   │
+                     └────────────┬────────────┘
+                                  ▼
+                     ┌─────────────────────────┐
+                     │ SoundSignatureDna       │  singer's own formant envelope RETAINED
+                     │ + selected branch       │  (never normalised to another language)
+                     └────────────┬────────────┘
+                                  ▼
+          ┌──────────────┬────────┴───────┬──────────────┐
+          ▼              ▼                ▼              ▼
+   Nguni profile   Sotho-Tswana     Tshivenḓa      Tswa-Ronga
+   clicks +        profile          profile        profile
+   depressors      7-vowel spacing  dentals + vh   whistled sibilants
+   (each profile guards the take; branches relate to each other only
+    through direct/pairwise rules, with no central hub)
 ```
 
-When a creator records a rough singing take in any South African dialect:
-1. The on-device engine extracts the `SoundSignatureDna`.
-2. Vowel formants are mapped to the normalized Tshivenḓa acoustic centroid.
-3. If the user selects a different regional archetype (e.g. a Zulu user wanting a Sotho choral style, or a Venda user wanting an Amapiano Zulu hook), the acoustic shifts are mediated through the systematic phonetic shift rules extracted from `phonetic-shifts.ts`.
-4. This produces clean, natural voice transformations without the "uncanny valley" robotic distortions common in Western auto-tuners.
+Processing rules:
+1. The on-device engine extracts the `SoundSignatureDna` and keeps the singer's **branch-specific formant envelope** untouched.
+2. The Phase 35 vocal idealizer loads the protection profile for the singer's selected branch (Rule 3).
+3. Lyric/cognate mapping within a branch is direct (Rule 1); across branches it uses the pairwise shift matrix plus noun-prefix alignment (Rule 2). No hub is ever inserted.
+4. If a user picks a different regional archetype, the Phase 35 formant-shift bound (±3 st) applies relative to the singer's own envelope; the target branch's profile is applied to the output guards.
 
 ---
-
 ### 4. Client UI/UX Evolution Roadmap
 
 To expose this technology to creators, Vhunambi will evolve three core client touchpoints:
@@ -141,12 +147,12 @@ To expose this technology to creators, Vhunambi will evolve three core client to
 #### 4.1 Enhanced `SoundSignatureIdealizerSheet`
 - **Tonal Pitch Curve Display:** In `PitchFormantPainter`, add visual glyphs indicating detected lexical tones (High, Low, Falling) alongside raw F0 and idealized F0 curves.
 - **Phonetic Protection Indicators:** Highlight protected consonant/click columns with a subtle emerald badge, giving creators visual confidence that their indigenous consonants are preserved without distortion.
-- **Dialect Archetype Selector:** Expand the 24 regional archetypes to clearly reflect South African linguistic families (Nguni, Sotho-Tswana, Venda, Tsonga).
+- **Dialect Archetype Selector:** Expand the 24 regional archetypes to clearly reflect the four peer branches (Nguni, Sotho-Tswana, Tshivenḓa, Tswa-Ronga).
 
 #### 4.2 Story-Based Lyrics Studio Cockpit (`LyricsReviewModal`)
 - **Oral Storytelling Input:** Replace the rigid formatted text box with a narrative prompt: *"Tell your story, memory, or proverb in your home language..."*
 - **Genre Song Formatter:** Instantly convert the narrative into genre-authentic song forms (Amapiano, Maskandi, Gqom, Gospel, Kwaito) using Zania's battle-tested system prompts.
-- **Cross-Dialect Cognate Switcher:** Provide a real-time toggle showing how key lyrical lines sound in sister languages (e.g. Zulu $\leftrightarrow$ Tshivenḓa $\leftrightarrow$ Sesotho) while preserving meter and rhyme.
+- **Cross-Dialect Cognate Switcher:** Provide a real-time toggle showing how key lyrical lines sound in sister languages using direct intra-branch maps and pairwise cross-branch rules (e.g. Zulu $\leftrightarrow$ Xhosa direct; Zulu $\leftrightarrow$ Sesotho pairwise), never routed through a hub language, while preserving meter and rhyme.
 
 #### 4.3 Cloud ACE-Step 1.5 Caption Generation
 - Compile full, production-ready captions that pass Genre DNA + Language Context + Vocal Instructions + Mood Descriptors to the RunPod GPU cluster, guaranteeing culturally authentic music synthesis.
@@ -158,9 +164,18 @@ To expose this technology to creators, Vhunambi will evolve three core client to
 | Zania Explore Asset | Vhunambi Target Integration | Strategic Value |
 | :--- | :--- | :--- |
 | `BantuSimilarity` Algorithm | `lib/features/sound_signature/domain/dsp/bantu_similarity.dart` | Pure Dart algorithmic cognate detection; 0 ML overhead; instant cross-dialect rhyme suggestions. |
-| `PHONETIC_SHIFT_RULES` | `lib/features/sound_signature/domain/dsp/phonetic_shifts.dart` | Precise acoustic formant shift guides across Nguni, Sotho-Tswana, Venda, and Tsonga. |
+| `PHONETIC_SHIFT_RULES` | `lib/features/sound_signature/domain/dsp/phonetic_shifts.dart` | Pairwise `sourceBranch→targetBranch` shift rules across the four peer branches (starter set; needs linguist validation). |
 | `NOUN_CLASS_PREFIXES` (1–15) | `lib/features/sound_signature/domain/dsp/noun_classes.dart` | Grammatical concord verification; prevents lyrical hallucinations in generated lyrics. |
-| Phoneme & Tone Inventories | `lib/features/sound_signature/domain/dsp/bantu_phonology.dart` | Tonal meaning protection in auto-tune; bit-exact protection for clicks (`c`, `q`, `x`) and diacritics (`ḓ`, `ṱ`, `ṋ`, `ḽ`, `vh`). |
+| Phoneme & Tone Inventories | `lib/features/sound_signature/domain/dsp/bantu_phonology.dart` | Per-branch protection profiles: tonal meaning guard in auto-tune; extend/verify click (`c`, `q`, `x`) and diacritic (`ḓ`, `ṱ`, `ṋ`, `ḽ`, `vh`) windows. |
 | `ZR-STORYLYRICS-001` Prompts | `apps/vhunambi_api/src/modules/lyrics/story_lyrics_prompts.ts` | Narrative-to-lyrics conversion tailored to Amapiano, Maskandi, Gqom, Gospel, and SA Hip Hop. |
 | Genre / Language Separation | `lib/features/studio/domain/models/genre_language_contract.dart` | Ensures national genres remain language-neutral, empowering creators across all 9 indigenous tongues. |
 | Universal ID Prefix Registry | `apps/vhunambi_api/src/modules/ids/universal_ids.ts` | Scalable `{prefix}_{12-byte-hex}` entity identification across audio, lyrics, and user profiles. |
+
+---
+
+## Errata & Correction Log
+
+**2026-11-03**
+- **Removed the Venda pivot / centroid design.** Replaced the mermaid `Pivot` node, "Venda-Pivot Voice Cloning", §3 "Venda-Pivot Rosetta Stone", the "Vocal Tract Resonance Centroid" normalisation, and the summary-table wording with the Peer-Branch Cladistic Topology + Pairwise Shift Matrix and the rule "branch-specific formant envelope retained per singer; never normalised to another language". Reason: Tshivenḓa (S20) is a peer of Nguni (S40), Sotho-Tswana (S30) and Tswa-Ronga (S50); normalising singers to a Venda formant centroid flattens native vowel timbre (Sotho-Tswana close-mid/open-mid vowels, Nguni depressor lowering, Xitsonga whistled sibilants); a Venda hub also loses intra-branch information (click `q` → `fh` is irreversible).
+- **Click protection is not a new PSOLA feature.** Phase 35 PSOLA already leaves unvoiced consonants bit-exact; the work is reworded to "extend/verify with branch-specific click windows".
+- **Unsupported precision removed:** "60%+ cognate intelligibility" removed from the diagram; ">3.5 kHz, 10-30 ms" click figures, "universal ~1.8x penultimate lengthening" and the "dotted 8th" rule are now "commonly reported / hypothesis to validate on Vhunambi data". The "world's first" claim was softened.

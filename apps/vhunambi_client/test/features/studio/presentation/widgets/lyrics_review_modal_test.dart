@@ -344,6 +344,36 @@ void main() {
     expect(pipeline?.genre, 'Amapiano');
     expect(find.text('Review Lyrics'), findsNothing);
   });
+
+  testWidgets(
+      'REQ-BANTU-STORY-07 & 08: Story mode toggle and cognate finder controls exist and meet >= 44x44dp',
+      (tester) async {
+    await _openReview(tester);
+
+    final storyToggle = find.byKey(const Key('lyrics_story_mode_toggle'));
+    final cognateFinder = find.byKey(const Key('lyrics_cognate_finder_btn'));
+
+    expect(storyToggle, findsOneWidget);
+    expect(cognateFinder, findsOneWidget);
+
+    final storySize = tester.getSize(storyToggle);
+    expect(storySize.width, greaterThanOrEqualTo(44.0));
+    expect(storySize.height, greaterThanOrEqualTo(44.0));
+
+    final cognateSize = tester.getSize(cognateFinder);
+    expect(cognateSize.width, greaterThanOrEqualTo(44.0));
+    expect(cognateSize.height, greaterThanOrEqualTo(44.0));
+
+    // Tap story mode toggle
+    await tester.tap(storyToggle);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Story-to-Lyrics Mode Active'), findsOneWidget);
+
+    // Tap cognate finder
+    await tester.tap(cognateFinder);
+    await tester.pumpAndSettle();
+    expect(find.text('Bantu Cognate & Rhyme Finder'), findsOneWidget);
+  });
 }
 
 /// Socket stub that never emits, keeping the suite timer-free.

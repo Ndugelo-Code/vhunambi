@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { getGenreSystemPrompt } from '../modules/lyrics/system_prompts.js';
 import { generateLyricsFromLLM, parseStanzas } from '../modules/lyrics/llm_handler.js';
+import { MUSIC_LANGUAGES } from '../modules/bantu/language_context.js';
+import { STORY_GENRES, normalizeGenre, transformStoryToLyrics } from '../modules/lyrics/story_transform.js';
 
 export const lyricsRoutes = new Hono();
 
@@ -69,5 +71,50 @@ lyricsRoutes.post('/refine', async (c) => {
     });
   } catch (error) {
     return c.json({ error: 'REFINE_ERROR', message: 'Failed to refine lyrics' }, 500);
+  }
+});
+
+
+// ── Phase 36 Track B: Story-to-Lyrics (ZR-STORYLYRICS-001) ───────────────────
+const StoryTransformSchema = z.object({
+  storyText: z.string().trim().min(20).max(3000),
+  genre: z.string().default('amapiano'),
+  baseLanguage: z.string().default('zu'),
+  targetCognateLanguages: z.array(z.string()).max(8).optional(),
+  mood: z.array(z.string()).max(6).optional(),
+});
+
+lyricsRoutes.post('/story-transform', async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = StoryTransformSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: 'INVALID_REQUEST', details: parsed.error.flatten() }, 400);
+    }
+
+    const genre = normalizeGenre(parsed.data.genre);
+    if (!genre) {
+      return c.json({ error: 'UNSUPPORTED_GENRE', supported: STORY_GENRES }, 400);
+    }
+
+    const langCode = parsed.data.baseLanguage.toLowerCase().split('-')[0];
+    if (!MUSIC_LANGUAGES.some((l) => l.languageCode === langCode)) {
+      return c.json(
+        { error: 'UNSUPPORTED_LANGUAGE', supported: MUSIC_LANGUAGES.map((l) => l.languageCode) },
+        400,
+      );
+    }
+
+    const result = transformStoryToLyrics({
+      storyText: parsed.data.storyText,
+      genre,
+      baseLanguage: langCode,
+      targetCognateLanguages: parsed.data.targetCognateLanguages,
+      mood: parsed.data.mood,
+    });
+    return c.json({ success: true, ...result });
+  } catch (error) {
+    console.error('[Story Transform Route Error]', error);
+    return c.json({ error: 'STORY_TRANSFORM_ERROR', message: 'Failed to transform story' }, 500);
   }
 });
