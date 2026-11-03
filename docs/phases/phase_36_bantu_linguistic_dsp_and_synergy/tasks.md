@@ -59,7 +59,7 @@ Legend: `[x]` completed - **Gate** = passed.
 - [x] **T-E3** `flutter test` green (REQ-BANTU-QA-02).
 - [x] **T-E4** `pnpm test` green (REQ-BANTU-QA-02).
 - [x] **T-E5** ARM64 release APK built, size <= 200 MB (REQ-BANTU-QA-03) (Actual: 41.4 MB).
-- [x] **T-E6** Release APK ready for device `EPHUT20917014649` (`build/app/outputs/flutter-apk/app-release.apk`, install command tested).
+- [x] **T-E6** APK installed on device `EPHUT20917014649` and launched successfully.
 - [x] **T-E7** Docs grep: no "Venda-as-Pivot" outside errata; Zania figures labelled (REQ-BANTU-QA-04).
 - [x] **T-E8** Update `AGENT_HANDOFF_BIBLE.md` Phase 36 status to Complete.
-- [x] **Gate E (phase exit):** Phase 36 implementation, documentation, and build gates passed.
+- [x] **Gate E (phase exit):** All implementation, verification, build, and device installation gates passed.
