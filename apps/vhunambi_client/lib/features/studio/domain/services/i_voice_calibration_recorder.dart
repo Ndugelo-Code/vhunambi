@@ -258,7 +258,7 @@ class ProductionVoiceCalibrationRecorder implements IVoiceCalibrationRecorder {
 
       // Compact 8-float preview of timbre embedding from captured PCM samples
       final timbrePreview = List<double>.generate(8, (i) {
-        final sampleIdx = (i * raw.pcmSamples.length ~/ 8).clamp(0, math.max(0, raw.pcmSamples.length - 1));
+        final sampleIdx = (i * raw.pcmSamples.length ~/ 8).clamp(0, math.max(0, raw.pcmSamples.length - 1)).toInt();
         final val = raw.pcmSamples.isNotEmpty ? raw.pcmSamples[sampleIdx] : 0.0;
         return (val * 1000).roundToDouble() / 1000.0;
       });

@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.vhunambi.vhunambi_client"
     compileSdk = flutter.compileSdkVersion
-    buildToolsVersion = "36.0.0"
+    buildToolsVersion = "34.0.0"
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
