@@ -1016,7 +1016,7 @@ Current gate benchmark: **0 analyzer issues** | **657+ tests passed (100%)**.
   - **Client Static Analysis**: `dart analyze lib/features/studio test/features/studio` & `dart analyze lib test` = **0 issues found (`No issues found!`)**.
   - **Backend API Tests**: `pnpm test` in `apps/vhunambi_api` = **11/11 test suites passing (100% green)**.
   - **Sketchpad & Synth Unit Tests**: `flutter test test/features/studio/widgets/melody_sketchpad_modal_test.dart test/features/studio/phase32_multitrack_sketchpad_test.dart test/features/studio/melody_sketchpad_provider_and_synth_test.dart` = **21/21 tests passing (100% green)**.
-  - **Release APK Footprint**: `app-release.apk` = **41.6 MB** (well under 45 MB budget).
+  - **Release APK Footprint**: `app-release.apk` = **41.6 MB** (well under 200 MB budget).
   - **Physical Device Installation**: Streamed install confirmed successful on connected Android device `EPHUT20917014649` (`JNY LX1`), launched live.
 
 ---

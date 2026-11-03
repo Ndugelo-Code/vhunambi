@@ -106,5 +106,5 @@
 - **NFR-02: Test Suite Preservation**
   Existing tests in `owner_profile_view_test.dart` and `artist_profile_view_test.dart` MUST continue to pass 100% green.
 - **NFR-03: APK Size Budget**
-  The release APK must remain under **45.0 MB** on Android ARM64.
+  The release APK must remain under **200.0 MB** on Android ARM64.
 

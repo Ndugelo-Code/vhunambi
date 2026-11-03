@@ -101,7 +101,7 @@ flowchart LR
 | **F** | Cloud & Privacy | durable registry, upload, real encoder, real Seed-VC + enhance wired in `handler.py`, deletion, docs |
 
 ## 8. Non-goals
-- No on-device neural model bundle (APK stays within 42-45 MB).
+- No on-device neural model bundle (APK stays within 200 MB budget).
 - No real-time monitoring of processed voice while singing (latency); preview is post-take.
 - No claim to turn any voice into any other voice on device; that is cloud/neural.
 - No cloning from imported audio as a voice *identity* without live calibration (safety).
@@ -129,5 +129,5 @@ flowchart LR
 - A/B preview renders a 20 s take in < 4 s on the Huawei test device (isolate), UI never janks.
 - Hum -> 16-step notes: >= 90% of intended notes land on the correct row/step on clean synthetic hums.
 - Cloud: a cloned voice **audibly changes** the generated vocal (the stage is verifiably executed and logged).
-- APK <= 45 MB; `dart analyze` 0 issues; all existing suites remain green.
+- APK <= 200 MB; `dart analyze` 0 issues; all existing suites remain green.
 

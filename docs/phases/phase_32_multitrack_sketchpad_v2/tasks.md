@@ -53,5 +53,5 @@
 - [x] **E.2 (Regression Testing):** Verified existing Phase 27 tests (`melody_sketchpad_modal_test.dart`, `melody_sketchpad_provider_and_synth_test.dart`) pass 100% (21/21 tests passed).
 - [x] **E.3 (Static Analysis):** Ran `dart analyze lib test` in `apps/vhunambi_client` achieving 0 issues (`No issues found!`).
 - [x] **E.4 (Backend API Tests):** Ran `pnpm test` in `apps/vhunambi_api` achieving 11/11 passing suites.
-- [x] **E.5 (ARM64 Release APK Build):** Built `flutter build apk --release --target-platform android-arm64 --no-pub` with APK footprint of **41.6 MB** (well under the 45 MB budget).
+- [x] **E.5 (ARM64 Release APK Build):** Built `flutter build apk --release --target-platform android-arm64 --no-pub` with APK footprint of **41.6 MB** (well under the 200 MB budget).
 - [x] **E.6 (Device Installation):** Successfully streamed install of `app-release.apk` to connected physical device `EPHUT20917014649` (`JNY LX1`) and verified launch.

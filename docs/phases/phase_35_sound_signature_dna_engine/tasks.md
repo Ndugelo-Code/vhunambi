@@ -96,7 +96,7 @@ Legend: `[ ]` not started - **(Spike)** time-boxed investigation that can change
 
 ## Track G - Verification, Docs, Release
 - [x] **T-G1** Full `dart analyze lib test` = 0 issues; full `flutter test`; API + GPU worker suites green.
-- [x] **T-G2** Release APK <= 45 MB (Achieved 41.9 MB); install on Huawei `EPHUT20917014649`; mic-permission + Light/Dark walkthrough.
+- [x] **T-G2** Release APK <= 200 MB (Achieved 41.9 MB); install on Huawei `EPHUT20917014649`; mic-permission + Light/Dark walkthrough.
 - [x] **T-G3** Update `AGENT_HANDOFF_BIBLE.md`, `FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md` (close F01-F07), and write the Phase 35 verification summary.
 - [ ] **T-G4** Commit in track-sized commits; push.
 

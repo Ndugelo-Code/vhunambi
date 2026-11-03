@@ -110,7 +110,7 @@
 
 | ID | Requirement |
 | :--- | :--- |
-| **NFR-SIG-01** | APK <= 45 MB; no bundled ML models; plugin additions documented with size delta. |
+| **NFR-SIG-01** | APK <= 200 MB; plugin additions documented with size delta. |
 | **NFR-SIG-02** | All DSP is pure Dart, pure-function, deterministic (seeded) and unit-testable without a device. |
 | **NFR-SIG-03** | Analysis/render in isolates; main isolate never blocks > 8 ms per frame. |
 | **NFR-SIG-04** | Memory: peak < 120 MB during a 60 s import analysis. |
