@@ -1138,3 +1138,15 @@ Current gate benchmark: **0 analyzer issues** | **657+ tests passed (100%)**.
 - **Approved decisions:** W1 reference hygiene + W2 sing-it-yourself idealizer + W3 hum/tap-to-sketchpad; `record` + `file_picker` + `RECORD_AUDIO`; spikes S1-S3 with fallbacks; raw takes at `<docs>/signatures/<ulid>/raw.wav` with 50 MB cap in `VaultStorageModal`; binary `SigCodec` v1 (<= 8 KB) in Hive box `vhunambi_sound_signatures_box`.
 - **Mandatory DSP guards (design v1.1):** G1 YIN sub-octave bonus; G2 LPC Durand-Kerner cap + all-pole-spectrum fallback; G3 per-voiced-run Butterworth (never across `-32768`); G4 PSOLA grain width `ceil(Ta*max(1,s))` + OLA divisor floor `max(windowSum, 0.20)`.
 - **Status:** All Tracks A, B, C, D, E, F-foundation, and G completed and verified. 19/19 tests green, 41.9 MB release APK built and installed on device EPHUT20917014649.
+
+---
+
+## 12. Bantu Intelligence & Sound Signature Evolution Suite (`docs/bantu_intelligence_suite/`)
+
+Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zania-Explore-v2.5\Zania-Explore`), this 4-document suite bridges deep Bantu linguistic science with Vhunambi's physical DSP and Sovereign Sound Signature ID:
+
+1. **[`01_ZANIA_BANTU_EXPLORATION_AND_FORENSIC_FINDINGS.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/bantu_intelligence_suite/01_ZANIA_BANTU_EXPLORATION_AND_FORENSIC_FINDINGS.md)**: Forensic audit of all 10 Zania specs, architecture documents, and linguistics modules; inventory of algorithms and historical pitfalls to avoid.
+2. **[`02_BANTU_LINGUISTIC_PHONOLOGY_AND_COGNATE_DEEP_DIVE.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/bantu_intelligence_suite/02_BANTU_LINGUISTIC_PHONOLOGY_AND_COGNATE_DEEP_DIVE.md)**: Complete 9-language phoneme inventories, diacritics (`ḽ`, `ṋ`, `ḓ`, `ṱ`, `ṅ`), breathy fricatives (`vh`), click transients (`c`, `q`, `x`), depressor consonants, 3-tier tone systems, penultimate lengthening, and the `BantuSimilarity` algorithm.
+3. **[`03_STORY_TO_LYRICS_AND_GENRE_VOCAL_PROSODY_ENGINE.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/bantu_intelligence_suite/03_STORY_TO_LYRICS_AND_GENRE_VOCAL_PROSODY_ENGINE.md)**: `ZR-STORYLYRICS-001` story-to-lyrics transformation, song structures for Amapiano, Maskandi, Gqom, Gospel, and SA Hip Hop, genre/language separation, and ACE-Step compiled captions.
+4. **[`04_VHUNAMBI_SOUND_SIGNATURE_SYNTHESIS_AND_EVOLUTION_BLUEPRINT.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/bantu_intelligence_suite/04_VHUNAMBI_SOUND_SIGNATURE_SYNTHESIS_AND_EVOLUTION_BLUEPRINT.md)**: Master architectural synthesis merging Bantu linguistics with Vhunambi's 5-layer `SoundSignatureDna`, tone-preserving auto-tuning, click protection in TD-PSOLA, and the Venda-as-Pivot acoustic bridge.
+
