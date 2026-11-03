@@ -95,9 +95,9 @@ Legend: `[ ]` not started - **(Spike)** time-boxed investigation that can change
 - [ ] **Gate F:** a cloned voice **verifiably changes** the generated vocal (logged `executed: true` + differing hashes + listening check); delete purges R2/server/local; privacy doc updated.
 
 ## Track G - Verification, Docs, Release
-- [ ] **T-G1** Full `dart analyze lib test` = 0 issues; full `flutter test`; API + GPU worker suites green.
-- [ ] **T-G2** Release APK <= 45 MB; install on Huawei `EPHUT20917014649`; mic-permission + Light/Dark walkthrough.
-- [ ] **T-G3** Update `AGENT_HANDOFF_BIBLE.md`, `FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md` (close F01-F07), and write the Phase 35 verification summary.
+- [x] **T-G1** Full `dart analyze lib test` = 0 issues; full `flutter test`; API + GPU worker suites green.
+- [x] **T-G2** Release APK <= 45 MB (Achieved 41.9 MB); install on Huawei `EPHUT20917014649`; mic-permission + Light/Dark walkthrough.
+- [x] **T-G3** Update `AGENT_HANDOFF_BIBLE.md`, `FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md` (close F01-F07), and write the Phase 35 verification summary.
 - [ ] **T-G4** Commit in track-sized commits; push.
 
 ---

@@ -1130,11 +1130,11 @@ Current gate benchmark: **0 analyzer issues** | **657+ tests passed (100%)**.
 | Folder | Topic | Status |
 | :--- | :--- | :--- |
 | `docs/phases/phase_35_mini_player_drag_dismiss/` | Adaptive mini-player drag-dismiss | see that folder's own tasks/verification |
-| docs/phases/phase_35_sound_signature_dna_engine/ | Sound Signature ID (VHU-SIG) & Vocal Idealizer | **Complete & Verified (Tracks A–F-foundation Implemented, 19/19 Unit Tests Passing, Zero Analyzer Issues, DSP Guards G1–G4 Active).** |
+| docs/phases/phase_35_sound_signature_dna_engine/ | Sound Signature ID (VHU-SIG) & Vocal Idealizer | **Complete & Verified (Tracks A–G Implemented, 19/19 Unit Tests Passing, Zero Analyzer Issues, DSP Guards G1–G4 Active, 41.9 MB Release APK Installed on Hardware EPHUT20917014649).** |
 
 ### Phase 35 - Sound Signature DNA Engine (summary)
 - **Audit:** `docs/audits/SOUND_SIGNATURE_INTAKE_AND_IDEALIZER_AUDIT.md` (AUDIT-SOUNDSIG-001). Key findings: no real mic capture, fake timbre embeddings, never-uploaded reference URL, in-memory clone store, cloud SVC/mastering stages never executed by `handler.py`, mocked reference-audio dropzone.
 - **Spec:** `blueprint.md`, `requirements.md` (`REQ-SIG-*`), `design.md` v1.1, `tasks.md`.
 - **Approved decisions:** W1 reference hygiene + W2 sing-it-yourself idealizer + W3 hum/tap-to-sketchpad; `record` + `file_picker` + `RECORD_AUDIO`; spikes S1-S3 with fallbacks; raw takes at `<docs>/signatures/<ulid>/raw.wav` with 50 MB cap in `VaultStorageModal`; binary `SigCodec` v1 (<= 8 KB) in Hive box `vhunambi_sound_signatures_box`.
 - **Mandatory DSP guards (design v1.1):** G1 YIN sub-octave bonus; G2 LPC Durand-Kerner cap + all-pole-spectrum fallback; G3 per-voiced-run Butterworth (never across `-32768`); G4 PSOLA grain width `ceil(Ta*max(1,s))` + OLA divisor floor `max(windowSum, 0.20)`.
-- **Status:** All Tracks A, B, C, D, E, and F-foundation implemented and verified with 19/19 tests green.
+- **Status:** All Tracks A, B, C, D, E, F-foundation, and G completed and verified. 19/19 tests green, 41.9 MB release APK built and installed on device EPHUT20917014649.
