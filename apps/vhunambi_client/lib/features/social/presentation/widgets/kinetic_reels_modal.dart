@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -163,9 +164,11 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
         body: Center(child: Text('No clips to show yet')),
       );
     }
-    return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      body: PageView.builder(
+    return Theme(
+      data: AppTheme.darkTheme,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: PageView.builder(
         controller: _pageController,
         scrollDirection: Axis.vertical,
         onPageChanged: (i) {
@@ -187,7 +190,8 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
           );
         },
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -430,7 +434,7 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceModal.withValues(alpha: 0.65),
+                    color: Colors.black.withValues(alpha: 0.65),
                   ),
                   child: Row(
                     children: [
@@ -441,9 +445,9 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                           child: IconButton(
                             key: const Key('reel_close_btn'),
                             onPressed: () => Navigator.of(context).pop(),
-                            icon: PhosphorIcon(
+                            icon: const PhosphorIcon(
                               AppIcons.arrowLeft,
-                              color: AppColors.textPrimary,
+                              color: Colors.white,
                             ),
                           ),
                         ),
@@ -478,9 +482,9 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                         height: 44,
                         child: IconButton(
                           key: const Key('reels_modal_search_btn'),
-                          icon: PhosphorIcon(
+                          icon: const PhosphorIcon(
                             AppIcons.search,
-                            color: AppColors.textPrimary,
+                            color: Colors.white,
                           ),
                           onPressed: () {
                             Navigator.of(context).push(
@@ -527,7 +531,7 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                             Text(
                               '${clip.genre.toUpperCase()} • ${clip.dna.musical.bpm} BPM • ${clip.dna.musical.key}',
                               style: AppTypography.caption.copyWith(
-                                color: AppColors.textPrimary,
+                                color: Colors.white,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -605,7 +609,7 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                     Text(
                       '@${clip.creatorUsername}',
                       style: AppTypography.bodyLarge.copyWith(
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -870,7 +874,7 @@ class _ActionRailState extends State<_ActionRail> {
               icon: clip.isLikedByMe ? AppIcons.heart : AppIcons.heartOutline,
               color: clip.isLikedByMe
                   ? AppColors.brandPrimary
-                  : AppColors.textPrimary,
+                  : Colors.white,
               label: formatLikes(clip.likeCount),
               onTap: () => _recordLove(context, ref),
               onLongPress: () {
@@ -882,7 +886,7 @@ class _ActionRailState extends State<_ActionRail> {
             _RailButton(
               key: const Key('reel_comment_btn'),
               icon: AppIcons.chat,
-              color: AppColors.textPrimary,
+              color: Colors.white,
               label: '${clip.commentCount}',
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -904,7 +908,7 @@ class _ActionRailState extends State<_ActionRail> {
             _RailButton(
               key: const Key('reel_share_btn'),
               icon: AppIcons.share,
-              color: AppColors.textPrimary,
+              color: Colors.white,
               label: 'Share',
               onTap: () {
                 HapticFeedback.lightImpact();
@@ -917,7 +921,7 @@ class _ActionRailState extends State<_ActionRail> {
               icon: PhosphorIcons.translate(PhosphorIconsStyle.regular),
               color: _translateActive
                   ? AppColors.brandPrimary
-                  : AppColors.textPrimary,
+                  : Colors.white,
               label: 'Translate',
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -985,12 +989,23 @@ class _RailButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            PhosphorIcon(icon, color: color, size: 30),
+            Container(
+              decoration: const BoxDecoration(
+                boxShadow: [
+                  BoxShadow(color: Colors.black54, blurRadius: 4),
+                ],
+              ),
+              child: PhosphorIcon(icon, color: color, size: 30),
+            ),
             const SizedBox(height: 4),
             Text(
               label,
               style: AppTypography.caption.copyWith(
-                color: AppColors.textPrimary,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                shadows: const [
+                  Shadow(color: Colors.black87, blurRadius: 4),
+                ],
               ),
             ),
           ],
@@ -1034,7 +1049,7 @@ class _SoundPill extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.caption.copyWith(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                 ),
               ),
             ),

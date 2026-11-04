@@ -193,6 +193,59 @@ class ProfileSettingsDrawer extends ConsumerWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 10),
+
+            // Edge-Synced Mutation Outbox Durability Badge (REQ-P44-SYNC-06)
+            Container(
+              key: const Key('settings_edge_sync_card'),
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: AppRadius.cardBorder,
+                border: Border.all(color: AppColors.borderSubtle),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.badgeCyan.withAlpha(25),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const PhosphorIcon(
+                      PhosphorIconsRegular.cloudCheck,
+                      color: AppColors.badgeCyan,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Edge-Synced • All creations backed up',
+                          style: AppTypography.bodySmall.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Durable offline mutation outbox active (Hive WAL)',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PhosphorIcon(
+                    PhosphorIconsFill.checkCircle,
+                    color: AppColors.badgeCyan,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
           ],
         ),

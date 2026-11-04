@@ -288,6 +288,26 @@ PublishedClip _seedClip({
 List<PublishedClip> _seedClips() {
   return [
     _seedClip(
+      id: 'clip_pub_sigwa_1',
+      title: 'Limpopo Guitar Grooves',
+      creatorId: 'creator_sigwa',
+      creatorUsername: 'sigwa',
+      creatorDisplayName: 'Sigwa',
+      genre: 'Afro-fusion',
+      bpm: 118,
+      durationSec: 185,
+      caption: 'Testing the live nylon-string acoustic riffs with rolling basslines 🎸✨',
+      tags: const ['Afro-fusion', 'Guitar', 'Limpopo'],
+      mood: 'Groovy',
+      playCount: 11200,
+      likeCount: 890,
+      commentCount: 45,
+      remixCount: 7,
+      lyricTokens: const [
+        'Limpopo', 'Guitar', 'Grooves', 'Vhunambi', 'Sound', 'Strings', 'Resonate', 'Rhythm'
+      ],
+    ),
+    _seedClip(
       id: 'clip_pub_makhadzi_1',
       title: 'Ndo Mufuna Matibe',
       creatorId: 'creator_makhadzi',

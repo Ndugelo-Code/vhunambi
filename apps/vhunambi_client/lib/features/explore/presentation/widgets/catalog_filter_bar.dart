@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../domain/models/explore_models.dart';
 import '../providers/explore_providers.dart';
@@ -154,11 +155,12 @@ class CatalogFilterBar extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
 
-          // 4. Sorting pills
+          // 4. Sorting pills (REQ-P44-EMOJI-01)
           Row(
             children: [
               _FilterPill(
-                label: '🔥 Newest',
+                label: 'Newest',
+                icon: PhosphorIconsRegular.sparkle,
                 isActive: activeSort == ExploreSortBy.newest,
                 onTap: () {
                   ref.read(exploreSortByProvider.notifier).state =
@@ -168,7 +170,8 @@ class CatalogFilterBar extends ConsumerWidget {
               ),
               const SizedBox(width: AppSpacing.xs),
               _FilterPill(
-                label: '❤️ Most Liked',
+                label: 'Most Liked',
+                icon: PhosphorIconsRegular.heart,
                 isActive: activeSort == ExploreSortBy.mostLiked,
                 onTap: () {
                   ref.read(exploreSortByProvider.notifier).state =
@@ -298,12 +301,14 @@ class _LanguageDropdown extends ConsumerWidget {
 
 class _FilterPill extends StatelessWidget {
   final String label;
+  final IconData? icon;
   final bool isActive;
   final VoidCallback onTap;
   final Color? inactiveSurface;
 
   const _FilterPill({
     required this.label,
+    this.icon,
     required this.isActive,
     required this.onTap,
     this.inactiveSurface,
@@ -331,13 +336,26 @@ class _FilterPill extends StatelessWidget {
             color: isActive ? AppColors.brandPrimary : AppColors.borderSubtle,
           ),
         ),
-        child: Text(
-          label,
-          style: AppTypography.bodySmall.copyWith(
-            fontSize: 12,
-            color: isActive ? AppColors.brandContrast : AppColors.textSecondary,
-            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              PhosphorIcon(
+                icon!,
+                size: 13,
+                color: isActive ? AppColors.brandContrast : AppColors.brandPrimary,
+              ),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: AppTypography.bodySmall.copyWith(
+                fontSize: 12,
+                color: isActive ? AppColors.brandContrast : AppColors.textSecondary,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

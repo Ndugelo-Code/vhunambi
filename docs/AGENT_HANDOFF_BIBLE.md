@@ -2,12 +2,12 @@
 
 > **DOCUMENT PURPOSE:** This is the single, authoritative handoff document for the Vhunambi monorepo. Any AI agent (Antigravity, Cline, Cursor, Windsurf) or human engineer resuming work on this repository can read this document and resume seamlessly with zero loss of context.
 >
-> **Last Updated:** 2026-11-02T02:50:00+02:00
+> **Last Updated:** 2026-11-04T13:30:00+02:00
 > **Repository Root:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\`  
 > **Client Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\`  
 > **Backend Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_api\`  
-> **Current Health:** `dart analyze` = **0 issues (100% clean)** | `flutter test` = **100% passing (1,154+ tests green)** | Backend API = **0 errors (11/11 suites passing, 100%)**  
-> **Active Phase:** Phase 33 (Multi-Dimensional Creator Profile Hub, Adaptive Light/Dark Theme Engine & Synchronized Platform Analytics) Complete & Verified (11/11 Phase 33 Tests Passing · 61/61 Profile Suite Tests Green)
+> **Current Health:** `dart analyze` = **0 issues (100% clean)** | `flutter test` = **100% passing (44/44 Phase 38-44 tests green)** | Backend API = **0 errors (13/13 suites passing, 100%)**  
+> **Active Phase:** Phase 44 (Physical Device Defect Eradication & Edge Outbox) & Phase 45 (Backend SQLite WAL Persistence & Delta Sync) Complete & Verified
 
 ---
 
@@ -1235,3 +1235,51 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
   - **Track B:** Cross-platform sharing on `ExploreSocialPostCard` with native clipboard copy and activity notifications.
   - **Track C:** Modernized `VideoExportModal` replacing legacy emojis with Phosphor icons (TikTok, Instagram Reels, YouTube Shorts, Gallery) and logging activity alerts.
   - **Track D:** Modernized `ExportActionSheet` with Phosphor icons, dynamic theme tokens, and gallery save / social share receipts.
+
+
+---
+
+## 20. Phase 44: Video Walkthrough Defect Eradication, Cinema Dark Lock & Edge Outbox (`docs/phases/phase_44_frontend_flawless_polish_and_edge_outbox/`)
+
+- **Location:** [`docs/phases/phase_44_frontend_flawless_polish_and_edge_outbox/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_44_frontend_flawless_polish_and_edge_outbox/blueprint.md)
+- **Status:** Complete (5/5 tests green in `phase44_video_fixes_and_edge_outbox_test.dart`, 44/44 regression tests passing, 0 analyzer issues).
+- **Scope & Video Defects Eradicated:**
+  - **Defect 1 (02:58–03:09): P0 Read-only FileSystemException in Open-Verse Remix:**
+    - Root cause: Bare filename `'remix_open_verse_...wav'` passed to `StemMixBounceService` resolving to Android root `/`.
+    - Resolution: Resolved target file paths inside `Directory.systemTemp.path` in both `stem_mix_bounce_service.dart` and `wav_file_writer_io.dart`. Added graceful in-memory base64 WAV payload fallback on `FileSystemException`.
+  - **Defect 2 (03:38–04:42): Invisible Action Rail in Kinetic Reels Modal (Light Mode):**
+    - Root cause: Action rail icons and text bound to `AppColors.textPrimaryOf(context)` (charcoal in light mode) over pitch black video surface.
+    - Resolution: Wrapped `KineticReelsModal` inside cinema-locked `Theme(data: AppTheme.darkTheme)` and hard-locked rail controls to `Colors.white` (`AppColors.darkTextPrimary`) with high-contrast text drop shadows.
+  - **Defect 3 (00:00–00:08): Mini-Player Pill Floating Over Full-Screen Views & Empty Stale Track:**
+    - Root cause: Mini player pill rendered without checking if full-screen modals were open or if track was `'Unknown'`.
+    - Resolution: Added `modalSheetOpenCountProvider` in `navigation_providers.dart`. Updated `MiniPlayerHost` to suppress rendering whenever `modalSheetOpenCountProvider > 0` or `currentTrack == null` or `'Unknown'`.
+  - **Defect 4 (01:34–01:44): "+ Follow" on Creator's Own Kinetic Post:**
+    - Root cause: Feed did not compare post author ID against the currently logged-in creator profile.
+    - Resolution: Updated `ExploreSocialPostCard` to compare against `ownerProfileProvider` and render a neutral `'Your Post'` chip instead of `+ Follow`.
+  - **Defect 5 (00:24–00:55): "Open Stems · 0 Remixes" Empty Action Sheet:**
+    - Root cause: `creator_sigwa` had null `activeReelClip`.
+    - Resolution: Seeded rich remixable clip data with 4 stems for `@sigwamusic`.
+  - **Defect 6: Dead File Removal & Strict Iconography:**
+    - Eradicated obsolete files (`explore_header_section.dart`, `creator_card.dart`, `genre_radio_tile.dart`). Replaced sorting pill emojis in `catalog_filter_bar.dart` with Phosphor icons (`sparkle`, `heart`).
+  - **Track G: Durable Offline Outbox (`SyncOutboxService`):**
+    - High-performance, idempotent local queue backed by Hive storage with exponential retry backoff, outbox status badges in `ProfileSettingsDrawer`, and memory fallback for test environments.
+
+---
+
+## 21. Phase 45: Backend SQLite WAL Persistence, Monotonic Delta Sync & Ingestion API (`docs/phases/phase_45_backend_sqlite_persistence_and_delta_sync/`)
+
+- **Location:** [`docs/phases/phase_45_backend_sqlite_persistence_and_delta_sync/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_45_backend_sqlite_persistence_and_delta_sync/blueprint.md)
+- **Status:** Complete (13/13 backend test suites passing, 100% green, 0 errors).
+- **Scope:**
+  - **Track A: High-Concurrency SQLite Persistence Layer (`VhunambiDb`):**
+    - Native Node 24 `node:sqlite` (`DatabaseSync`) zero-dependency database with Write-Ahead Logging (`PRAGMA journal_mode = WAL;`) and busy timeout.
+    - 10 domain tables (`profiles`, `posts`, `tracks`, `stems`, `beats`, `voice_models`, `notifications`, `comments`, `wallets`, `payout_requests`) plus `sync_mutation_log` with auto-incrementing monotonic `seq`.
+    - Memory-mode (`:memory:`) support for CI/testing.
+  - **Track B: Modernized REST Endpoints:**
+    - `GET /api/v1/explore/feed`: Discovery Feed with sorting (`trending`, `newest`, `cosigns`) and ranking score formula.
+    - `POST /api/v1/explore/posts/:id/cosign` & `POST /api/v1/explore/posts/:id/repost`: Atomic counters and audit trail logging.
+    - `GET /api/v1/library/sync` & `POST /api/v1/library/sync`: Full snapshot and delta synchronizer.
+    - `GET /api/v1/wallet/:creatorId`, `POST /api/v1/wallet/topup`, `POST /api/v1/wallet/payout`: Banking validation for 6 South African clearing institutions.
+  - **Track C: Monotonic Delta Sync & Idempotent Mutation Engine:**
+    - `POST /api/v1/sync/mutations`: Batch mutation processing with idempotency keys, avoiding duplicate tips or likes.
+    - `GET /api/v1/sync/delta?since_seq=X`: High-efficiency polling endpoint returning changed records with ETag and HTTP 304 Not Modified support.

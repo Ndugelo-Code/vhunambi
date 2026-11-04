@@ -323,30 +323,38 @@ class ProfileBannerHeader extends StatelessWidget {
                       ),
                     ),
 
-                  // Share Button
+                  // Share Button (REQ-P44-PROF-01)
                   Semantics(
                     label: 'Share ${profile.displayName}\'s profile',
                     button: true,
                     child: IconButton(
                       style: IconButton.styleFrom(
-                        backgroundColor: AppColors.surfaceElevated,
-                        side: BorderSide(color: AppColors.borderSubtle),
+                        backgroundColor: AppColors.surfaceElevatedOf(context),
+                        side: BorderSide(color: AppColors.borderSubtleOf(context)),
                       ),
-                      icon: const Icon(Icons.share_rounded, size: 18, color: Colors.white),
+                      icon: PhosphorIcon(
+                        PhosphorIconsRegular.shareNetwork,
+                        size: 18,
+                        color: AppColors.textPrimaryOf(context),
+                      ),
                       onPressed: onShare,
                     ),
                   ),
 
-                  // Report Button
+                  // Report Button (REQ-P44-PROF-01)
                   Semantics(
                     label: 'Report ${profile.displayName}\'s profile',
                     button: true,
                     child: IconButton(
                       style: IconButton.styleFrom(
-                        backgroundColor: AppColors.surfaceElevated,
-                        side: BorderSide(color: AppColors.borderSubtle),
+                        backgroundColor: AppColors.surfaceElevatedOf(context),
+                        side: BorderSide(color: AppColors.borderSubtleOf(context)),
                       ),
-                      icon: Icon(Icons.flag_outlined, size: 18, color: AppColors.textSecondary),
+                      icon: PhosphorIcon(
+                        PhosphorIconsRegular.flag,
+                        size: 18,
+                        color: AppColors.textSecondaryOf(context),
+                      ),
                       onPressed: onReport,
                     ),
                   ),

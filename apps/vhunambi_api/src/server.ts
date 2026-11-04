@@ -9,6 +9,10 @@ import { visionRoutes } from './routes/vision_routes.js';
 import { voiceRoutes } from './routes/voice_routes.js';
 import { melodyRoutes } from './routes/melody_routes.js';
 import { marketplaceRoutes } from './routes/marketplace_routes.js';
+import { exploreRoutes } from './routes/explore_routes.js';
+import { libraryRoutes } from './routes/library_routes.js';
+import { walletRoutes } from './routes/wallet_routes.js';
+import { syncRoutes } from './routes/sync_routes.js';
 import { countActiveJobs } from './modules/jobs/job_store.js';
 
 /**
@@ -62,3 +66,9 @@ app.route('/api', socialRoutes);
 
 // Mount Phase 28 Beats Marketplace & Licensing routes (/api/marketplace/*)
 app.route('/api/marketplace', marketplaceRoutes);
+
+// Mount Phase 45 SQLite Persistence & Delta Sync routes (REQ-P45-EXP, REQ-P45-LIB, REQ-P45-WAL, REQ-P45-SYNC)
+app.route('/api/explore', exploreRoutes);
+app.route('/api/library', libraryRoutes);
+app.route('/api/wallet', walletRoutes);
+app.route('/api/sync', syncRoutes);

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -67,7 +68,19 @@ class _OpenVerseRemixCockpitSheetState
   double _euclideanDensity = 8.0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(modalSheetOpenCountProvider.notifier).state++;
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    ref.read(modalSheetOpenCountProvider.notifier).state =
+        (ref.read(modalSheetOpenCountProvider.notifier).state - 1).clamp(0, 99);
     _countInTimer?.cancel();
     _recordTimer?.cancel();
     super.dispose();
@@ -144,7 +157,7 @@ class _OpenVerseRemixCockpitSheetState
 
       await bounceService.bounceMixToFile(
         mixerState: ref.read(stemMixerProvider),
-        targetPath: 'remix_open_verse_${DateTime.now().millisecondsSinceEpoch}.wav',
+        targetPath: '${Directory.systemTemp.path}/remix_open_verse_${DateTime.now().millisecondsSinceEpoch}.wav',
         duration: const Duration(seconds: 4),
         vocalAudio: dummyVocal,
         synthesizeGrooveIfEmpty: true,
@@ -181,7 +194,7 @@ class _OpenVerseRemixCockpitSheetState
       final bounceService = StemMixBounceService(writer: writeWavToFile);
       await bounceService.bounceMixToFile(
         mixerState: ref.read(stemMixerProvider),
-        targetPath: 'beat_flip_${DateTime.now().millisecondsSinceEpoch}.wav',
+        targetPath: '${Directory.systemTemp.path}/beat_flip_${DateTime.now().millisecondsSinceEpoch}.wav',
         duration: const Duration(seconds: 4),
         synthesizeGrooveIfEmpty: true,
       );

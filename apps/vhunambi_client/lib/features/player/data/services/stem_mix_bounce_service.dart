@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import '../../../studio/domain/models/melody_sketchpad_models.dart';
@@ -15,13 +17,22 @@ class BounceResult {
   final bool isSimulated;
   final Duration duration;
   final Uint8List? bouncedWavBytes;
+  final bool isInMemoryFallback;
 
   const BounceResult({
     required this.path,
     required this.isSimulated,
     required this.duration,
     this.bouncedWavBytes,
+    this.isInMemoryFallback = false,
   });
+
+  String get dataUri {
+    if (bouncedWavBytes != null) {
+      return 'data:audio/wav;base64,${base64Encode(bouncedWavBytes!)}';
+    }
+    return '';
+  }
 }
 
 /// Bounces stem balances into a studio-grade 44.1 kHz 16-bit Stereo PCM WAV file (REQ-MIX-01..03).
@@ -354,13 +365,29 @@ class StemMixBounceService {
     }
 
     final wavFileBytes = createWavFile(pcmBytes, sampleRate, channels);
-    await writer(targetPath, wavFileBytes);
+    String resolvedPath = targetPath;
+    if (!targetPath.startsWith('/') && !targetPath.contains(':\\') && !targetPath.startsWith('\\')) {
+      resolvedPath = '${Directory.systemTemp.path}/$targetPath';
+    }
 
-    return BounceResult(
-      path: targetPath,
-      isSimulated: false,
-      duration: clampedDuration,
-      bouncedWavBytes: wavFileBytes,
-    );
+    try {
+      await writer(resolvedPath, wavFileBytes);
+      return BounceResult(
+        path: resolvedPath,
+        isSimulated: false,
+        duration: clampedDuration,
+        bouncedWavBytes: wavFileBytes,
+      );
+    } catch (e) {
+      // Memory fallback: if filesystem is strictly read-only, stream via data URI
+      final base64Fallback = 'data:audio/wav;base64,${base64Encode(wavFileBytes)}';
+      return BounceResult(
+        path: base64Fallback,
+        isSimulated: false,
+        duration: clampedDuration,
+        bouncedWavBytes: wavFileBytes,
+        isInMemoryFallback: true,
+      );
+    }
   }
 }

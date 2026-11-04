@@ -5,6 +5,7 @@ import '../../../../core/design_system/services/analytics_service.dart';
 import '../../../../core/design_system/services/haptics_service.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/navigation/navigation_providers.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../domain/models/player_state.dart';
 import '../providers/mini_player_controller.dart';
@@ -149,8 +150,18 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     // Hide on desktop (DesktopTransportBar handles desktop layout).
     if (ResponsiveUtils.isDesktop(context)) return true;
 
-    // Hide when no active track.
+    // Hide when modal bottom sheets are open (REQ-P44-MINI-02).
+    final modalSheetCount = ref.watch(modalSheetOpenCountProvider);
+    if (modalSheetCount > 0) return true;
+
+    // Hide when no active track or track is placeholder / 'Unknown' (REQ-P44-MINI-01).
     if (!playerState.hasActiveTrack) return true;
+    final track = playerState.currentTrack;
+    if (track == null ||
+        track.title.trim().isEmpty ||
+        track.title.trim().toLowerCase() == 'unknown') {
+      return true;
+    }
 
     // Hide when Now Playing cockpit is open.
     if (controller.isNowPlayingOpen) return true;

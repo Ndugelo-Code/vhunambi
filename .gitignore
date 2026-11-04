@@ -54,3 +54,10 @@ desktop.ini
 *.log
 p11_*.txt
 apps/vhunambi_client/p14_*.txt
+
+# Local SQLite Databases
+*.sqlite
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+apps/vhunambi_api/data/

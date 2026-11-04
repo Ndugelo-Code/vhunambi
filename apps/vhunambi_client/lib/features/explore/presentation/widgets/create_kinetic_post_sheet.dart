@@ -5,6 +5,8 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/navigation/navigation_providers.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../../shared/models/track.dart';
 import '../../domain/models/social_music_post.dart';
 import '../providers/explore_providers.dart';
@@ -52,6 +54,11 @@ class _CreateKineticPostSheetState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(modalSheetOpenCountProvider.notifier).state++;
+      }
+    });
     // Default fallback track from explore catalog
     final initialTracks = ref.read(exploreTracksProvider);
     if (initialTracks.isNotEmpty) {
@@ -67,6 +74,8 @@ class _CreateKineticPostSheetState
 
   @override
   void dispose() {
+    ref.read(modalSheetOpenCountProvider.notifier).state =
+        (ref.read(modalSheetOpenCountProvider.notifier).state - 1).clamp(0, 99);
     _captionController.dispose();
     _visionPromptController.dispose();
     super.dispose();
@@ -172,22 +181,28 @@ class _CreateKineticPostSheetState
     HapticFeedback.mediumImpact();
     final now = DateTime.now();
 
+    final owner = ref.read(ownerProfileProvider);
+    final creatorName = owner.displayName.isNotEmpty ? owner.displayName : 'Cern';
+    final creatorHandle = owner.handle.isNotEmpty ? owner.handle : '@cern';
+    final creatorId = owner.id.isNotEmpty ? owner.id : 'creator_cern';
+
     final trackToAttach = _selectedTrack ??
-        const Track(
+        Track(
           id: 'kpost_track_default',
           title: 'Vhunambi Sonic Groove',
-          creatorName: 'You',
-          creatorHandle: '@current_user',
+          creatorName: creatorName,
+          creatorHandle: creatorHandle,
           genre: 'Amapiano',
           language: 'Tshivenḓa',
-          duration: Duration(minutes: 3, seconds: 0),
+          duration: const Duration(minutes: 3, seconds: 0),
         );
 
     final post = SocialMusicPost(
       id: 'kpost_${now.millisecondsSinceEpoch}',
-      creatorId: 'current_user',
-      creatorName: 'You',
-      creatorHandle: '@current_user',
+      creatorId: creatorId,
+      creatorName: creatorName,
+      creatorHandle: creatorHandle,
+      creatorAvatarUrl: owner.avatarUrl,
       publishedAt: now,
       location: 'Limpopo / Polokwane',
       caption: caption,
@@ -198,8 +213,8 @@ class _CreateKineticPostSheetState
         sourceType: _selectedAudioCategory,
         clipStartSec: _clipStartSec,
         clipDurationSec: _clipDurationSec,
-        originalCreatorId: 'current_user',
-        originalCreatorHandle: '@current_user',
+        originalCreatorId: creatorId,
+        originalCreatorHandle: creatorHandle,
       ),
     );
 
@@ -492,8 +507,24 @@ class _CreateKineticPostSheetState
                                 errorBuilder: (_, _, _) => Container(
                                   width: 90,
                                   height: 90,
-                                  color: AppColors.surfaceSecondary,
-                                  child: const Icon(Icons.image),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        AppColors.brandPrimary.withValues(alpha: 0.8),
+                                        AppColors.badgeCyan.withValues(alpha: 0.8),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                  child: const Center(
+                                    child: PhosphorIcon(
+                                      PhosphorIconsFill.sparkle,
+                                      size: 28,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -627,18 +658,47 @@ class _CreateKineticPostSheetState
                             onSelected: (track) {
                               setState(() => _selectedTrack = track);
                             },
-                            itemBuilder: (_) => allTracks
-                                .take(6)
-                                .map(
-                                  (t) => PopupMenuItem(
-                                    value: t,
-                                    child: Text(
-                                      '${t.title} (${t.genre})',
-                                      style: AppTypography.bodySmall,
+                            itemBuilder: (_) {
+                              List<Track> items;
+                              switch (_selectedAudioCategory) {
+                                case KineticAudioSourceType.librarySong:
+                                  items = allTracks.take(8).toList();
+                                  break;
+                                case KineticAudioSourceType.beatListing:
+                                  items = const [
+                                    Track(id: 'beat_01', title: 'Pretoria Deep 112 BPM', creatorName: 'Kabza Producer', creatorHandle: '@kabza', genre: 'Amapiano', duration: Duration(minutes: 2)),
+                                    Track(id: 'beat_02', title: 'Durban Gqom Sgubhu 127', creatorName: 'Makhadzi Beats', creatorHandle: '@makhadzi', genre: 'Gqom', duration: Duration(minutes: 2)),
+                                    Track(id: 'beat_03', title: 'Polokwane Sunset Groove', creatorName: 'Sigwa Riffs', creatorHandle: '@sigwa', genre: 'Afro-fusion', duration: Duration(minutes: 2)),
+                                    Track(id: 'beat_04', title: '3-Step African Soul 115', creatorName: 'Fifi Sound', creatorHandle: '@fifi', genre: 'Afro House', duration: Duration(minutes: 2)),
+                                  ];
+                                  break;
+                                case KineticAudioSourceType.voiceSignature:
+                                  items = const [
+                                    Track(id: 'dna_01', title: 'Venda Folk Warmth (98% Timbre)', creatorName: 'Vocal DNA Studio', creatorHandle: '@cern', genre: 'Folk / Choral', duration: Duration(seconds: 45)),
+                                    Track(id: 'dna_02', title: 'Soprano Harmonies (94% Match)', creatorName: 'Makhadzi Clone', creatorHandle: '@makhadzi', genre: 'Amapiano', duration: Duration(seconds: 45)),
+                                    Track(id: 'dna_03', title: 'Deep Baritone Chant (96% Match)', creatorName: 'Zulu Heritage DNA', creatorHandle: '@sigwa', genre: 'Gqom', duration: Duration(seconds: 45)),
+                                  ];
+                                  break;
+                                case KineticAudioSourceType.sketchpadGroove:
+                                  items = const [
+                                    Track(id: 'sk_01', title: 'Midnight Log Drum Pattern A', creatorName: 'Pocket DAW', creatorHandle: '@cern', genre: 'Amapiano', duration: Duration(seconds: 30)),
+                                    Track(id: 'sk_02', title: 'Private School Rhodes Chords', creatorName: 'Sketchpad 3-Step', creatorHandle: '@cern', genre: 'Afro House', duration: Duration(seconds: 30)),
+                                    Track(id: 'sk_03', title: 'Euclidean African Percussion', creatorName: 'Groove Sequencer', creatorHandle: '@cern', genre: 'Afro-fusion', duration: Duration(seconds: 30)),
+                                  ];
+                                  break;
+                              }
+                              return items
+                                  .map(
+                                    (t) => PopupMenuItem(
+                                      value: t,
+                                      child: Text(
+                                        '${t.title} (${t.genre})',
+                                        style: AppTypography.bodySmall,
+                                      ),
                                     ),
-                                  ),
-                                )
-                                .toList(),
+                                  )
+                                  .toList();
+                            },
                           ),
                         ],
                       ),

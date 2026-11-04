@@ -9,6 +9,7 @@ import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../profile/presentation/views/artist_profile_view.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../social/presentation/widgets/creator_tipping_sheet.dart';
 import '../../../social/presentation/widgets/open_verse_remix_cockpit_sheet.dart';
 import '../../../social/presentation/widgets/reels_comment_sheet.dart';
@@ -319,6 +320,11 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
     final post = widget.post;
     final followingIds = ref.watch(followingCreatorIdsProvider);
     final isFollowing = followingIds.contains(post.creatorId);
+    final ownerProfile = ref.watch(ownerProfileProvider);
+    final isOwner = post.creatorHandle.toLowerCase() == ownerProfile.handle.toLowerCase() ||
+                    post.creatorId == ownerProfile.id ||
+                    post.creatorId == 'me' ||
+                    post.creatorHandle == '@current_user';
 
     final images = post.allImageAttachments;
     final hasImages = images.isNotEmpty;
@@ -425,23 +431,13 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
                                 ],
                               ],
                             ),
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    '${post.creatorHandle} • ${post.relativeTimeAgo}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTypography.caption.copyWith(
-                                      color: AppColors.textSecondaryOf(context),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                _buildProvenanceBadge(context, post),
-                                const SizedBox(width: 5),
-                                _buildCosignButton(context, post),
-                              ],
+                            Text(
+                              '${post.creatorHandle} • ${post.relativeTimeAgo}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textSecondaryOf(context),
+                              ),
                             ),
                           ],
                         ),
@@ -452,49 +448,82 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
               ),
               const SizedBox(width: AppSpacing.xs),
 
-              // Follow/Following Button (44dp target)
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 36, minWidth: 44),
-                child: TextButton(
-                  key: Key('social_post_follow_${post.id}'),
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    ref
-                        .read(followingCreatorIdsProvider.notifier)
-                        .toggleFollow(post.creatorId);
-                  },
-                  style: TextButton.styleFrom(
-                    backgroundColor: isFollowing
-                        ? AppColors.surfaceSecondary
-                        : AppColors.brandPrimary,
-                    foregroundColor: isFollowing
-                        ? AppColors.textPrimary
-                        : AppColors.brandContrast,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppRadius.pillBorder,
-                      side: BorderSide(
-                        color: isFollowing
-                            ? AppColors.borderSubtle
-                            : AppColors.brandPrimary,
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
+              // Follow/Following Button (or "Your Post" chip if owner) (REQ-P44-POST-02..03)
+              if (isOwner)
+                Container(
+                  key: Key('social_post_own_badge_${post.id}'),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceSecondaryOf(context),
+                    borderRadius: AppRadius.pillBorder,
+                    border: Border.all(color: AppColors.borderSubtleOf(context)),
                   ),
                   child: Text(
-                    isFollowing ? 'Following' : '+ Follow',
+                    'Your Post',
                     style: AppTypography.caption.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: isFollowing
+                      color: AppColors.textSecondaryOf(context),
+                      fontSize: 11,
+                    ),
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 36, minWidth: 44),
+                  child: TextButton(
+                    key: Key('social_post_follow_${post.id}'),
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      ref
+                          .read(followingCreatorIdsProvider.notifier)
+                          .toggleFollow(post.creatorId);
+                    },
+                    style: TextButton.styleFrom(
+                      backgroundColor: isFollowing
+                          ? AppColors.surfaceSecondary
+                          : AppColors.brandPrimary,
+                      foregroundColor: isFollowing
                           ? AppColors.textPrimary
                           : AppColors.brandContrast,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.pillBorder,
+                        side: BorderSide(
+                          color: isFollowing
+                              ? AppColors.borderSubtle
+                              : AppColors.brandPrimary,
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
+                    ),
+                    child: Text(
+                      isFollowing ? 'Following' : '+ Follow',
+                      style: AppTypography.caption.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isFollowing
+                            ? AppColors.textPrimary
+                            : AppColors.brandContrast,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
+          ),
+
+          // Secondary Badge Row: Provenance + Co-Sign Milestone (REQ-P44-POST-04)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 2),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _buildProvenanceBadge(context, post),
+                _buildCosignButton(context, post),
+              ],
+            ),
           ),
 
           // ZONE 2: Caption Context & Quote Commentary
