@@ -1152,3 +1152,86 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
 5. **[`05_CROSS_MODULE_SYNERGY_FOR_VHUNAMBI.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/bantu_intelligence_suite/05_CROSS_MODULE_SYNERGY_FOR_VHUNAMBI.md)**: Translation of Zania's cross-module synergy patterns (Diagnostic Gap -> Fix Loop, lyric translation + phonetic sing-along, creator mastery achievements, smart recommendation cards) to Vhunambi, plus what NOT to copy.
 
 **Phase 36 index:** [`docs/phases/phase_36_bantu_linguistic_dsp_and_synergy/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_36_bantu_linguistic_dsp_and_synergy/blueprint.md) (peer-branch Bantu DSP, Story-to-Lyrics, lyric translation, cross-module synergy) - Status: **Complete** (All Tracks A–E implemented, zero analyzer issues, 33/33 client tests and 12/12 API suites green).
+
+---
+
+## 13. Phase 37: Participatory Open-Verse Challenges, Stem-Flip Chains & Co-Creation Royalties (`docs/phases/phase_37_open_verse_and_stem_remix_chains/`)
+
+- **Location:** [`docs/phases/phase_37_open_verse_and_stem_remix_chains/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_37_open_verse_and_stem_remix_chains/blueprint.md)
+- **Status:** Complete (Tracks A–D implemented, 100% green tests in `phase37_open_verse_and_remix_chains_test.dart`, 0 analyzer warnings).
+- **Scope:**
+  - **Track A:** Real 44.1 kHz 16-bit PCM Stereo Stem & Vocal Mixdown Engine in `StemMixBounceService` (resolving Flaws Audit Cat F #1).
+  - **Track B:** Remix Lineage Graph, `remixLineageTreeProvider`, and automatic 70% Remixer / 30% Originator ZAR/Coin split-sheet distribution.
+  - **Track C:** 3-Mode Co-Creation Cockpit Sheet (`OpenVerseRemixCockpitSheet`) supporting Drop Open Verse, Flip Beat & Log-Drum, and Full Studio Handoff.
+  - **Track D:** On-feed participation chips on Explore and Kinetic Reels, `RemixLineageTreeSheet`, and `ActiveRemixLineageBanner` in Studio.
+  - **Track E:** Full verification suite, 0 analyzer issues.
+
+---
+
+## 14. Phase 38: Kinetic Posts Architecture, Vhunambi Vision Image Composer, Non-Invasive Sonic Pill & Repost Sovereignty (`docs/phases/phase_38_kinetic_posts_and_vision_composer/`)
+
+- **Location:** [`docs/phases/phase_38_kinetic_posts_and_vision_composer/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_38_kinetic_posts_and_vision_composer/blueprint.md)
+- **Status:** Complete (Tracks A–D implemented, 134/134 client explore/social tests green, zero analyzer issues, 41.5 MB ARM64 release APK successfully built and deployed via ADB to hardware EPHUT20917014649).
+- **Scope:**
+  - **Track A:** `KineticPost` Domain Models (`KineticPostImageAttachment`, `KineticPostAspectRatio`, `KineticPostAudioAttachment`, `KineticAudioSourceType`), strict No-MP4 media validation guard (`REQ-KPOST-NO-MP4`), and immutable original audio lock on reposts.
+  - **Track B:** Redesigned `ExploreSocialPostCard` using 4-zone editorial hierarchy with resizable visual canvas (1:1, 4:5, 16:9), Non-Invasive Frosted Sonic Pill (`KineticPostSonicPill`), and direct Mini-Player handshake.
+  - **Track C:** On-feed `KineticPostComposerBar` and `CreateKineticPostSheet` workstation with phone upload, Vhunambi Vision AI generator, aspect-ratio resizer, and 4-tab universal vault audio duration trimmer (15s/30s/60s/Full).
+  - **Track D:** Full test suite in `phase38_kinetic_posts_and_vision_test.dart`, 0 analyzer issues, release APK $\le 200\text{ MB}$, and deployment to `EPHUT20917014649`.
+
+
+---
+
+## 15. Phase 39: Creator Identity Archetypes, 3-Stage Discovery Hierarchy & Multi-Talent Marketplace (`docs/phases/phase_39_creator_identity_discovery_and_talent_market/`)
+
+- **Location:** [`docs/phases/phase_39_creator_identity_discovery_and_talent_market/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_39_creator_identity_discovery_and_talent_market/blueprint.md)
+- **Status:** Complete (Tracks A–D implemented, 12/12 unit/widget tests green in `phase39_identity_discovery_and_talent_market_test.dart`, 0 analyzer issues).
+- **Scope:**
+  - **Track A:** `CreatorIdentityArchetype` (Sonic Architect, Traditional Vocalist, Live Instrumentalist, Voice DNA Model, Sonic Curator), Monthly Listeners metrics, and dynamic badges across Artist and Owner profiles.
+  - **Track B:** `AudioProvenanceType` (Live Traditional Acoustic, Direct DAW Master, Hybrid Co-Creation, AI Sonic Generation) with provenance badges on kinetic posts.
+  - **Track C:** `DirectDawVocalUploadSheet` with 3 direct ingestion modes (Direct Vocal Hook, Live Instrumental Loop, Studio Stems Zip).
+  - **Track D:** 3-Stage Discovery Hierarchy (`DiscoveryStageTier`: Mainstage, Rising Breakout, Fresh Crate) and 4-Pillar Talent Marketplace (`MarketplaceAssetCategory`: Beats, Vocals & Acapellas, Live Instruments, Voice DNA & Packs) with 85% creator royalty splits.
+
+---
+
+## 16. Phase 40: Live Reactive Notifications, 9-Language Bantu Lexicon, Co-Sign Loop & Coin Top-Up (`docs/phases/phase_40_live_notifications_lexicon_and_ar_cosign/`)
+
+- **Location:** [`docs/phases/phase_40_live_notifications_lexicon_and_ar_cosign/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_40_live_notifications_lexicon_and_ar_cosign/blueprint.md)
+- **Status:** Complete (Tracks A–D implemented, 9/9 tests green in `phase40_notifications_lexicon_cosign_and_topup_test.dart`, 0 analyzer issues).
+- **Scope:**
+  - **Track A:** `phase40SeededNotifications` spanning all 4 categories (Social, System, Activity, Discovery), auto-seeded on provider creation and reactively dispatched on creator events.
+  - **Track B:** Comprehensive 9-Bantu-language dictionary expansion in `BantuLyricTranslationService` with 100% translation coverage for all catalog songs and 150+ high-frequency cultural stems.
+  - **Track C:** A&R Crowdsourced Co-Sign Loop on `ExploreSocialPostCard` (`cosignCount`, `isCosigned`, 25-vote graduation gate to Mainstage).
+  - **Track D:** Instant Coin Top-Up Rack in `SubscriptionUpgradeModal` (100, 300, 1000 Coins via Ozow/Capitec Pay ZAR) with live balance updates.
+
+---
+
+## 17. Phase 41: Creator Sovereign Royalty Payouts & Banking KYC Sheet (`docs/phases/phase_41_creator_sovereign_payouts_and_banking/`)
+
+- **Location:** [`docs/phases/phase_41_creator_sovereign_payouts_and_banking/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_41_creator_sovereign_payouts_and_banking/blueprint.md)
+- **Status:** Complete (Tracks A–C implemented, 4/4 tests green in `phase41_creator_payouts_and_banking_test.dart`, 0 analyzer issues).
+- **Scope:**
+  - **Track A:** `CreatorBankingDetails` and `kSouthAfricanUniversalBranchCodes` (Capitec Bank, FNB, Standard Bank, Nedbank, Absa, TymeBank) with `requestBankingPayout` EFT clearing.
+  - **Track B:** `PayoutDetailsSheet` modal with validation for account holder, account number, bank selection, and automated branch code resolution.
+  - **Track C:** `VhunambiUserAvatarButton` placed on mobile and desktop rows of `LibraryAppBar` for seamless profile navigation.
+
+---
+
+## 18. Phase 42: Cockpit Hardware Player Studio Bridge & Multitrack Transport (`docs/phases/phase_42_cockpit_studio_bridge_and_multitrack_transport/`)
+
+- **Location:** [`docs/phases/phase_42_cockpit_studio_bridge_and_multitrack_transport/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_42_cockpit_studio_bridge_and_multitrack_transport/blueprint.md)
+- **Status:** Complete (Tracks A–B implemented, 2/2 tests green in `phase42_cockpit_studio_bridge_test.dart`, 0 analyzer issues).
+- **Scope:**
+  - **Track A:** Studio Remix Bridge button on `ExpandedCockpitModal` (`Key('cockpit_remix_in_studio_btn')`) transferring track metadata, genre, and prompt to `studioFormProvider`, switching active tab to 2 (Studio), and logging activity receipts.
+  - **Track B:** Illuminated hardware DSP LED indicator (`Key('cockpit_dsp_led_indicator')`) reflecting DSP vs RAW mastering preview state.
+
+---
+
+## 19. Phase 43: Universal Social Share, Gallery Media Export & Legal Transparency (`docs/phases/phase_43_social_share_and_gallery_export/`)
+
+- **Location:** [`docs/phases/phase_43_social_share_and_export/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_43_social_share_and_export/blueprint.md)
+- **Status:** Complete (Tracks A–D implemented, 5/5 tests green in `phase43_social_share_and_export_test.dart`, 0 analyzer issues).
+- **Scope:**
+  - **Track A:** `LegalTransparencyModal` (`Key('legal_transparency_modal')`) wired to all legal links in `LandingFooter`, outlining 85% creator splits, commercial sync rights, Bantu heritage attribution, and SARB banking compliance.
+  - **Track B:** Cross-platform sharing on `ExploreSocialPostCard` with native clipboard copy and activity notifications.
+  - **Track C:** Modernized `VideoExportModal` replacing legacy emojis with Phosphor icons (TikTok, Instagram Reels, YouTube Shorts, Gallery) and logging activity alerts.
+  - **Track D:** Modernized `ExportActionSheet` with Phosphor icons, dynamic theme tokens, and gallery save / social share receipts.

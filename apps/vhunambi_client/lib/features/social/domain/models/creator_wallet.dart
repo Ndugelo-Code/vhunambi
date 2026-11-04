@@ -177,3 +177,37 @@ class PayoutReceipt {
   }
 }
 
+
+
+/// Banking & KYC verification details for creator royalty payouts (Phase 41 REQ-PAYOUT-MODEL-01).
+@immutable
+class CreatorBankingDetails {
+  final String bankName;
+  final String accountHolder;
+  final String accountNumber;
+  final String branchCode;
+  final String payoutMethod;
+
+  const CreatorBankingDetails({
+    required this.bankName,
+    required this.accountHolder,
+    required this.accountNumber,
+    required this.branchCode,
+    this.payoutMethod = 'EFT Direct',
+  });
+
+  String get maskedAccount {
+    if (accountNumber.length <= 4) return accountNumber;
+    return '•••• ${accountNumber.substring(accountNumber.length - 4)}';
+  }
+}
+
+/// South African universal clearing codes for instant EFT routing.
+const Map<String, String> kSouthAfricanUniversalBranchCodes = {
+  'Capitec Bank': '470010',
+  'FNB': '250655',
+  'Standard Bank': '051001',
+  'Nedbank': '198765',
+  'Absa Bank': '632005',
+  'TymeBank': '678910',
+};

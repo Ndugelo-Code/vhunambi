@@ -12,11 +12,13 @@ import '../../../player/presentation/providers/player_provider.dart';
 import '../../../social/presentation/widgets/trending_reels_shelf.dart';
 import '../../domain/models/explore_models.dart';
 import '../../domain/models/social_music_post.dart';
+import '../../domain/services/discovery_hierarchy_ranker.dart';
 import '../providers/explore_providers.dart';
 import '../widgets/catalog_filter_bar.dart';
 import '../widgets/explore_discovery_drawer_sheet.dart';
 import '../widgets/explore_empty_state.dart';
 import '../widgets/explore_social_post_card.dart';
+import '../widgets/kinetic_post_composer_bar.dart';
 import '../widgets/explore_top_bar.dart';
 import '../widgets/track_card.dart';
 import '../widgets/track_list_tile.dart';
@@ -50,10 +52,13 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
     final hasActiveTrack =
         ref.watch(playerStateProvider.select((s) => s.hasActiveTrack));
 
-    // Filter posts if on following tab
-    final displayPosts = activeTab == ExploreTab.following
+    final selectedTier = ref.watch(selectedDiscoveryTierProvider);
+    // Filter posts if on following tab and rank/filter by discovery tier
+    final rawPosts = activeTab == ExploreTab.following
         ? allPosts.where((p) => followingIds.contains(p.creatorId)).toList()
         : allPosts;
+    final displayPosts =
+        DiscoveryHierarchyRanker.filterByTier(rawPosts, selectedTier);
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -105,8 +110,14 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
 
           // 2. Feed Switcher Filter Bar
           SliverToBoxAdapter(
-            child: _buildFeedSwitcher(context, activeTab),
+            child: _buildFeedSwitcher(context, activeTab, selectedTier),
           ),
+
+          // Kinetic Post Composer Bar (Phase 38 REQ-KPOST-COMP-01)
+          if (!_showingAllSongs)
+            const SliverToBoxAdapter(
+              child: KineticPostComposerBar(),
+            ),
 
           // 3. Main Body: Catalog Mode vs. Creator Music Social Feed
           if (_showingAllSongs) ...[
@@ -196,7 +207,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
   );
 }
 
-  Widget _buildFeedSwitcher(BuildContext context, ExploreTab activeTab) {
+  Widget _buildFeedSwitcher(BuildContext context, ExploreTab activeTab, DiscoveryStageTier? selectedTier) {
     return Container(
       key: const Key('explore_feed_switcher'),
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
@@ -235,6 +246,30 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
               onTap: () {
                 setState(() => _showingAllSongs = true);
               },
+            ),
+            const SizedBox(width: AppSpacing.sm),
+
+            // Discovery Stage Tier Selector (Phase 39 REQ-DISC-UI-01)
+            Container(
+              key: const Key('explore_stage_tier_selector'),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: DiscoveryStageTier.values.map((tier) {
+                  final isTierSelected = selectedTier == tier;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: _buildFilterPill(
+                      label: tier.displayName,
+                      isSelected: isTierSelected,
+                      onTap: () {
+                        setState(() => _showingAllSongs = false);
+                        ref.read(selectedDiscoveryTierProvider.notifier).state =
+                            isTierSelected ? null : tier;
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
             const SizedBox(width: AppSpacing.md),
 

@@ -1,5 +1,35 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../features/player/domain/models/stem_mixer_state.dart';
+
+/// Audio provenance classifier declaring the human craft or algorithmic origin
+/// of a musical work (Phase 39 REQ-ID-PROV-01).
+enum AudioProvenanceType {
+  humanDawMaster,
+  liveVocalRecording,
+  liveInstrumentStem,
+  hybridCoCreation,
+  aiGenerated,
+}
+
+extension AudioProvenanceTypeExtension on AudioProvenanceType {
+  String get displayName => switch (this) {
+    AudioProvenanceType.humanDawMaster => 'Human DAW Master',
+    AudioProvenanceType.liveVocalRecording => '100% Live Vocal',
+    AudioProvenanceType.liveInstrumentStem => 'Live Instrument',
+    AudioProvenanceType.hybridCoCreation => 'Hybrid Co-Creation',
+    AudioProvenanceType.aiGenerated => 'Vhunambi AI',
+  };
+
+  IconData get icon => switch (this) {
+    AudioProvenanceType.humanDawMaster =>
+      PhosphorIconsRegular.slidersHorizontal,
+    AudioProvenanceType.liveVocalRecording => PhosphorIconsRegular.microphone,
+    AudioProvenanceType.liveInstrumentStem => PhosphorIconsRegular.musicNotes,
+    AudioProvenanceType.hybridCoCreation => PhosphorIconsRegular.gitFork,
+    AudioProvenanceType.aiGenerated => PhosphorIconsRegular.sparkle,
+  };
+}
 
 @immutable
 class Track {
@@ -26,6 +56,10 @@ class Track {
   /// Optional separated stem audio sources for Pocket DAW 4-channel live mixing.
   final Map<StemType, String>? stemUrls;
 
+  /// Craft provenance indicating whether this audio was produced in a DAW,
+  /// sung live, played on an instrument, or AI-generated (REQ-ID-PROV-01).
+  final AudioProvenanceType provenanceType;
+
   const Track({
     required this.id,
     required this.title,
@@ -43,6 +77,7 @@ class Track {
     this.mood,
     this.creatorHandle,
     this.stemUrls,
+    this.provenanceType = AudioProvenanceType.hybridCoCreation,
   });
 
   /// Whether all 4 isolated stems are available for true multi-stem Pocket DAW auditioning.

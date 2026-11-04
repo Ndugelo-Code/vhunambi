@@ -276,7 +276,7 @@ class _TransientExploreTitlePillState
                     Text(
                       'Explore',
                       style: AppTypography.caption.copyWith(
-                        color: AppColors.textPrimary,
+                        color: AppColors.textPrimaryOf(context),
                         fontWeight: FontWeight.w600,
                         fontSize: 11,
                       ),
@@ -302,7 +302,7 @@ class _DiscoveryDrawerButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         icon: PhosphorIcon(
           PhosphorIconsRegular.squaresFour,
-          color: AppColors.textPrimary,
+          color: AppColors.textPrimaryOf(context),
           size: 20,
         ),
         tooltip: 'Discovery Hub',
@@ -324,7 +324,7 @@ class _SearchIconButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         icon: PhosphorIcon(
           AppIcons.search,
-          color: AppColors.textPrimary,
+          color: AppColors.textPrimaryOf(context),
           size: 22,
         ),
         tooltip: 'Search',
@@ -345,6 +345,7 @@ class _NotificationBellAction extends StatelessWidget {
       width: 40,
       height: 40,
       child: NotificationBellButton(
+        color: AppColors.textPrimaryOf(context),
         onPressed: () {
           Navigator.of(
             context,

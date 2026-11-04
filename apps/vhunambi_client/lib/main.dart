@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/navigation/app_navigator.dart';
+import 'core/navigation/navigation_providers.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
@@ -14,6 +15,7 @@ import 'core/widgets/vhunambi_mobile_bottom_nav.dart';
 import 'core/design_system/design_system.dart';
 import 'features/explore/presentation/providers/explore_providers.dart';
 import 'features/explore/presentation/views/explore_view.dart';
+import 'features/notifications/presentation/providers/notifications_provider.dart';
 import 'features/home/presentation/views/home_dashboard_view.dart';
 import 'features/library/presentation/providers/library_providers.dart';
 import 'features/library/presentation/views/library_view.dart';
@@ -89,6 +91,14 @@ class RootShell extends ConsumerStatefulWidget {
 }
 
 class _RootShellState extends ConsumerState<RootShell> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notificationsProvider.notifier).seedDemoAlerts();
+    });
+  }
+
   int _currentIndex = 1; // Default to Explore view
 
   /// Per-session tab navigation history. The last entry is the visible tab;
@@ -183,6 +193,12 @@ class _RootShellState extends ConsumerState<RootShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(appNavigationTabProvider, (previous, next) {
+      if (next != _currentIndex) {
+        _switchTab(next);
+      }
+    });
+
     final isDesktop = ResponsiveUtils.isDesktop(context);
     final hasActiveTrack = ref.watch(
       playerStateProvider.select((s) => s.hasActiveTrack),

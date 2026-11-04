@@ -3,9 +3,10 @@ import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import 'legal_transparency_modal.dart';
 
 /// Global marketing footer with the Tshivenḓa mission statement and link groups
-/// (REQ-MKT-11).
+/// (REQ-MKT-11, REQ-LEGAL-01).
 class LandingFooter extends StatelessWidget {
   static const String wordmark = 'VHUNAMBI';
   static const String mission =
@@ -32,9 +33,9 @@ class LandingFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.surfaceElevatedOf(context),
         border: Border(
-          top: BorderSide(color: AppColors.borderSubtle, width: 1),
+          top: BorderSide(color: AppColors.borderSubtleOf(context), width: 1),
         ),
       ),
       child: Padding(
@@ -76,6 +77,7 @@ class LandingFooter extends StatelessWidget {
                   style: AppTypography.titleMedium.copyWith(
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.0,
+                    color: AppColors.textPrimaryOf(context),
                   ),
                 ),
               ],
@@ -83,12 +85,19 @@ class LandingFooter extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Text(
               mission,
-              style: AppTypography.bodySmall.copyWith(height: 1.5),
+              style: AppTypography.bodySmall.copyWith(
+                height: 1.5,
+                color: AppColors.textSecondaryOf(context),
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
-            _FooterLinks(title: 'Product', links: productLinks),
+            _FooterLinks(title: 'Product', links: productLinks, isLegal: false),
             const SizedBox(height: AppSpacing.sm),
-            _FooterLinks(title: 'Legal & Licensing', links: legalLinks),
+            _FooterLinks(
+              title: 'Legal & Licensing',
+              links: legalLinks,
+              isLegal: true,
+            ),
           ],
         ),
       ),
@@ -99,8 +108,13 @@ class LandingFooter extends StatelessWidget {
 class _FooterLinks extends StatelessWidget {
   final String title;
   final List<String> links;
+  final bool isLegal;
 
-  const _FooterLinks({required this.title, required this.links});
+  const _FooterLinks({
+    required this.title,
+    required this.links,
+    required this.isLegal,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +125,7 @@ class _FooterLinks extends StatelessWidget {
         Text(
           title,
           style: AppTypography.caption.copyWith(
-            color: AppColors.textTertiary,
+            color: AppColors.textSecondaryOf(context),
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -122,19 +136,28 @@ class _FooterLinks extends StatelessWidget {
           children: [
             for (final link in links)
               InkWell(
+                key: Key(
+                  'footer_link_${link.toLowerCase().replaceAll(' ', '_')}',
+                ),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('$link: https://vhunambi.com/${link.toLowerCase().replaceAll(' ', '-')}'),
-                      backgroundColor: AppColors.surfaceModal,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  if (isLegal) {
+                    LegalTransparencyModal.show(context, initialTitle: link);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '$link: https://vhunambi.com/${link.toLowerCase().replaceAll(' ', '-')}',
+                        ),
+                        backgroundColor: AppColors.surfaceModalOf(context),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
                 },
                 child: Text(
                   link,
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                 ),
               ),

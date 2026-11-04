@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/explore/domain/models/explore_models.dart';
 import 'package:vhunambi_client/features/explore/presentation/providers/explore_providers.dart';
@@ -155,10 +154,10 @@ void main() {
       );
 
       // Find first social post play button
-      final playBtn = find.byIcon(AppIcons.play).first;
+      final playBtn = find.byKey(const Key('social_post_play_btn_post_001'));
+      await tester.ensureVisible(playBtn);
       await tester.tap(playBtn);
-      await tester.pumpAndSettle();
-
+      await tester.pump();
       final player = container.read(playerStateProvider);
       expect(player.currentTrack?.id, 'exp_track_002');
       expect(player.isPlaying, isTrue);

@@ -231,9 +231,10 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
       8.0,
       (screenSize.width - formWidth - 8.0).clamp(8.0, double.infinity),
     );
+    final bottomDockHeight = 56.0 + bottomSafeArea;
     final clampedY = targetTopLeft.dy.clamp(
       topSafeArea + 8.0,
-      (screenSize.height - formHeight - bottomSafeArea - 8.0)
+      (screenSize.height - formHeight - bottomDockHeight - 12.0)
           .clamp(topSafeArea + 8.0, double.infinity),
     );
 

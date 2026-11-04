@@ -199,6 +199,432 @@ const List<BantuGlossaryEntry> kBantuCuratedEntries = [
     meaning: 'historical Venda town & heritage (Tshivenḓa)',
     language: BantuLanguage.ve,
   ),
+  // =========================================================================
+  // CATALOG SEEDED SONG & REEL LYRICS (100% COVERAGE)
+  // =========================================================================
+  BantuGlossaryEntry(
+    phrase: 'ndo mufuna matibe mbilu yanga',
+    meaning: 'I love intensely from the depths of my heart (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ndo mufuna matibe',
+    meaning: 'I love you deeply (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ndo mufuna',
+    meaning: 'I love you / I love him (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'matibe',
+    meaning: 'deeply / completely (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'mbilu yanga',
+    meaning: 'my heart / my soul (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'mbilu',
+    meaning: 'heart (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'iya pembelela woza amapiano sgubhu',
+    meaning: 'My heart celebrates, come feel the Amapiano log-drum beat (Tshivenḓa / isiZulu)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'iya pembelela',
+    meaning: 'celebrating / dancing with joy (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'pembelela',
+    meaning: 'celebrate / rejoice (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'woza amapiano sgubhu',
+    meaning: 'come feel the Amapiano bass groove (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'sgubhu',
+    meaning: 'heavy kick / bass drum / log drum groove (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'amapiano',
+    meaning: 'the pianos / Amapiano genre rhythm (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'venda sunrise ndi matsheloni makhado',
+    meaning: 'Dawn breaks over Makhado, good morning (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ndi matsheloni makhado',
+    meaning: 'it is morning in Makhado (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  // =========================================================================
+  // 9-LANGUAGE CONSTITUTIONAL BANTU VOCABULARY ROOTS & ANCESTRAL TERMS
+  // =========================================================================
+  BantuGlossaryEntry(
+    phrase: 'vhunambi',
+    meaning: 'musical virtuosity / the sweet art of melody (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'vhafunani',
+    meaning: 'love one another / unity (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'lutendo',
+    meaning: 'faith / loyalty (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'zwivhuya',
+    meaning: 'blessings / good fortune (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'zwavhudi',
+    meaning: 'beautifully / with excellence (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'malombo',
+    meaning: 'spiritual ancestral rhythms (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'tshikona',
+    meaning: 'royal reed-pipe dance of VhaVenda royalty (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'domba',
+    meaning: 'sacred python dance (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'murumba',
+    meaning: 'tall conical wooden drum (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'vhutshilo',
+    meaning: 'life / vital force (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'maanda',
+    meaning: 'divine strength / might (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'vhuthihi',
+    meaning: 'unity / togetherness (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'vhumuthu',
+    meaning: 'human compassion and dignity (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'lufuno',
+    meaning: 'pure love (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'tadulu',
+    meaning: 'the heavens above (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'duvha',
+    meaning: 'the sun / new day (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'nwedzi',
+    meaning: 'the radiant moon (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'madi',
+    meaning: 'sacred waters (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'muzika',
+    meaning: 'music / sweet rhythms (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'dakalo',
+    meaning: 'abundant joy / celebration (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'mulalo',
+    meaning: 'peace and tranquility (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'arive',
+    meaning: 'let us journey forward (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'tshina',
+    meaning: 'dance to the sacred drums (Tshivenḓa)',
+    language: BantuLanguage.ve,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ingoma',
+    meaning: 'sacred song / ceremonial dance (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'umoya',
+    meaning: 'spirit / soul / breath of life (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'impilo',
+    meaning: 'life / vitality (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'amandla',
+    meaning: 'power / strength (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'simunye',
+    meaning: 'we are one in unity (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ubunye',
+    meaning: 'oneness / solidarity (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ubuntu',
+    meaning: 'humanity / I am because we are (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'thando',
+    meaning: 'love / unconditional warmth (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'izulu',
+    meaning: 'the sky / celestial heavens (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ilanga',
+    meaning: 'the bright sun (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'inyanga',
+    meaning: 'the moon in night sky (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'amanzi',
+    meaning: 'pure fresh water (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'umculo',
+    meaning: 'music / vocal harmonies (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ubumnandi',
+    meaning: 'pure sweetness and celebration (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'intokozo',
+    meaning: 'inner joy / spiritual delight (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ukuthula',
+    meaning: 'peace / serenity (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'asambe',
+    meaning: 'let us go / step forward (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'shikisha',
+    meaning: 'dance and shake to the rhythm (isiZulu)',
+    language: BantuLanguage.zu,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ubomi',
+    meaning: 'life (isiXhosa)',
+    language: BantuLanguage.xh,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'uxolo',
+    meaning: 'peace (isiXhosa)',
+    language: BantuLanguage.xh,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ulonwabo',
+    meaning: 'happiness / joy (isiXhosa)',
+    language: BantuLanguage.xh,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'enkosi kakhulu',
+    meaning: 'thank you very much (isiXhosa)',
+    language: BantuLanguage.xh,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'utsandvo',
+    meaning: 'love (siSwati)',
+    language: BantuLanguage.ss,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'kuthula',
+    meaning: 'peace (siSwati)',
+    language: BantuLanguage.ss,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'emandla',
+    meaning: 'strength / power (siSwati)',
+    language: BantuLanguage.ss,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'imphilo',
+    meaning: 'life (siSwati)',
+    language: BantuLanguage.ss,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'lotjhani',
+    meaning: 'greetings to everyone (isiNdebele)',
+    language: BantuLanguage.nr,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ngiyathokoza',
+    meaning: 'thank you (isiNdebele)',
+    language: BantuLanguage.nr,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ithando',
+    meaning: 'love (isiNdebele)',
+    language: BantuLanguage.nr,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'ipilo',
+    meaning: 'life (isiNdebele)',
+    language: BantuLanguage.nr,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'lerato',
+    meaning: 'love (Sesotho/Setswana/Sepedi)',
+    language: BantuLanguage.st,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'khotso',
+    meaning: 'peace be with you (Sesotho)',
+    language: BantuLanguage.st,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'bophelo',
+    meaning: 'life (Sesotho)',
+    language: BantuLanguage.st,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'matla',
+    meaning: 'power / divine energy (Sesotho)',
+    language: BantuLanguage.st,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'mmino',
+    meaning: 'music / melody (Sepedi/Sesotho)',
+    language: BantuLanguage.nso,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'moropa',
+    meaning: 'ancestral drum (Sepedi/Setswana)',
+    language: BantuLanguage.nso,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'botho',
+    meaning: 'humanity / kindness (Setswana/Sesotho)',
+    language: BantuLanguage.tn,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'pula',
+    meaning: 'blessings of rain (Setswana)',
+    language: BantuLanguage.tn,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'kagiso',
+    meaning: 'peace (Setswana)',
+    language: BantuLanguage.tn,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'boitumelo',
+    meaning: 'joy (Setswana)',
+    language: BantuLanguage.tn,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'vutomi',
+    meaning: 'life (Xitsonga)',
+    language: BantuLanguage.ts,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'matimba',
+    meaning: 'strength / power (Xitsonga)',
+    language: BantuLanguage.ts,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'rirhandzu',
+    meaning: 'love (Xitsonga)',
+    language: BantuLanguage.ts,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'kurhula',
+    meaning: 'peace (Xitsonga)',
+    language: BantuLanguage.ts,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'tsakani',
+    meaning: 'rejoice and be glad (Xitsonga)',
+    language: BantuLanguage.ts,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'vina',
+    meaning: 'dance / bodily movement (Xitsonga)',
+    language: BantuLanguage.ts,
+  ),
+  BantuGlossaryEntry(
+    phrase: 'dyambu',
+    meaning: 'the bright sun (Xitsonga)',
+    language: BantuLanguage.ts,
+  ),
 ];
 
 /// Backwards-compatible map view of curated glossary.
@@ -261,6 +687,20 @@ class BantuLyricTranslationService {
           meaning = entry.value;
           isMatch = true;
           break;
+        }
+      }
+      if (!isMatch) {
+        final lineWords = norm.split(RegExp(r'\s+'));
+        final fragments = <String>[];
+        for (final w in lineWords) {
+          if (kBantuCuratedGlossary.containsKey(w)) {
+            final def = kBantuCuratedGlossary[w]!.split('(').first.trim();
+            fragments.add(def);
+          }
+        }
+        if (fragments.isNotEmpty) {
+          meaning = fragments.join(' • ');
+          isMatch = true;
         }
       }
     }

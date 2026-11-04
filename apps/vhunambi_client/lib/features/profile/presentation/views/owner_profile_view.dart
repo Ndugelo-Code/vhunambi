@@ -16,6 +16,7 @@ import '../providers/profile_providers.dart';
 import '../providers/synchronized_analytics_provider.dart';
 import '../widgets/artist_voice_showcase_card.dart';
 import '../widgets/edit_profile_sheet.dart';
+import '../../../studio/presentation/widgets/direct_daw_vocal_upload_sheet.dart';
 import '../widgets/pin_song_selector_sheet.dart';
 import '../widgets/pinned_spotlight_card.dart';
 import '../widgets/profile_referral_card.dart';
@@ -347,8 +348,76 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                                   '@${profile.username} • Verified Creator',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.textSecondary,
+                                    color: AppColors.textSecondaryOf(context),
                                   ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Container(
+                                      key: const Key('creator_archetype_badge'),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceSecondaryOf(context),
+                                        borderRadius: AppRadius.pillBorder,
+                                        border: Border.all(
+                                          color: AppColors.brandPrimary.withValues(alpha: 0.4),
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          PhosphorIcon(
+                                            profile.archetype.icon,
+                                            size: 12,
+                                            color: AppColors.brandPrimary,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            profile.archetype.displayName,
+                                            style: AppTypography.caption.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 10.5,
+                                              color: AppColors.textPrimaryOf(context),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      key: const Key('creator_monthly_listeners_pill'),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceSecondaryOf(context),
+                                        borderRadius: AppRadius.pillBorder,
+                                        border: Border.all(
+                                          color: AppColors.borderSubtleOf(context),
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const PhosphorIcon(
+                                            PhosphorIconsRegular.headphones,
+                                            size: 12,
+                                            color: AppColors.badgeCyan,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${(profile.monthlyListenersCount / 1000).toStringAsFixed(1)}K Monthly',
+                                            style: AppTypography.caption.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 10.5,
+                                              color: AppColors.textPrimaryOf(context),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -363,6 +432,14 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                         spacing: 10,
                         runSpacing: 10,
                         children: [
+                          _buildActionPill(
+                            key: const Key('open_daw_vocal_uploader_btn'),
+                            icon: PhosphorIconsRegular.uploadSimple,
+                            label: 'DAW / Vocal Upload',
+                            onTap: () {
+                              DirectDawVocalUploadSheet.show(context);
+                            },
+                          ),
                           _buildActionPill(
                             key: const Key('owner_change_avatar_btn'),
                             icon: AppIcons.sparkle,

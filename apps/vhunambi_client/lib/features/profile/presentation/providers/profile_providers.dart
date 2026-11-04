@@ -130,12 +130,14 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
     String? username,
     String? bio,
     List<String>? topGenres,
+    CreatorIdentityArchetype? archetype,
   }) {
     state = state.copyWith(
       displayName: displayName,
       username: username,
       bio: bio,
       topGenres: topGenres,
+      archetype: archetype,
     );
   }
 

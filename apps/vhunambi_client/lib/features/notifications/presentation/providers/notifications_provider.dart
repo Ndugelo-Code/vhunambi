@@ -3,6 +3,97 @@ import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 import '../../domain/models/notification_entity.dart';
 import '../../domain/models/notification_enums.dart';
 
+
+/// Phase 40 authentic seeded notifications spanning all 4 canonical categories:
+/// Social, System, Activity (creatorActivity), and Discovery (algorithmic).
+List<NotificationEntity> get phase40SeededNotifications => [
+  NotificationEntity(
+    id: 'notif_p40_soc_1',
+    title: 'New Cultural Gift Received!',
+    message: '@lerato_piano sent Royal Venda Crown (200 Coins)',
+    category: NotificationCategory.social,
+    priority: NotificationPriority.high,
+    createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
+    metadata: const {'sender': '@lerato_piano', 'coins': 200},
+  ),
+  NotificationEntity(
+    id: 'notif_p40_soc_2',
+    title: 'Open Stems Collaboration',
+    message: '@makhadzi opened stems on "Ndo Mufuna Matibe"',
+    category: NotificationCategory.social,
+    priority: NotificationPriority.normal,
+    createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+  ),
+  NotificationEntity(
+    id: 'notif_p40_soc_3',
+    title: 'New Open-Verse Remix',
+    message: '@fifi dropped an energetic remix on your Private School beat',
+    category: NotificationCategory.social,
+    priority: NotificationPriority.normal,
+    createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+  ),
+  NotificationEntity(
+    id: 'notif_p40_act_1',
+    title: 'Marketplace License Sold!',
+    message: 'Beat license sold: Township Heat (+42 Coins / R38)',
+    category: NotificationCategory.creatorActivity,
+    priority: NotificationPriority.high,
+    createdAt: DateTime.now().subtract(const Duration(hours: 4)),
+  ),
+  NotificationEntity(
+    id: 'notif_p40_act_2',
+    title: 'Fresh Crate Graduation Alert!',
+    message: 'Your track reached 25/25 A&R Co-Signs and graduated to Rising Breakout!',
+    category: NotificationCategory.creatorActivity,
+    priority: NotificationPriority.high,
+    createdAt: DateTime.now().subtract(const Duration(hours: 8)),
+  ),
+  NotificationEntity(
+    id: 'notif_p40_act_3',
+    title: 'Studio Render Complete',
+    message: 'Your song "ZaYN" is ready! House • 3:20 (44.1 kHz 24-bit WAV)',
+    category: NotificationCategory.creatorActivity,
+    priority: NotificationPriority.normal,
+    targetTrackId: 'trk_pipeline_001',
+    createdAt: DateTime.now().subtract(const Duration(hours: 12)),
+  ),
+  NotificationEntity(
+    id: 'notif_p40_sys_1',
+    title: 'VHU-SIG Continuous Phase DSP Active',
+    message: 'Continuous phase 44.1 kHz audio engine & acoustic resonance active',
+    category: NotificationCategory.system,
+    priority: NotificationPriority.normal,
+    createdAt: DateTime.now().subtract(const Duration(days: 1)),
+  ),
+  NotificationEntity(
+    id: 'notif_p40_sys_2',
+    title: 'Welcome to Vhunambi Creator Suite!',
+    message: 'Start generating high-fidelity African regional music and licensing sound stems.',
+    category: NotificationCategory.system,
+    priority: NotificationPriority.normal,
+    createdAt: DateTime.now().subtract(const Duration(days: 2)),
+    isRead: true,
+  ),
+  NotificationEntity(
+    id: 'notif_p40_alg_1',
+    title: 'Regional Trend Alert',
+    message: 'Maskandi & Private School Amapiano trending in Gauteng (+420% plays)',
+    category: NotificationCategory.algorithmic,
+    priority: NotificationPriority.normal,
+    createdAt: DateTime.now().subtract(const Duration(hours: 6)),
+    metadata: const {'genre': 'Amapiano'},
+  ),
+  NotificationEntity(
+    id: 'notif_p40_alg_2',
+    title: 'Sonic DNA Affinity Match',
+    message: 'Your vocal timbres match 94% with Tshivenḓa folk and Afro-house rhythms',
+    category: NotificationCategory.algorithmic,
+    priority: NotificationPriority.normal,
+    createdAt: DateTime.now().subtract(const Duration(days: 1)),
+    metadata: const {'genre': 'Tshivenḓa'},
+  ),
+];
+
 /// Seeded notifications for demonstration and preview surfaces.
 List<NotificationEntity> get seededNotifications => [
   NotificationEntity(
@@ -34,6 +125,13 @@ List<NotificationEntity> get seededNotifications => [
 class NotificationsNotifier extends StateNotifier<List<NotificationEntity>> {
   NotificationsNotifier([List<NotificationEntity>? initial])
       : super(initial ?? const <NotificationEntity>[]);
+
+  /// Seeds authentic multi-category alerts across Social, System, Activity & Discovery.
+  void seedDemoAlerts() {
+    if (state.isEmpty) {
+      state = phase40SeededNotifications;
+    }
+  }
 
   /// Prepends a new notification to the top of the list.
   void addNotification(NotificationEntity notification) {

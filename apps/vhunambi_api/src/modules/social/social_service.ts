@@ -352,9 +352,23 @@ export function sendTip(
   const senderUsername = req.senderUsername ?? 'ndugelo_musician';
   const wallet = getOrCreateWallet(clip.creatorId);
 
-  // Credit creator earnings in ZAR and coin count
-  wallet.balanceZar += gift.zarPrice;
-  wallet.totalCoinsReceived += gift.coinPrice;
+  // Credit creator earnings in ZAR and coin count (70% Remixer / 30% Originator if remix)
+  if (clip.remixedFromClipId && clips.has(clip.remixedFromClipId)) {
+    const parentClip = clips.get(clip.remixedFromClipId)!;
+    const parentWallet = getOrCreateWallet(parentClip.creatorId);
+    const remixerZar = Number((gift.zarPrice * 0.70).toFixed(2));
+    const parentZar = Number((gift.zarPrice - remixerZar).toFixed(2));
+    const remixerCoins = Math.floor(gift.coinPrice * 0.70);
+    const parentCoins = gift.coinPrice - remixerCoins;
+
+    wallet.balanceZar += remixerZar;
+    wallet.totalCoinsReceived += remixerCoins;
+    parentWallet.balanceZar += parentZar;
+    parentWallet.totalCoinsReceived += parentCoins;
+  } else {
+    wallet.balanceZar += gift.zarPrice;
+    wallet.totalCoinsReceived += gift.coinPrice;
+  }
 
   const tx: GiftTransactionDto = {
     id: `tx_${nanoid(8)}`,
@@ -581,3 +595,14 @@ export function seedSocialClips(): void {
 }
 
 seedSocialClips();
+
+/** Returns all remix descendant clips for a parent clip (Phase 37 REQ-RMX-TREE-01). */
+export function getClipRemixes(clipId: string): PublishedClipDto[] {
+  const result: PublishedClipDto[] = [];
+  for (const c of clips.values()) {
+    if (c.remixedFromClipId === clipId) {
+      result.push(c);
+    }
+  }
+  return result;
+}

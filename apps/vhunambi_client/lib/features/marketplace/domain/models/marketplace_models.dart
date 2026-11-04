@@ -1,4 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../shared/models/track.dart';
 
 /// The 12 curated African genres exposed by the marketplace filter engine
 /// (Blueprint 05 §2.2 / REQ-MKT-05).
@@ -20,6 +22,34 @@ const List<String> marketplaceGenreCatalog = [
 /// Beat preview audition length used by the screenless player bridge.
 const int beatPreviewDurationSeconds = 180;
 
+
+/// 4-Pillar Multi-Talent Marketplace Category (Phase 39 REQ-MKT-CAT-01)
+enum MarketplaceAssetCategory {
+  all,
+  beats,
+  vocals,
+  liveInstruments,
+  voiceDnaAndPacks,
+}
+
+extension MarketplaceAssetCategoryExtension on MarketplaceAssetCategory {
+  String get label => switch (this) {
+    MarketplaceAssetCategory.all => 'All Assets',
+    MarketplaceAssetCategory.beats => 'Beats & Instrumentals',
+    MarketplaceAssetCategory.vocals => 'Vocal Hooks & Acapellas',
+    MarketplaceAssetCategory.liveInstruments => 'Live Guitars, Sax & Loops',
+    MarketplaceAssetCategory.voiceDnaAndPacks => 'Voice DNA & Packs',
+  };
+
+  IconData get icon => switch (this) {
+    MarketplaceAssetCategory.all => PhosphorIconsRegular.squaresFour,
+    MarketplaceAssetCategory.beats => PhosphorIconsRegular.waveform,
+    MarketplaceAssetCategory.vocals => PhosphorIconsRegular.microphone,
+    MarketplaceAssetCategory.liveInstruments => PhosphorIconsRegular.guitar,
+    MarketplaceAssetCategory.voiceDnaAndPacks => PhosphorIconsRegular.fingerprint,
+  };
+}
+
 /// Sellable instrumental beat listing (design.md §1.1).
 @immutable
 class BeatListingEntity {
@@ -38,6 +68,8 @@ class BeatListingEntity {
   final String licenseType;
   final int totalSales;
   final DateTime createdAt;
+  final MarketplaceAssetCategory assetCategory;
+  final AudioProvenanceType provenanceType;
 
   const BeatListingEntity({
     required this.id,
@@ -55,6 +87,8 @@ class BeatListingEntity {
     this.licenseType = 'Non-Exclusive Commercial',
     this.totalSales = 0,
     required this.createdAt,
+    this.assetCategory = MarketplaceAssetCategory.beats,
+    this.provenanceType = AudioProvenanceType.humanDawMaster,
   });
 
   String get bpmLabel => '$bpm BPM';
@@ -80,6 +114,8 @@ class BeatListingEntity {
     String? licenseType,
     int? totalSales,
     DateTime? createdAt,
+    MarketplaceAssetCategory? assetCategory,
+    AudioProvenanceType? provenanceType,
   }) {
     return BeatListingEntity(
       id: id ?? this.id,
@@ -97,6 +133,8 @@ class BeatListingEntity {
       licenseType: licenseType ?? this.licenseType,
       totalSales: totalSales ?? this.totalSales,
       createdAt: createdAt ?? this.createdAt,
+      assetCategory: assetCategory ?? this.assetCategory,
+      provenanceType: provenanceType ?? this.provenanceType,
     );
   }
 
@@ -152,6 +190,7 @@ class MarketplaceFilterState {
   final int? minBpm;
   final int? maxBpm;
   final int? maxPriceCredits;
+  final MarketplaceAssetCategory category;
 
   const MarketplaceFilterState({
     this.searchQuery = '',
@@ -159,10 +198,12 @@ class MarketplaceFilterState {
     this.minBpm,
     this.maxBpm,
     this.maxPriceCredits,
+    this.category = MarketplaceAssetCategory.beats,
   });
 
   bool get hasActiveFilters =>
       searchQuery.trim().isNotEmpty ||
+      category != MarketplaceAssetCategory.beats ||
       genre != allGenres ||
       minBpm != null ||
       maxBpm != null ||
@@ -176,6 +217,7 @@ class MarketplaceFilterState {
     int? maxPriceCredits,
     bool clearBpmRange = false,
     bool clearMaxPrice = false,
+    MarketplaceAssetCategory? category,
   }) {
     return MarketplaceFilterState(
       searchQuery: searchQuery ?? this.searchQuery,
@@ -184,6 +226,7 @@ class MarketplaceFilterState {
       maxBpm: clearBpmRange ? null : (maxBpm ?? this.maxBpm),
       maxPriceCredits:
           clearMaxPrice ? null : (maxPriceCredits ?? this.maxPriceCredits),
+      category: category ?? this.category,
     );
   }
 
@@ -198,10 +241,11 @@ class MarketplaceFilterState {
         other.genre == genre &&
         other.minBpm == minBpm &&
         other.maxBpm == maxBpm &&
-        other.maxPriceCredits == maxPriceCredits;
+        other.maxPriceCredits == maxPriceCredits &&
+        other.category == category;
   }
 
   @override
   int get hashCode =>
-      Object.hash(searchQuery, genre, minBpm, maxBpm, maxPriceCredits);
+      Object.hash(searchQuery, genre, minBpm, maxBpm, maxPriceCredits, category);
 }

@@ -30,6 +30,11 @@ import 'package:vhunambi_client/features/content_studio/presentation/views/conte
 import 'package:vhunambi_client/features/social/domain/models/video_export_job.dart';
 import 'package:vhunambi_client/features/social/presentation/widgets/video_export_modal.dart';
 import 'stem_mixer_deck.dart';
+import '../../../../core/navigation/navigation_providers.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
+import '../../../notifications/domain/models/notification_entity.dart';
+import '../../../notifications/domain/models/notification_enums.dart';
+
 
 /// True when the active player [trackId] is hearted in the vault.
 bool _isFavorite(WidgetRef ref, String trackId) {
@@ -634,16 +639,23 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       label: 'Queue',
                       onTap: () => QueueDrawer.show(context),
                     ),
-                    // 1-Tap Master A/B Auditioning Chip (Phase 25)
-                    _UtilityItem(
-                      key: const Key('cockpit_master_ab_btn'),
-                      icon: AppIcons.mastering,
-                      label: isMasteredActive ? 'Mastered' : 'Raw AI',
-                      onTap: _toggleMasterAB,
+                    // 1-Tap Master A/B Auditioning Chip with LED indicator (Phase 25 & Phase 42)
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildHardwareDspLed(context, isMasteredActive),
+                        const SizedBox(height: 2),
+                        _UtilityItem(
+                          key: const Key('cockpit_master_ab_btn'),
+                          icon: AppIcons.mastering,
+                          label: isMasteredActive ? 'Mastered' : 'Raw AI',
+                          onTap: _toggleMasterAB,
+                        ),
+                      ],
                     ),
-                    // Studio Remixing Preset Chip (Phase 21/27)
+                    // Studio Remixing Preset Chip (Phase 21/27 & Phase 42)
                     _UtilityItem(
-                      key: const Key('cockpit_remix_studio_btn'),
+                      key: const Key('cockpit_remix_in_studio_btn'),
                       icon: AppIcons.remix,
                       label: 'Remix',
                       onTap: () => _remixInStudio(context, track),
@@ -817,32 +829,72 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
     );
   }
 
-  void _toggleMasterAB() {
-    ref.read(masteringSessionProvider.notifier).togglePreviewBypass();
-    final isMastered = ref.read(masteringSessionProvider).isMasteredPreviewActive;
-    HapticsService().mediumImpact();
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Text(
-          isMastered
-              ? 'Studio Master DSP: ACTIVE'
-              : 'Studio Master DSP: BYPASSED (Raw AI)',
+  Widget _buildHardwareDspLed(BuildContext context, bool isMasteredActive) {
+    return Container(
+      key: const Key('cockpit_dsp_led_indicator'),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: isMasteredActive
+            ? AppColors.accentSuccess.withValues(alpha: 0.15)
+            : AppColors.surfaceSecondaryOf(context),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isMasteredActive ? AppColors.accentSuccess : AppColors.borderSubtleOf(context),
+          width: 0.8,
         ),
-        duration: const Duration(milliseconds: 1500),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isMasteredActive ? AppColors.accentSuccess : AppColors.textSecondaryOf(context),
+              boxShadow: isMasteredActive
+                  ? [BoxShadow(color: AppColors.accentSuccess.withValues(alpha: 0.8), blurRadius: 4)]
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 3),
+          Text(
+            isMasteredActive ? 'DSP' : 'RAW',
+            style: AppTypography.caption.copyWith(
+              fontSize: 8.5,
+              fontWeight: FontWeight.bold,
+              color: isMasteredActive ? AppColors.accentSuccess : AppColors.textSecondaryOf(context),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  void _toggleMasterAB() {
+    ref.read(masteringSessionProvider.notifier).togglePreviewBypass();
+    HapticsService().mediumImpact();
   }
 
   void _remixInStudio(BuildContext context, Track track) {
     ref.read(studioFormProvider.notifier).setGenre(track.genre);
     ref.read(studioFormProvider.notifier).updatePrompt('Remix of ${track.title} (${track.genre})');
-    Navigator.of(context).pop();
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Text('Loaded "${track.title}" into Studio for remixing'),
-        duration: const Duration(seconds: 2),
+    
+    // Phase 42: Switch active RootShell tab to Studio Cockpit (Tab index 2)
+    ref.read(appNavigationTabProvider.notifier).state = 2;
+
+    ref.read(notificationsProvider.notifier).addNotification(
+      NotificationEntity(
+        id: 'notif_remix_${DateTime.now().millisecondsSinceEpoch}',
+        title: 'Studio Remix Loaded',
+        message: 'Loaded "${track.title}" stems into Studio Cockpit.',
+        category: NotificationCategory.creatorActivity,
+        priority: NotificationPriority.high,
+        createdAt: DateTime.now(),
       ),
     );
+
+    Navigator.of(context).pop();
   }
 
   /// Maps a free-form [genre] string from [Track] to a

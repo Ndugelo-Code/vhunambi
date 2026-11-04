@@ -108,7 +108,7 @@ class _NotificationBellButtonState
                 WobblingNotificationBell(
                   controller: _wobbleController,
                   iconSize: widget.iconSize,
-                  color: widget.color ?? AppColors.textSecondary,
+                  color: widget.color ?? AppColors.textSecondaryOf(context),
                 ),
                 if (unreadCount > 0)
                   Positioned(

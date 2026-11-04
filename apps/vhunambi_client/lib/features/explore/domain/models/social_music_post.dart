@@ -1,7 +1,130 @@
 import 'package:flutter/foundation.dart';
 import '../../../../shared/models/track.dart';
+import '../../../collections/domain/models/collection_entity.dart';
 import '../../../content_studio/domain/models/song_metadata_dna.dart';
 import '../../../social/domain/models/published_clip.dart';
+import '../../../social/domain/models/stem_remix_context.dart';
+
+/// Supported visual aspect ratios for Kinetic Posts (REQ-KPOST-ASPECT-01).
+enum KineticPostAspectRatio {
+  square1x1(1.0, '1:1 Square'),
+  portrait4x5(4.0 / 5.0, '4:5 Portrait'),
+  landscape16x9(16.0 / 9.0, '16:9 Wide');
+
+  const KineticPostAspectRatio(this.ratio, this.label);
+  final double ratio;
+  final String label;
+}
+
+/// Static visual image attachment for Kinetic Posts (REQ-KPOST-IMAGE-01).
+@immutable
+class KineticPostImageAttachment {
+  final String imageUrl;
+  final bool isAiGeneratedVision;
+  final String? visionPrompt;
+  final KineticPostAspectRatio aspectRatio;
+
+  const KineticPostImageAttachment({
+    required this.imageUrl,
+    this.isAiGeneratedVision = false,
+    this.visionPrompt,
+    this.aspectRatio = KineticPostAspectRatio.square1x1,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'imageUrl': imageUrl,
+        'isAiGeneratedVision': isAiGeneratedVision,
+        if (visionPrompt != null) 'visionPrompt': visionPrompt,
+        'aspectRatio': aspectRatio.name,
+      };
+
+  factory KineticPostImageAttachment.fromJson(Map<String, dynamic> json) =>
+      KineticPostImageAttachment(
+        imageUrl: json['imageUrl'] as String,
+        isAiGeneratedVision: json['isAiGeneratedVision'] as bool? ?? false,
+        visionPrompt: json['visionPrompt'] as String?,
+        aspectRatio: KineticPostAspectRatio.values.firstWhere(
+          (e) => e.name == json['aspectRatio'],
+          orElse: () => KineticPostAspectRatio.square1x1,
+        ),
+      );
+}
+
+/// Source type category for audio snippets attached to Kinetic Posts.
+enum KineticAudioSourceType {
+  librarySong('Song'),
+  beatListing('Beat'),
+  voiceSignature('Voice DNA'),
+  sketchpadGroove('Groove');
+
+  const KineticAudioSourceType(this.label);
+  final String label;
+}
+
+/// Audio snippet attachment for Kinetic Posts (REQ-KPOST-AUDIO-01).
+@immutable
+class KineticPostAudioAttachment {
+  final KineticAudioSourceType sourceType;
+  final double clipStartSec;
+  final double clipDurationSec;
+  final String originalCreatorId;
+  final String originalCreatorHandle;
+  final bool allowSoundReuse;
+  final bool allowRepost;
+
+  const KineticPostAudioAttachment({
+    this.sourceType = KineticAudioSourceType.librarySong,
+    this.clipStartSec = 0.0,
+    this.clipDurationSec = 30.0,
+    required this.originalCreatorId,
+    required this.originalCreatorHandle,
+    this.allowSoundReuse = true,
+    this.allowRepost = true,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'sourceType': sourceType.name,
+        'clipStartSec': clipStartSec,
+        'clipDurationSec': clipDurationSec,
+        'originalCreatorId': originalCreatorId,
+        'originalCreatorHandle': originalCreatorHandle,
+        'allowSoundReuse': allowSoundReuse,
+        'allowRepost': allowRepost,
+      };
+
+  factory KineticPostAudioAttachment.fromJson(Map<String, dynamic> json) =>
+      KineticPostAudioAttachment(
+        sourceType: KineticAudioSourceType.values.firstWhere(
+          (e) => e.name == json['sourceType'],
+          orElse: () => KineticAudioSourceType.librarySong,
+        ),
+        clipStartSec: (json['clipStartSec'] as num?)?.toDouble() ?? 0.0,
+        clipDurationSec: (json['clipDurationSec'] as num?)?.toDouble() ?? 30.0,
+        originalCreatorId: json['originalCreatorId'] as String? ?? '',
+        originalCreatorHandle: json['originalCreatorHandle'] as String? ?? '',
+        allowSoundReuse: json['allowSoundReuse'] as bool? ?? true,
+        allowRepost: json['allowRepost'] as bool? ?? true,
+      );
+}
+
+/// Strict media validation guard (REQ-KPOST-NO-MP4).
+/// Rejects all video formats (.mp4, .mov, etc.) while allowing static image files.
+bool isAllowedKineticPostMedia(String pathOrMime) {
+  final lower = pathOrMime.toLowerCase();
+  // Reject video formats outright
+  if (lower.endsWith('.mp4') ||
+      lower.endsWith('.mov') ||
+      lower.endsWith('.webm') ||
+      lower.endsWith('.mkv') ||
+      lower.startsWith('video/')) {
+    return false;
+  }
+  return lower.endsWith('.jpg') ||
+      lower.endsWith('.jpeg') ||
+      lower.endsWith('.png') ||
+      lower.endsWith('.webp') ||
+      lower.startsWith('image/');
+}
 
 /// Represents a creator's social music post on the Explore feed (REQ-EXP-FEED-01).
 /// Combines creator identity, context story caption, embedded playable audio,
@@ -25,6 +148,27 @@ class SocialMusicPost {
   final int tipCountCoins;
   final bool isFollowingCreator;
 
+  /// Phase 37 Lineage & Co-Creation Fields (REQ-RMX-MODEL-01)
+  final RemixCreationMode? remixMode;
+  final String? parentClipId;
+  final String? parentTrackTitle;
+  final String? parentCreatorId;
+  final String? parentCreatorHandle;
+  final int remixGenerationDepth;
+  final List<SplitParticipant> coCreationSplits;
+
+  /// Phase 38 Kinetic Posts & Visual-Sonic Attachments (REQ-KPOST-01..04)
+  final KineticPostImageAttachment? imageAttachment;
+  final List<KineticPostImageAttachment> imageAttachments;
+  final KineticPostAudioAttachment? audioAttachment;
+  final String? repostedFromPostId;
+  final String? repostedFromCreatorHandle;
+  final String? quoteComment;
+  final int repostCount;
+  final AudioProvenanceType provenanceType;
+  final int cosignCount;
+  final bool isCosigned;
+
   const SocialMusicPost({
     required this.id,
     required this.creatorId,
@@ -42,7 +186,48 @@ class SocialMusicPost {
     this.remixCount = 0,
     this.tipCountCoins = 0,
     this.isFollowingCreator = false,
+    this.remixMode,
+    this.parentClipId,
+    this.parentTrackTitle,
+    this.parentCreatorId,
+    this.parentCreatorHandle,
+    this.remixGenerationDepth = 0,
+    this.coCreationSplits = const [],
+    this.imageAttachment,
+    this.imageAttachments = const [],
+    this.audioAttachment,
+    this.repostedFromPostId,
+    this.repostedFromCreatorHandle,
+    this.quoteComment,
+    this.repostCount = 0,
+    this.provenanceType = AudioProvenanceType.hybridCoCreation,
+    this.cosignCount = 0,
+    this.isCosigned = false,
   });
+
+  /// Whether this post is a remix of another creator's work.
+  bool get isRemix => parentClipId != null && parentClipId!.isNotEmpty;
+
+  /// Whether this post is a repost/quote of another post.
+  bool get isRepost =>
+      repostedFromPostId != null && repostedFromPostId!.isNotEmpty;
+
+  /// Whether this post has any static visual attachments.
+  bool get hasVisuals =>
+      imageAttachments.isNotEmpty || imageAttachment != null;
+
+  /// Unified list of all image attachments (handling both multi and single).
+  List<KineticPostImageAttachment> get allImageAttachments {
+    if (imageAttachments.isNotEmpty) return imageAttachments;
+    if (imageAttachment != null) return [imageAttachment!];
+    return const [];
+  }
+
+  /// Effective visual aspect ratio for rendering the Zone 3 canvas.
+  KineticPostAspectRatio get effectiveAspectRatio =>
+      allImageAttachments.isNotEmpty
+          ? allImageAttachments.first.aspectRatio
+          : KineticPostAspectRatio.square1x1;
 
   /// Human-readable relative publication timestamp.
   String get relativeTimeAgo {
@@ -82,6 +267,13 @@ class SocialMusicPost {
         commentCount: commentCount,
         remixCount: remixCount,
         isLikedByMe: isLikedByMe,
+        remixMode: remixMode,
+        parentClipId: parentClipId,
+        parentTrackTitle: parentTrackTitle,
+        parentCreatorId: parentCreatorId,
+        parentCreatorHandle: parentCreatorHandle,
+        remixGenerationDepth: remixGenerationDepth,
+        coCreationSplits: coCreationSplits,
         publishedAt: publishedAt,
       );
 
@@ -102,6 +294,23 @@ class SocialMusicPost {
     int? remixCount,
     int? tipCountCoins,
     bool? isFollowingCreator,
+    RemixCreationMode? remixMode,
+    String? parentClipId,
+    String? parentTrackTitle,
+    String? parentCreatorId,
+    String? parentCreatorHandle,
+    int? remixGenerationDepth,
+    List<SplitParticipant>? coCreationSplits,
+    KineticPostImageAttachment? imageAttachment,
+    List<KineticPostImageAttachment>? imageAttachments,
+    KineticPostAudioAttachment? audioAttachment,
+    String? repostedFromPostId,
+    String? repostedFromCreatorHandle,
+    String? quoteComment,
+    int? repostCount,
+    AudioProvenanceType? provenanceType,
+    int? cosignCount,
+    bool? isCosigned,
   }) {
     return SocialMusicPost(
       id: id ?? this.id,
@@ -120,6 +329,24 @@ class SocialMusicPost {
       remixCount: remixCount ?? this.remixCount,
       tipCountCoins: tipCountCoins ?? this.tipCountCoins,
       isFollowingCreator: isFollowingCreator ?? this.isFollowingCreator,
+      remixMode: remixMode ?? this.remixMode,
+      parentClipId: parentClipId ?? this.parentClipId,
+      parentTrackTitle: parentTrackTitle ?? this.parentTrackTitle,
+      parentCreatorId: parentCreatorId ?? this.parentCreatorId,
+      parentCreatorHandle: parentCreatorHandle ?? this.parentCreatorHandle,
+      remixGenerationDepth: remixGenerationDepth ?? this.remixGenerationDepth,
+      coCreationSplits: coCreationSplits ?? this.coCreationSplits,
+      imageAttachment: imageAttachment ?? this.imageAttachment,
+      imageAttachments: imageAttachments ?? this.imageAttachments,
+      audioAttachment: audioAttachment ?? this.audioAttachment,
+      repostedFromPostId: repostedFromPostId ?? this.repostedFromPostId,
+      repostedFromCreatorHandle:
+          repostedFromCreatorHandle ?? this.repostedFromCreatorHandle,
+      quoteComment: quoteComment ?? this.quoteComment,
+      repostCount: repostCount ?? this.repostCount,
+      provenanceType: provenanceType ?? this.provenanceType,
+      cosignCount: cosignCount ?? this.cosignCount,
+      isCosigned: isCosigned ?? this.isCosigned,
     );
   }
 
@@ -142,7 +369,9 @@ class SocialMusicPost {
         other.commentCount == commentCount &&
         other.remixCount == remixCount &&
         other.tipCountCoins == tipCountCoins &&
-        other.isFollowingCreator == isFollowingCreator;
+        other.isFollowingCreator == isFollowingCreator &&
+        other.repostedFromPostId == repostedFromPostId &&
+        other.repostCount == repostCount;
   }
 
   @override
@@ -163,6 +392,8 @@ class SocialMusicPost {
         remixCount,
         tipCountCoins,
         isFollowingCreator,
+        repostedFromPostId,
+        repostCount,
       );
 }
 
@@ -181,6 +412,17 @@ List<SocialMusicPost> seedSocialPosts() {
       location: 'Limpopo / Polokwane',
       caption:
           'Late night studio session testing the Venda Folk LoRA & sub-bass log drum slide 🔥 What do you think of this rhythm? Stems are open for remix!',
+      imageAttachment: const KineticPostImageAttachment(
+        imageUrl: 'https://cdn.vhunambi.com/covers/ndo-mufuna.jpg',
+        aspectRatio: KineticPostAspectRatio.portrait4x5,
+      ),
+      audioAttachment: const KineticPostAudioAttachment(
+        sourceType: KineticAudioSourceType.librarySong,
+        clipStartSec: 30.0,
+        clipDurationSec: 30.0,
+        originalCreatorId: 'creator_makhadzi',
+        originalCreatorHandle: '@makhadzi',
+      ),
       track: const Track(
         id: 'exp_track_002',
         title: 'Ndo Mufuna Matibe',
@@ -198,7 +440,71 @@ List<SocialMusicPost> seedSocialPosts() {
       likeCount: 1840,
       commentCount: 96,
       remixCount: 42,
+      repostCount: 14,
       tipCountCoins: 1250,
+      isFollowingCreator: true,
+    ),
+    SocialMusicPost(
+      id: 'post_001_remix_fifi',
+      creatorId: 'creator_fifi',
+      creatorName: 'Fifi Vocals',
+      creatorHandle: '@fifi_vocals',
+      isCreatorVerified: true,
+      publishedAt: now.subtract(const Duration(minutes: 45)),
+      location: 'Pretoria, Gauteng',
+      caption:
+          'Dropped my open verse on @makhadzi\'s Ndo Mufuna Matibe! Scale locked with Venda depressor guard 🔥 70/30 split active!',
+      remixMode: RemixCreationMode.openVerseVocal,
+      parentClipId: 'post_001',
+      parentTrackTitle: 'Ndo Mufuna Matibe',
+      parentCreatorId: 'creator_makhadzi',
+      parentCreatorHandle: '@makhadzi',
+      remixGenerationDepth: 1,
+      coCreationSplits: const [
+        SplitParticipant(
+          name: 'Fifi Vocals',
+          role: 'Vocalist (Remixer)',
+          sharePercent: 70.0,
+          creatorId: 'creator_fifi',
+          handle: '@fifi_vocals',
+        ),
+        SplitParticipant(
+          name: 'Makhadzi',
+          role: 'Original Producer',
+          sharePercent: 30.0,
+          creatorId: 'creator_makhadzi',
+          handle: '@makhadzi',
+        ),
+      ],
+      imageAttachment: const KineticPostImageAttachment(
+        imageUrl: 'https://cdn.vhunambi.com/covers/ndo-mufuna.jpg',
+        aspectRatio: KineticPostAspectRatio.portrait4x5,
+      ),
+      audioAttachment: const KineticPostAudioAttachment(
+        sourceType: KineticAudioSourceType.librarySong,
+        clipStartSec: 0.0,
+        clipDurationSec: 30.0,
+        originalCreatorId: 'creator_fifi',
+        originalCreatorHandle: '@fifi_vocals',
+      ),
+      track: const Track(
+        id: 'exp_track_remix_001',
+        title: 'Ndo Mufuna Matibe (Open Verse)',
+        creatorName: 'Fifi Vocals ft. Makhadzi',
+        creatorHandle: '@fifi_vocals',
+        genre: 'Amapiano',
+        language: 'isiZulu',
+        duration: Duration(minutes: 2, seconds: 45),
+        audioUrl: 'https://cdn.vhunambi.com/audio/ndo-mufuna-verse.mp3',
+        coverUrl: 'https://cdn.vhunambi.com/covers/ndo-mufuna.jpg',
+        likeCount: 620,
+        playCount: 4310,
+      ),
+      likeCount: 620,
+      commentCount: 28,
+      remixCount: 5,
+      repostCount: 3,
+      tipCountCoins: 350,
       isFollowingCreator: true,
     ),
     SocialMusicPost(
@@ -211,6 +517,17 @@ List<SocialMusicPost> seedSocialPosts() {
       location: 'Soweto, Gauteng',
       caption:
           'Morning prayer groove. Grateful for life and music. Tuned in F# Minor on Private School Rhodes keys 🎹',
+      imageAttachment: const KineticPostImageAttachment(
+        imageUrl: 'https://cdn.vhunambi.com/covers/grateful.jpg',
+        aspectRatio: KineticPostAspectRatio.square1x1,
+      ),
+      audioAttachment: const KineticPostAudioAttachment(
+        sourceType: KineticAudioSourceType.sketchpadGroove,
+        clipStartSec: 15.0,
+        clipDurationSec: 30.0,
+        originalCreatorId: 'creator_sigwa',
+        originalCreatorHandle: '@sigwa_inaf',
+      ),
       track: const Track(
         id: 'exp_track_001',
         title: 'Grateful in the Light',
@@ -228,6 +545,7 @@ List<SocialMusicPost> seedSocialPosts() {
       likeCount: 1002,
       commentCount: 48,
       remixCount: 18,
+      repostCount: 8,
       tipCountCoins: 480,
       isFollowingCreator: false,
     ),
@@ -241,6 +559,17 @@ List<SocialMusicPost> seedSocialPosts() {
       location: 'Durban, KwaZulu-Natal',
       caption:
           'Durban Midnight Bass! Raw 128 BPM Gqom energy straight out of the underground warehouse scene. Turn your bass up!',
+      imageAttachment: const KineticPostImageAttachment(
+        imageUrl: 'https://cdn.vhunambi.com/covers/durban-bass.jpg',
+        aspectRatio: KineticPostAspectRatio.landscape16x9,
+      ),
+      audioAttachment: const KineticPostAudioAttachment(
+        sourceType: KineticAudioSourceType.beatListing,
+        clipStartSec: 0.0,
+        clipDurationSec: 45.0,
+        originalCreatorId: 'creator_djvibe',
+        originalCreatorHandle: '@djvibe',
+      ),
       track: const Track(
         id: 'exp_track_004',
         title: 'Durban Midnight Bass',
@@ -258,6 +587,7 @@ List<SocialMusicPost> seedSocialPosts() {
       likeCount: 780,
       commentCount: 31,
       remixCount: 25,
+      repostCount: 12,
       tipCountCoins: 310,
       isFollowingCreator: false,
     ),
@@ -271,6 +601,15 @@ List<SocialMusicPost> seedSocialPosts() {
       location: 'Venda, Limpopo',
       caption:
           'Tshikona rhythms blended with 8-step acoustic log drum arpeggios. Heritage crate roots meet modern AI synthesis.',
+      imageAttachment: null,
+      imageAttachments: const [],
+      audioAttachment: const KineticPostAudioAttachment(
+        sourceType: KineticAudioSourceType.voiceSignature,
+        clipStartSec: 0.0,
+        clipDurationSec: 30.0,
+        originalCreatorId: 'creator_ndugelo',
+        originalCreatorHandle: '@ndugelo',
+      ),
       track: const Track(
         id: 'exp_track_006',
         title: 'Maskandi Strings of Natal',
@@ -287,6 +626,7 @@ List<SocialMusicPost> seedSocialPosts() {
       likeCount: 654,
       commentCount: 27,
       remixCount: 14,
+      repostCount: 5,
       tipCountCoins: 210,
       isFollowingCreator: false,
     ),
@@ -300,6 +640,17 @@ List<SocialMusicPost> seedSocialPosts() {
       location: 'Johannesburg',
       caption:
           'Sunset melodies inspired by the golden hour over Maboneng. Vocals generated with Soweto Youth Choir archetype 🌅',
+      imageAttachment: const KineticPostImageAttachment(
+        imageUrl: 'https://cdn.vhunambi.com/covers/afro-sunset.jpg',
+        aspectRatio: KineticPostAspectRatio.square1x1,
+      ),
+      audioAttachment: const KineticPostAudioAttachment(
+        sourceType: KineticAudioSourceType.librarySong,
+        clipStartSec: 20.0,
+        clipDurationSec: 30.0,
+        originalCreatorId: 'creator_fifi',
+        originalCreatorHandle: '@fifi',
+      ),
       track: const Track(
         id: 'exp_track_007',
         title: 'Afro Sunset Melodies',
@@ -316,6 +667,7 @@ List<SocialMusicPost> seedSocialPosts() {
       likeCount: 432,
       commentCount: 19,
       remixCount: 8,
+      repostCount: 2,
       tipCountCoins: 150,
       isFollowingCreator: false,
     ),

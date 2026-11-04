@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -170,9 +171,77 @@ class ProfileBannerHeader extends StatelessWidget {
               Text(
                 '@${profile.username}',
                 style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryOf(context),
                   fontWeight: FontWeight.w500,
                 ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Container(
+                    key: const Key('creator_archetype_badge'),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondaryOf(context),
+                      borderRadius: AppRadius.pillBorder,
+                      border: Border.all(
+                        color: AppColors.brandPrimary.withValues(alpha: 0.4),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        PhosphorIcon(
+                          profile.archetype.icon,
+                          size: 12,
+                          color: AppColors.brandPrimary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          profile.archetype.displayName,
+                          style: AppTypography.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10.5,
+                            color: AppColors.textPrimaryOf(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    key: const Key('creator_monthly_listeners_pill'),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondaryOf(context),
+                      borderRadius: AppRadius.pillBorder,
+                      border: Border.all(
+                        color: AppColors.borderSubtleOf(context),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const PhosphorIcon(
+                          PhosphorIconsRegular.headphones,
+                          size: 12,
+                          color: AppColors.badgeCyan,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${(profile.monthlyListenersCount / 1000).toStringAsFixed(1)}K Monthly',
+                          style: AppTypography.caption.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 10.5,
+                            color: AppColors.textPrimaryOf(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               if (profile.bio.isNotEmpty) ...[
                 const SizedBox(height: 10),

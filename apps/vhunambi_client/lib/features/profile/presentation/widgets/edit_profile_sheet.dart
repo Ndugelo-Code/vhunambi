@@ -7,6 +7,7 @@ import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../domain/models/profile_models.dart';
 import '../providers/profile_providers.dart';
 
 /// Modal sheet for modifying creator profile details (Phase 33 REQ-PRF-02).
@@ -35,6 +36,7 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
   late final TextEditingController _usernameController;
   late final TextEditingController _bioController;
   late List<String> _selectedGenres;
+  late CreatorIdentityArchetype _selectedArchetype;
 
   static const List<String> _availableGenres = [
     'Amapiano',
@@ -54,6 +56,7 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
     _nameController = TextEditingController(text: profile.displayName);
     _usernameController = TextEditingController(text: profile.username);
     _bioController = TextEditingController(text: profile.bio);
+    _selectedArchetype = profile.archetype;
     _selectedGenres = List<String>.from(profile.topGenres);
     if (_selectedGenres.isEmpty) {
       _selectedGenres = ['Amapiano', 'House'];
@@ -83,6 +86,7 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
           username: cleanUser.isNotEmpty ? cleanUser : null,
           bio: cleanBio,
           topGenres: _selectedGenres,
+          archetype: _selectedArchetype,
         );
 
     Navigator.of(context).pop();

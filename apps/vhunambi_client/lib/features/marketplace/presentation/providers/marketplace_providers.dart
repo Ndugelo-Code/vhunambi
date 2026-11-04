@@ -9,6 +9,10 @@ import '../../domain/repositories/i_marketplace_repository.dart';
 import '../../data/repositories/http_marketplace_repository.dart';
 import '../../../beats/domain/models/producer_beat_entity.dart';
 import '../../../beats/presentation/providers/beats_provider.dart';
+import '../../../social/presentation/providers/creator_wallet_provider.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
+import '../../../notifications/domain/models/notification_entity.dart';
+import '../../../notifications/domain/models/notification_enums.dart';
 
 /// Production marketplace repository provider.
 final marketplaceRepositoryProvider = Provider<IMarketplaceRepository>((ref) {
@@ -109,10 +113,27 @@ BeatLicenseOutcome licenseBeat(WidgetRef ref, BeatListingEntity beat) {
         beat.priceInCredits,
         BeatLicenseTier.nonExclusiveCommercial,
       );
+  final netCoins = (beat.priceInCredits * 0.85).round();
+  final netZar = double.parse((netCoins * 0.30).toStringAsFixed(2));
+  ref.read(creatorWalletProvider.notifier).recordMarketplaceRoyalty(
+        assetTitle: beat.title,
+        amountCoins: netCoins,
+        netZar: netZar,
+      );
   ref.read(marketplaceRepositoryProvider).licenseBeat(
         beatId: beat.id,
         buyerId: 'buyer_user',
         tier: 'basic_lease',
+      );
+  ref.read(notificationsProvider.notifier).addNotification(
+        NotificationEntity(
+          id: 'notif_mkt_${DateTime.now().millisecondsSinceEpoch}',
+          title: 'Marketplace License Acquired!',
+          message: 'Unlocked "${beat.title}" by ${beat.producerName} (Stems in Vault).',
+          category: NotificationCategory.creatorActivity,
+          priority: NotificationPriority.high,
+          createdAt: DateTime.now(),
+        ),
       );
 
   return BeatLicenseOutcome.licensed;
@@ -182,6 +203,10 @@ List<BeatListingEntity> filterBeats({
   final filtersByGenre = filter.genre != MarketplaceFilterState.allGenres;
 
   final scoped = beats.where((beat) {
+    if (filter.category != MarketplaceAssetCategory.all &&
+        beat.assetCategory != filter.category) {
+      return false;
+    }
     if (filtersByGenre && genre.isNotEmpty && beat.genre.toLowerCase() != genre) {
       return false;
     }
@@ -223,6 +248,8 @@ List<BeatListingEntity> _seedBeats() {
       stemZipUrl: '$origin/township-heat-stems.zip',
       totalSales: 18,
       createdAt: now.subtract(const Duration(hours: 2)),
+      assetCategory: MarketplaceAssetCategory.beats,
+      provenanceType: AudioProvenanceType.humanDawMaster,
     ),
     BeatListingEntity(
       id: 'beat_durban_midnight',
@@ -238,6 +265,91 @@ List<BeatListingEntity> _seedBeats() {
       stemZipUrl: '$origin/durban-midnight-bass-stems.zip',
       totalSales: 24,
       createdAt: now.subtract(const Duration(hours: 6)),
+      assetCategory: MarketplaceAssetCategory.beats,
+      provenanceType: AudioProvenanceType.humanDawMaster,
+    ),
+    BeatListingEntity(
+      id: 'vocal_makhadzi_hook',
+      title: 'Tshivenḓa Amapiano Vocal Hook',
+      producerId: 'creator_makhadzi',
+      producerName: 'Makhadzi',
+      producerHandle: '@makhadzi',
+      genre: 'Amapiano',
+      bpm: 112,
+      musicalKey: 'F# Minor',
+      priceInCredits: 4,
+      previewAudioUrl: '$origin/makhadzi-vocal-hook.mp3',
+      stemZipUrl: '$origin/makhadzi-vocal-hook-stems.zip',
+      totalSales: 42,
+      createdAt: now.subtract(const Duration(hours: 8)),
+      assetCategory: MarketplaceAssetCategory.vocals,
+      provenanceType: AudioProvenanceType.liveVocalRecording,
+    ),
+    BeatListingEntity(
+      id: 'vocal_zulu_soul_harmonies',
+      title: 'isiZulu Maskandi Vocal Cry',
+      producerId: 'creator_sigwa_inaf',
+      producerName: 'Sigwa Inaf',
+      producerHandle: '@sigwa_inaf',
+      genre: 'Maskandi',
+      bpm: 115,
+      musicalKey: 'C Major',
+      priceInCredits: 5,
+      previewAudioUrl: '$origin/sigwa-vocal-cry.mp3',
+      totalSales: 19,
+      createdAt: now.subtract(const Duration(hours: 10)),
+      assetCategory: MarketplaceAssetCategory.vocals,
+      provenanceType: AudioProvenanceType.liveVocalRecording,
+    ),
+    BeatListingEntity(
+      id: 'inst_maskandi_acoustic_lead',
+      title: 'Zululand Maskandi 12-String Lead',
+      producerId: 'creator_ndugelo',
+      producerName: 'Ndugelo',
+      producerHandle: '@ndugelo',
+      genre: 'Maskandi',
+      bpm: 115,
+      musicalKey: 'C Major',
+      priceInCredits: 5,
+      previewAudioUrl: '$origin/zulu-acoustic-flow.mp3',
+      stemZipUrl: '$origin/zulu-acoustic-flow-stems.zip',
+      totalSales: 11,
+      createdAt: now.subtract(const Duration(hours: 12)),
+      assetCategory: MarketplaceAssetCategory.liveInstruments,
+      provenanceType: AudioProvenanceType.liveInstrumentStem,
+    ),
+    BeatListingEntity(
+      id: 'inst_pretoria_jazz_sax',
+      title: 'Pretoria Barcadi Tenor Sax Riff',
+      producerId: 'creator_djvibe',
+      producerName: 'DJ Vibe',
+      producerHandle: '@djvibe',
+      genre: 'Amapiano',
+      bpm: 112,
+      musicalKey: 'F# Minor',
+      priceInCredits: 4,
+      previewAudioUrl: '$origin/pretoria-sax-riff.mp3',
+      totalSales: 27,
+      createdAt: now.subtract(const Duration(hours: 18)),
+      assetCategory: MarketplaceAssetCategory.liveInstruments,
+      provenanceType: AudioProvenanceType.liveInstrumentStem,
+    ),
+    BeatListingEntity(
+      id: 'dna_vhu_sig_amapiano_pack',
+      title: 'VHU-SIG Amapiano Voice & Percussion DNA Pack',
+      producerId: 'creator_lerato',
+      producerName: 'Lerato',
+      producerHandle: '@lerato_prod',
+      genre: 'Amapiano',
+      bpm: 114,
+      musicalKey: 'E Minor',
+      priceInCredits: 8,
+      previewAudioUrl: '$origin/vhu-sig-pack.mp3',
+      stemZipUrl: '$origin/vhu-sig-pack-stems.zip',
+      totalSales: 35,
+      createdAt: now.subtract(const Duration(days: 1)),
+      assetCategory: MarketplaceAssetCategory.voiceDnaAndPacks,
+      provenanceType: AudioProvenanceType.hybridCoCreation,
     ),
     BeatListingEntity(
       id: 'beat_zulu_acoustic',

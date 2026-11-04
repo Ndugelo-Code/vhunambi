@@ -7,6 +7,7 @@ import {
   getComments,
   getCreatorWallet,
   getFeed,
+  getClipRemixes,
   likeClip,
   likeComment,
   publishClip,
@@ -118,6 +119,14 @@ socialRoutes.post('/social/clips/:id/like', (c) => {
   return c.json(result, 200);
 });
 
+
+// GET /api/social/clips/:id/remixes — remix lineage children (Phase 37 REQ-RMX-TREE-01)
+socialRoutes.get('/social/clips/:id/remixes', (c) => {
+  const id = c.req.param('id');
+  const remixes = getClipRemixes(id);
+  return c.json({ clipId: id, count: remixes.length, remixes }, 200);
+});
+
 // GET /api/social/clips/:id/comments — thread comments (REQ-COM-01)
 socialRoutes.get('/social/clips/:id/comments', (c) => {
   const id = c.req.param('id');
@@ -159,6 +168,14 @@ socialRoutes.post('/social/comments/:id/like', (c) => {
   return c.json(result, 200);
 });
 
+
+// GET /api/social/clips/:id/remixes — remix lineage children (Phase 37 REQ-RMX-TREE-01)
+socialRoutes.get('/social/clips/:id/remixes', (c) => {
+  const id = c.req.param('id');
+  const remixes = getClipRemixes(id);
+  return c.json({ clipId: id, count: remixes.length, remixes }, 200);
+});
+
 // POST /api/social/clips/:id/tip — cultural micro-tipping (REQ-GFT-02, REQ-GFT-03)
 socialRoutes.post('/social/clips/:id/tip', async (c) => {
   const id = c.req.param('id');
@@ -178,6 +195,21 @@ socialRoutes.post('/social/clips/:id/tip', async (c) => {
     );
   }
   return c.json(result, 200);
+});
+
+// GET /api/social/clips/:id/remixes — remix lineage children (Phase 37 REQ-RMX-TREE-01)
+// GET /api/social/clips/:id/remixes — remix lineage children (Phase 37 REQ-RMX-TREE-01)
+socialRoutes.get('/social/clips/:id/remixes', (c) => {
+  const id = c.req.param('id');
+  const remixes = getClipRemixes(id);
+  return c.json({ clipId: id, count: remixes.length, remixes }, 200);
+});
+
+// GET /api/social/clips/:id/remixes — remix lineage children (Phase 37 REQ-RMX-TREE-01)
+socialRoutes.get('/social/clips/:id/remixes', (c) => {
+  const id = c.req.param('id');
+  const remixes = getClipRemixes(id);
+  return c.json({ clipId: id, count: remixes.length, remixes }, 200);
 });
 
 // GET /api/creators/:id/clips — creator reel grid source (REQ-SOC-23)
@@ -221,4 +253,12 @@ socialRoutes.post('/creators/:id/wallet/payout', async (c) => {
     );
   }
   return c.json(result, 200);
+});
+
+
+// GET /api/social/clips/:id/remixes — remix lineage children (Phase 37 REQ-RMX-TREE-01)
+socialRoutes.get('/social/clips/:id/remixes', (c) => {
+  const id = c.req.param('id');
+  const remixes = getClipRemixes(id);
+  return c.json({ clipId: id, count: remixes.length, remixes }, 200);
 });

@@ -149,7 +149,7 @@ class _PillFormState extends ConsumerState<PillForm>
         width: 160,
         height: 48,
         decoration: BoxDecoration(
-          color: AppColors.surfaceElevated.withValues(alpha: 0.95),
+          color: AppColors.surfaceElevatedOf(context).withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: accent.withValues(alpha: 0.3), width: 1.5),
           boxShadow: [
@@ -190,10 +190,10 @@ class _PillFormState extends ConsumerState<PillForm>
             Expanded(
               child: Text(
                 track.title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: AppColors.textPrimaryOf(context),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

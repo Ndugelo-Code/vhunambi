@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../features/creator_dna/domain/entities/creator_dna_profile.dart';
 
 /// Top tipping fan on the supporter leaderboard (REQ-TRK-14).
@@ -190,6 +191,34 @@ class MusicReleaseEntity {
       );
 }
 
+
+/// Sovereign creator identity archetype defining craft specialization (Phase 39 REQ-ID-ARCH-01).
+enum CreatorIdentityArchetype {
+  dawProducer,
+  naturalVocalist,
+  liveInstrumentalist,
+  kineticPerformer,
+  aiSonicArchitect,
+}
+
+extension CreatorIdentityArchetypeExtension on CreatorIdentityArchetype {
+  String get displayName => switch (this) {
+    CreatorIdentityArchetype.dawProducer => 'DAW Producer',
+    CreatorIdentityArchetype.naturalVocalist => 'Natural Vocalist',
+    CreatorIdentityArchetype.liveInstrumentalist => 'Live Instrumentalist',
+    CreatorIdentityArchetype.kineticPerformer => 'Kinetic Performer',
+    CreatorIdentityArchetype.aiSonicArchitect => 'AI Sonic Architect',
+  };
+
+  IconData get icon => switch (this) {
+    CreatorIdentityArchetype.dawProducer => PhosphorIconsRegular.slidersHorizontal,
+    CreatorIdentityArchetype.naturalVocalist => PhosphorIconsRegular.microphone,
+    CreatorIdentityArchetype.liveInstrumentalist => PhosphorIconsRegular.guitar,
+    CreatorIdentityArchetype.kineticPerformer => PhosphorIconsRegular.personSimpleRun,
+    CreatorIdentityArchetype.aiSonicArchitect => PhosphorIconsRegular.sparkle,
+  };
+}
+
 /// Artist / creator identity used by both profile routes (design.md §1.3).
 @immutable
 class ArtistProfileEntity {
@@ -216,6 +245,8 @@ class ArtistProfileEntity {
   final String? vocalSampleUrl;
   final CreatorDnaProfile? creatorDna;
   final String? pinnedTrackId;
+  final CreatorIdentityArchetype archetype;
+  final int monthlyListenersCount;
 
   const ArtistProfileEntity({
     required this.id,
@@ -241,6 +272,8 @@ class ArtistProfileEntity {
     this.vocalSampleUrl,
     this.creatorDna,
     this.pinnedTrackId,
+    this.archetype = CreatorIdentityArchetype.aiSonicArchitect,
+    this.monthlyListenersCount = 14200,
   });
 
   String get handle => '@$username';
@@ -278,6 +311,8 @@ class ArtistProfileEntity {
     String? vocalSampleUrl,
     CreatorDnaProfile? creatorDna,
     String? pinnedTrackId,
+    CreatorIdentityArchetype? archetype,
+    int? monthlyListenersCount,
     bool clearPinnedTrack = false,
   }) {
     return ArtistProfileEntity(
@@ -308,6 +343,8 @@ class ArtistProfileEntity {
           vocalArchetypeLanguage ?? this.vocalArchetypeLanguage,
       vocalSampleUrl: vocalSampleUrl ?? this.vocalSampleUrl,
       creatorDna: creatorDna ?? this.creatorDna,
+      archetype: archetype ?? this.archetype,
+      monthlyListenersCount: monthlyListenersCount ?? this.monthlyListenersCount,
       pinnedTrackId: clearPinnedTrack
           ? null
           : (pinnedTrackId ?? this.pinnedTrackId),
@@ -337,6 +374,8 @@ class ArtistProfileEntity {
     'vocalArchetypeLanguage': vocalArchetypeLanguage,
     'vocalSampleUrl': vocalSampleUrl,
     'pinnedTrackId': pinnedTrackId,
+    'archetype': archetype.name,
+    'monthlyListenersCount': monthlyListenersCount,
   };
 
   factory ArtistProfileEntity.fromJson(
@@ -362,6 +401,8 @@ class ArtistProfileEntity {
             .toList() ??
         const [],
     pinnedTrackId: json['pinnedTrackId'] as String?,
+    archetype: json['archetype'] != null ? CreatorIdentityArchetype.values.firstWhere((e) => e.name == json['archetype'], orElse: () => CreatorIdentityArchetype.aiSonicArchitect) : CreatorIdentityArchetype.aiSonicArchitect,
+    monthlyListenersCount: json['monthlyListenersCount'] as int? ?? 14200,
     vocalArchetypeTitle: json['vocalArchetypeTitle'] as String?,
     vocalArchetypeLanguage: json['vocalArchetypeLanguage'] as String?,
     vocalSampleUrl: json['vocalSampleUrl'] as String?,

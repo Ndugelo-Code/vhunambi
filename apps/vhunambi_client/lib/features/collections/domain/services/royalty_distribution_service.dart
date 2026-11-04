@@ -148,5 +148,86 @@ class RoyaltyDistributionService {
       distributions: List.unmodifiable(distributions),
     );
   }
+
+  /// Calculates proportional ZAR and Cultural Coin allocations for a direct list of [splits] (e.g., 70/30 remix splits).
+  static RoyaltyDistributionResult calculateDirectSplit({
+    required List<SplitParticipant> splits,
+    double grossZar = 0.0,
+    int grossCoins = 0,
+  }) {
+    final sanitizedZar = grossZar < 0 ? 0.0 : double.parse(grossZar.toStringAsFixed(2));
+    final sanitizedCoins = grossCoins < 0 ? 0 : grossCoins;
+
+    if (splits.isEmpty) {
+      return RoyaltyDistributionResult(
+        isBalanced: false,
+        grossZar: sanitizedZar,
+        grossCoins: sanitizedCoins,
+        distributions: const [],
+        warningMessage: 'No participants defined on co-creation split.',
+      );
+    }
+
+    final totalShare = splits.fold<double>(0.0, (sum, p) => sum + p.sharePercent);
+    final isBalanced = (totalShare - 100.0).abs() <= 0.05;
+
+    if (!isBalanced) {
+      final primary = splits.first;
+      return RoyaltyDistributionResult(
+        isBalanced: false,
+        grossZar: sanitizedZar,
+        grossCoins: sanitizedCoins,
+        distributions: [
+          SplitShareDistribution(
+            participant: primary,
+            zarAmount: sanitizedZar,
+            coinsAmount: sanitizedCoins,
+          ),
+        ],
+        warningMessage:
+            'Unbalanced co-creation split (Total: ${totalShare.toStringAsFixed(1)}%). 100% credited to ${primary.name}.',
+      );
+    }
+
+    final distributions = <SplitShareDistribution>[];
+    double allocatedZar = 0.0;
+    int allocatedCoins = 0;
+
+    for (int i = 0; i < splits.length; i++) {
+      final p = splits[i];
+      final factor = p.sharePercent / 100.0;
+
+      final rawZar = double.parse((sanitizedZar * factor).toStringAsFixed(2));
+      final rawCoins = (sanitizedCoins * factor).floor();
+
+      allocatedZar += rawZar;
+      allocatedCoins += rawCoins;
+
+      distributions.add(SplitShareDistribution(
+        participant: p,
+        zarAmount: rawZar,
+        coinsAmount: rawCoins,
+      ));
+    }
+
+    final diffZar = double.parse((sanitizedZar - allocatedZar).toStringAsFixed(2));
+    final diffCoins = sanitizedCoins - allocatedCoins;
+
+    if (distributions.isNotEmpty && (diffZar.abs() > 0.0001 || diffCoins > 0)) {
+      final first = distributions.first;
+      distributions[0] = SplitShareDistribution(
+        participant: first.participant,
+        zarAmount: double.parse((first.zarAmount + diffZar).toStringAsFixed(2)),
+        coinsAmount: first.coinsAmount + diffCoins,
+      );
+    }
+
+    return RoyaltyDistributionResult(
+      isBalanced: true,
+      grossZar: sanitizedZar,
+      grossCoins: sanitizedCoins,
+      distributions: List.unmodifiable(distributions),
+    );
+  }
 }
 

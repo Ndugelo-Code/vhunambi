@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -12,6 +13,8 @@ import '../../../player/presentation/widgets/player_obstacle.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../providers/studio_form_provider.dart';
 import '../widgets/advanced_options_accordion.dart';
+import '../widgets/active_remix_lineage_banner.dart';
+import '../widgets/direct_daw_vocal_upload_sheet.dart';
 import '../widgets/bantu_voice_deck.dart';
 import '../widgets/crate_browser_deck.dart';
 import '../widgets/generation_pipeline_card.dart';
@@ -194,6 +197,7 @@ class _StudioViewState extends ConsumerState<StudioView> {
                   const StudioSessionRecoveryBanner(),
                   // T6.10: DNA suggestion banner (REQ-DNA-STU-03)
                   _DnaSuggestionChip(),
+                  const ActiveRemixLineageBanner(),
                   const PromptInputBox(),
                   const ReferenceAudioDropzone(),
                   const RegionalGenreSelector(),
@@ -206,6 +210,31 @@ class _StudioViewState extends ConsumerState<StudioView> {
                 ]),
                 _tabScroll(isDesktop, [
                   OutlinedButton.icon(
+                    key: const Key('studio_daw_uploader_btn'),
+                    onPressed: () => DirectDawVocalUploadSheet.show(context),
+                    icon: PhosphorIcon(
+                      PhosphorIconsRegular.uploadSimple,
+                      color: AppColors.brandPrimary,
+                      size: 20,
+                    ),
+                    label: Text(
+                      'Direct DAW & Vocal Uploader',
+                      style: AppTypography.bodyLarge.copyWith(
+                        color: AppColors.textPrimaryOf(context),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: AppColors.brandPrimary.withValues(alpha: 0.5)),
+                      backgroundColor: AppColors.brandPrimary.withValues(alpha: 0.08),
+                      minimumSize: const Size.fromHeight(48),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: AppRadius.inputBorder,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  OutlinedButton.icon(
                     key: const Key('studio_open_crate_btn'),
                     onPressed: () => _openHeritageStudio(context),
                     icon: const Icon(
@@ -215,11 +244,11 @@ class _StudioViewState extends ConsumerState<StudioView> {
                     label: Text(
                       'Heritage Crate & MPC Slicer',
                       style: AppTypography.bodyLarge.copyWith(
-                        color: AppColors.textPrimary,
+                        color: AppColors.textPrimaryOf(context),
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: AppColors.borderSubtle),
+                      side: BorderSide(color: AppColors.borderSubtleOf(context)),
                       minimumSize: const Size.fromHeight(48),
                       shape: const RoundedRectangleBorder(
                         borderRadius: AppRadius.inputBorder,

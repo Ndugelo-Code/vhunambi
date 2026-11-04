@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
+import '../../../collections/domain/models/collection_entity.dart';
 import '../../../content_studio/domain/models/content_studio_preset.dart';
 import '../../../content_studio/domain/models/lyric_word_timestamp.dart';
 import '../../../content_studio/domain/models/song_metadata_dna.dart';
+import 'stem_remix_context.dart';
 
 /// Immutable visibility of a published clip (REQ-SOC-02).
 enum ClipVisibility { public, followers }
@@ -51,6 +53,16 @@ class PublishedClip {
   /// Optional lineage attribution text (e.g., '🔁 Remixed from @makhadzi\'s "Makhado Sunrise"').
   final String? remixAttribution;
 
+  /// Phase 37 Lineage & Co-Creation Fields (REQ-RMX-MODEL-01)
+  final RemixCreationMode? remixMode;
+  final String? parentClipId;
+  final String? parentTrackTitle;
+  final String? parentCreatorId;
+  final String? parentCreatorHandle;
+  final int remixGenerationDepth;
+  final int remixChildrenCount;
+  final List<SplitParticipant> coCreationSplits;
+
   final DateTime publishedAt;
 
   const PublishedClip({
@@ -77,11 +89,21 @@ class PublishedClip {
     this.userReactionCount = 0,
     this.remixedFromClipId,
     this.remixAttribution,
+    this.remixMode,
+    this.parentClipId,
+    this.parentTrackTitle,
+    this.parentCreatorId,
+    this.parentCreatorHandle,
+    this.remixGenerationDepth = 0,
+    this.remixChildrenCount = 0,
+    this.coCreationSplits = const [],
     required this.publishedAt,
   });
 
   /// Whether this clip was created as a remix of another creator's reel.
-  bool get isRemix => remixedFromClipId != null && remixedFromClipId!.isNotEmpty;
+  bool get isRemix =>
+      (remixedFromClipId != null && remixedFromClipId!.isNotEmpty) ||
+      (parentClipId != null && parentClipId!.isNotEmpty);
 
   PublishedClip copyWith({
     String? id,
@@ -95,6 +117,14 @@ class PublishedClip {
     int? userReactionCount,
     String? remixedFromClipId,
     String? remixAttribution,
+    RemixCreationMode? remixMode,
+    String? parentClipId,
+    String? parentTrackTitle,
+    String? parentCreatorId,
+    String? parentCreatorHandle,
+    int? remixGenerationDepth,
+    int? remixChildrenCount,
+    List<SplitParticipant>? coCreationSplits,
   }) {
     return PublishedClip(
       id: id ?? this.id,
@@ -120,6 +150,14 @@ class PublishedClip {
       userReactionCount: userReactionCount ?? this.userReactionCount,
       remixedFromClipId: remixedFromClipId ?? this.remixedFromClipId,
       remixAttribution: remixAttribution ?? this.remixAttribution,
+      remixMode: remixMode ?? this.remixMode,
+      parentClipId: parentClipId ?? this.parentClipId,
+      parentTrackTitle: parentTrackTitle ?? this.parentTrackTitle,
+      parentCreatorId: parentCreatorId ?? this.parentCreatorId,
+      parentCreatorHandle: parentCreatorHandle ?? this.parentCreatorHandle,
+      remixGenerationDepth: remixGenerationDepth ?? this.remixGenerationDepth,
+      remixChildrenCount: remixChildrenCount ?? this.remixChildrenCount,
+      coCreationSplits: coCreationSplits ?? this.coCreationSplits,
       publishedAt: publishedAt,
     );
   }
@@ -148,10 +186,19 @@ class PublishedClip {
         'userReactionCount': userReactionCount,
         if (remixedFromClipId != null) 'remixedFromClipId': remixedFromClipId,
         if (remixAttribution != null) 'remixAttribution': remixAttribution,
+        if (remixMode != null) 'remixMode': remixMode!.wireValue,
+        if (parentClipId != null) 'parentClipId': parentClipId,
+        if (parentTrackTitle != null) 'parentTrackTitle': parentTrackTitle,
+        if (parentCreatorId != null) 'parentCreatorId': parentCreatorId,
+        if (parentCreatorHandle != null) 'parentCreatorHandle': parentCreatorHandle,
+        'remixGenerationDepth': remixGenerationDepth,
+        'remixChildrenCount': remixChildrenCount,
+        'coCreationSplits': coCreationSplits.map((s) => s.toJson()).toList(),
         'publishedAt': publishedAt.toIso8601String(),
       };
 
   factory PublishedClip.fromJson(Map<String, dynamic> json) {
+    final parentId = (json['parentClipId'] as String?) ?? (json['remixedFromClipId'] as String?);
     return PublishedClip(
       id: json['id'] as String,
       trackId: json['trackId'] as String? ?? '',
@@ -177,8 +224,21 @@ class PublishedClip {
       isLikedByMe: (json['isLikedByMe'] as bool?) ?? false,
       isSavedByMe: (json['isSavedByMe'] as bool?) ?? false,
       userReactionCount: (json['userReactionCount'] as num?)?.toInt() ?? 0,
-      remixedFromClipId: json['remixedFromClipId'] as String?,
+      remixedFromClipId: parentId,
       remixAttribution: json['remixAttribution'] as String?,
+      remixMode: json['remixMode'] != null
+          ? RemixCreationMode.fromWire(json['remixMode'] as String?)
+          : null,
+      parentClipId: parentId,
+      parentTrackTitle: json['parentTrackTitle'] as String?,
+      parentCreatorId: json['parentCreatorId'] as String?,
+      parentCreatorHandle: json['parentCreatorHandle'] as String?,
+      remixGenerationDepth: (json['remixGenerationDepth'] as num?)?.toInt() ??
+          (parentId != null ? 1 : 0),
+      remixChildrenCount: (json['remixChildrenCount'] as num?)?.toInt() ?? 0,
+      coCreationSplits: (json['coCreationSplits'] as List<dynamic>? ?? const [])
+          .map((s) => SplitParticipant.fromJson(Map<String, dynamic>.from(s as Map)))
+          .toList(),
       publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? '') ??
           DateTime.now(),
     );

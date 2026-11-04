@@ -17,9 +17,10 @@ import '../../../content_studio/presentation/widgets/kinetic_preview_canvas.dart
 import '../../../studio/presentation/providers/melody_sketchpad_provider.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import '../../../studio/presentation/providers/vocal_identity_provider.dart';
-import '../../../player/presentation/widgets/stem_mixer_deck.dart';
 import 'reels_comment_sheet.dart';
 import 'creator_tipping_sheet.dart';
+import 'open_verse_remix_cockpit_sheet.dart';
+import 'remix_lineage_tree_sheet.dart';
 import 'remix_attribution_badge.dart';
 import '../../../studio/domain/services/bantu_lyric_translation_service.dart';
 import '../../../explore/domain/models/explore_models.dart';
@@ -926,44 +927,28 @@ class _ActionRailState extends State<_ActionRail> {
             ),
             const SizedBox(height: 18),
             _RailButton(
+              key: const Key('reel_remix_tree_btn'),
+              icon: PhosphorIconsRegular.gitFork,
+              color: AppColors.brandPrimary,
+              label: '${clip.remixCount}',
+              onTap: () {
+                HapticFeedback.selectionClick();
+                RemixLineageTreeSheet.show(
+                  context,
+                  trackOrClipId: clip.id,
+                  clip: clip,
+                );
+              },
+            ),
+            const SizedBox(height: 18),
+            _RailButton(
               key: const Key('reel_remix_btn'),
               icon: AppIcons.remix,
               color: AppColors.badgeCyan,
               label: 'Remix',
               onTap: () {
                 HapticFeedback.mediumImpact();
-                ref.read(stemRemixProvider.notifier).initiateRemix(clip);
-                ref.read(studioFormProvider.notifier).setGenre(clip.genre);
-                ref
-                    .read(studioFormProvider.notifier)
-                    .updatePrompt(
-                      'Remix inspired by ${clip.title} by @${clip.creatorUsername}',
-                    );
-                ref
-                    .read(melodySketchpadProvider.notifier)
-                    .initializeFromRemixDna(
-                      musicalKey: clip.dna.musical.key,
-                      bpm: clip.dna.musical.bpm,
-                      genre: clip.genre,
-                    );
-                ref
-                    .read(vocalIdentityProvider.notifier)
-                    .initializeFromRemixDna(
-                      deliveryMode: clip.dna.vocals.deliveryMode,
-                      genre: clip.genre,
-                    );
-                showModalBottomSheet<void>(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: AppColors.surfaceElevated,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.modalBorder,
-                  ),
-                  builder: (ctx) => FractionallySizedBox(
-                    heightFactor: 0.85,
-                    child: StemMixerDeck(title: 'Remixing: ${clip.title}'),
-                  ),
-                );
+                OpenVerseRemixCockpitSheet.show(context, clip: clip);
               },
             ),
           ],

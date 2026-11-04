@@ -6,6 +6,9 @@ import '../../domain/models/cultural_gift.dart';
 import '../../domain/repositories/i_social_repository.dart';
 import 'reels_comments_provider.dart';
 import 'social_repository_provider.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
+import '../../../notifications/domain/models/notification_entity.dart';
+import '../../../notifications/domain/models/notification_enums.dart';
 
 export '../../domain/models/creator_wallet.dart';
 export '../../domain/models/cultural_gift.dart';
@@ -140,7 +143,8 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
   }
 
   /// Dispatches a track tip (credits/coins), splitting proceeds proportionally
-  /// across collaborators if the track belongs to a collection with a valid split sheet (REQ-ROY-SPLIT-03).
+  /// across collaborators if the track belongs to a collection with a valid split sheet (REQ-ROY-SPLIT-03),
+  /// or across co-creators (e.g. 70% Remixer / 30% Originator) if [coCreationSplits] is present (Phase 37 REQ-RMX-ROYALTY-01).
   Future<bool> distributeTrackTip({
     required String trackId,
     required String trackTitle,
@@ -148,6 +152,7 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
     required String creatorName,
     required int credits,
     CollectionEntity? collection,
+    List<SplitParticipant>? coCreationSplits,
   }) async {
     if (state.userCoinsBalance < credits || credits <= 0) {
       return false;
@@ -157,7 +162,14 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
     final grossZar = double.parse((credits * 0.30).toStringAsFixed(2));
     final grossCoins = credits;
 
-    final distributions = (collection != null && collection.isSplitBalanced)
+    final distributions =
+        (coCreationSplits != null && coCreationSplits.isNotEmpty)
+        ? RoyaltyDistributionService.calculateDirectSplit(
+            splits: coCreationSplits,
+            grossZar: grossZar,
+            grossCoins: grossCoins,
+          ).distributions
+        : (collection != null && collection.isSplitBalanced)
         ? RoyaltyDistributionService.calculateSplit(
             collection: collection,
             grossZar: grossZar,
@@ -210,6 +222,16 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
       transactions: newTransactions,
     );
 
+    _ref.read(notificationsProvider.notifier).addNotification(
+      NotificationEntity(
+        id: 'notif_tip_${DateTime.now().millisecondsSinceEpoch}',
+        title: 'Tip Sent!',
+        message: 'Tipped $credits credits on "$trackTitle".',
+        category: NotificationCategory.social,
+        priority: NotificationPriority.normal,
+        createdAt: DateTime.now(),
+      ),
+    );
     return true;
   }
 
@@ -317,6 +339,38 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
     return true;
   }
 
+
+  /// Records direct 85% creator marketplace royalty earnings from beat / vocal / pack licenses (REQ-MARKET-03).
+  void recordMarketplaceRoyalty({
+    required String assetTitle,
+    required int amountCoins,
+    required double netZar,
+  }) {
+    state = state.copyWith(
+      creatorEarnedZar: state.creatorEarnedZar + netZar,
+      creatorReceivedCoins: state.creatorReceivedCoins + amountCoins,
+      transactions: [
+        GiftTransaction(
+          id: 'tx_royalty_${DateTime.now().millisecondsSinceEpoch}',
+          clipId: 'marketplace_asset',
+          senderUsername: 'marketplace_buyer',
+          recipientCreatorId: _creatorId,
+          gift: CulturalGift(
+            id: 'royalty_license',
+            name: '85% Royalty: $assetTitle',
+            emoji: '💎',
+            coinPrice: amountCoins,
+            zarPrice: netZar,
+            culturalMeaning: 'Fair creator split (85%) from marketplace licensing',
+          ),
+          message: 'Marketplace license sale for "$assetTitle"',
+          timestamp: DateTime.now(),
+        ),
+        ...state.transactions,
+      ],
+    );
+  }
+
   /// Requests a payout / royalty cashout (REQ-WAL-02).
   Future<bool> requestPayout({
     required double amountZar,
@@ -337,6 +391,45 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
       amountZar: amountZar,
       payoutMethod: payoutMethod,
       accountDetails: payoutMethod,
+    );
+
+    return true;
+  }
+
+  /// Requests a verified banking payout with full account and branch details (Phase 41 REQ-PAYOUT-DISPATCH-01).
+  Future<bool> requestBankingPayout({
+    required double amountZar,
+    required CreatorBankingDetails bankingDetails,
+  }) async {
+    if (amountZar < 50.0 || amountZar > state.creatorEarnedZar) {
+      return false;
+    }
+
+    final statusMsg =
+        'Payout of R${amountZar.toStringAsFixed(2)} to ${bankingDetails.bankName} (${bankingDetails.maskedAccount}) initiated!';
+
+    state = state.copyWith(
+      creatorEarnedZar: state.creatorEarnedZar - amountZar,
+      payoutStatusMessage: statusMsg,
+    );
+
+    _repo?.requestPayout(
+      creatorId: _creatorId,
+      amountZar: amountZar,
+      payoutMethod: bankingDetails.payoutMethod,
+      accountDetails:
+          '${bankingDetails.bankName} - ${bankingDetails.accountNumber} (${bankingDetails.accountHolder}) [Branch: ${bankingDetails.branchCode}]',
+    );
+
+    _ref.read(notificationsProvider.notifier).addNotification(
+      NotificationEntity(
+        id: 'notif_payout_${DateTime.now().millisecondsSinceEpoch}',
+        title: 'Royalty Payout Initiated',
+        message: statusMsg,
+        category: NotificationCategory.system,
+        priority: NotificationPriority.high,
+        createdAt: DateTime.now(),
+      ),
     );
 
     return true;

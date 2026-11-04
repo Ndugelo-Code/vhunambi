@@ -278,18 +278,21 @@ void main() {
         // Check Like Action
         final likeBtn = find.byKey(Key('social_post_like_btn_${post.id}'));
         expect(likeBtn, findsOneWidget);
+        await tester.ensureVisible(likeBtn);
         await tester.tap(likeBtn);
         await tester.pump();
 
         // Check Follow Button
         final followBtn = find.byKey(Key('social_post_follow_${post.id}'));
         expect(followBtn, findsOneWidget);
+        await tester.ensureVisible(followBtn);
         await tester.tap(followBtn);
         await tester.pump();
 
         // Check Remix Button
         final remixBtn = find.byKey(Key('social_post_remix_btn_${post.id}'));
         expect(remixBtn, findsOneWidget);
+        await tester.ensureVisible(remixBtn);
         await tester.tap(remixBtn);
         await tester.pump();
         expect(remixClicked, isTrue);

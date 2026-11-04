@@ -5,6 +5,12 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../landing/domain/models/landing_models.dart';
 import '../../../landing/presentation/providers/landing_providers.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../social/presentation/providers/creator_wallet_provider.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
+import '../../../notifications/domain/models/notification_entity.dart';
+import '../../../notifications/domain/models/notification_enums.dart';
+
 
 class SubscriptionUpgradeModal extends ConsumerWidget {
   const SubscriptionUpgradeModal({super.key});
@@ -109,6 +115,86 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
+
+          // Instant Coin Top-Up Section (REQ-TOPUP-UI-01)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSecondaryOf(context),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderSubtleOf(context)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const PhosphorIcon(
+                        PhosphorIconsFill.coins,
+                        color: AppColors.coinGold,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Instant Coin Top-Up (ZAR)',
+                        style: AppTypography.titleSmall.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimaryOf(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Instant Ozow / Capitec Pay credits for tips, stems & licenses',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondaryOf(context),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTopUpPack(
+                          context,
+                          ref,
+                          keyName: 'coin_topup_pack_100',
+                          coins: 100,
+                          priceZar: 45,
+                          badge: null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildTopUpPack(
+                          context,
+                          ref,
+                          keyName: 'coin_topup_pack_300',
+                          coins: 300,
+                          priceZar: 120,
+                          badge: '+15%',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildTopUpPack(
+                          context,
+                          ref,
+                          keyName: 'coin_topup_pack_1000',
+                          coins: 1000,
+                          priceZar: 350,
+                          badge: 'POPULAR',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           // Tier cards list/grid
           Expanded(
             child: ListView.separated(
@@ -117,7 +203,7 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
               separatorBuilder: (context, index) => const SizedBox(height: 14),
               itemBuilder: (context, index) {
                 final tier = tiers[index];
-                return _buildTierCard(context, tier, billingCycle);
+                return _buildTierCard(context, ref, tier, billingCycle);
               },
             ),
           ),
@@ -153,8 +239,93 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
     );
   }
 
+
+  Widget _buildTopUpPack(
+    BuildContext context,
+    WidgetRef ref, {
+    required String keyName,
+    required int coins,
+    required int priceZar,
+    String? badge,
+  }) {
+    return InkWell(
+      key: Key(keyName),
+      onTap: () {
+        ref.read(creatorWalletProvider.notifier).topUpCoins(coins);
+        ref.read(notificationsProvider.notifier).addNotification(
+          NotificationEntity(
+            id: 'notif_topup_${DateTime.now().millisecondsSinceEpoch}',
+            title: 'Coins Credited!',
+            message: 'Successfully topped up $coins Coins via Ozow / Capitec Pay (R$priceZar).',
+            category: NotificationCategory.system,
+            priority: NotificationPriority.high,
+            createdAt: DateTime.now(),
+          ),
+        );
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully credited $coins Cultural Coins!'),
+            backgroundColor: AppColors.brandPrimary,
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceElevatedOf(context),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: badge != null ? AppColors.brandPrimary : AppColors.borderSubtleOf(context),
+            width: badge != null ? 1.2 : 0.8,
+          ),
+        ),
+        child: Column(
+          children: [
+            if (badge != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AppColors.brandPrimary,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  badge,
+                  style: const TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            Text(
+              '$coins 🪙',
+              style: AppTypography.caption.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: AppColors.textPrimaryOf(context),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'R$priceZar',
+              style: AppTypography.caption.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 10,
+                color: AppColors.brandPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTierCard(
     BuildContext context,
+    WidgetRef ref,
     PricingTier tier,
     BillingCycle cycle,
   ) {
@@ -263,6 +434,7 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
+              key: const Key('upgrade_modal_confirm_btn'),
               style: ElevatedButton.styleFrom(
                 backgroundColor:
                     isPopular ? AppColors.brandPrimary : AppColors.surfaceElevated,
@@ -274,11 +446,22 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
                 elevation: 0,
               ),
               onPressed: () {
+                ref.read(creatorWalletProvider.notifier).topUpCoins(500);
+                ref.read(notificationsProvider.notifier).addNotification(
+                  NotificationEntity(
+                    id: 'notif_plan_${DateTime.now().millisecondsSinceEpoch}',
+                    title: '${tier.name} Plan Activated!',
+                    message: 'Your ${tier.name} subscription is active with full commercial ownership.',
+                    category: NotificationCategory.system,
+                    priority: NotificationPriority.high,
+                    createdAt: DateTime.now(),
+                  ),
+                );
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Selected plan: ${tier.name} ($price/mo)'),
-                    backgroundColor: AppColors.surfaceElevated,
+                    content: Text('Activated ${tier.name} plan! Credited 500 Coins.'),
+                    backgroundColor: AppColors.brandPrimary,
                   ),
                 );
               },

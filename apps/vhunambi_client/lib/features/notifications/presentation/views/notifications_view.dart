@@ -27,6 +27,14 @@ class NotificationsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final rawNotifications = ref.watch(notificationsProvider);
+    if (rawNotifications.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (ref.read(notificationsProvider).isEmpty) {
+          ref.read(notificationsProvider.notifier).seedDemoAlerts();
+        }
+      });
+    }
     final notifications = ref.watch(filteredNotificationsProvider);
     final unreadCount = ref.watch(unreadNotificationsCountProvider);
     final bottomInset = VhunambiBottomDockMetrics.scrollInset(

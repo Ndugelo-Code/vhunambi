@@ -8,6 +8,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
+import '../../domain/models/marketplace_models.dart';
 import '../providers/marketplace_providers.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../widgets/beat_card.dart';
@@ -184,9 +185,77 @@ class MarketplaceView extends ConsumerWidget {
           const SizedBox(height: AppSpacing.xxs),
           Text(
             '$resultCount ${resultCount == 1 ? 'listing' : 'listings'} available',
-            style: AppTypography.caption,
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondaryOf(context),
+            ),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          _buildCategoryTabs(context, ref),
         ],
+      ),
+    );
+  }
+
+
+  Widget _buildCategoryTabs(BuildContext context, WidgetRef ref) {
+    final activeFilter = ref.watch(marketplaceFilterProvider);
+    final activeCategory = activeFilter.category;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: MarketplaceAssetCategory.values.map((cat) {
+          final isSelected = cat == activeCategory;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: InkWell(
+              key: Key('market_category_tab_${cat.name}'),
+              onTap: () {
+                ref.read(marketplaceFilterProvider.notifier).state =
+                    activeFilter.copyWith(category: cat);
+              },
+              borderRadius: AppRadius.pillBorder,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.brandPrimary
+                      : AppColors.surfaceElevatedOf(context),
+                  borderRadius: AppRadius.pillBorder,
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.brandPrimary
+                        : AppColors.borderSubtleOf(context),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PhosphorIcon(
+                      cat.icon,
+                      size: 14,
+                      color: isSelected
+                          ? AppColors.brandContrast
+                          : AppColors.textPrimaryOf(context),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      cat.label,
+                      style: AppTypography.caption.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isSelected
+                            ? AppColors.brandContrast
+                            : AppColors.textPrimaryOf(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

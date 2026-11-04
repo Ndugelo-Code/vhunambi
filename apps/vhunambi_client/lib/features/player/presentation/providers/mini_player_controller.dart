@@ -173,7 +173,8 @@ class MiniPlayerController extends ChangeNotifier {
     const minX = 8.0;
     final maxX = (screenSize.width - formWidth - 8.0).clamp(minX, double.infinity);
     final minY = topSafeArea + 8.0;
-    final maxY = (screenSize.height - formHeight - bottomSafeArea - 8.0).clamp(minY, double.infinity);
+    final bottomDockHeight = 56.0 + bottomSafeArea;
+    final maxY = (screenSize.height - formHeight - bottomDockHeight - 12.0).clamp(minY, double.infinity);
 
     return Offset(
       _position.dx.clamp(minX, maxX),
@@ -208,9 +209,9 @@ class MiniPlayerController extends ChangeNotifier {
         return Offset(8.0, targetY);
 
       case PlayerForm.pill:
-        // Floating pill centered horizontally above the dock
+        // Floating pill docked cleanly 12dp above the bottom navigation dock
         return Offset(
-          (screenSize.width - 160.0) / 2,
+          screenSize.width - 160.0 - 16.0,
           screenSize.height - (56.0 + bottomSafeArea + 12.0 + 48.0),
         );
     }

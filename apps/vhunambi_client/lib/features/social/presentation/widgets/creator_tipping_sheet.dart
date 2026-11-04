@@ -100,6 +100,17 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
       gift: _selected,
       message: _messageController.text.trim(),
     );
+    final splits = widget.clip?.coCreationSplits;
+    if (splits != null && splits.isNotEmpty) {
+      await wallet.distributeTrackTip(
+        trackId: widget.clip?.trackId ?? _effectiveClipId,
+        trackTitle: widget.clip?.title ?? 'Remix Track',
+        creatorId: _effectiveCreatorId,
+        creatorName: widget.clip?.creatorDisplayName ?? _effectiveUsername,
+        credits: _selected.coinPrice,
+        coCreationSplits: splits,
+      );
+    }
 
     if (!ok || !mounted) return;
     navigator.pop();
@@ -181,6 +192,41 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
               ),
             ],
           ),
+          if (widget.clip?.coCreationSplits.isNotEmpty == true) ...[
+            Container(
+              key: const Key('co_creation_split_pill'),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.brandPrimary.withValues(alpha: 0.12),
+                borderRadius: AppRadius.pillBorder,
+                border: Border.all(
+                  color: AppColors.brandPrimary.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const PhosphorIcon(
+                    PhosphorIconsRegular.gitFork,
+                    size: 14,
+                    color: AppColors.brandPrimary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.clip!.coCreationSplits
+                        .map((s) => '${s.sharePercent.toStringAsFixed(0)}% ${s.handle ?? s.name}')
+                        .join(' · '),
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.brandPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           GridView.builder(
             shrinkWrap: true,

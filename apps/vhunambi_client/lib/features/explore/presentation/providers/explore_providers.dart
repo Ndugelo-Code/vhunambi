@@ -3,6 +3,7 @@ import '../../../../shared/models/track.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/explore_models.dart';
 import '../../domain/models/social_music_post.dart';
+import '../../domain/services/discovery_hierarchy_ranker.dart';
 import '../../../social/domain/models/published_clip.dart';
 import '../../../social/presentation/providers/trending_reels_provider.dart';
 
@@ -10,6 +11,12 @@ import '../../../social/presentation/providers/trending_reels_provider.dart';
 const int exploreCatalogPageSize = 6;
 
 /// Active Explore discovery sub-tab (REQ-EXP-02).
+
+/// Active 3-Stage Discovery Hierarchy Tier filter (Phase 39 REQ-DISC-TIER-01).
+/// `null` means unconstrained (all tiers).
+final selectedDiscoveryTierProvider =
+    StateProvider<DiscoveryStageTier?>((ref) => null);
+
 final exploreTabProvider =
     StateProvider<ExploreTab>((ref) => ExploreTab.discover);
 
@@ -442,6 +449,36 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
 
   void addPost(SocialMusicPost post) {
     state = [post, ...state];
+  }
+
+  void repostPost({
+    required String originalPostId,
+    required SocialMusicPost repostPost,
+  }) {
+    state = [
+      repostPost,
+      for (final post in state)
+        if (post.id == originalPostId)
+          post.copyWith(repostCount: post.repostCount + 1)
+        else
+          post,
+    ];
+  }
+
+  /// Toggles community A&R co-sign on a post and triggers live graduation (REQ-COSIGN-GRAD-02).
+  void cosignPost(String postId) {
+    state = [
+      for (final post in state)
+        if (post.id == postId)
+          post.copyWith(
+            cosignCount: post.isCosigned
+                ? (post.cosignCount - 1).clamp(0, 9999)
+                : post.cosignCount + 1,
+            isCosigned: !post.isCosigned,
+          )
+        else
+          post,
+    ];
   }
 }
 

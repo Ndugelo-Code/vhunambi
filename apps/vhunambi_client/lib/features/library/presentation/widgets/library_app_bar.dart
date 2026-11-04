@@ -86,20 +86,41 @@ class LibraryAppBar extends ConsumerWidget {
   Widget _mobileRow(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _brandGroup(context, showBackChevron: false)),
-        const _CreditBalancePill(),
-        const SizedBox(width: AppSpacing.xxs),
-        const NotificationBellButton(),
-        const SizedBox(width: AppSpacing.xxs),
-        const _OverflowMenu(),
-        const SizedBox(width: AppSpacing.xs),
-        _CreateButton(onPressed: onCreateRequested, isCompact: true),
+        _brandGroup(context, showBackChevron: false, showTitle: false),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const _CreditBalancePill(),
+                  const SizedBox(width: AppSpacing.xxs),
+                  const NotificationBellButton(),
+                  const SizedBox(width: AppSpacing.xxs),
+                  const VhunambiUserAvatarButton(size: 30),
+                  const SizedBox(width: AppSpacing.xxs),
+                  const _OverflowMenu(),
+                  const SizedBox(width: AppSpacing.xs),
+                  _CreateButton(onPressed: onCreateRequested, isCompact: true),
+                ],
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _brandGroup(BuildContext context, {required bool showBackChevron}) {
+  Widget _brandGroup(
+    BuildContext context, {
+    required bool showBackChevron,
+    bool showTitle = true,
+  }) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         if (showBackChevron) ...[
           VhunambiBackButton(onPressed: () => Navigator.of(context).maybePop()),
@@ -127,18 +148,16 @@ class LibraryAppBar extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(width: AppSpacing.xs),
-        Flexible(
-          child: Text(
+        if (showTitle) ...[
+          const SizedBox(width: AppSpacing.xs),
+          Text(
             'VHUNAMBI',
             style: AppTypography.titleMedium.copyWith(
               fontWeight: FontWeight.w800,
               letterSpacing: 1.0,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
-        ),
+        ],
       ],
     );
   }
