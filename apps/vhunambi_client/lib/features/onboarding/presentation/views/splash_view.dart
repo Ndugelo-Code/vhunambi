@@ -10,6 +10,9 @@ import '../providers/onboarding_providers.dart';
 import 'onboarding_view.dart';
 import '../../../../main.dart';
 
+/// Tracks whether the application is currently presenting the splash sequence (REQ-P47-BUG-01).
+final isSplashActiveProvider = StateProvider<bool>((ref) => true);
+
 class SplashView extends ConsumerStatefulWidget {
   final Duration duration;
   final VoidCallback? onFinished;
@@ -61,6 +64,7 @@ class _SplashViewState extends ConsumerState<SplashView>
   void _onSplashComplete() {
     if (!mounted) return;
     HapticFeedback.lightImpact();
+    ref.read(isSplashActiveProvider.notifier).state = false;
 
     if (widget.onFinished != null) {
       widget.onFinished!();

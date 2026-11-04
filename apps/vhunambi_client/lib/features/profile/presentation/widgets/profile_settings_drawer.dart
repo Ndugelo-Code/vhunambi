@@ -1,3 +1,4 @@
+import '../../../onboarding/presentation/views/onboarding_view.dart';
 import '../../../../core/sync/edge_sync_coordinator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +31,7 @@ class ProfileSettingsDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeThemeMode = ref.watch(themeModeProvider);
+    final syncState = ref.watch(edgeSyncCoordinatorProvider);
 
     return SafeArea(
       top: false,
@@ -242,7 +244,7 @@ class ProfileSettingsDrawer extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      const PhosphorIcon(
+                      PhosphorIcon(
                         PhosphorIconsFill.checkCircle,
                         color: AppColors.badgeCyan,
                         size: 20,
@@ -298,6 +300,130 @@ class ProfileSettingsDrawer extends ConsumerWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Edge-Sync status row: dead-letter count + latency
+            Row(
+              children: [
+                Container(
+                  key: const Key('settings_dead_letter_count'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: syncState.deadLetterCount > 0
+                        ? AppColors.surfaceSecondary
+                        : AppColors.brandPrimary.withValues(alpha: 0.1),
+                    borderRadius: AppRadius.pillBorder,
+                    border: Border.all(
+                      color: syncState.deadLetterCount > 0
+                          ? AppColors.surfaceSecondary
+                          : AppColors.brandPrimary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PhosphorIcon(
+                        PhosphorIconsRegular.warning,
+                        size: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Dead-Letter: ${syncState.deadLetterCount}',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  key: const Key('settings_sync_latency_ms'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceSecondary,
+                    borderRadius: AppRadius.pillBorder,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PhosphorIcon(
+                        PhosphorIconsRegular.clock,
+                        size: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Latency: ${syncState.lastSyncLatencyMs}ms',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSecondaryOf(context),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderSubtleOf(context)),
+              ),
+              child: ListTile(
+                key: const Key('settings_replay_onboarding_btn'),
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.brandPrimary.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const PhosphorIcon(
+                    PhosphorIconsRegular.sparkle,
+                    color: AppColors.brandPrimary,
+                    size: 18,
+                  ),
+                ),
+                title: Text(
+                  'Replay Interactive Onboarding',
+                  style: AppTypography.bodyMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimaryOf(context),
+                  ),
+                ),
+                subtitle: Text(
+                  'Experience the 4-act motion canvas & DNA genesis',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondaryOf(context),
+                  ),
+                ),
+                trailing: PhosphorIcon(
+                  PhosphorIconsRegular.caretRight,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const OnboardingView()),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 16),
@@ -358,4 +484,3 @@ class ProfileSettingsDrawer extends ConsumerWidget {
     );
   }
 }
-

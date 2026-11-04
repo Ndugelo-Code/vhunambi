@@ -1,24 +1,20 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/design_system/design_system.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../main.dart';
-import '../../../creator_dna/domain/entities/creator_dna_profile.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
-import '../../../creator_dna/presentation/widgets/dna_genre_badge.dart';
-import '../../../creator_dna/presentation/widgets/dna_strength_meter.dart';
-import '../../../creator_dna/presentation/widgets/sound_signature_picker.dart';
-import '../../domain/models/onboarding_models.dart';
 import '../providers/onboarding_providers.dart';
-import '../widgets/app_tour_overlay.dart';
-import '../widgets/genre_color_chip.dart';
-import '../widgets/role_carousel_widget.dart';
+import '../widgets/onboarding_procedural_canvas.dart';
+import '../widgets/onboarding_act1_showcase.dart';
+import '../widgets/interactive_identity_card_stack.dart';
+import '../widgets/onboarding_act3_roots_deck.dart';
+import '../widgets/creator_dna_helix_finale.dart';
 
+/// Phase 47: 4-Act Motion Graphics Onboarding & DNA Genesis View.
+/// Zero forms, 60 FPS procedural vector backdrop, 3D stacked cards, and spinning DNA helix finale.
 class OnboardingView extends ConsumerStatefulWidget {
   final VoidCallback? onFinish;
 
@@ -28,89 +24,54 @@ class OnboardingView extends ConsumerStatefulWidget {
   ConsumerState<OnboardingView> createState() => _OnboardingViewState();
 }
 
-class _OnboardingViewState extends ConsumerState<OnboardingView> {
-  final PageController _pageController = PageController();
+class _OnboardingViewState extends ConsumerState<OnboardingView>
+    with TickerProviderStateMixin {
+  late final PageController _pageController;
+  late final AnimationController _canvasAnimController;
+
   int _currentPage = 0;
-  bool _showAppTour = false;
-  bool _privacyClaimLogged = false;
+  double _pageOffset = 0.0;
+  final List<TouchRipple> _touchRipples = [];
 
-  static const _availableGenres = [
-    // Southern Africa
-    'Amapiano',
-    'Kwaito',
-    'Gqom',
-    'Maskandi',
-    'Afro House',
-    'Afro Tech',
-    // West Africa
-    'Afrobeats',
-    'Highlife',
-    'Fuji',
-    'Afro Fusion',
-    'Palm Wine',
-    'Alté',
-    // East & Central Africa
-    'Bongo Flava',
-    'Gengetone',
-    'Soukous',
-    'Taarab',
-    'Singeli',
-    'Rumba',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _pageController.addListener(_handlePageScroll);
 
-  static const _availableLanguages = [
-    'Tshivenḓa',
-    'isiZulu',
-    'isiXhosa',
-    'Afrikaans',
-    'English',
-    'Kiswahili',
-    'Sepedi',
-    'Yoruba',
-    'Igbo',
-    'Shona',
-  ];
+    _canvasAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 12),
+    )..repeat();
+  }
 
-  /// Role options for the carousel (VH-007).
-  static final List<RoleOption> _roleOptions = [
-    RoleOption(
-      role: CreativeRole.producer,
-      label: 'Producer / Beatmaker',
-      emoji: '🎹',
-      description: 'Crafting beats, melodies, and sonic textures',
-    ),
-    RoleOption(
-      role: CreativeRole.vocalist,
-      label: 'Vocalist / Singer',
-      emoji: '🎤',
-      description: 'Writing hooks, harmonies, and toplines',
-    ),
-    RoleOption(
-      role: CreativeRole.songwriter,
-      label: 'Songwriter / Lyricist',
-      emoji: '✍️',
-      description: 'Poetic lyricism and storytelling in native dialects',
-    ),
-    RoleOption(
-      role: CreativeRole.multiHyphenate,
-      label: 'Multi-Hyphenate Artist',
-      emoji: '⚡',
-      description: 'Doing it all: production, vocals, and engineering',
-    ),
-    RoleOption(
-      role: CreativeRole.musicLover,
-      label: 'Music Enthusiast',
-      emoji: '🎧',
-      description: 'Curating, discovering, and co-creating sounds',
-    ),
-  ];
+  void _handlePageScroll() {
+    if (_pageController.hasClients && _pageController.page != null) {
+      setState(() {
+        _pageOffset = _pageController.page!;
+      });
+    }
+  }
+
+  void _addTouchRipple(Offset position) {
+    setState(() {
+      _touchRipples.add(
+        TouchRipple(position: position, createdAt: DateTime.now()),
+      );
+      if (_touchRipples.length > 8) {
+        _touchRipples.removeAt(0);
+      }
+    });
+  }
 
   void _finishOnboarding() {
     HapticFeedback.mediumImpact();
     final state = ref.read(onboardingStateProvider);
 
     // 1. Seed Creator DNA Profile in Hive
-    ref.read(creatorDnaProvider.notifier).seedFromOnboarding(
+    ref
+        .read(creatorDnaProvider.notifier)
+        .seedFromOnboarding(
           role: state.creativeRole,
           experienceLevel: state.experienceLevel,
           selectedGenres: state.selectedGenres,
@@ -124,7 +85,7 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
           completeness: 1.0,
         );
 
-    // 2. Mark legacy onboarding state as completed
+    // 2. Mark onboarding state as completed
     ref.read(onboardingStateProvider.notifier).completeOnboarding();
 
     if (widget.onFinish != null) {
@@ -142,750 +103,247 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
     }
   }
 
-  /// Activates Creator DNA and shows the app tour (VH-012).
-  /// Called by the DNA activation CTA on Slide 5 instead of _finishOnboarding.
-  Future<void> _activateDnaAndShowTour() async {
-    final state = ref.read(onboardingStateProvider);
-
-    // 1. Seed Creator DNA Profile in Hive
-    ref.read(creatorDnaProvider.notifier).seedFromOnboarding(
-          role: state.creativeRole,
-          experienceLevel: state.experienceLevel,
-          selectedGenres: state.selectedGenres,
-          primaryLanguage: state.primaryLanguage,
-          secondaryLanguages: state.selectedLanguages
-              .where((l) => l != state.primaryLanguage)
-              .toList(),
-          tempoPreference: state.tempoPreference,
-          vocalEnergyPreference: state.vocalEnergyPreference,
-          selectedMoods: state.selectedMoods,
-          completeness: 1.0,
-        );
-
-    // 2. Mark legacy onboarding state as completed
-    ref.read(onboardingStateProvider.notifier).completeOnboarding();
-
-    // 3. Show app tour (VH-012)
-    if (mounted) {
-      setState(() => _showAppTour = true);
-    }
-  }
-
   void _nextPage() {
-    if (_currentPage < 5) {
+    if (_currentPage < 3) {
       HapticFeedback.lightImpact();
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 350),
         curve: Curves.easeInOutCubic,
       );
     } else {
-      _activateDnaAndShowTour();
+      _finishOnboarding();
     }
   }
 
   void _onPageChanged(int page) {
-    setState(() => _currentPage = page);
-    if (page == 5 && !_privacyClaimLogged) {
-      _privacyClaimLogged = true;
-      AnalyticsService().record(
-        PrivacyClaimDisplayedEvent(
-          'Your creator profile, DNA preferences, and session history remain sovereign on your device. Audio generation is processed via private, encrypted GPU clusters with zero model training on your unreleased prompts.',
-        ),
-      );
-    }
+    setState(() {
+      _currentPage = page;
+      _pageOffset = page.toDouble();
+    });
   }
 
   @override
   void dispose() {
+    _pageController.removeListener(_handlePageScroll);
     _pageController.dispose();
-    AnalyticsService().dispose();
+    _canvasAnimController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final onboardingState = ref.watch(onboardingStateProvider);
-
-    return Stack(
-      children: [
-        Scaffold(
-          backgroundColor: AppColors.surfaceCanvas,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            leading: _currentPage > 0
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      _pageController.previousPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOutCubic,
-                      );
-                    },
-                  )
-                : null,
-            actions: [
-              TextButton(
-                onPressed: () {
-                  HapticFeedback.selectionClick();
-                  _finishOnboarding();
-                },
-                child: Text(
-                  'Skip',
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: _onPageChanged,
-                children: [
-                  // Slide 0: Welcome
-                  _buildWelcomeSlide(),
-
-                  // Slide 1: Creative Identity (Role & Experience)
-                  _buildIdentitySlide(onboardingState),
-
-                  // Slide 2: Genre Heritage
-                  _buildGenreSlide(onboardingState),
-
-                  // Slide 3: Language & Dialect
-                  _buildLanguageSlide(onboardingState),
-
-                  // Slide 4: Sound Signature (Tempo, Energy, Mood)
-                  _buildSoundSignatureSlide(onboardingState),
-
-                  // Slide 5: DNA Activation & Readiness
-                  _buildDnaActivationSlide(onboardingState),
-                ],
-              ),
-            ),
-
-            // Bottom Navigation Strip
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-              child: Row(
-                children: [
-                  // Step Indicator Dots (6 dots)
-                  Row(
-                    children: List.generate(6, (index) {
-                      final isActive = index == _currentPage;
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        margin: const EdgeInsets.only(right: 6),
-                        width: isActive ? 24 : 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? AppColors.brandPrimary
-                              : AppColors.surfaceSecondary,
-                          borderRadius: AppRadius.pillBorder,
-                        ),
-                      );
-                    }),
-                  ),
-                  const Spacer(),
-
-                  // Primary Action CTA — width-constrained to prevent overflow
-                  // at 360dp viewport with large font scales (VH-004).
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width -
-                          48 - // left/right padding (24 + 24)
-                          120, // dots + spacer buffer
-                    ),
-                    child: ElevatedButton(
-                      key: _currentPage == 5
-                          ? const Key('onboarding_dna_activate_cta')
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.brandPrimary,
-                        foregroundColor: AppColors.brandContrast,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: AppRadius.pillBorder,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 14,
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: _nextPage,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              _currentPage == 5
-                                  ? 'Activate Creator DNA →'
-                                  : 'Continue',
-                              style: AppTypography.bodyLarge.copyWith(
-                                color: AppColors.brandContrast,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.arrow_forward_rounded, size: 16),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-    // App Tour Overlay (VH-012) — shown after DNA activation
-    if (_showAppTour)
-      AppTourOverlay(
-        key: const Key('app_tour_overlay'),
-        onTourComplete: () {
-          setState(() => _showAppTour = false);
-          if (widget.onFinish != null) {
-            widget.onFinish!();
-          } else {
-            Navigator.of(context).pushReplacement(
-              PageRouteBuilder(
-                transitionDuration: const Duration(milliseconds: 350),
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    const RootShell(),
-                transitionsBuilder: (context, animation, _, child) =>
-                    FadeTransition(opacity: animation, child: child),
-              ),
-            );
-          }
-        },
-      ),
-  ]);
-}
-
-  // ---------------------------------------------------------------------------
-  // SLIDE 0: Welcome
-  // ---------------------------------------------------------------------------
-  Widget _buildWelcomeSlide() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              gradient: AppGradients.forGenre('Amapiano'),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.brandPrimary.withValues(alpha: 0.25),
-                  blurRadius: 30,
-                  spreadRadius: 4,
-                ),
-              ],
-            ),
-            child: const Center(
-              child: Icon(
-                Icons.auto_awesome_rounded,
-                color: Colors.white,
-                size: 48,
-              ),
-            ),
-          ),
-          const SizedBox(height: 36),
-          Text(
-            'Create Authentic African Music',
-            textAlign: TextAlign.center,
-            style: AppTypography.displayLarge.copyWith(
-              fontWeight: FontWeight.w800,
-              fontSize: 28,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Generate studio-grade productions tailored to African musical heritage—from Amapiano log drums to Maskandi acoustic guitar.',
-            textAlign: TextAlign.center,
-            style: AppTypography.bodyLarge.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 32),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              _buildFeatureBadge(Icons.translate_rounded, '25+ African Languages'),
-              _buildFeatureBadge(Icons.graphic_eq_rounded, 'Native Rhythms'),
-              _buildFeatureBadge(Icons.fingerprint_rounded, 'Adaptive Creator DNA'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // SLIDE 1: Creative Identity (Role & Experience Level)
-  // ---------------------------------------------------------------------------
-  Widget _buildIdentitySlide(OnboardingState state) {
     final notifier = ref.read(onboardingStateProvider.notifier);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: AppColors.surfaceCanvas,
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          Text(
-            'Your Creative Identity',
-            style: AppTypography.displayLarge.copyWith(
-              fontWeight: FontWeight.w800,
-              fontSize: 26,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tell us how you create so Vhunambi can adapt its cockpit to your workflow.',
-            style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 20),
-
-          // Role Carousel (VH-007) — replaces vertical role list
-          RoleCarouselWidget(
-            key: const Key('onboarding_role_carousel'),
-            roles: _roleOptions,
-            selectedRole: state.creativeRole,
-            onRoleSelected: (role) {
-              HapticsService().lightImpact();
-              notifier.setCreativeRole(role);
-            },
+          // 1. Continuous 60 FPS Procedural Motion Graphics Backdrop Canvas (REQ-P47-CANVAS-01..05)
+          OnboardingProceduralBackdropCanvas(
+            animation: _canvasAnimController,
+            pageOffset: _pageOffset,
+            touchRipples: _touchRipples,
           ),
 
-          const SizedBox(height: 20),
-
-          // Experience Level
-          Text(
-            'Experience Level',
-            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _buildExpChip(
-                key: const Key('onboarding_experience_newbie'),
-                label: 'Beginner',
-                isSelected: state.experienceLevel == ExperienceLevel.newbie,
-                onTap: () => notifier.setExperienceLevel(ExperienceLevel.newbie),
-              ),
-              const SizedBox(width: 8),
-              _buildExpChip(
-                key: const Key('onboarding_experience_growing'),
-                label: 'Intermediate',
-                isSelected: state.experienceLevel == ExperienceLevel.growing,
-                onTap: () => notifier.setExperienceLevel(ExperienceLevel.growing),
-              ),
-              const SizedBox(width: 8),
-              _buildExpChip(
-                key: const Key('onboarding_experience_pro'),
-                label: 'Pro',
-                isSelected: state.experienceLevel == ExperienceLevel.pro,
-                onTap: () => notifier.setExperienceLevel(ExperienceLevel.pro),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExpChip({
-    required Key key,
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          key: key,
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onTap();
-          },
-          borderRadius: AppRadius.pillBorder,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.brandPrimary.withValues(alpha: 0.15)
-                  : AppColors.surfaceElevated,
-              borderRadius: AppRadius.pillBorder,
-              border: Border.all(
-                color: isSelected ? AppColors.brandPrimary : AppColors.borderSubtle,
-                width: isSelected ? 1.5 : 1.0,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                label,
-                style: AppTypography.bodySmall.copyWith(
-                  color: isSelected ? AppColors.brandPrimary : AppColors.textPrimary,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // SLIDE 2: Genre Heritage
-  // ---------------------------------------------------------------------------
-
-  /// Converts a genre display string to its [Genre] enum value.
-  Genre _genreToEnum(String genreName) {
-    return Genre.values.firstWhere(
-      (g) => g.displayName.toLowerCase() == genreName.toLowerCase(),
-      orElse: () => Genre.amapiano,
-    );
-  }
-
-  Widget _buildGenreSlide(OnboardingState state) {
-    final notifier = ref.read(onboardingStateProvider.notifier);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Genre Heritage',
-            style: AppTypography.displayLarge.copyWith(
-              fontWeight: FontWeight.w800,
-              fontSize: 26,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Pick the sounds that define your artistic roots and regional taste.',
-            style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 8,
-            runSpacing: 10,
-            children: _availableGenres.map((genre) {
-              final isSelected = state.selectedGenres.contains(genre);
-              return GenreColorChip(
-                key: Key('onboarding_genre_chip_$genre'),
-                genre: _genreToEnum(genre),
-                isSelected: isSelected,
-                onTap: () {
-                  HapticsService().lightImpact();
-                  notifier.toggleGenre(genre);
-                },
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // SLIDE 3: Language & Dialect Selection
-  // ---------------------------------------------------------------------------
-  Widget _buildLanguageSlide(OnboardingState state) {
-    final notifier = ref.read(onboardingStateProvider.notifier);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Language & Dialect',
-            style: AppTypography.displayLarge.copyWith(
-              fontWeight: FontWeight.w800,
-              fontSize: 26,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Select your primary vocal language and secondary languages for lyrics generation.',
-            style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 24),
-
-          Text(
-            'Primary Vocal Language',
-            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 10,
-            children: _availableLanguages.map((language) {
-              final isPrimary = state.primaryLanguage == language;
-              return ChoiceChip(
-                key: Key('onboarding_primary_language_$language'),
-                label: Text(language),
-                selected: isPrimary,
-                onSelected: (_) {
-                  HapticFeedback.selectionClick();
-                  notifier.setPrimaryLanguage(language);
-                },
-                selectedColor: AppColors.brandPrimary,
-                backgroundColor: AppColors.surfaceElevated,
-                labelStyle: TextStyle(
-                  color: isPrimary ? AppColors.brandContrast : AppColors.textPrimary,
-                  fontWeight: isPrimary ? FontWeight.bold : FontWeight.normal,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.pillBorder,
-                  side: BorderSide(
-                    color: isPrimary ? AppColors.brandPrimary : AppColors.borderSubtle,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 24),
-          Text(
-            'Additional Lyric Languages',
-            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 10,
-            children: _availableLanguages.map((language) {
-              final isSelected = state.selectedLanguages.contains(language);
-              return FilterChip(
-                label: Text(language),
-                selected: isSelected,
-                onSelected: (_) {
-                  HapticFeedback.selectionClick();
-                  notifier.toggleLanguage(language);
-                },
-                selectedColor: AppColors.surfaceSecondary,
-                backgroundColor: AppColors.surfaceElevated,
-                checkmarkColor: AppColors.brandPrimary,
-                labelStyle: TextStyle(
-                  color: isSelected ? AppColors.brandPrimary : AppColors.textPrimary,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.pillBorder,
-                  side: BorderSide(
-                    color: isSelected ? AppColors.brandPrimary : AppColors.borderSubtle,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // SLIDE 4: Sound Signature (Tempo, Vocal Energy, Mood)
-  // ---------------------------------------------------------------------------
-  Widget _buildSoundSignatureSlide(OnboardingState state) {
-    final notifier = ref.read(onboardingStateProvider.notifier);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Sound Signature',
-            style: AppTypography.displayLarge.copyWith(
-              fontWeight: FontWeight.w800,
-              fontSize: 26,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Configure your acoustic signature so the studio pre-fills with your natural groove.',
-            style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 24),
-          SoundSignaturePicker(
-            selectedTempo: state.tempoPreference,
-            onTempoChanged: notifier.setTempoPreference,
-            selectedVocalEnergy: state.vocalEnergyPreference,
-            onVocalEnergyChanged: notifier.setVocalEnergyPreference,
-            selectedMoods: state.selectedMoods,
-            onMoodToggled: notifier.toggleMood,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // SLIDE 5: DNA Activation & Readiness
-  // ---------------------------------------------------------------------------
-  Widget _buildDnaActivationSlide(OnboardingState state) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.brandPrimary.withValues(alpha: 0.15),
-              borderRadius: AppRadius.pillBorder,
-              border: Border.all(color: AppColors.brandPrimary),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('🧬', style: TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                Text(
-                  '10 Free Credits + Creator DNA Seeded',
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.brandPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Your Creator DNA is Ready',
-            textAlign: TextAlign.center,
-            style: AppTypography.displayLarge.copyWith(
-              fontWeight: FontWeight.w800,
-              fontSize: 26,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Vhunambi has synthesized your initial sound profile. Your studio will open pre-configured with your signature tuning and native dialect.',
-            textAlign: TextAlign.center,
-            style: AppTypography.bodyLarge.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 28),
-
-          // DNA Preview Box
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
-              borderRadius: AppRadius.cardBorder,
-              border: Border.all(color: AppColors.borderSubtle),
-            ),
+          // 2. Main 4-Act Content Area
+          SafeArea(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Initial Model Strength',
-                      style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
-                    ),
-                    const Text(
-                      '25%',
-                      style: TextStyle(
-                        color: AppColors.badgeCyan,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                // Top App Bar Row: Back, Logo, and Skip
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (_currentPage > 0)
+                        IconButton(
+                          icon: PhosphorIcon(
+                            PhosphorIconsRegular.caretLeft,
+                            color: AppColors.textSecondary,
+                            size: 20,
+                          ),
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            _pageController.previousPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOutCubic,
+                            );
+                          },
+                        )
+                      else
+                        const SizedBox(width: 48),
+
+                      Text(
+                        'VHUNAMBI',
+                        style: AppTypography.titleMedium.copyWith(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.0,
+                          color: AppColors.textPrimaryOf(context),
+                        ),
                       ),
+
+                      TextButton(
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          _finishOnboarding();
+                        },
+                        child: Text(
+                          'Skip',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.textSecondaryOf(context),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 4-Act PageView
+                Expanded(
+                  child: Listener(
+                    onPointerDown: (event) => _addTouchRipple(event.position),
+                    child: PageView(
+                      controller: _pageController,
+                      onPageChanged: _onPageChanged,
+                      physics: const BouncingScrollPhysics(),
+                      children: [
+                        // Act 1: Living Sonic Showcase (REQ-P47-ACT1-01)
+                        OnboardingAct1Showcase(
+                          onInteraction: () => HapticFeedback.selectionClick(),
+                        ),
+
+                        // Act 2: 3D Stacked Identity Deck (REQ-P47-ACT2-01..03)
+                        Padding(
+                          key: const Key('onboarding_act_2_identity_deck'),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Claim Your Craft',
+                                style: AppTypography.displayLarge.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 24,
+                                  color: AppColors.textPrimaryOf(context),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Swipe or tap to focus your creative persona',
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: AppColors.textSecondaryOf(context),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Expanded(
+                                child: Center(
+                                  child: InteractiveIdentityCardStack(
+                                    selectedRole: onboardingState.creativeRole,
+                                    onRoleChanged: (role) {
+                                      notifier.setCreativeRole(role);
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Act 3: Tactile Roots & Vibe Playground (REQ-P47-ACT3-01..03)
+                        OnboardingAct3RootsDeck(
+                          onInteraction: () => HapticFeedback.lightImpact(),
+                        ),
+
+                        // Act 4: Interactive 3D Double-Helix DNA Genesis (REQ-P47-ACT4-01..04)
+                        CreatorDnaHelixFinale(
+                          onLaunchStudio: _finishOnboarding,
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 6),
-                const DnaStrengthMeter(strengthPercent: 25, animated: false),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: state.selectedGenres.take(3).map((g) {
-                    return DnaGenreBadge(genre: g, rank: 1);
-                  }).toList(),
-                ),
+
+                // Bottom Step Dots & Navigation Control (Hidden on Act 4 as it has dedicated full-width CTA)
+                if (_currentPage < 3)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // 4-Act Glowing Step Indicator
+                        Row(
+                          children: List.generate(4, (index) {
+                            final isActive = index == _currentPage;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              margin: const EdgeInsets.only(right: 6),
+                              width: isActive ? 24 : 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: isActive
+                                    ? AppColors.brandPrimary
+                                    : (Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.white24
+                                          : Colors.black12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            );
+                          }),
+                        ),
+
+                        // Primary [ Continue → ] Button
+                        ElevatedButton(
+                          key: const Key('onboarding_continue_btn'),
+                          onPressed: _nextPage,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.brandPrimary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 22,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            elevation: 4,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Continue',
+                                style: AppTypography.bodyMedium.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const PhosphorIcon(
+                                PhosphorIconsBold.arrowRight,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
-          _buildBenefitRow(Icons.lock_outline, 'Your creator profile, DNA preferences, and session history remain sovereign on your device. Audio generation is processed via private, encrypted GPU clusters with zero model training on your unreleased prompts.'),
-          const SizedBox(height: 10),
-          _buildBenefitRow(Icons.tune_rounded, 'Adaptive Studio defaults (Amapiano / tempo tuned)'),
         ],
       ),
-    );
-  }
-
-  Widget _buildFeatureBadge(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.pillBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: AppColors.brandPrimary, size: 16),
-          const SizedBox(width: 6),
-          Text(label, style: AppTypography.caption.copyWith(color: AppColors.textPrimary)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBenefitRow(IconData icon, String text) {
-    return Row(
-      children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceSecondary,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.borderSubtle),
-          ),
-          child: Icon(icon, color: AppColors.brandPrimary, size: 16),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: AppTypography.bodySmall.copyWith(color: AppColors.textPrimary),
-          ),
-        ),
-      ],
     );
   }
 }

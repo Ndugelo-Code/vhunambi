@@ -13,6 +13,8 @@ import '../providers/player_provider.dart';
 import 'expanded_cockpit_modal.dart';
 import 'mobile_mini_player.dart';
 import 'pill_form.dart';
+import '../../../onboarding/presentation/views/splash_view.dart';
+import '../../../onboarding/presentation/providers/onboarding_providers.dart';
 
 class MiniPlayerHost extends ConsumerStatefulWidget {
   const MiniPlayerHost({super.key});
@@ -147,6 +149,11 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     MiniPlayerController controller,
     PlayerState playerState,
   ) {
+    // Suppress during splash or when onboarding is incomplete (REQ-P47-BUG-01)
+    if (ref.watch(isSplashActiveProvider)) return true;
+    final onboarding = ref.watch(onboardingStateProvider);
+    if (!onboarding.hasCompletedOnboarding) return true;
+
     // Hide on desktop (DesktopTransportBar handles desktop layout).
     if (ResponsiveUtils.isDesktop(context)) return true;
 

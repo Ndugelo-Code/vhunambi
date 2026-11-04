@@ -8,6 +8,9 @@ export interface SyncMutationRecord {
   action: string;
   payload: Record<string, any>;
   createdAt: string;
+  priority?: 'critical' | 'normal' | 'background';
+  baseSeq?: number;
+  schemaVersion?: number;
 }
 
 export interface SyncDeltaResult {
@@ -21,6 +24,8 @@ export interface SyncDeltaResult {
     createdAt: string;
   }>;
   latestSeq: number;
+  nextCursorSeq?: number;
+  hasMore?: boolean;
 }
 
 export interface ExploreFeedOptions {
@@ -326,10 +331,12 @@ export class VhunambiDatabase {
   public applyMutationsBatch(mutations: SyncMutationRecord[]): {
     applied: string[];
     skipped: string[];
+    failed: Array<{ idempotencyKey: string; code: string; message: string; retryable: boolean }>;
     latestSeq: number;
   } {
     const applied: string[] = [];
     const skipped: string[] = [];
+    const failed: Array<{ idempotencyKey: string; code: string; message: string; retryable: boolean }> = [];
 
     const checkStmt = this.db.prepare('SELECT seq FROM sync_mutation_log WHERE idempotency_key = ?');
     const insertLogStmt = this.db.prepare(`
@@ -337,67 +344,120 @@ export class VhunambiDatabase {
       VALUES (?, ?, ?, ?, ?, ?)
     `);
 
+    // Commutative counter operations: atomic increment, never overwrite.
+    const commutativeCounterActions = new Set(['like', 'cosign', 'repost', 'tip']);
+
     for (const m of mutations) {
-      const existing = checkStmt.get(m.idempotencyKey);
-      if (existing) {
-        skipped.push(m.idempotencyKey);
-        continue;
+      // Phase 48: Per-item SAVEPOINT — a validation error on one item never aborts siblings.
+      this.db.exec('SAVEPOINT sync_item');
+
+      try {
+        const existing = checkStmt.get(m.idempotencyKey);
+        if (existing) {
+          skipped.push(m.idempotencyKey);
+          this.db.exec('RELEASE SAVEPOINT sync_item');
+          continue;
+        }
+
+        const entityId = m.payload?.id || `gen_${Date.now()}`;
+        let shouldApply = true;
+
+        // Phase 48: Distinguish commutative counters from versioned entity edits.
+        if (commutativeCounterActions.has(m.action)) {
+          // Atomic increment: SET count = count + 1 (never overwrite).
+          if (m.entityType === 'post') {
+            this.db.prepare(
+              `UPDATE kinetic_posts SET cosign_count = cosign_count + 1 WHERE id = ?`
+            ).run(entityId);
+          } else if (m.entityType === 'track') {
+            this.db.prepare(
+              `UPDATE explore_tracks SET like_count = like_count + 1 WHERE id = ?`
+            ).run(entityId);
+          }
+        } else if (m.entityType === 'post' && m.action === 'create') {
+          const insertPost = this.db.prepare(`
+            INSERT OR REPLACE INTO kinetic_posts (id, creator_id, creator_handle, creator_name, caption, media_type, cosign_count, cosign_target, repost_count, discovery_stage, data_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `);
+          insertPost.run(
+            entityId,
+            m.payload.creatorId || 'creator_cern',
+            m.payload.creatorHandle || '@cern',
+            m.payload.creatorName || 'Cern',
+            m.payload.caption || '',
+            m.payload.mediaType || 'audio_card',
+            m.payload.cosignCount || 0,
+            25,
+            0,
+            'freshCrate',
+            JSON.stringify(m.payload),
+            m.createdAt,
+            m.createdAt
+          );
+        } else if (m.entityType === 'cosign') {
+          this.cosignPost(entityId, m.payload?.creatorId);
+        } else if (m.entityType === 'tip') {
+          this.topupWallet(m.payload?.recipientId || 'creator_cern', m.payload?.amountZar || 10, m.payload?.amountCoins || 100);
+        } else if (m.entityType === 'post' && m.action === 'update' && m.baseSeq !== undefined) {
+          // Phase 48: Versioned entity edit — reject if baseSeq is stale (optimistic concurrency).
+          const currentSeq = this.db.prepare(
+            'SELECT seq FROM sync_mutation_log WHERE entity_type = ? AND entity_id = ? ORDER BY seq DESC LIMIT 1'
+          ).get(m.entityType, entityId) as { seq: number } | undefined;
+
+          if (currentSeq && currentSeq.seq > m.baseSeq!) {
+            this.db.exec('ROLLBACK TO SAVEPOINT sync_item');
+            this.db.exec('RELEASE SAVEPOINT sync_item');
+            failed.push({
+              idempotencyKey: m.idempotencyKey,
+              code: 'conflict',
+              message: `Concurrent edit detected: baseSeq ${m.baseSeq} is stale, current seq ${currentSeq.seq}`,
+              retryable: false,
+            });
+            continue;
+          }
+          shouldApply = true;
+        }
+
+        if (shouldApply) {
+          insertLogStmt.run(
+            m.idempotencyKey,
+            m.entityType,
+            entityId,
+            m.action,
+            JSON.stringify(m.payload),
+            m.createdAt
+          );
+          applied.push(m.idempotencyKey);
+        }
+
+        this.db.exec('RELEASE SAVEPOINT sync_item');
+      } catch (err: any) {
+        // Phase 48: Rollback this item only, continue with siblings.
+        this.db.exec('ROLLBACK TO SAVEPOINT sync_item');
+        this.db.exec('RELEASE SAVEPOINT sync_item');
+        failed.push({
+          idempotencyKey: m.idempotencyKey,
+          code: 'validation_error',
+          message: err?.message || 'Unknown validation error',
+          retryable: true,
+        });
       }
-
-      const entityId = m.payload?.id || `gen_${Date.now()}`;
-      
-      // Apply entity state modification if applicable
-      if (m.entityType === 'post' && m.action === 'create') {
-        const insertPost = this.db.prepare(`
-          INSERT OR REPLACE INTO kinetic_posts (id, creator_id, creator_handle, creator_name, caption, media_type, cosign_count, cosign_target, repost_count, discovery_stage, data_json, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-        insertPost.run(
-          entityId,
-          m.payload.creatorId || 'creator_cern',
-          m.payload.creatorHandle || '@cern',
-          m.payload.creatorName || 'Cern',
-          m.payload.caption || '',
-          m.payload.mediaType || 'audio_card',
-          m.payload.cosignCount || 0,
-          25,
-          0,
-          'freshCrate',
-          JSON.stringify(m.payload),
-          m.createdAt,
-          m.createdAt
-        );
-      } else if (m.entityType === 'cosign') {
-        this.cosignPost(entityId, m.payload?.creatorId);
-      } else if (m.entityType === 'tip') {
-        this.topupWallet(m.payload?.recipientId || 'creator_cern', m.payload?.amountZar || 10, m.payload?.amountCoins || 100);
-      }
-
-      insertLogStmt.run(
-        m.idempotencyKey,
-        m.entityType,
-        entityId,
-        m.action,
-        JSON.stringify(m.payload),
-        m.createdAt
-      );
-
-      applied.push(m.idempotencyKey);
     }
 
     const latestSeq = this.getLatestSeq();
-    return { applied, skipped, latestSeq };
+    return { applied, skipped, failed, latestSeq };
   }
 
-  public getDelta(sinceSeq: number): SyncDeltaResult {
+  public getDelta(sinceSeq: number, limit: number = 100): SyncDeltaResult {
     const stmt = this.db.prepare(`
       SELECT seq, idempotency_key, entity_type, entity_id, action, payload_json, created_at
       FROM sync_mutation_log
       WHERE seq > ?
       ORDER BY seq ASC
+      LIMIT ?
     `);
 
-    const rows = stmt.all(sinceSeq) as Array<{
+    const rows = stmt.all(sinceSeq, limit) as Array<{
       seq: number;
       idempotency_key: string;
       entity_type: string;
@@ -417,9 +477,15 @@ export class VhunambiDatabase {
       createdAt: r.created_at,
     }));
 
+    const latestSeq = this.getLatestSeq();
+    const hasMore = mutations.length === limit && mutations.length > 0;
+    const nextCursorSeq = mutations.length > 0 ? mutations[mutations.length - 1].seq : latestSeq;
+
     return {
       mutations,
-      latestSeq: this.getLatestSeq(),
+      latestSeq,
+      nextCursorSeq,
+      hasMore,
     };
   }
 

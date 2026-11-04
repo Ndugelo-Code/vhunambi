@@ -1313,3 +1313,59 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
     - Verified 50/50 regression tests across Phases 38–46.
     - Achieved 0 errors, 0 warnings in `dart analyze lib test`.
     - Compiled ARM64 release APK for device `EPHUT20917014649`.
+
+---
+
+## 23. Phase 47: Motion Graphics Onboarding & Creator DNA Genesis (`docs/phases/phase_47_motion_graphics_onboarding_and_dna_genesis/`)
+
+- **Location:** [`docs/phases/phase_47_motion_graphics_onboarding_and_dna_genesis/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_47_motion_graphics_onboarding_and_dna_genesis/blueprint.md)
+- **Status:** Complete (Tracks A–E implemented, 0 analyzer issues in `dart analyze`, ARM64 release APK compiled and stream-installed to `EPHUT20917014649`).
+- **Scope:**
+  - **Track A: Physical Device Onboarding Defect Eradication (Video SVID_20261104_154954_1.mp4):**
+    - Suppressed `MiniPlayerHost` during Splash and Onboarding using `isSplashActiveProvider` and `!onboardingState.hasCompletedOnboarding` guards.
+    - Eradicated 12× duplicate "Amapiano" chips bug by replacing rigid enum conversions with `AfricanGenreModel` and `kAfricanOnboardingGenres` (12 unique regional African genres).
+    - Eradicated 5× duplicate "Energetic" mood chips bug and eliminated radio-button questionnaires (`Tempo Feel`, `Vocal Energy`).
+    - Fixed truncated "Activate Creato..." CTA button on 360dp screens to ensure full width and responsive breathing room.
+    - Added "Replay Interactive Onboarding" action item (`Key('settings_replay_onboarding_btn')`) to `ProfileSettingsDrawer`.
+  - **Track B: Procedural Vector Backdrop Canvas (60 FPS):**
+    - Created `OnboardingProceduralBackdropCanvas` featuring 4 chromatic orbiting nodes (Amber `#F97316`, Cyan `#06B6D4`, Emerald `#10B981`, Gold `#F59E0B`), pill capsule stretching, satellite particle orbits, acoustic waveform ribbons, and touch ripples.
+  - **Track C: 3D Stacked Interactive Vector Cards (Acts 1–3):**
+    - Act 1: Living Sonic Showcase (`onboarding_act1_showcase.dart`) with central pulsing emblem and 4 interactive world satellites.
+    - Act 2: 3D Stacked & Fanned Identity Tarot Deck (`interactive_identity_card_stack.dart`) with `Matrix4` 3D perspective transforms (`setEntry(3, 2, 0.0012)`), vector waveform art, and zero raw emojis (`STD-UIUX-001`).
+    - Act 3: Tactile Roots & Vibe Playground (`onboarding_act3_roots_deck.dart`) with 12 unique African genres, dancing EQ bars, continuous `TactileVibeEnergySlider` (`Key('onboarding_vibe_slider')`), and 10 indigenous language orbs.
+  - **Track D: Act 4 Finale with Interactive 3D Spinning Double-Helix Creator DNA Strand:**
+    - Authored `creator_dna_helix_finale.dart` with 14 depth-sorted rungs textured with user's selected genres, languages, and craft identity, touch-reactive rotation, and full-width CTA with 400ms particle vortex reveal.
+  - **Track E: Verification Gates & Release Build:**
+    - Authored `test/features/onboarding/phase47_motion_onboarding_and_dna_helix_test.dart`.
+    - Achieved 0 errors, 0 warnings in `dart analyze`.
+    - Compiled 41.7 MB ARM64 release APK and stream-installed to device `EPHUT20917014649`.
+
+---
+
+## 24. Phase 48: Edge Sync Production Hardening & Offline Fault Tolerance (`docs/phases/phase_48_edge_sync_production_hardening/`)
+
+- **Location:** [`docs/phases/phase_48_edge_sync_production_hardening/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_48_edge_sync_production_hardening/blueprint.md)
+- **Status:** Complete (15/15 Node backend test suites green, 8/8 client unit tests green in `phase48_sync_hardening_test.dart`, 0 analyzer issues, live on device `EPHUT20917014649`).
+- **Scope:**
+  - **Track 1: SyncOutboxService Upgrades:**
+    - Added `SyncPriority` (`critical`, `normal`, `background`) ensuring financial and legal transactions (wallet top-ups, ZAR EFT/Ozow payouts, beat licenses, remix splits) drain before casual likes.
+    - Added Schema v2 migration via JSON inside Hive without `@HiveType` binary TypeAdapters.
+    - Added outbox compaction and size cap (1,000 records) evicting oldest background records first, never evicting critical.
+    - Added dead-letter queue (`SyncRecordStatus.deadLetter`) for records exceeding `maxRetries = 5` or `ttlDays = 7`.
+    - Extended `SyncFlushResult` with per-item partial-failure processing (`applied`, `skipped`, `failed`).
+  - **Track 2: EdgeSyncCoordinator Upgrades:**
+    - Multi-page delta drain loop (`GET /api/v1/sync/delta?since_seq=X&limit=100`, max 10 pages).
+    - 50-event bounded telemetry ring buffer (`SyncTelemetryRingBuffer`) tracking latency, batches flushed, and delta hydration.
+    - Auto-sync on app resume hook (`onAppResumed()`) wired to `AppLifecycleState.resumed`.
+  - **Track 3: Backend Production Hardening (`apps/vhunambi_api`):**
+    - Per-item SQLite `SAVEPOINT` transaction isolation in `applyMutationsBatch`, guaranteeing item validation errors never abort sibling mutations.
+    - Commutative counter atomicity (`like`, `cosign`, `repost`, `tip` execute atomic `SET count = count + 1`).
+    - Versioned entity edit conflict detection via `baseSeq` optimistic concurrency.
+    - Paginated delta sync endpoint with `limit` (1..200, default 100), `nextCursorSeq`, and `hasMore`.
+  - **Track 4: Settings Drawer UI Enhancements:**
+    - Added dead-letter count chip (`Key('settings_dead_letter_count')`) and sync latency metric (`Key('settings_sync_latency_ms')`) in `ProfileSettingsDrawer`.
+  - **Track 5: Verification Gates:**
+    - 15/15 backend test suites green in `apps/vhunambi_api`.
+    - 8/8 client unit tests green in `phase48_sync_hardening_test.dart`.
+    - Clean static analysis: `dart analyze` reports **0 issues found**.
+
