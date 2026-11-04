@@ -5,6 +5,7 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/navigation/navigation_providers.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../../shared/models/track.dart';
@@ -511,19 +512,32 @@ class _CreateKineticPostSheetState
                                     borderRadius: BorderRadius.circular(10),
                                     gradient: LinearGradient(
                                       colors: [
-                                        AppColors.brandPrimary.withValues(alpha: 0.8),
-                                        AppColors.badgeCyan.withValues(alpha: 0.8),
+                                        AppColors.brandPrimary.withValues(alpha: 0.85),
+                                        AppColors.badgeCyan.withValues(alpha: 0.85),
                                       ],
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                     ),
                                   ),
-                                  child: const Center(
-                                    child: PhosphorIcon(
-                                      PhosphorIconsFill.sparkle,
-                                      size: 28,
-                                      color: Colors.white,
-                                    ),
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      Opacity(
+                                        opacity: 0.22,
+                                        child: Image.asset(
+                                          AppAssets.heritageCrateCover,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                                        ),
+                                      ),
+                                      const Center(
+                                        child: PhosphorIcon(
+                                          PhosphorIconsFill.sparkle,
+                                          size: 28,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),

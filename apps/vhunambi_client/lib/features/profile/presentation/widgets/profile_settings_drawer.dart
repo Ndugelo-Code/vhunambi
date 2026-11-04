@@ -1,3 +1,4 @@
+import '../../../../core/sync/edge_sync_coordinator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -195,7 +196,7 @@ class ProfileSettingsDrawer extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
 
-            // Edge-Synced Mutation Outbox Durability Badge (REQ-P44-SYNC-06)
+            // Edge-Synced Mutation Outbox Durability Badge (REQ-P44-SYNC-06, REQ-P46-SYNC-07)
             Container(
               key: const Key('settings_edge_sync_card'),
               padding: const EdgeInsets.all(AppSpacing.sm),
@@ -204,44 +205,97 @@ class ProfileSettingsDrawer extends ConsumerWidget {
                 borderRadius: AppRadius.cardBorder,
                 border: Border.all(color: AppColors.borderSubtle),
               ),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.badgeCyan.withAlpha(25),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const PhosphorIcon(
-                      PhosphorIconsRegular.cloudCheck,
-                      color: AppColors.badgeCyan,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Edge-Synced • All creations backed up',
-                          style: AppTypography.bodySmall.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.badgeCyan.withAlpha(25),
+                          shape: BoxShape.circle,
                         ),
-                        Text(
-                          'Durable offline mutation outbox active (Hive WAL)',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                        child: const PhosphorIcon(
+                          PhosphorIconsRegular.cloudCheck,
+                          color: AppColors.badgeCyan,
+                          size: 20,
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Edge-Synced • All creations backed up',
+                              style: AppTypography.bodySmall.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'Durable offline mutation outbox active (Hive WAL)',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PhosphorIcon(
+                        PhosphorIconsFill.checkCircle,
+                        color: AppColors.badgeCyan,
+                        size: 20,
+                      ),
+                    ],
                   ),
-                  const PhosphorIcon(
-                    PhosphorIconsFill.checkCircle,
-                    color: AppColors.badgeCyan,
-                    size: 20,
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const Key('settings_sync_now_btn'),
+                      onPressed: () async {
+                        HapticFeedback.lightImpact();
+                        final success = await ref
+                            .read(edgeSyncCoordinatorProvider.notifier)
+                            .syncNow();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                success
+                                    ? 'Edge-Sync complete! All mutations saved to SQLite WAL ⚡'
+                                    : 'Offline sync pending • Queued for next connection',
+                              ),
+                              backgroundColor: success
+                                  ? AppColors.brandPrimary
+                                  : AppColors.surfaceSecondary,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const PhosphorIcon(
+                        PhosphorIconsRegular.arrowsClockwise,
+                        size: 14,
+                        color: AppColors.badgeCyan,
+                      ),
+                      label: Text(
+                        'Sync Now',
+                        style: AppTypography.caption.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: AppColors.badgeCyan.withValues(alpha: 0.5),
+                        ),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: AppRadius.pillBorder,
+                        ),
+                        minimumSize: const Size(0, 36),
+                      ),
+                    ),
                   ),
                 ],
               ),

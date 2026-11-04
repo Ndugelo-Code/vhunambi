@@ -512,18 +512,10 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
             ],
           ),
 
-          // Secondary Badge Row: Provenance + Co-Sign Milestone (REQ-P44-POST-04)
+          // Secondary Badge Row: Provenance (REQ-P46-UI-03)
           Padding(
             padding: const EdgeInsets.only(top: 6, bottom: 2),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                _buildProvenanceBadge(context, post),
-                _buildCosignButton(context, post),
-              ],
-            ),
+            child: _buildProvenanceBadge(context, post),
           ),
 
           // ZONE 2: Caption Context & Quote Commentary
@@ -540,49 +532,53 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
 
           const SizedBox(height: AppSpacing.sm),
 
-          // Interactive Remix Lineage Pill (Preserved Key)
-          GestureDetector(
-            key: Key('post_remix_tree_btn_${post.id}'),
-            onTap: () => RemixLineageTreeSheet.show(
-              context,
-              trackOrClipId: post.id,
-              clip: post.toPublishedClip,
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.brandPrimary.withValues(alpha: 0.12),
-                borderRadius: AppRadius.pillBorder,
-                border: Border.all(
-                  color: AppColors.brandPrimary.withValues(alpha: 0.3),
+          // Interactive Remix Lineage & Co-Sign Milestone Row (REQ-P46-UI-03)
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              GestureDetector(
+                key: Key('post_remix_tree_btn_${post.id}'),
+                onTap: () => RemixLineageTreeSheet.show(
+                  context,
+                  trackOrClipId: post.id,
+                  clip: post.toPublishedClip,
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const PhosphorIcon(
-                    PhosphorIconsRegular.gitFork,
-                    size: 13,
-                    color: AppColors.brandPrimary,
-                  ),
-                  const SizedBox(width: 5),
-                  Flexible(
-                    child: Text(
-                      post.isRemix
-                          ? 'Remix of ${post.parentCreatorHandle} · 70/30 Split'
-                          : 'Open Stems · ${post.remixCount} Remixes',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.brandPrimary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandPrimary.withValues(alpha: 0.12),
+                    borderRadius: AppRadius.pillBorder,
+                    border: Border.all(
+                      color: AppColors.brandPrimary.withValues(alpha: 0.3),
                     ),
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const PhosphorIcon(
+                        PhosphorIconsRegular.gitFork,
+                        size: 13,
+                        color: AppColors.brandPrimary,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        post.isRemix
+                            ? 'Remix of ${post.parentCreatorHandle} · 70/30 Split'
+                            : 'Open Stems · ${post.remixCount} Remixes',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.brandPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              _buildCosignButton(context, post),
+            ],
           ),
 
           const SizedBox(height: AppSpacing.sm),

@@ -1,3 +1,4 @@
+import '../../../../core/sync/sync_outbox_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/models/track.dart';
 import '../../../player/presentation/providers/player_provider.dart';
@@ -427,11 +428,17 @@ class FollowingCreatorsNotifier extends StateNotifier<Set<String>> {
 final socialFeedPostsProvider =
     StateNotifierProvider<SocialFeedPostsNotifier, List<SocialMusicPost>>(
         (ref) {
-  return SocialFeedPostsNotifier();
+  final outbox = ref.watch(syncOutboxServiceProvider);
+  return SocialFeedPostsNotifier(outbox: outbox);
 });
 
 class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
-  SocialFeedPostsNotifier() : super(seedSocialPosts());
+  final SyncOutboxService? outbox;
+
+  SocialFeedPostsNotifier({this.outbox})
+      : super(seedSocialPosts());
+
+  SyncOutboxService? get _outbox => outbox;
 
   void toggleLike(String postId) {
     state = [
@@ -445,10 +452,24 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
         else
           post,
     ];
+    _outbox?.enqueue(SyncMutationRecord(
+      idempotencyKey: 'mut_like_${postId}_${DateTime.now().millisecondsSinceEpoch}',
+      entityType: 'post',
+      action: 'like',
+      payload: {'postId': postId},
+      createdAt: DateTime.now(),
+    ));
   }
 
   void addPost(SocialMusicPost post) {
     state = [post, ...state];
+    _outbox?.enqueue(SyncMutationRecord(
+      idempotencyKey: 'mut_post_${post.id}',
+      entityType: 'post',
+      action: 'create',
+      payload: post.toJson(),
+      createdAt: DateTime.now(),
+    ));
   }
 
   void repostPost({
@@ -463,9 +484,19 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
         else
           post,
     ];
+    _outbox?.enqueue(SyncMutationRecord(
+      idempotencyKey: 'mut_repost_${repostPost.id}',
+      entityType: 'post',
+      action: 'repost',
+      payload: {
+        'originalPostId': originalPostId,
+        'repost': repostPost.toJson(),
+      },
+      createdAt: DateTime.now(),
+    ));
   }
 
-  /// Toggles community A&R co-sign on a post and triggers live graduation (REQ-COSIGN-GRAD-02).
+  /// Toggles community A&R co-sign on a post and triggers live graduation (REQ-COSIGN-GRAD-02, REQ-P46-SYNC-01).
   void cosignPost(String postId) {
     state = [
       for (final post in state)
@@ -479,6 +510,13 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
         else
           post,
     ];
+    _outbox?.enqueue(SyncMutationRecord(
+      idempotencyKey: 'mut_cosign_${postId}_${DateTime.now().millisecondsSinceEpoch}',
+      entityType: 'cosign',
+      action: 'cosign',
+      payload: {'postId': postId},
+      createdAt: DateTime.now(),
+    ));
   }
 }
 

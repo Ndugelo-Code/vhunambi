@@ -374,6 +374,42 @@ class SocialMusicPost {
         other.repostCount == repostCount;
   }
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'creatorId': creatorId,
+        'creatorName': creatorName,
+        'creatorHandle': creatorHandle,
+        'creatorAvatarUrl': creatorAvatarUrl,
+        'isCreatorVerified': isCreatorVerified,
+        'publishedAt': publishedAt.toIso8601String(),
+        'location': location,
+        'caption': caption,
+        'trackId': track.id,
+        'trackTitle': track.title,
+        'likeCount': likeCount,
+        'isLikedByMe': isLikedByMe,
+        'commentCount': commentCount,
+        'remixCount': remixCount,
+        'tipCountCoins': tipCountCoins,
+        'isFollowingCreator': isFollowingCreator,
+        'remixMode': remixMode?.name,
+        'parentClipId': parentClipId,
+        'parentTrackTitle': parentTrackTitle,
+        'parentCreatorId': parentCreatorId,
+        'parentCreatorHandle': parentCreatorHandle,
+        'remixGenerationDepth': remixGenerationDepth,
+        'imageAttachment': imageAttachment?.toJson(),
+        'imageAttachments': imageAttachments.map((e) => e.toJson()).toList(),
+        'audioAttachment': audioAttachment?.toJson(),
+        'repostedFromPostId': repostedFromPostId,
+        'repostedFromCreatorHandle': repostedFromCreatorHandle,
+        'quoteComment': quoteComment,
+        'repostCount': repostCount,
+        'provenanceType': provenanceType.name,
+        'cosignCount': cosignCount,
+        'isCosigned': isCosigned,
+      };
+
   @override
   int get hashCode => Object.hash(
         id,

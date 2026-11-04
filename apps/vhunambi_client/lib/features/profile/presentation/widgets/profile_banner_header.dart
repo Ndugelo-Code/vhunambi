@@ -330,6 +330,7 @@ class ProfileBannerHeader extends StatelessWidget {
                     child: IconButton(
                       style: IconButton.styleFrom(
                         backgroundColor: AppColors.surfaceElevatedOf(context),
+                        foregroundColor: AppColors.textPrimaryOf(context),
                         side: BorderSide(color: AppColors.borderSubtleOf(context)),
                       ),
                       icon: PhosphorIcon(

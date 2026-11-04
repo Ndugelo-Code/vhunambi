@@ -1,3 +1,6 @@
+import '../../../../core/constants/app_assets.dart';
+import '../../../player/domain/models/stem_mixer_state.dart';
+import '../../../player/presentation/providers/stem_mixer_provider.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -320,6 +323,53 @@ class _ReelPageState extends ConsumerState<_ReelPage>
     );
   }
 
+  Widget _buildVisionAnimatedStage(PublishedClip clip, FrameModulationSnapshot snapshot) {
+    final bassPulse = (snapshot.effectiveBassEnergy * 0.4).clamp(0.0, 0.6);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Ambient Heritage Crate Texture at 24% opacity (REQ-P46-REEL-02)
+        Opacity(
+          opacity: 0.24,
+          child: Image.asset(
+            AppAssets.heritageCrateCover,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          ),
+        ),
+        // Bass-Reactive Radial Pulse Ring (REQ-P46-REEL-03)
+        Center(
+          child: Container(
+            width: 260 + (bassPulse * 160),
+            height: 260 + (bassPulse * 160),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  AppColors.brandPrimary.withValues(alpha: 0.18 + (bassPulse * 0.25)),
+                  AppColors.badgeCyan.withValues(alpha: 0.08 + (bassPulse * 0.15)),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.55, 1.0],
+              ),
+            ),
+          ),
+        ),
+        // Subtle Cinema Vignette Edge Gradient
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment.center,
+              radius: 1.15,
+              colors: [Colors.transparent, Colors.black54],
+              stops: [0.65, 1.0],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Reactively resolve the live clip so like counts update instantly.
@@ -356,6 +406,9 @@ class _ReelPageState extends ConsumerState<_ReelPage>
             gradient: AppGradients.forGenre(clip.genre),
           ),
         ),
+
+        // 1.5. Vhunambi Vision Animated Stage (REQ-P46-REEL-01..03)
+        _buildVisionAnimatedStage(clip, modulationSnapshot),
 
         // 2. Live 60 FPS KineticPreviewCanvas (Karaoke Lyrics, Shaders & Waveform)
         KineticPreviewCanvas(
@@ -541,6 +594,12 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                     ],
                   ),
                 ),
+                // 5.5 Split-Screen Open-Verse Duet Header (REQ-P46-REEL-04..06)
+                if (clip.isRemix || clip.parentCreatorHandle != null || clip.remixGenerationDepth > 0)
+                  ReelDuetSplitStage(
+                    clip: clip,
+                    pulseScale: (modulationSnapshot.effectiveBassEnergy * 0.5).clamp(0.0, 1.0),
+                  ),
               ],
             ),
           ),
@@ -594,6 +653,10 @@ class _ReelPageState extends ConsumerState<_ReelPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // On-Reel Interactive 4-Stem Toggle Bar (REQ-P46-REEL-07..10)
+              const ReelStemToggleBar(),
+              const SizedBox(height: 10),
+
               GestureDetector(
                 key: ValueKey('reels_modal_creator_link_${clip.id}'),
                 onTap: () {
@@ -1118,6 +1181,294 @@ class _ReelTopFilterTab extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Split-Screen Open-Verse Duet Stage displaying Originator x Remixer (REQ-P46-REEL-04..06).
+class ReelDuetSplitStage extends StatelessWidget {
+  final PublishedClip clip;
+  final double pulseScale;
+
+  const ReelDuetSplitStage({
+    super.key,
+    required this.clip,
+    this.pulseScale = 0.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final parentHandle = clip.parentCreatorHandle ?? '@makhadzi';
+    final remixerHandle = '@${clip.creatorUsername}';
+
+    return Container(
+      key: Key('reel_duet_split_stage_${clip.id}'),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.65),
+        borderRadius: AppRadius.cardBorder,
+        border: Border.all(
+          color: AppColors.brandPrimary.withValues(alpha: 0.4),
+          width: 1.0,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Originator Avatar & Handle
+          Expanded(
+            child: Row(
+              children: [
+                _buildPulsingAvatar(
+                  label: parentHandle.replaceFirst('@', '').toUpperCase(),
+                  borderColor: AppColors.brandPrimary,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ORIGINATOR',
+                        style: AppTypography.caption.copyWith(
+                          fontSize: 9.0,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.brandPrimary,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      Text(
+                        parentHandle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Co-Creation Split Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceCanvas.withValues(alpha: 0.8),
+              borderRadius: AppRadius.pillBorder,
+              border: Border.all(color: AppColors.coinGold, width: 0.8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const PhosphorIcon(
+                  PhosphorIconsFill.handshake,
+                  size: 12,
+                  color: AppColors.coinGold,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '70/30 Split',
+                  style: AppTypography.caption.copyWith(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.coinGold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Remixer Avatar & Handle
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'CO-CREATOR',
+                        style: AppTypography.caption.copyWith(
+                          fontSize: 9.0,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.badgeCyan,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      Text(
+                        remixerHandle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildPulsingAvatar(
+                  label: remixerHandle.replaceFirst('@', '').toUpperCase(),
+                  borderColor: AppColors.badgeCyan,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPulsingAvatar({required String label, required Color borderColor}) {
+    final ringWidth = 2.0 + (pulseScale * 2.0);
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: borderColor, width: ringWidth),
+        color: AppColors.surfaceElevated,
+      ),
+      child: Center(
+        child: Text(
+          label.isNotEmpty ? label[0] : '?',
+          style: AppTypography.caption.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// On-Reel Interactive 4-Stem Toggle Bar (REQ-P46-REEL-07..10).
+class ReelStemToggleBar extends ConsumerWidget {
+  const ReelStemToggleBar({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mixerState = ref.watch(stemMixerProvider);
+
+    return Container(
+      key: const Key('reel_stem_toggle_bar'),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.60),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.15),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildPill(
+            context,
+            ref,
+            mixerState,
+            type: StemType.vocals,
+            label: 'Vocals',
+            icon: PhosphorIconsRegular.microphone,
+            keyName: 'reel_stem_pill_vocals',
+          ),
+          _buildPill(
+            context,
+            ref,
+            mixerState,
+            type: StemType.bass,
+            label: 'Log-Drum',
+            icon: PhosphorIconsRegular.waveSine,
+            keyName: 'reel_stem_pill_bass',
+          ),
+          _buildPill(
+            context,
+            ref,
+            mixerState,
+            type: StemType.drums,
+            label: 'Drums',
+            icon: PhosphorIconsRegular.disc,
+            keyName: 'reel_stem_pill_drums',
+          ),
+          _buildPill(
+            context,
+            ref,
+            mixerState,
+            type: StemType.melody,
+            label: 'Chords',
+            icon: PhosphorIconsRegular.pianoKeys,
+            keyName: 'reel_stem_pill_melodic',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPill(
+    BuildContext context,
+    WidgetRef ref,
+    StemMixerState state, {
+    required StemType type,
+    required String label,
+    required PhosphorIconData icon,
+    required String keyName,
+  }) {
+    final channel = state.channel(type);
+    final isMuted = channel.isMuted;
+
+    return Semantics(
+      button: true,
+      label: isMuted ? 'Unmute $label' : 'Mute $label',
+      child: InkWell(
+        key: Key(keyName),
+        onTap: () {
+          ref.read(stemMixerProvider.notifier).toggleMute(type);
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          constraints: const BoxConstraints(minHeight: 32, minWidth: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: isMuted
+                ? Colors.white.withValues(alpha: 0.08)
+                : AppColors.brandPrimary.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isMuted ? Colors.white24 : AppColors.brandPrimary,
+              width: 1.0,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PhosphorIcon(
+                icon,
+                size: 12,
+                color: isMuted ? Colors.white54 : AppColors.brandPrimary,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                label,
+                style: AppTypography.caption.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                  color: isMuted ? Colors.white54 : Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

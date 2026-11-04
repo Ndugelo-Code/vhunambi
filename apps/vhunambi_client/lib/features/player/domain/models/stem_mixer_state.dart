@@ -166,6 +166,8 @@ class StemMixerState {
 
   bool get anySoloActive => channels.any((c) => c.isSolo);
 
+  StemChannel channel(StemType type) => channelFor(type);
+
   StemChannel channelFor(StemType type) {
     return channels.firstWhere(
       (c) => c.type == type,

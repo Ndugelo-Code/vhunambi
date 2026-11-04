@@ -2,12 +2,12 @@
 
 > **DOCUMENT PURPOSE:** This is the single, authoritative handoff document for the Vhunambi monorepo. Any AI agent (Antigravity, Cline, Cursor, Windsurf) or human engineer resuming work on this repository can read this document and resume seamlessly with zero loss of context.
 >
-> **Last Updated:** 2026-11-04T13:30:00+02:00
+> **Last Updated:** 2026-11-04T15:30:00+02:00
 > **Repository Root:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\`  
 > **Client Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\`  
 > **Backend Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_api\`  
-> **Current Health:** `dart analyze` = **0 issues (100% clean)** | `flutter test` = **100% passing (44/44 Phase 38-44 tests green)** | Backend API = **0 errors (13/13 suites passing, 100%)**  
-> **Active Phase:** Phase 44 (Physical Device Defect Eradication & Edge Outbox) & Phase 45 (Backend SQLite WAL Persistence & Delta Sync) Complete & Verified
+> **Current Health:** `dart analyze` = **0 issues (100% clean)** | `flutter test` = **100% passing (50/50 Phase 38-46 tests green)** | Backend API = **0 errors (14/14 suites passing, 100%)**  
+> **Active Phase:** Phase 46 (Kinetic Reels V3, Live Edge Sync Coordinator & RunPod GPU V2 Pipeline Router) Complete & Verified
 
 ---
 
@@ -1283,3 +1283,33 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
   - **Track C: Monotonic Delta Sync & Idempotent Mutation Engine:**
     - `POST /api/v1/sync/mutations`: Batch mutation processing with idempotency keys, avoiding duplicate tips or likes.
     - `GET /api/v1/sync/delta?since_seq=X`: High-efficiency polling endpoint returning changed records with ETag and HTTP 304 Not Modified support.
+
+
+---
+
+## 22. Phase 46: Kinetic Reels V3, Live Edge Sync Coordinator & RunPod GPU V2 Router (`docs/phases/phase_46_kinetic_reels_v3_live_sync_and_gpu_router/`)
+
+- **Location:** [`docs/phases/phase_46_kinetic_reels_v3_live_sync_and_gpu_router/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_46_kinetic_reels_v3_live_sync_and_gpu_router/blueprint.md)
+- **Status:** Complete (Tracks A–E implemented, 6/6 tests green in `phase46_reels_v3_and_edge_sync_test.dart`, 50/50 regression tests passing, 14/14 backend suites passing, 0 analyzer issues).
+- **Scope:**
+  - **Track A: Residual Visual Bug Sweeps (Video SVID_20261104_111526_1.mp4):**
+    - Profile Share Button Contrast: Set `foregroundColor` and Phosphor icon `color` to `AppColors.textPrimaryOf(context)` in `profile_banner_header.dart` and `artist_profile_view.dart`, guaranteeing high-contrast dark charcoal on Warm Ivory in Light Mode.
+    - Attached Image 80×80 Thumbnail Fallback: Added offline procedural fallback in `CreateKineticPostSheet` displaying Heritage Crate cover at 22% opacity with Phosphor sparkle.
+    - Unclipped Co-Sign Pill Placement: Relocated `_buildCosignButton` out of the dense author subtitle row into a dedicated `Wrap` row alongside `Open Stems · N Remixes`, giving both badges ample breathing room on narrow viewports.
+  - **Track B: Kinetic Reels V3 Zero-Video Architecture:**
+    - `_buildVisionAnimatedStage`: Layered ambient Heritage Crate texture at 24% opacity with bass-reactive radial pulse ring (scaling up to 356px on 808/log-drum impacts).
+    - `ReelDuetSplitStage` (`Key('reel_duet_split_stage_${clip.id}')`): Renders Originator and Co-Creator avatars with audio-reactive border rings and a `70/30 Split` royalty badge for remixed clips.
+    - `ReelStemToggleBar` (`Key('reel_stem_toggle_bar')`): 4 interactive stem pills (`Vocals`, `Log-Drum`, `Drums`, `Chords`) wired to `stemMixerProvider.notifier.toggleMute(type)` with active amber glow and muted state transitions.
+  - **Track C: Live Bi-Directional Client ↔ SQLite Delta Sync Coordinator:**
+    - Created `EdgeSyncCoordinator` (`apps/vhunambi_client/lib/core/sync/edge_sync_coordinator.dart`) executing idempotent mutation flushes to `/api/v1/sync/mutations` and polling incremental changes via `/api/v1/sync/delta?since_seq=X`.
+    - Wired mutation enqueueing into `SocialFeedPostsNotifier` for real-time offline-first sync.
+    - Added 1-tap `[ Sync Now ]` button (`Key('settings_sync_now_btn')`) inside `ProfileSettingsDrawer`.
+  - **Track D: RunPod GPU V2 Master Pipeline Router (Audit SIG-F05):**
+    - Updated `tools/zr-studio-gpu/handler.py` to sequence all 5 audio synthesis stages: ACE Step Synthesis → Demucs Stem Separation → Seed-VC Voice Conversion → Stem Mastering DSP → MMO Telemetry Extraction.
+    - Generates verifiable `stage_metrics: [{ name, executed, duration_ms, input_sha256, output_sha256 }]` telemetry and updates SQLite `stems` and `tracks` records.
+    - Mounted `/api/v1/*` aliases in `apps/vhunambi_api/src/server.ts` and verified with 14/14 test suites in `apps/vhunambi_api/test/phase46_gpu_pipeline_and_sync.test.ts`.
+  - **Track E: Verification Gates & Release Build:**
+    - Authored `test/features/social/phase46_reels_v3_and_edge_sync_test.dart` (6 tests).
+    - Verified 50/50 regression tests across Phases 38–46.
+    - Achieved 0 errors, 0 warnings in `dart analyze lib test`.
+    - Compiled ARM64 release APK for device `EPHUT20917014649`.

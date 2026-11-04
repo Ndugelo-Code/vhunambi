@@ -9,12 +9,16 @@ syncRoutes.post('/mutations', async (c) => {
   const mutations = body.mutations || [];
 
   const result = vhunambiDb.applyMutationsBatch(mutations);
-  return c.json(result);
+  return c.json({
+    ...result,
+    latest_seq: result.latestSeq,
+  });
 });
 
-// GET /api/sync/delta?since=<seq> (REQ-P45-SYNC-05..06)
+// GET /api/sync/delta?since=<seq> (REQ-P45-SYNC-05..06, REQ-P46-SYNC-05)
 syncRoutes.get('/delta', (c) => {
-  const since = c.req.query('since') ? parseInt(c.req.query('since')!, 10) : 0;
+  const sinceParam = c.req.query('since_seq') || c.req.query('since') || '0';
+  const since = parseInt(sinceParam, 10) || 0;
   const result = vhunambiDb.getDelta(since);
 
   const eTag = `"cursor-${result.latestSeq}"`;
@@ -27,7 +31,11 @@ syncRoutes.get('/delta', (c) => {
     });
   }
 
-  return c.json(result, 200, {
+  return c.json({
+    mutations: result.mutations,
+    latestSeq: result.latestSeq,
+    latest_seq: result.latestSeq,
+  }, 200, {
     ETag: eTag,
     'Cache-Control': 'no-cache',
   });

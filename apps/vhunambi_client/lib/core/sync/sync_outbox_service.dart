@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -105,13 +107,19 @@ class SyncOutboxService {
     if (_isInitialized) return;
     _isInitialized = true;
     if (isInMemoryOnly || _hiveBox != null) return;
+
+    // Headless test guard: prevent HiveImpl._openBox unhandled Completer crash
+    if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+      _hiveBox = null;
+      return;
+    }
     try {
       if (Hive.isBoxOpen(boxName)) {
         _hiveBox = Hive.box<Map>(boxName);
       } else {
         _hiveBox = await Hive.openBox<Map>(boxName);
       }
-    } on Object {
+    } catch (_) {
       // In-memory fallback if Hive is not initialized in tests or restricted OS sandbox
       _hiveBox = null;
     }
@@ -127,6 +135,9 @@ class SyncOutboxService {
   }
 
   /// Returns list of all pending mutations awaiting synchronization.
+  /// Alias for getPendingMutations.
+  List<SyncMutationRecord> getPending() => getPendingMutations();
+
   List<SyncMutationRecord> getPendingMutations() {
     if (_hiveBox != null && _hiveBox!.isOpen) {
       return _hiveBox!.values

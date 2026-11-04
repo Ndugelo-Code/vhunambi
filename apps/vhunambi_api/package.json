@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "tsx test/index.test.ts && tsx test/health.test.ts && tsx test/cloud_gpu_integration.test.ts && tsx test/dna.test.ts && tsx test/vision.test.ts && tsx test/social.test.ts && tsx test/mmo.test.ts && tsx test/mastering.test.ts && tsx test/voices.test.ts && tsx test/melodies.test.ts && tsx test/marketplace.test.ts && tsx test/story_lyrics.test.ts && tsx test/persistence_and_sync.test.ts"
+    "test": "tsx test/index.test.ts && tsx test/health.test.ts && tsx test/cloud_gpu_integration.test.ts && tsx test/dna.test.ts && tsx test/vision.test.ts && tsx test/social.test.ts && tsx test/mmo.test.ts && tsx test/mastering.test.ts && tsx test/voices.test.ts && tsx test/melodies.test.ts && tsx test/marketplace.test.ts && tsx test/story_lyrics.test.ts && tsx test/persistence_and_sync.test.ts && tsx test/phase46_gpu_pipeline_and_sync.test.ts"
   },
   "keywords": [
     "african-music",

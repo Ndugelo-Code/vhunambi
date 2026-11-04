@@ -69,6 +69,10 @@ app.route('/api/marketplace', marketplaceRoutes);
 
 // Mount Phase 45 SQLite Persistence & Delta Sync routes (REQ-P45-EXP, REQ-P45-LIB, REQ-P45-WAL, REQ-P45-SYNC)
 app.route('/api/explore', exploreRoutes);
+app.route('/api/v1/explore', exploreRoutes);
 app.route('/api/library', libraryRoutes);
+app.route('/api/v1/library', libraryRoutes);
 app.route('/api/wallet', walletRoutes);
+app.route('/api/v1/wallet', walletRoutes);
 app.route('/api/sync', syncRoutes);
+app.route('/api/v1/sync', syncRoutes);

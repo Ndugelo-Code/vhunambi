@@ -1,3 +1,4 @@
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -146,7 +147,7 @@ class ArtistProfileView extends ConsumerWidget {
           centerTitle: true,
           actions: [
             IconButton(
-              icon: const Icon(Icons.share_rounded, color: Colors.white),
+              icon: PhosphorIcon(PhosphorIconsRegular.shareNetwork, color: AppColors.textPrimaryOf(context), size: 20),
               onPressed: () {
                 final url = 'https://vhunambi.com/profile/${profile.username}';
                 Clipboard.setData(ClipboardData(text: url));
