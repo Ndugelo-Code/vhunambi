@@ -83,19 +83,19 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
   void _zoomIn() {
     HapticFeedback.selectionClick();
     setState(() {
-      _cameraDistance = (_cameraDistance - 60.0).clamp(240.0, 680.0);
+      _cameraDistance = (_cameraDistance - 40.0).clamp(240.0, 750.0);
     });
   }
 
   void _zoomOut() {
     HapticFeedback.selectionClick();
     setState(() {
-      _cameraDistance = (_cameraDistance + 60.0).clamp(240.0, 680.0);
+      _cameraDistance = (_cameraDistance + 40.0).clamp(240.0, 750.0);
     });
   }
 
   void _resetCamera() {
-    HapticFeedback.selectionClick();
+    HapticFeedback.mediumImpact();
     setState(() {
       _yaw = 0.0;
       _pitch = 0.0;
@@ -119,6 +119,34 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
     }
   }
 
+  Map<String, Offset> _projectAllNodes(Size size, List<SongDnaNode> nodes) {
+    if (size.width <= 0 || size.height <= 0 || nodes.isEmpty) return {};
+
+    final cx = size.width * 0.5;
+    final cy = size.height * 0.44;
+    const focalLength = 380.0;
+
+    final cosY = math.cos(_yaw);
+    final sinY = math.sin(_yaw);
+    final cosP = math.cos(_pitch);
+    final sinP = math.sin(_pitch);
+
+    final result = <String, Offset>{};
+    for (final node in nodes) {
+      final pos = node.localPosition;
+      final x1 = pos.x * cosY - pos.z * sinY;
+      final z1 = pos.x * sinY + pos.z * cosY;
+      final y2 = pos.y * cosP - z1 * sinP;
+      final z2 = pos.y * sinP + z1 * cosP;
+
+      final depth = focalLength + _cameraDistance + z2;
+      final scale = depth > 10.0 ? (focalLength / depth) : 0.1;
+      final screenOffset = Offset(cx + x1 * scale, cy + y2 * scale);
+      result[node.id] = screenOffset;
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final graph = ref.watch(songDnaGraphProvider);
@@ -131,6 +159,7 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
       backgroundColor: Colors.black.withValues(alpha: 0.94),
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Top Bar
             _buildTopBar(context, graph),
@@ -139,6 +168,9 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  final size = Size(constraints.maxWidth, constraints.maxHeight);
+                  final projectedMap = _projectAllNodes(size, graph.nodes);
+
                   return GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onPanUpdate: (details) {
@@ -148,45 +180,48 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
                             .clamp(-0.75, 0.75);
                       });
                     },
-                    child: Stack(
-                      children: [
-                        // 3D CustomPainter
-                        AnimatedBuilder(
-                          animation: Listenable.merge([
-                            _pulseController,
-                            _conduitFlowController,
-                          ]),
-                          builder: (context, _) {
-                            return CustomPaint(
-                              size: Size.infinite,
-                              painter: _SongDna3DPainter(
-                                yaw: _yaw,
-                                pitch: _pitch,
-                                cameraDistance: _cameraDistance,
-                                nodes: graph.nodes,
-                                selectedNodeId: graph.selectedNodeId,
-                                pulseValue: _pulseController.value,
-                                flowProgress: _conduitFlowController.value,
-                                onScreenProjected: (id, offset) {
-                                  _projectedScreenCoordinates[id] = offset;
-                                },
-                              ),
-                            );
-                          },
-                        ),
+                    child: SizedBox.expand(
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // 3D CustomPainter
+                          AnimatedBuilder(
+                            animation: Listenable.merge([
+                              _pulseController,
+                              _conduitFlowController,
+                            ]),
+                            builder: (context, _) {
+                              return CustomPaint(
+                                size: Size.infinite,
+                                painter: _SongDna3DPainter(
+                                  yaw: _yaw,
+                                  pitch: _pitch,
+                                  cameraDistance: _cameraDistance,
+                                  nodes: graph.nodes,
+                                  selectedNodeId: graph.selectedNodeId,
+                                  pulseValue: _pulseController.value,
+                                  flowProgress: _conduitFlowController.value,
+                                  onScreenProjected: (id, offset) {
+                                    _projectedScreenCoordinates[id] = offset;
+                                  },
+                                ),
+                              );
+                            },
+                          ),
 
-                        // Billboarded Floating Cue Bubbles (REQ-P50-TREE-05)
-                        for (final node in graph.nodes) ...[
-                          _buildBillboardCueBubble(node),
+                          // Billboarded Floating Cue Bubbles (REQ-P50-TREE-05)
+                          for (final node in graph.nodes) ...[
+                            _buildBillboardCueBubble(node, projectedMap[node.id]),
+                          ],
+
+                          // Camera HUD Controls (REQ-P50-TREE-03)
+                          Positioned(
+                            top: 12,
+                            right: 12,
+                            child: _buildCameraControls(),
+                          ),
                         ],
-
-                        // Camera HUD Controls (REQ-P50-TREE-03)
-                        Positioned(
-                          top: 12,
-                          right: 12,
-                          child: _buildCameraControls(),
-                        ),
-                      ],
+                      ),
                     ),
                   );
                 },
@@ -228,55 +263,23 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'SONG DNA ARCHITECTURE',
-                  style: AppTypography.bouncyTitleLarge.copyWith(
-                    fontSize: 16,
+                  'SONG DNA QUANTUM TREE',
+                  style: AppTypography.caption.copyWith(
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.8,
                     color: Colors.white,
                   ),
                 ),
                 Text(
-                  'Quantum-Entangled 3D Genomic Tree • ${(graph.overallCompleteness * 100).round()}% Complete',
+                  '${(graph.overallCompleteness * 100).toInt()}% Genetic Completeness • ${graph.nodes.length} Nodes Wired',
                   style: AppTypography.caption.copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
+                    color: Colors.white54,
+                    fontSize: 10,
                   ),
                 ),
               ],
             ),
           ),
-          if (graph.activeInvasiveNodesCount > 0)
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFD946EF).withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFD946EF).withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const PhosphorIcon(
-                    PhosphorIconsBold.waveTriangle,
-                    size: 12,
-                    color: Color(0xFFD946EF),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${graph.activeInvasiveNodesCount} Invasive',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFFD946EF),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           IconButton(
             icon: const PhosphorIcon(
               PhosphorIconsBold.x,
@@ -292,40 +295,58 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
 
   Widget _buildCameraControls() {
     return Container(
-      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFF161622).withValues(alpha: 0.85),
+        color: const Color(0xFF14141E).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.12),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 8,
+          ),
+        ],
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             key: const Key('song_dna_zoom_in_btn'),
             icon: const PhosphorIcon(
-              PhosphorIconsBold.magnifyingGlassPlus,
-              size: 16,
+              PhosphorIconsBold.plus,
+              size: 14,
               color: Colors.white,
             ),
             visualDensity: VisualDensity.compact,
             onPressed: _zoomIn,
           ),
+          Container(
+            width: 1,
+            height: 14,
+            color: Colors.white12,
+          ),
           IconButton(
             key: const Key('song_dna_zoom_out_btn'),
             icon: const PhosphorIcon(
-              PhosphorIconsBold.magnifyingGlassMinus,
-              size: 16,
+              PhosphorIconsBold.minus,
+              size: 14,
               color: Colors.white,
             ),
             visualDensity: VisualDensity.compact,
             onPressed: _zoomOut,
           ),
+          Container(
+            width: 1,
+            height: 14,
+            color: Colors.white12,
+          ),
           IconButton(
             key: const Key('song_dna_reset_camera_btn'),
             icon: const PhosphorIcon(
-              PhosphorIconsBold.arrowsClockwise,
-              size: 16,
+              PhosphorIconsBold.arrowsCounterClockwise,
+              size: 14,
               color: AppColors.brandPrimary,
             ),
             visualDensity: VisualDensity.compact,
@@ -336,22 +357,23 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
     );
   }
 
-  Widget _buildBillboardCueBubble(SongDnaNode node) {
-    final offset = _projectedScreenCoordinates[node.id];
+  Widget _buildBillboardCueBubble(SongDnaNode node, Offset? offset) {
     if (offset == null) return const SizedBox.shrink();
 
     final isSelected = node.id == ref.read(songDnaGraphProvider).selectedNodeId;
 
     // Anchor bubble ~36dp above node center
     return Positioned(
-      left: offset.dx - 65.0,
+      left: offset.dx - 70.0,
       top: offset.dy - 40.0,
+      width: 140.0,
+      height: 36.0,
       child: GestureDetector(
         key: Key('song_dna_bubble_${node.id}'),
+        behavior: HitTestBehavior.opaque,
         onTap: () => _selectNode(node.id),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          constraints: const BoxConstraints(maxWidth: 140),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: isSelected
@@ -377,7 +399,7 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
             children: [
               PhosphorIcon(node.icon, size: 12, color: node.accentColor),
               const SizedBox(width: 4),
-              Flexible(
+              Expanded(
                 child: Text(
                   node.cueLabel,
                   style: TextStyle(
@@ -418,36 +440,58 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
         ),
         boxShadow: [
           BoxShadow(
-            color: node.accentColor.withValues(alpha: 0.18),
-            blurRadius: 16,
+            color: node.accentColor.withValues(alpha: 0.2),
+            blurRadius: 18,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Category label + Detach button if invasive
+          // Header: Category & Node Title + Detach Action
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  PhosphorIcon(node.icon, size: 16, color: node.accentColor),
-                  const SizedBox(width: 6),
-                  Text(
-                    node.category.label.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                      color: node.accentColor,
-                    ),
-                  ),
-                ],
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: node.accentColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: PhosphorIcon(
+                  node.icon,
+                  size: 14,
+                  color: node.accentColor,
+                ),
               ),
-              if (node.isDetachable)
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      node.category.displayName.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: node.accentColor,
+                      ),
+                    ),
+                    Text(
+                      node.title,
+                      style: AppTypography.titleSmall.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (node.isDetachable) ...[
                 TextButton.icon(
                   key: const Key('song_dna_detach_node_btn'),
                   onPressed: () => notifier.detachInvasiveNode(node.id),
@@ -457,59 +501,83 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
                     color: Color(0xFFEF4444),
                   ),
                   label: const Text(
-                    'Detach Node',
+                    'Detach from Graph',
                     style: TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w700,
                       color: Color(0xFFEF4444),
                     ),
                   ),
                   style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
+                    backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
+              ],
             ],
           ),
-
-          const SizedBox(height: 4),
-
-          // Title & Subtitle
-          Text(
-            node.title,
-            style: AppTypography.titleMedium.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-              color: Colors.white,
-            ),
-          ),
-          Text(
-            node.subtitle,
-            style: AppTypography.bodySmall.copyWith(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-
           const SizedBox(height: 10),
 
-          // Dynamic Mutator Pickers based on active node
-          _buildNodeMutatorControls(context, node, form, notifier),
+          // Contextual Node Mutators (Quantum Entanglement Writes)
+          _buildNodeMutators(context, node, form, notifier),
         ],
       ),
     );
   }
 
-  Widget _buildNodeMutatorControls(
+  Widget _buildNodeMutators(
     BuildContext context,
     SongDnaNode node,
     StudioFormState form,
     SongDnaGraphNotifier notifier,
   ) {
-    if (node.id == 'node_genre_tempo') {
+    if (node.id == 'node_beat_tempo') {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            'Tempo (BPM)',
+            style: AppTypography.caption.copyWith(color: Colors.white70, fontSize: 10),
+          ),
+          const SizedBox(height: 4),
+          // Tempo Row
+          SizedBox(
+            height: 28,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final bpm in [95, 112, 115, 118, 124, 128]) ...[
+                  _buildMutatorPill(
+                    label: '$bpm',
+                    isSelected: (bpm == 118 && form.tempo == TempoBracket.fast) ||
+                        (bpm == 112 && form.tempo == TempoBracket.medium) ||
+                        (bpm == 95 && form.tempo == TempoBracket.slow) ||
+                        (bpm == 128 && form.tempo == TempoBracket.veryFast),
+                    onTap: () => notifier.updateTempo(bpm),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                for (final t in TempoBracket.values) ...[
+                  _buildMutatorPill(
+                    label: t.label,
+                    isSelected: form.tempo == t,
+                    onTap: () => notifier.updateTempo(t),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Genre & Culture',
+            style: AppTypography.caption.copyWith(color: Colors.white70, fontSize: 10),
+          ),
+          const SizedBox(height: 4),
           // Genre Row
           SizedBox(
             height: 28,
@@ -534,24 +602,6 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          // Tempo Row
-          SizedBox(
-            height: 28,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final t in TempoBracket.values) ...[
-                  _buildMutatorPill(
-                    label: t.label,
-                    isSelected: form.tempo == t,
-                    onTap: () => notifier.updateTempo(t),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-              ],
-            ),
-          ),
         ],
       );
     }
@@ -564,7 +614,7 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
           children: [
             for (final v in kBantuVoiceProfiles) ...[
               _buildMutatorPill(
-                label: v.name,
+                label: '${v.name} (${v.language})',
                 isSelected: form.selectedVoiceProfile.id == v.id,
                 onTap: () => notifier.updateVocalPersona(v),
               ),
@@ -579,24 +629,24 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Language Pills
+          // Indigenous Language Selection
           SizedBox(
             height: 28,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                for (final l in [
-                  'Tshivenḓa',
+                for (final lang in [
                   'isiZulu',
                   'isiXhosa',
-                  'Sepedi',
                   'Sesotho',
+                  'Sepedi',
+                  'Setswana',
                   'English',
                 ]) ...[
                   _buildMutatorPill(
-                    label: l,
-                    isSelected: form.language == l,
-                    onTap: () => notifier.updateLanguage(l),
+                    label: lang,
+                    isSelected: form.language == lang,
+                    onTap: () => notifier.updateLanguage(lang),
                   ),
                   const SizedBox(width: 6),
                 ],
@@ -628,17 +678,17 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Mood Pills
+          // Mood Row
           SizedBox(
             height: 28,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
                 for (final m in [
-                  'Uplifting',
-                  'Soulful & Nostalgic',
-                  'Dark Hypnotic',
-                  'Energetic Club',
+                  'Euphoric & Uplifting',
+                  'Soulful & Deep',
+                  'Dark & Intense',
+                  'Groovy & Bouncy',
                 ]) ...[
                   _buildMutatorPill(
                     label: m,
@@ -651,12 +701,12 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
             ),
           ),
           const SizedBox(height: 8),
-          // Vocal Energy
+          // Vocal Energy Row
           Row(
             children: [
               for (final e in VocalEnergy.values) ...[
                 _buildMutatorPill(
-                  label: '${e.name.toUpperCase()} Energy',
+                  label: e.name.toUpperCase(),
                   isSelected: form.vocalEnergy == e,
                   onTap: () => notifier.updateVocalEnergy(e),
                 ),
@@ -669,83 +719,50 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
     }
 
     if (node.id == 'node_sketchpad_groove') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      return Row(
         children: [
-          if (node.subNodes.isNotEmpty) ...[
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                for (final sub in node.subNodes)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: sub.color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: sub.color),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        PhosphorIcon(sub.icon, size: 10, color: sub.color),
-                        const SizedBox(width: 4),
-                        Text(
-                          sub.name,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: sub.color,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+          Expanded(
+            child: ElevatedButton.icon(
+              icon: const PhosphorIcon(
+                PhosphorIconsBold.waveform,
+                size: 14,
+                color: Colors.black,
+              ),
+              label: const Text(
+                'Open 5-Ch Multitrack Sketchpad',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (ctx) => const MelodySketchpadModal(),
+                );
+              },
             ),
-            const SizedBox(height: 8),
-          ],
-          Row(
-            children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  notifier.attachSketchpadPreset('Soweto Log-Drum Knock');
-                },
-                icon: const PhosphorIcon(
-                  PhosphorIconsBold.waveSine,
-                  size: 13,
-                  color: Color(0xFF10B981),
-                ),
-                label: const Text(
-                  '+ Attach Log-Drum Groove',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF10B981),
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF10B981)),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                ),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: () => MelodySketchpadModal.show(context),
-                child: const Text(
-                  'Launch Sketchpad →',
-                  style: TextStyle(fontSize: 11, color: Colors.white70),
-                ),
-              ),
-            ],
           ),
         ],
       );
     }
 
-    return const SizedBox.shrink();
+    // Default Node info
+    return Text(
+      node.subtitle,
+      style: const TextStyle(fontSize: 11, color: Colors.white70),
+    );
   }
 
   Widget _buildMutatorPill({
@@ -799,7 +816,7 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
             color: Colors.black,
           ),
           label: Text(
-            'Synthesize Song from 3D DNA',
+            '⚡ Synthesize Song from 3D DNA',
             style: AppTypography.titleMedium.copyWith(
               fontWeight: FontWeight.w900,
               color: Colors.black,
@@ -891,10 +908,10 @@ class _SongDna3DPainter extends CustomPainter {
       final y2 = pos.y * cosP - z1 * sinP;
       final z2 = pos.y * sinP + z1 * cosP;
 
-      final scale = focalLength / (focalLength + z2 + cameraDistance);
-      final screenX = cx + x1 * scale;
-      final screenY = cy + y2 * scale;
-      final screenOffset = Offset(screenX, screenY);
+      // Perspective projection
+      final depth = focalLength + cameraDistance + z2;
+      final scale = depth > 10.0 ? (focalLength / depth) : 0.1;
+      final screenOffset = Offset(cx + x1 * scale, cy + y2 * scale);
 
       onScreenProjected(node.id, screenOffset);
 
@@ -921,104 +938,71 @@ class _SongDna3DPainter extends CustomPainter {
       // Conduit line
       _conduitPaint
         ..color = color.withValues(
-          alpha: item.node.isInvasive
-              ? 0.75
-              : (0.15 + (progress * 0.55)),
+          alpha: item.node.isInvasive ? 0.65 : 0.35,
         )
-        ..strokeWidth = (item.node.isInvasive ? 2.4 : 1.8) * item.scale;
+        ..strokeWidth = (item.scale * (item.node.isInvasive ? 2.8 : 2.0)).clamp(1.0, 4.0);
 
       canvas.drawLine(coreScreen, item.screenOffset, _conduitPaint);
 
-      // Flowing energy particles along conduit (REQ-P50-GRAPH-02)
-      if (progress > 0.1) {
-        const particleCount = 4;
-        for (int p = 0; p < particleCount; p++) {
-          final t = (flowProgress + (p / particleCount)) % 1.0;
-          final px = (1.0 - t) * coreScreen.dx + t * item.screenOffset.dx;
-          final py = (1.0 - t) * coreScreen.dy + t * item.screenOffset.dy;
+      // Streaming Energy Particle (0% -> 100% flow along conduit)
+      if (progress > 0.05) {
+        final particleT = (flowProgress + (item.node.id.hashCode % 100) / 100.0) % 1.0;
+        final particlePos = Offset.lerp(coreScreen, item.screenOffset, particleT)!;
 
-          _particlePaint.color = color.withValues(
-            alpha: (math.sin(t * math.pi) * progress * 0.9).clamp(0.0, 1.0),
-          );
-          canvas.drawCircle(Offset(px, py), 2.5 * item.scale, _particlePaint);
-        }
-      }
-
-      // Invasive symbiotic lightning tethers
-      if (item.node.isInvasive) {
-        final lightningPaint = Paint()
-          ..color = const Color(0xFFD946EF).withValues(alpha: 0.6)
-          ..strokeWidth = 1.0
-          ..style = PaintingStyle.stroke;
-
-        final mid = (coreScreen + item.screenOffset) * 0.5;
-        final jitter = Offset(
-          math.sin(flowProgress * 20.0) * 8.0,
-          math.cos(flowProgress * 20.0) * 8.0,
-        );
-        canvas.drawLine(coreScreen, mid + jitter, lightningPaint);
-        canvas.drawLine(mid + jitter, item.screenOffset, lightningPaint);
+        _particlePaint.color = color.withValues(alpha: 0.9);
+        canvas.drawCircle(particlePos, 2.8 * item.scale, _particlePaint);
       }
     }
 
-    // 2. Draw 3D Spheres & Target Reticles
+    // 2. Draw 3D Spherical Nodes & Halos
     for (final item in projectedItems) {
-      final color = item.node.accentColor;
-      final baseRadius = item.node.id == 'node_core'
-          ? 18.0
-          : (item.node.isInvasive ? 14.0 : 12.0);
-      final radius = baseRadius * item.scale;
+      final node = item.node;
+      final isSelected = node.id == selectedNodeId;
+      final baseRadius = (node.id == 'node_core' ? 24.0 : 16.0) * item.scale;
+      final currentRadius = baseRadius * (isSelected ? (1.0 + pulseValue * 0.16) : 1.0);
 
-      // Soft glow
-      _glowPaint.color = color.withValues(alpha: 0.22 * item.scale);
-      canvas.drawCircle(item.screenOffset, radius * 2.2, _glowPaint);
-
-      // Solid sphere
-      _nodePaint.color = color.withValues(alpha: 0.90);
-      canvas.drawCircle(item.screenOffset, radius, _nodePaint);
-
-      // Specular core dot
-      _nodePaint.color = Colors.white.withValues(alpha: 0.7);
-      canvas.drawCircle(
-        item.screenOffset - Offset(radius * 0.3, radius * 0.3),
-        radius * 0.28,
-        _nodePaint,
+      // Outer Glow Halo
+      _glowPaint.color = node.accentColor.withValues(
+        alpha: isSelected ? 0.65 : (node.isInvasive ? 0.45 : 0.25),
       );
+      canvas.drawCircle(item.screenOffset, currentRadius * 1.6, _glowPaint);
 
-      // Counter-rotating double ring on invasive nodes (REQ-P50-GRAPH-04)
-      if (item.node.isInvasive) {
-        final ringPaint = Paint()
-          ..color = const Color(0xFFD946EF).withValues(alpha: 0.8)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.6;
+      // Solid Node Body
+      _nodePaint.color = isSelected
+          ? node.accentColor
+          : const Color(0xFF141420);
+      canvas.drawCircle(item.screenOffset, currentRadius, _nodePaint);
 
-        final ringRadius = radius * 1.7;
-        canvas.drawCircle(item.screenOffset, ringRadius, ringPaint);
-      }
+      // Border Ring
+      final borderPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = (isSelected ? 2.5 : 1.5) * item.scale
+        ..color = node.accentColor;
+      canvas.drawCircle(item.screenOffset, currentRadius, borderPaint);
 
-      // Active target halo
-      if (item.node.id == selectedNodeId) {
-        final haloPaint = Paint()
-          ..color = color.withValues(alpha: 0.8 - (pulseValue * 0.35))
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.0;
+      // Additive Satellites (Sub-Nodes orbiting channel matrix)
+      if (node.isAdditive && node.subNodes.isNotEmpty) {
+        final satelliteCount = node.subNodes.length;
+        for (int i = 0; i < satelliteCount; i++) {
+          final sub = node.subNodes[i];
+          final orbitAngle = (flowProgress * 2 * math.pi) + (i * 2 * math.pi / satelliteCount);
+          final orbitRadius = currentRadius * 2.1;
+          final satOffset = Offset(
+            item.screenOffset.dx + math.cos(orbitAngle) * orbitRadius,
+            item.screenOffset.dy + math.sin(orbitAngle) * orbitRadius * 0.4, // Elliptical tilt
+          );
 
-        final haloRadius = radius * 1.8 + (pulseValue * 6.0);
-        canvas.drawCircle(item.screenOffset, haloRadius, haloPaint);
+          final satPaint = Paint()
+            ..color = sub.color.withValues(alpha: sub.isActive ? 0.9 : 0.3)
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(satOffset, 3.2 * item.scale, satPaint);
+        }
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _SongDna3DPainter oldDelegate) {
-    return oldDelegate.yaw != yaw ||
-        oldDelegate.pitch != pitch ||
-        oldDelegate.cameraDistance != cameraDistance ||
-        oldDelegate.selectedNodeId != selectedNodeId ||
-        oldDelegate.pulseValue != pulseValue ||
-        oldDelegate.flowProgress != flowProgress ||
-        oldDelegate.nodes != nodes;
-  }
+  bool shouldRepaint(covariant _SongDna3DPainter oldDelegate) => true;
 }
 
 class _Projected3DItem {
@@ -1034,4 +1018,3 @@ class _Projected3DItem {
     required this.scale,
   });
 }
-

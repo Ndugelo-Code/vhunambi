@@ -12,7 +12,7 @@ enum SongDnaNodeCategory {
   invasiveThirdParty;
 
   Color get color => switch (this) {
-        SongDnaNodeCategory.beatCore => const Color(0xFFF97316),
+        SongDnaNodeCategory.beatCore => const Color(0xFFF59E0B),
         SongDnaNodeCategory.vocalLyrics => const Color(0xFF06B6D4),
         SongDnaNodeCategory.instrumentsHarmony => const Color(0xFF10B981),
         SongDnaNodeCategory.invasiveThirdParty => const Color(0xFFD946EF),
@@ -21,10 +21,10 @@ enum SongDnaNodeCategory {
   Color get defaultColor => color;
 
   String get label => switch (this) {
-        SongDnaNodeCategory.beatCore => 'Beat & Genesis Core',
-        SongDnaNodeCategory.vocalLyrics => 'Vocal Timbre & Lyrics',
+        SongDnaNodeCategory.beatCore => 'Beat & Core Rhythm',
+        SongDnaNodeCategory.vocalLyrics => 'Vocal & Lyric Soul',
         SongDnaNodeCategory.instrumentsHarmony => 'Instruments & Harmony',
-        SongDnaNodeCategory.invasiveThirdParty => 'Invasive 3rd-Party Audio',
+        SongDnaNodeCategory.invasiveThirdParty => 'Invasive Intake Audio',
       };
 
   String get displayName => label;

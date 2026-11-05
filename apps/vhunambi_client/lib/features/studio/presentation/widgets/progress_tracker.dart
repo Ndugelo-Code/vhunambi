@@ -124,7 +124,9 @@ class ProgressTrackerWidget extends ConsumerWidget {
               child: Text(
                 slot.label,
                 style: AppTypography.bodySmall.copyWith(
-                  color: isEmpty ? AppColors.textSecondary : AppColors.textPrimary,
+                  color: isEmpty
+                      ? AppColors.textSecondary
+                      : AppColors.textPrimary,
                   fontWeight: isEmpty ? FontWeight.normal : FontWeight.w500,
                 ),
                 overflow: TextOverflow.ellipsis,

@@ -18,10 +18,10 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
       : super(
           const SongDnaGraphState(
             nodes: [],
-            selectedNodeId: 'node_genre_tempo',
+            selectedNodeId: null,
             activeInvasiveNodesCount: 0,
             overallCompleteness: 0.5,
-            primaryGlowColor: Color(0xFFF97316),
+            primaryGlowColor: Color(0xFFF59E0B),
           ),
         ) {
     _recomputeGraph();
@@ -47,7 +47,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
             ? (form.prompt.length > 18 ? '${form.prompt.substring(0, 18)}...' : form.prompt)
             : 'Core Genesis',
         icon: PhosphorIconsBold.sparkle,
-        accentColor: const Color(0xFFF97316),
+        accentColor: const Color(0xFFF59E0B),
         branchUnlockProgress: 1.0,
         localPosition: const Vector3D(0, 0, 0),
       ),
@@ -57,15 +57,15 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
     final hasGenre = form.genre.isNotEmpty;
     nodes.add(
       SongDnaNode(
-        id: 'node_genre_tempo',
+        id: 'node_beat_tempo',
         category: SongDnaNodeCategory.beatCore,
         title: '${form.genre} • ${form.tempo.label}',
         subtitle: 'BPM & Regional Drum Pulse',
         cueLabel: '${form.genre} • ${form.tempo.name.toUpperCase()}',
         icon: PhosphorIconsBold.disc,
-        accentColor: const Color(0xFFF97316),
+        accentColor: const Color(0xFFF59E0B),
         branchUnlockProgress: hasGenre ? 1.0 : 0.5,
-        localPosition: const Vector3D(0, -140, 20),
+        localPosition: const Vector3D(-80, -130, 20),
       ),
     );
 
@@ -205,7 +205,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
           branchUnlockProgress: 1.0,
           isInvasive: true,
           isDetachable: true,
-          localPosition: const Vector3D(0, 160, -60),
+          localPosition: const Vector3D(80, 140, -40),
         ),
       );
     }
@@ -259,7 +259,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
     } else if (form.language != 'English' || hasLyrics) {
       glow = const Color(0xFF06B6D4); // Cyan (Vocal/Bantu)
     } else {
-      glow = const Color(0xFFF97316); // Amber (Beat/Core)
+      glow = const Color(0xFFF59E0B); // Amber (Beat/Core)
     }
 
     // Calculate completeness
@@ -271,6 +271,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
 
     state = state.copyWith(
       nodes: nodes,
+      selectedNodeId: state.selectedNodeId,
       activeInvasiveNodesCount: invasiveCount,
       overallCompleteness: completeness,
       primaryGlowColor: glow,
