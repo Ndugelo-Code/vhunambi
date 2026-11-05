@@ -191,16 +191,17 @@ class MiniPlayerController extends ChangeNotifier {
       return clampedPosition(screenSize, bottomSafeArea);
     }
 
+    // Inspect registered obstacles intersecting bottom dock zone (e.g. StudioActionBar)
+    final dockObstacles = _obstacles.values.where(
+      (rect) => rect.bottom > screenSize.height - 240,
+    );
+
     switch (_form) {
       case PlayerForm.bar:
         // Base docked position: 8dp above bottom navigation bar (56dp + bottomSafeArea)
         final defaultDockBottom = 56.0 + bottomSafeArea + 8.0;
         double targetY = screenSize.height - defaultDockBottom - 64.0;
 
-        // Obstacle avoidance: if any registered obstacle intersects the bottom area
-        final dockObstacles = _obstacles.values.where(
-          (rect) => rect.bottom > screenSize.height - 240,
-        );
         if (dockObstacles.isNotEmpty) {
           final highestTop = dockObstacles.map((o) => o.top).reduce((a, b) => a < b ? a : b);
           targetY = min(targetY, highestTop - 64.0 - 8.0).clamp(8.0, targetY);
@@ -209,10 +210,16 @@ class MiniPlayerController extends ChangeNotifier {
         return Offset(8.0, targetY);
 
       case PlayerForm.pill:
-        // Floating pill docked cleanly 12dp above the bottom navigation dock
+        // Floating pill docked cleanly 12dp above the bottom navigation dock or highest obstacle
+        double bottomInset = 56.0 + bottomSafeArea + 12.0;
+        if (dockObstacles.isNotEmpty) {
+          final highestTop = dockObstacles.map((o) => o.top).reduce((a, b) => a < b ? a : b);
+          bottomInset = (screenSize.height - highestTop) + 12.0;
+        }
+
         return Offset(
           screenSize.width - 160.0 - 16.0,
-          screenSize.height - (56.0 + bottomSafeArea + 12.0 + 48.0),
+          screenSize.height - bottomInset - 48.0,
         );
     }
   }

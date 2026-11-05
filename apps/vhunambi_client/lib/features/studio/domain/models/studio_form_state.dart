@@ -7,6 +7,15 @@ enum LyricsMode { aiWrite, myOwn, fromPhoto, instrumental }
 
 enum TempoBracket { slow, medium, fast, veryFast }
 
+extension TempoBracketLabel on TempoBracket {
+  String get label => switch (this) {
+        TempoBracket.slow => 'Slow (95-108 BPM)',
+        TempoBracket.medium => 'Medium (112-115 BPM)',
+        TempoBracket.fast => 'Fast (118-124 BPM)',
+        TempoBracket.veryFast => 'Very Fast (128+ BPM)',
+      };
+}
+
 enum VocalVoices { solo, duet, choir }
 
 enum VocalGender { male, female, mixed }

@@ -1407,3 +1407,39 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
     - `flutter analyze` reports **No issues found!** (0 errors, 0 warnings across all 13 modified/new files).
     - 12/12 unit and widget tests green across `phase47_motion_onboarding_and_dna_helix_test.dart` and `phase49_mmorpg_dna_and_generation_onboarding_test.dart`.
     - Release APK build is held until Phase 50 completes per user instruction.
+
+
+---
+
+## 26. Phase 50: Quantum-Entangled 3D Song DNA Node Tree & Hovering Cockpit Pill (`docs/phases/phase_50_quantum_song_dna_3d_node_tree/`)
+
+- **Location:** [`docs/phases/phase_50_quantum_song_dna_3d_node_tree/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_50_quantum_song_dna_3d_node_tree/blueprint.md)
+- **Status:** Complete (Tracks A–E implemented; 7/7 unit and widget tests green in `phase50_quantum_song_dna_3d_tree_test.dart`, 19/19 passing across Phases 47–50, clean static analysis, ARM64 release APK compiled and verified on device `EPHUT20917014649`).
+- **Scope:**
+  - **Track A: The Living 3D Hover Pill (`SongDnaHoverPill` in Studio Cockpit):**
+    - Replaced the dead, unresponsive `DNA XX%` badge in `StudioView` (`ProgressTrackerWidget`) with the living, 60 FPS levitating `SongDnaHoverPill` (`Key('studio_song_dna_hover_pill')`).
+    - Added floating vertical levitation ($\pm 3.2\text{dp}$ sine wave), multi-spectrum category halo glow (amber, cyan, emerald, purple), real-time completion counter, and pulse ring on state mutations.
+    - Fixed `MiniPlayerHost` / `StudioActionBar` overlap in `mini_player_controller.dart` by strictly honoring bottom obstacle clearance when in `PlayerForm.pill` mode.
+  - **Track B: 4-Class Node Hierarchy, 3D Spatial Vector Models & Quantum Entanglement (`song_dna_graph_models.dart`, `song_dna_graph_provider.dart`):**
+    - Modeled 4 distinct node categories:
+      - `beatCore` (Deep Orange `#F97316`): Master Tempo & BPM, Rhythm & Metric Signature, Groove Density & Swag.
+      - `vocalLyrics` (Electric Cyan `#06B6D4`): Vocal Identity Archetype / Cloned Voice, Cultural Language & Dialect, Lyric Theme & Persona.
+      - `instrumentsHarmony` (Emerald `#10B981`): Multitrack Sketchpad Channels (Log-Drum, Bass, Chords, Keys, Brass, Percussion, Melody Lead, FX).
+      - `invasiveThirdParty` (Neon Purple `#A855F7`): Imported Stem Remix, External Audio Reference, Third-Party DAW Stems.
+    - Implemented `Vector3D` arithmetic with operator overloads (`+`, `-`, `*`), Euclidean length, normalization, dot product, yaw/pitch spherical camera rotation, and perspective projection ($d / (d + z)$).
+    - Implemented reactive `SongDnaGraphNotifier` & `songDnaGraphProvider` wired to `studioFormProvider`, `vocalIdentityProvider`, `melodySketchpadProvider`, and `stemRemixProvider`.
+  - **Track C: Full-Screen 3D Navigable Spatial Tree Modal (`SongDnaNodeTreeModal`):**
+    - Created `SongDnaNodeTreeModal` (`Key('song_dna_3d_tree_modal')`) featuring 3D orbit dragging (yaw/pitch rotation), pinch-to-zoom, and smooth spring-damping deceleration.
+    - Added floating HUD camera controls (`Key('song_dna_zoom_in_btn')`, `Key('song_dna_zoom_out_btn')`, `Key('song_dna_reset_camera_btn')`).
+    - Rendered depth-sorted energy conduits between root and children with flowing kinetic energy particles ($0\% \rightarrow 100\%$) and glowing pulses.
+    - Rendered billboarded cue bubbles (`Key('song_dna_bubble_${node.id}')`) with deterministic pre-computed 3D projections, category tag, node title, value label, and completion checkmark.
+  - **Track D: Quantum-Entangled Quick-Action Card & Invasive Stem Detacher:**
+    - Created bottom-docked Quick-Action Card (`Key('song_dna_quick_action_card')`) when a node is tapped in 3D space.
+    - Implemented bi-directional quantum entanglement: mutating tempo bracket, musical key, vocal archetype, or groove density in the 3D card instantaneously updates `studioFormProvider`, `vocalIdentityProvider`, and `melodySketchpadProvider`, and vice-versa.
+    - Added 1-tap invasive node detach button (`Key('song_dna_detach_node_btn')`) to instantly purge external stems or references.
+    - Added high-voltage synthesize CTA (`Key('song_dna_synthesize_btn')`) executing generation handoff.
+  - **Track E: Verification Gates & Release Delivery:**
+    - Authored `test/features/studio/phase50_quantum_song_dna_3d_tree_test.dart` (7/7 tests passing).
+    - Verified 19/19 passing tests across Phase 47, 49, and 50 test suites with 0 regressions.
+    - Clean static analysis: `flutter analyze` reports **0 issues found**.
+    - Compiled ARM64 release APK and deployed to physical hardware `EPHUT20917014649`.

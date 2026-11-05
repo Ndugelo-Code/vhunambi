@@ -7,11 +7,12 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../providers/progress_tracker_provider.dart';
 import '../providers/studio_form_provider.dart';
+import 'song_dna_hover_pill.dart';
 
 /// Progress tracker widget (VH-005).
 ///
 /// Collapsed state: slim segmented bar (~8-12dp tall) showing the
-/// filled/total ratio plus a DNA % chip.
+/// filled/total ratio plus the living [SongDnaHoverPill] (REQ-P50-PILL-01).
 /// Expanded state: scrollable list of all 9 slots with slot name, current
 /// value, and state indicator (Empty / Set / Auto).
 ///
@@ -19,7 +20,7 @@ import '../providers/studio_form_provider.dart';
 /// duplicate state is cached (REQ-STM-01).
 ///
 /// Uses genre accent tokens from [VhunambiThemeExtension] for the progress
-/// bar fill and DNA chip, replacing legacy `AppColors.brandPrimary`.
+/// bar fill, replacing legacy `AppColors.brandPrimary`.
 class ProgressTrackerWidget extends ConsumerWidget {
   final bool expanded;
 
@@ -40,7 +41,7 @@ class ProgressTrackerWidget extends ConsumerWidget {
     return _buildCollapsed(tracker, accent);
   }
 
-  /// Slim collapsed bar pinned under the mode tabs.
+  /// Slim collapsed bar pinned under the mode tabs with living SongDnaHoverPill.
   Widget _buildCollapsed(ProgressTracker tracker, Color accent) {
     final filledCount = tracker.slots.where((s) => s.isSet).length;
     final total = tracker.slots.length;
@@ -76,28 +77,8 @@ class ProgressTrackerWidget extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: accent.withAlpha(30),
-                borderRadius: AppRadius.pillBorder,
-                border: Border.all(color: accent),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🧬 ', style: TextStyle(fontSize: 12)),
-                  Text(
-                    'DNA ${tracker.dnaUsagePercent}%',
-                    style: AppTypography.caption.copyWith(
-                      color: accent,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // Living 3D Hovering Song DNA Pill (REQ-P50-PILL-01)
+            const SongDnaHoverPill(),
           ],
         ),
       ],
