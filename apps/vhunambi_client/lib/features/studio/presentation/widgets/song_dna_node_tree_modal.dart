@@ -211,7 +211,8 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
 
                           // Billboarded Floating Cue Bubbles (REQ-P50-TREE-05)
                           for (final node in graph.nodes) ...[
-                            _buildBillboardCueBubble(node, projectedMap[node.id]),
+                            if (node.id != 'node_core')
+                              _buildBillboardCueBubble(node, projectedMap[node.id]),
                           ],
 
                           // Camera HUD Controls (REQ-P50-TREE-03)
@@ -364,10 +365,10 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
 
     // Anchor bubble ~36dp above node center
     return Positioned(
-      left: offset.dx - 70.0,
-      top: offset.dy - 40.0,
-      width: 140.0,
-      height: 36.0,
+      left: offset.dx - 65.0,
+      top: offset.dy - 36.0,
+      width: 130.0,
+      height: 32.0,
       child: GestureDetector(
         key: Key('song_dna_bubble_${node.id}'),
         behavior: HitTestBehavior.opaque,

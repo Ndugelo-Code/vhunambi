@@ -157,10 +157,11 @@ class SongDnaGraphState {
   });
 
   SongDnaNode? get selectedNode {
+    if (selectedNodeId == null) return null;
     for (final node in nodes) {
       if (node.id == selectedNodeId) return node;
     }
-    return nodes.isNotEmpty ? nodes.first : null;
+    return null;
   }
 
   SongDnaGraphState copyWith({

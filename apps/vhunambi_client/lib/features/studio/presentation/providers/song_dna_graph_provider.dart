@@ -65,7 +65,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         icon: PhosphorIconsBold.disc,
         accentColor: const Color(0xFFF59E0B),
         branchUnlockProgress: hasGenre ? 1.0 : 0.5,
-        localPosition: const Vector3D(-80, -130, 20),
+        localPosition: const Vector3D(0, -180, 20),
       ),
     );
 
@@ -81,7 +81,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         icon: PhosphorIconsBold.microphone,
         accentColor: const Color(0xFF06B6D4),
         branchUnlockProgress: 0.95,
-        localPosition: const Vector3D(-140, 20, -30),
+        localPosition: const Vector3D(-160, 40, -30),
       ),
     );
 
@@ -113,7 +113,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         icon: PhosphorIconsBold.waveform,
         accentColor: const Color(0xFF06B6D4),
         branchUnlockProgress: 0.9,
-        localPosition: const Vector3D(-80, -90, -50),
+        localPosition: const Vector3D(-140, -80, -50),
       ),
     );
 
