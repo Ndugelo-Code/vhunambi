@@ -17,8 +17,11 @@ class OnboardingAct1Showcase extends StatefulWidget {
 }
 
 class _OnboardingAct1ShowcaseState extends State<OnboardingAct1Showcase>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _pulseController;
+  late final AnimationController _entranceController;
+  late final Animation<Offset> _pillSlideAnim;
+  late final Animation<double> _pillFadeAnim;
   int _selectedPillarIndex = 0;
 
   static const List<Map<String, dynamic>> _pillars = [
@@ -63,11 +66,29 @@ class _OnboardingAct1ShowcaseState extends State<OnboardingAct1Showcase>
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
+
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 550),
+    );
+    _pillSlideAnim =
+        Tween<Offset>(begin: const Offset(0.0, 0.12), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+    _pillFadeAnim = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    );
+    _entranceController.forward();
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _entranceController.dispose();
     super.dispose();
   }
 
@@ -167,71 +188,78 @@ class _OnboardingAct1ShowcaseState extends State<OnboardingAct1Showcase>
             textAlign: TextAlign.center,
           ),
 
-          const SizedBox(height: 24),
+          // 18dp clearance to prevent collision with subtitle during entrance (REQ-P51-FIX-02)
+          const SizedBox(height: 18),
 
-          // 4 Orbiting World Selector Pills
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: List.generate(_pillars.length, (index) {
-              final p = _pillars[index];
-              final isSelected = index == _selectedPillarIndex;
-              final color = p['color'] as Color;
+          // 4 Orbiting World Selector Pills with smooth easeOutCubic entrance
+          FadeTransition(
+            opacity: _pillFadeAnim,
+            child: SlideTransition(
+              position: _pillSlideAnim,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: List.generate(_pillars.length, (index) {
+                  final p = _pillars[index];
+                  final isSelected = index == _selectedPillarIndex;
+                  final color = p['color'] as Color;
 
-              return GestureDetector(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  widget.onInteraction?.call();
-                  setState(() => _selectedPillarIndex = index);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? color.withValues(alpha: isDark ? 0.25 : 0.14)
-                        : (isDark
-                              ? const Color(0xFF141418)
-                              : Colors.grey.shade100),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isSelected
-                          ? color
-                          : (isDark ? Colors.white12 : Colors.black12),
-                      width: isSelected ? 1.6 : 1.0,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      PhosphorIcon(
-                        p['icon'] as PhosphorIconData,
-                        size: 15,
-                        color: isSelected
-                            ? color
-                            : AppColors.textSecondaryOf(context),
+                  return GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      widget.onInteraction?.call();
+                      setState(() => _selectedPillarIndex = index);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        p['title'] as String,
-                        style: AppTypography.caption.copyWith(
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.w600,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? color.withValues(alpha: isDark ? 0.25 : 0.14)
+                            : (isDark
+                                  ? const Color(0xFF141418)
+                                  : Colors.grey.shade100),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
                           color: isSelected
                               ? color
-                              : AppColors.textPrimaryOf(context),
+                              : (isDark ? Colors.white12 : Colors.black12),
+                          width: isSelected ? 1.6 : 1.0,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              );
-            }),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PhosphorIcon(
+                            p['icon'] as PhosphorIconData,
+                            size: 15,
+                            color: isSelected
+                                ? color
+                                : AppColors.textSecondaryOf(context),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            p['title'] as String,
+                            style: AppTypography.caption.copyWith(
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
+                              color: isSelected
+                                  ? color
+                                  : AppColors.textPrimaryOf(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
           ),
 
           const SizedBox(height: 20),

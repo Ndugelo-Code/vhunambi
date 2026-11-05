@@ -93,6 +93,8 @@ class SongDnaNode {
   final bool isDetachable;
   final Vector3D localPosition;
   final List<SongDnaSubNode> subNodes;
+  final String? parentId;
+  final bool isTerminalReceptor;
 
   const SongDnaNode({
     required this.id,
@@ -108,6 +110,8 @@ class SongDnaNode {
     this.isDetachable = false,
     required this.localPosition,
     this.subNodes = const [],
+    this.parentId,
+    this.isTerminalReceptor = false,
   });
 
   bool get isFullyUnlocked => branchUnlockProgress >= 0.99;
@@ -121,6 +125,8 @@ class SongDnaNode {
     double? branchUnlockProgress,
     List<SongDnaSubNode>? subNodes,
     Vector3D? localPosition,
+    String? parentId,
+    bool? isTerminalReceptor,
   }) {
     return SongDnaNode(
       id: id,
@@ -136,6 +142,8 @@ class SongDnaNode {
       isDetachable: isDetachable,
       localPosition: localPosition ?? this.localPosition,
       subNodes: subNodes ?? this.subNodes,
+      parentId: parentId ?? this.parentId,
+      isTerminalReceptor: isTerminalReceptor ?? this.isTerminalReceptor,
     );
   }
 }

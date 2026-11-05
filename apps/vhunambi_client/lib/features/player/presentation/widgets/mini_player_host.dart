@@ -72,7 +72,9 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     }
 
     // Scale feedback during hold gesture (1.04x) or hovering over bin (0.85x).
-    final dragScale = controller.isDragging ? (_isOverBin ? 0.85 : kHoldGestureScale) : 1.0;
+    final dragScale = controller.isDragging
+        ? (_isOverBin ? 0.85 : kHoldGestureScale)
+        : 1.0;
 
     // Calculate active target position based on mode, form, and obstacles
     final activePosition = controller.calculateAutoPosition(
@@ -103,21 +105,16 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
                 : null,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onLongPressStart: (details) => _handleLongPressStart(
-                details,
-                activePosition,
-              ),
+              onLongPressStart: (details) =>
+                  _handleLongPressStart(details, activePosition),
               onLongPressMoveUpdate: (details) => _handleDragUpdate(
                 details,
                 screenSize,
                 topSafeArea,
                 bottomSafeArea,
               ),
-              onLongPressEnd: (details) => _handleDragEnd(
-                details,
-                screenSize,
-                bottomSafeArea,
-              ),
+              onLongPressEnd: (details) =>
+                  _handleDragEnd(details, screenSize, bottomSafeArea),
               onLongPressCancel: _handleDragCancel,
               onTap: () {
                 HapticsService().lightImpact();
@@ -125,13 +122,18 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
                 ExpandedCockpitModal.show(context);
               },
               child: AnimatedBuilder(
-                animation: Listenable.merge([_morphController, _dismissController]),
+                animation: Listenable.merge([
+                  _morphController,
+                  _dismissController,
+                ]),
                 builder: (context, child) {
                   final dismissFactor = 1.0 - _dismissController.value;
                   return Transform.scale(
                     scale: dragScale * dismissFactor,
                     child: Opacity(
-                      opacity: (_isOverBin ? 0.7 : 1.0) * dismissFactor.clamp(0.0, 1.0),
+                      opacity:
+                          (_isOverBin ? 0.7 : 1.0) *
+                          dismissFactor.clamp(0.0, 1.0),
                       child: _buildPlayerForm(context, controller, playerState),
                     ),
                   );
@@ -183,7 +185,8 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
       final routeName = route.settings.name;
       if (routeName == '/onboarding' ||
           routeName == '/splash' ||
-          routeName == '/auth') {
+          routeName == '/auth' ||
+          routeName == '/song_dna_universe') {
         return true;
       }
     }
@@ -226,9 +229,7 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     HapticsService().mediumImpact();
     _recordGestureEvent('hold_start');
     _grabOffset = details.globalPosition - currentPosition;
-    ref
-        .read(miniPlayerControllerProvider.notifier)
-        .startDrag(currentPosition);
+    ref.read(miniPlayerControllerProvider.notifier).startDrag(currentPosition);
     _morphController.forward();
   }
 
@@ -252,8 +253,10 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     final bottomDockHeight = 56.0 + bottomSafeArea;
     final clampedY = targetTopLeft.dy.clamp(
       topSafeArea + 8.0,
-      (screenSize.height - formHeight - bottomDockHeight - 12.0)
-          .clamp(topSafeArea + 8.0, double.infinity),
+      (screenSize.height - formHeight - bottomDockHeight - 12.0).clamp(
+        topSafeArea + 8.0,
+        double.infinity,
+      ),
     );
 
     final newPos = Offset(clampedX, clampedY);
@@ -266,8 +269,10 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
         screenSize.height - (56.0 + bottomSafeArea + 16.0 + (binSize / 2));
     final binCenter = Offset(binCenterX, binCenterY);
 
-    final playerCenter =
-        Offset(clampedX + formWidth / 2, clampedY + formHeight / 2);
+    final playerCenter = Offset(
+      clampedX + formWidth / 2,
+      clampedY + formHeight / 2,
+    );
     final dist = (playerCenter - binCenter).distance;
     final isOver = dist <= 64.0;
 
@@ -292,7 +297,9 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
       _recordGestureEvent('drag_bin_dismiss');
       await _dismissController.forward();
       ref.read(playerStateProvider.notifier).dismiss();
-      ref.read(miniPlayerControllerProvider.notifier).endDrag(
+      ref
+          .read(miniPlayerControllerProvider.notifier)
+          .endDrag(
             details.velocity.pixelsPerSecond,
             screenSize,
             dismissedInBin: true,
@@ -335,8 +342,7 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
   ) {
     const binSize = 64.0;
     final binLeft = (screenSize.width - binSize) / 2;
-    final binTop =
-        screenSize.height - (56.0 + bottomSafeArea + 16.0 + binSize);
+    final binTop = screenSize.height - (56.0 + bottomSafeArea + 16.0 + binSize);
 
     return Positioned(
       left: binLeft,
@@ -361,8 +367,9 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
             ),
             boxShadow: [
               BoxShadow(
-                color: (_isOverBin ? AppColors.error : Colors.black)
-                    .withValues(alpha: 0.5),
+                color: (_isOverBin ? AppColors.error : Colors.black).withValues(
+                  alpha: 0.5,
+                ),
                 blurRadius: _isOverBin ? 24 : 12,
                 spreadRadius: _isOverBin ? 2 : 0,
               ),

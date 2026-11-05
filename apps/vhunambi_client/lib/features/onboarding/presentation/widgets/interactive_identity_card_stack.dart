@@ -186,9 +186,21 @@ class _InteractiveIdentityCardStackState
                 },
                 child: Stack(
                   alignment: Alignment.center,
-                  children: List.generate(kIdentityCards.length, (index) {
-                    return _buildTransformCard(context, index, isDark);
-                  }),
+                  children: () {
+                    // Sort indices by relativeDepth descending (furthest background first,
+                    // selected card relativeDepth == 0 LAST) so the active card is always
+                    // painted on the very top of the Z-stack without occlusion (REQ-P51-FIX-01).
+                    final sortedIndices =
+                        List.generate(kIdentityCards.length, (i) => i)
+                          ..sort((a, b) {
+                            final depthA = (a - _activeIndex).abs();
+                            final depthB = (b - _activeIndex).abs();
+                            return depthB.compareTo(depthA);
+                          });
+                    return sortedIndices.map((index) {
+                      return _buildTransformCard(context, index, isDark);
+                    }).toList();
+                  }(),
                 ),
               ),
             ),
@@ -269,13 +281,18 @@ class _InteractiveIdentityCardStackState
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               // 100% OPAQUE base surface: zero bleed-through from background cards (REQ-P49-CARD-01)
-              color: isDark ? const Color(0xFF16161C) : Colors.white,
+              color: isSelected
+                  ? null
+                  : (isDark ? const Color(0xFF16161C) : Colors.white),
               gradient: isSelected
                   ? LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        card.accentColor.withValues(alpha: 0.14),
+                        Color.alphaBlend(
+                          card.accentColor.withValues(alpha: 0.18),
+                          isDark ? const Color(0xFF16161C) : Colors.white,
+                        ),
                         isDark ? const Color(0xFF16161C) : Colors.white,
                       ],
                     )

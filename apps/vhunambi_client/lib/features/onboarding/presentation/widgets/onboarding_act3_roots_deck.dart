@@ -15,10 +15,7 @@ import '../providers/onboarding_providers.dart';
 class OnboardingAct3RootsDeck extends ConsumerWidget {
   final VoidCallback? onInteraction;
 
-  const OnboardingAct3RootsDeck({
-    super.key,
-    this.onInteraction,
-  });
+  const OnboardingAct3RootsDeck({super.key, this.onInteraction});
 
   static const List<String> kAvailableLanguages = [
     'Tshivenḓa',
@@ -59,7 +56,10 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.brandPrimary.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(12),
@@ -129,29 +129,38 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Birth Year & Generation Era',
-                style: AppTypography.titleMedium.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                  color: AppColors.textPrimaryOf(context),
+              Expanded(
+                child: Text(
+                  'Birth Year & Generation Era',
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    color: AppColors.textPrimaryOf(context),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.badgeCyan.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppColors.badgeCyan.withValues(alpha: 0.45),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.badgeCyan.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.badgeCyan.withValues(alpha: 0.45),
+                    ),
                   ),
-                ),
-                child: Text(
-                  era.label,
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.badgeCyan,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 10,
+                  child: Text(
+                    era.label,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.badgeCyan,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 9.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
@@ -177,11 +186,16 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? AppColors.brandPrimary
-                          : (isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+                          : (isDark
+                                ? Colors.white10
+                                : Colors.black.withValues(alpha: 0.05)),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
@@ -195,7 +209,9 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                         '$year',
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                          fontWeight: isSelected
+                              ? FontWeight.w900
+                              : FontWeight.w600,
                           color: isSelected
                               ? Colors.black
                               : AppColors.textPrimaryOf(context),
@@ -231,7 +247,10 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                   notifier.autotuneEraGenres();
                 },
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -317,14 +336,21 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? AppColors.brandPrimary.withValues(alpha: 0.18)
-                          : (isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04)),
+                          : (isDark
+                                ? Colors.white10
+                                : Colors.black.withValues(alpha: 0.04)),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? AppColors.brandPrimary : Colors.transparent,
+                        color: isSelected
+                            ? AppColors.brandPrimary
+                            : Colors.transparent,
                         width: 1.2,
                       ),
                     ),
@@ -345,7 +371,9 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                             color: isSelected
                                 ? AppColors.brandPrimary
                                 : AppColors.textPrimaryOf(context),
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                            fontWeight: isSelected
+                                ? FontWeight.w800
+                                : FontWeight.w500,
                           ),
                         ),
                       ],
@@ -429,18 +457,27 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? genre.accentColor.withValues(alpha: isDark ? 0.22 : 0.14)
-                          : (isDark ? const Color(0xFF1C1C24) : Colors.grey.shade100),
+                          ? genre.accentColor.withValues(
+                              alpha: isDark ? 0.22 : 0.14,
+                            )
+                          : (isDark
+                                ? const Color(0xFF1C1C24)
+                                : Colors.grey.shade100),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
                             ? genre.accentColor
                             : (isEraMatch
-                                ? AppColors.brandPrimary.withValues(alpha: 0.5)
-                                : Colors.transparent),
+                                  ? AppColors.brandPrimary.withValues(
+                                      alpha: 0.5,
+                                    )
+                                  : Colors.transparent),
                         width: isSelected ? 1.6 : 1.0,
                       ),
                     ),
@@ -464,8 +501,9 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                                 genre.name,
                                 style: TextStyle(
                                   fontSize: 11,
-                                  fontWeight:
-                                      isSelected ? FontWeight.bold : FontWeight.w600,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w600,
                                   color: isSelected
                                       ? genre.accentColor
                                       : AppColors.textPrimaryOf(context),

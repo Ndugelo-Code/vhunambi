@@ -1443,3 +1443,34 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
     - Verified 19/19 passing tests across Phase 47, 49, and 50 test suites with 0 regressions.
     - Clean static analysis: `flutter analyze` reports **0 issues found**.
     - Compiled ARM64 release APK and deployed to physical hardware `EPHUT20917014649`.
+
+---
+
+## 27. Phase 51: Bioluminescent Song Organelle 3D Universe & Hardware Forensic Bug Fixes (\docs/phases/phase_51_bioluminescent_song_organelle_3d_universe/\)
+
+- **Location:** [\docs/phases/phase_51_bioluminescent_song_organelle_3d_universe/\](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_51_bioluminescent_song_organelle_3d_universe/blueprint.md)
+- **Status:** Complete (Tracks A–E implemented; 6/6 tests passing in \phase51_bioluminescent_organelle_3d_test.dart\, 25/25 passing tests across Phases 47–51, clean static analysis with 0 issues found, compiled ARM64 release APK and deployed to physical hardware \EPHUT20917014649\).
+- **Scope:**
+  - **Track A: Forensic Hardware Bug Fixes (Device Screen Audit 00:00–03:26):**
+    - \interactive_identity_card_stack.dart\: Fixed ghost-stacking and card bleed-through by sorting \Stack\ children by elativeDepth\ descending so \_activeIndex\ (elativeDepth == 0\) is painted last (on top of the Z-stack). Upgraded front card surface to 100% opaque fill using \Color.alphaBlend(accentColor.withValues(alpha: 0.18), const Color(0xFF16161C))\ and hid body text on background cards (\Opacity(0.0)\).
+    - \onboarding_act1_showcase.dart\: Expanded clearance to 18dp and added \CurvedAnimation(curve: Curves.easeOutCubic)\ on pill slide-in, preventing collision with subtitle text during initial entrance.
+    - \onboarding_act3_roots_deck.dart\: Wrapped generation era badge in \Flexible\ with \maxLines: 1\ and \TextOverflow.ellipsis\, preventing the '2000s Piano & Gqom Wave'\ badge from colliding with or overflowing the right border of the card container.
+    - \mini_player_host.dart\ & \melody_sketchpad_modal.dart\: Wrapped sketchpad modal in 100% opaque \Material(color: const Color(0xFF16161C))\ and added route filter outeName == '/song_dna_universe'\ in \_shouldHide\ so \MiniPlayerHost\ is completely suppressed and cannot float over modal sheets.
+    - \song_dna_node_tree_modal.dart\: Wrapped \⚡ Synthesize Song from 3D DNA\ button in \FittedBox\ to guarantee single-line button rendering across all mobile device widths; wired button directly to \generationProgressProvider.notifier.submitAndStartGeneration(...)\ and \studioFormProvider.notifier.triggerGeneration()\.
+  - **Track B: Abyssal Bio-Space & Bokeh Satellite Organelles:**
+    - Rendered 100% opaque deep bio-space (\#020710\ to \#041424\), completely eradicating background Studio form bleed-through.
+    - Painted 4 blurred depth-of-field bokeh satellite organelles shifting with camera parallax across the 4 corners.
+    - Added subtle holographic bio-telemetry HUD lines and horizontal anamorphic lens flare beam.
+  - **Track C: Central Breathing Organelle (Geodesic Membrane & Amber Core):**
+    - Implemented outer 3D deformable geodesic cyan filamentous membrane mesh (112 vertices) deformed by 3D spherical harmonic wave equation with dynamic Fresnel rim glow.
+    - Implemented inner blazing amber nucleus (\#FF6B00\ to \#FFB703\) with 4 internal vesicles and curved 3D cubic-Bézier neural filaments pulsing at song BPM.
+  - **Track D: Multi-Jointed Molecular Dendrite Chains & Decluttered HUD:**
+    - Modeled 4 multi-jointed arms in 4 cardinal directions (Beat & Rhythm, Vocal & Linguistics, Instruments & Harmony, Spatial Atmosphere & Acoustic Room) with 21–24+ interactive sub-nodes and terminal double-ring receptors (\◎\).
+    - Added molecular bond conduit tubes with traveling photons (0% -> 100%) and spore droplets.
+    - Replaced giant overlapping rectangular text pills with sleek micro-tags on primary/focused nodes; all \Key('song_dna_bubble_')\ hit-testing remains accessible.
+    - Implemented 6-DOF camera controls: 1-finger orbit (yaw/pitch), 2-finger pan/zoom, tap-to-dive, and camera reset.
+  - **Track E: Verification Gates & Release Delivery:**
+    - Authored \	est/features/studio/phase51_bioluminescent_organelle_3d_test.dart\ (6/6 tests passing).
+    - Verified all 25/25 tests passing across Phases 47–51 with zero regressions.
+    - Static analysis: \lutter analyze\ reports **No issues found!** (0 errors, 0 warnings).
+    - Built ARM64 release APK (\pp-release.apk\) and deployed to physical hardware \EPHUT20917014649\.

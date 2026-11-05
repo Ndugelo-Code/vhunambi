@@ -3,38 +3,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/navigation/navigation_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/bantu_voice_profile.dart';
 import '../../domain/models/song_dna_graph_models.dart';
 import '../../domain/models/studio_form_state.dart';
+import '../providers/generation_pipeline_providers.dart';
 import '../providers/song_dna_graph_provider.dart';
 import '../providers/studio_form_provider.dart';
 import 'melody_sketchpad_modal.dart';
 
-/// Full-Screen 3D Navigable Song DNA Node Tree Modal (REQ-P50-TREE-01..06, REQ-P50-CARD-01..07).
-/// Allows 3D pitch/yaw navigation, pinch zoom, depth-sorted energy conduits,
-/// billboarded cue bubbles, and real-time quantum entanglement with Studio state.
+/// Full-Screen Sovereign 3D Bioluminescent Song Organelle Universe (REQ-P51-WORLD-01..02,
+/// REQ-P51-MEMB-01, REQ-P51-CORE-01, REQ-P51-DENDR-01..04).
+/// Features deep abyssal bio-fluid space, 4 depth-of-field bokeh satellite organelles,
+/// 3D geodesic cyan filamentous membrane, inner blazing amber nucleus, 4 multi-jointed
+/// molecular dendrite chains (24+ interactive sub-nodes), and decluttered holographic HUD.
 class SongDnaNodeTreeModal extends ConsumerStatefulWidget {
   final VoidCallback? onSynthesizeRequested;
 
-  const SongDnaNodeTreeModal({
-    super.key,
-    this.onSynthesizeRequested,
-  });
+  const SongDnaNodeTreeModal({super.key, this.onSynthesizeRequested});
 
-  /// Presents the 3D Song DNA tree as a full-screen transparent modal.
+  /// Presents the 3D Song DNA tree as a 100% opaque sovereign full-screen route (REQ-P51-FIX-03).
   static Future<void> show(
     BuildContext context, {
     VoidCallback? onSynthesizeRequested,
   }) {
     return Navigator.of(context).push(
       PageRouteBuilder(
-        opaque: false,
-        barrierDismissible: true,
-        pageBuilder: (ctx, anim1, anim2) => SongDnaNodeTreeModal(
-          onSynthesizeRequested: onSynthesizeRequested,
-        ),
+        opaque: true, // 100% Opaque route: zero Studio form bleed-through
+        settings: const RouteSettings(name: '/song_dna_universe'),
+        pageBuilder: (ctx, anim1, anim2) =>
+            SongDnaNodeTreeModal(onSynthesizeRequested: onSynthesizeRequested),
         transitionsBuilder: (ctx, anim1, anim2, child) {
           return FadeTransition(opacity: anim1, child: child);
         },
@@ -51,32 +51,55 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
     with TickerProviderStateMixin {
   late final AnimationController _pulseController;
   late final AnimationController _conduitFlowController;
+  late final AnimationController _membraneWaveController;
 
-  // 3D Camera Spherical Coordinates
+  // 6-DOF Camera Spherical Coordinates
   double _yaw = 0.0; // Azimuth
   double _pitch = 0.0; // Polar elevation
   double _cameraDistance = 420.0; // Zoom distance
+  Offset _panOffset = Offset.zero;
 
   final Map<String, Offset> _projectedScreenCoordinates = {};
 
   @override
   void initState() {
     super.initState();
+    // Suppress MiniPlayerHost while 3D Organelle Universe is active (REQ-P51-FIX-03)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(modalSheetOpenCountProvider.notifier).state++;
+      }
+    });
+
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
+      duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
 
     _conduitFlowController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4),
+      duration: const Duration(seconds: 3),
+    )..repeat();
+
+    _membraneWaveController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
     )..repeat();
   }
 
   @override
   void dispose() {
+    // Release MiniPlayerHost suppression
+    try {
+      final current = ref.read(modalSheetOpenCountProvider);
+      if (current > 0) {
+        ref.read(modalSheetOpenCountProvider.notifier).state = current - 1;
+      }
+    } catch (_) {}
+
     _pulseController.dispose();
     _conduitFlowController.dispose();
+    _membraneWaveController.dispose();
     super.dispose();
   }
 
@@ -100,30 +123,77 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
       _yaw = 0.0;
       _pitch = 0.0;
       _cameraDistance = 420.0;
+      _panOffset = Offset.zero;
     });
   }
 
   void _selectNode(String nodeId) {
     HapticFeedback.selectionClick();
     ref.read(songDnaGraphProvider.notifier).selectNode(nodeId);
-    setState(() {});
+
+    // Smooth camera dive towards selected node's 3D angle (REQ-P51-CAM-01)
+    final nodes = ref.read(songDnaGraphProvider).nodes;
+    final target = nodes.cast<SongDnaNode?>().firstWhere(
+      (n) => n?.id == nodeId,
+      orElse: () => null,
+    );
+
+    if (target != null && target.id != 'node_core') {
+      final pos = target.localPosition;
+      final targetYaw = math.atan2(pos.x, pos.z + 0.001);
+      final targetPitch = (-pos.y / (pos.length + 0.001)).clamp(-0.55, 0.55);
+      setState(() {
+        _yaw = targetYaw * 0.5;
+        _pitch = targetPitch * 0.5;
+        _cameraDistance = 380.0;
+      });
+    } else {
+      setState(() {});
+    }
   }
 
+  /// Triggers live synthesis pipeline and closes modal (REQ-P51-FIX-04).
   void _synthesizeFromDna() {
     HapticFeedback.heavyImpact();
+    final formState = ref.read(studioFormProvider);
+
     Navigator.of(context).pop();
+
     if (widget.onSynthesizeRequested != null) {
       widget.onSynthesizeRequested!();
-    } else {
-      ref.read(studioFormProvider.notifier).triggerGeneration();
+      return;
     }
+
+    // 1. Advance studio form state to queued
+    ref.read(studioFormProvider.notifier).triggerGeneration();
+
+    // 2. Start live generation progress FSM in GenerationPipelineNotifier
+    final trackTitle = formState.prompt.isNotEmpty
+        ? formState.prompt
+        : (formState.genre.isNotEmpty
+              ? '${formState.genre} Synthesis'
+              : 'African AI Genesis');
+    final genre = formState.genre.isNotEmpty ? formState.genre : 'Amapiano';
+    final language = formState.language.isNotEmpty
+        ? formState.language
+        : 'isiZulu';
+
+    ref
+        .read(generationProgressProvider.notifier)
+        .submitAndStartGeneration(
+          trackTitle: trackTitle,
+          genre: genre,
+          language: language,
+          lyrics: formState.customLyrics,
+          isInstrumental: formState.isInstrumental,
+        );
   }
 
   Map<String, Offset> _projectAllNodes(Size size, List<SongDnaNode> nodes) {
     if (size.width <= 0 || size.height <= 0 || nodes.isEmpty) return {};
 
-    final cx = size.width * 0.5;
-    final cy = size.height * 0.44;
+    final cx = size.width * 0.5 + _panOffset.dx;
+    final cy = size.height * 0.44 + _panOffset.dy;
     const focalLength = 380.0;
 
     final cosY = math.cos(_yaw);
@@ -156,7 +226,8 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
 
     return Scaffold(
       key: const Key('song_dna_3d_tree_modal'),
-      backgroundColor: Colors.black.withValues(alpha: 0.94),
+      // 100% OPAQUE Abyssal Void Background — zero Studio form bleed-through (REQ-P51-FIX-03)
+      backgroundColor: const Color(0xFF020710),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -164,43 +235,51 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
             // Top Bar
             _buildTopBar(context, graph),
 
-            // 3D Spatial Canvas with Billboarded Cue Bubbles
+            // 3D Spatial Canvas with Bioluminescent Organelle Universe
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final size = Size(constraints.maxWidth, constraints.maxHeight);
+                  final size = Size(
+                    constraints.maxWidth,
+                    constraints.maxHeight,
+                  );
                   final projectedMap = _projectAllNodes(size, graph.nodes);
 
                   return GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onPanUpdate: (details) {
                       setState(() {
-                        _yaw += details.delta.dx * 0.008;
-                        _pitch = (_pitch + details.delta.dy * 0.008)
-                            .clamp(-0.75, 0.75);
+                        _yaw += details.delta.dx * 0.007;
+                        _pitch = (_pitch + details.delta.dy * 0.007).clamp(
+                          -0.75,
+                          0.75,
+                        );
                       });
                     },
                     child: SizedBox.expand(
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          // 3D CustomPainter
+                          // 3D Organelle CustomPainter (Membrane, Nucleus, Filaments, Dendrites)
                           AnimatedBuilder(
                             animation: Listenable.merge([
                               _pulseController,
                               _conduitFlowController,
+                              _membraneWaveController,
                             ]),
                             builder: (context, _) {
                               return CustomPaint(
                                 size: Size.infinite,
-                                painter: _SongDna3DPainter(
+                                painter: _BioluminescentOrganelle3DPainter(
                                   yaw: _yaw,
                                   pitch: _pitch,
                                   cameraDistance: _cameraDistance,
+                                  panOffset: _panOffset,
                                   nodes: graph.nodes,
                                   selectedNodeId: graph.selectedNodeId,
                                   pulseValue: _pulseController.value,
                                   flowProgress: _conduitFlowController.value,
+                                  waveProgress: _membraneWaveController.value,
                                   onScreenProjected: (id, offset) {
                                     _projectedScreenCoordinates[id] = offset;
                                   },
@@ -209,10 +288,14 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
                             },
                           ),
 
-                          // Billboarded Floating Cue Bubbles (REQ-P50-TREE-05)
+                          // Decluttered Billboard Cues & Receptor Hit Targets (REQ-P51-HUD-01)
                           for (final node in graph.nodes) ...[
                             if (node.id != 'node_core')
-                              _buildBillboardCueBubble(node, projectedMap[node.id]),
+                              _buildDeclutteredReceptorTarget(
+                                node,
+                                projectedMap[node.id],
+                                graph.selectedNodeId,
+                              ),
                           ],
 
                           // Camera HUD Controls (REQ-P50-TREE-03)
@@ -299,14 +382,9 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
       decoration: BoxDecoration(
         color: const Color(0xFF14141E).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.12),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 8,
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 8),
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -323,11 +401,7 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
             visualDensity: VisualDensity.compact,
             onPressed: _zoomIn,
           ),
-          Container(
-            width: 1,
-            height: 14,
-            color: Colors.white12,
-          ),
+          Container(width: 1, height: 14, color: Colors.white12),
           IconButton(
             key: const Key('song_dna_zoom_out_btn'),
             icon: const PhosphorIcon(
@@ -338,11 +412,7 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
             visualDensity: VisualDensity.compact,
             onPressed: _zoomOut,
           ),
-          Container(
-            width: 1,
-            height: 14,
-            color: Colors.white12,
-          ),
+          Container(width: 1, height: 14, color: Colors.white12),
           IconButton(
             key: const Key('song_dna_reset_camera_btn'),
             icon: const PhosphorIcon(
@@ -358,63 +428,83 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
     );
   }
 
-  Widget _buildBillboardCueBubble(SongDnaNode node, Offset? offset) {
+  /// Decluttered Billboard Cue & Receptor Touch Target (REQ-P51-HUD-01).
+  /// Replaces giant rectangular card pile-up with sleek holographic micro-callouts
+  /// while keeping all Key('song_dna_bubble_${node.id}') hit-targets accessible!
+  Widget _buildDeclutteredReceptorTarget(
+    SongDnaNode node,
+    Offset? offset,
+    String? selectedNodeId,
+  ) {
     if (offset == null) return const SizedBox.shrink();
 
-    final isSelected = node.id == ref.read(songDnaGraphProvider).selectedNodeId;
+    final isSelected = node.id == selectedNodeId;
+    final isPrimaryOrFocused =
+        isSelected ||
+        node.parentId == 'node_core' ||
+        node.id == 'node_beat_tempo' ||
+        node.id == 'node_vocal_persona' ||
+        node.id == 'node_sketchpad_groove';
 
-    // Anchor bubble ~36dp above node center
     return Positioned(
-      left: offset.dx - 65.0,
-      top: offset.dy - 36.0,
-      width: 130.0,
-      height: 32.0,
+      left: offset.dx - (isPrimaryOrFocused ? 64.0 : 22.0),
+      top: offset.dy - (isPrimaryOrFocused ? 28.0 : 22.0),
+      width: isPrimaryOrFocused ? 128.0 : 44.0,
+      height: isPrimaryOrFocused ? 30.0 : 44.0,
       child: GestureDetector(
         key: Key('song_dna_bubble_${node.id}'),
         behavior: HitTestBehavior.opaque,
         onTap: () => _selectNode(node.id),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? node.accentColor.withValues(alpha: 0.28)
-                : const Color(0xFF151520).withValues(alpha: 0.88),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isSelected
-                  ? node.accentColor
-                  : node.accentColor.withValues(alpha: 0.45),
-              width: isSelected ? 1.6 : 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: node.accentColor.withValues(alpha: 0.18),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PhosphorIcon(node.icon, size: 12, color: node.accentColor),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  node.cueLabel,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-                    color: isSelected ? Colors.white : Colors.white70,
+        child: isPrimaryOrFocused
+            ? AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? node.accentColor.withValues(alpha: 0.35)
+                      : const Color(0xFF071220).withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? node.accentColor
+                        : node.accentColor.withValues(alpha: 0.45),
+                    width: isSelected ? 1.6 : 0.8,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  boxShadow: [
+                    BoxShadow(
+                      color: node.accentColor.withValues(alpha: 0.18),
+                      blurRadius: 6,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PhosphorIcon(node.icon, size: 11, color: node.accentColor),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        node.cueLabel,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: isSelected
+                              ? FontWeight.w900
+                              : FontWeight.w600,
+                          color: isSelected ? Colors.white : Colors.white70,
+                          letterSpacing: 0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : Container(
+                // Invisible padded hit target for secondary receptor nodes
+                color: Colors.transparent,
               ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -422,27 +512,25 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
   Widget _buildQuickActionCard(
     BuildContext context,
     SongDnaNode node,
-    StudioFormState form,
+    StudioFormState formState,
     bool isDark,
   ) {
-    final notifier = ref.read(songDnaGraphProvider.notifier);
-
     return Container(
       key: const Key('song_dna_quick_action_card'),
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF12121A).withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(22),
+        color: const Color(0xFF081422).withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: node.accentColor.withValues(alpha: 0.5),
-          width: 1.4,
+          color: node.accentColor.withValues(alpha: 0.45),
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
             color: node.accentColor.withValues(alpha: 0.2),
-            blurRadius: 18,
+            blurRadius: 16,
+            spreadRadius: 1,
             offset: const Offset(0, 4),
           ),
         ],
@@ -451,18 +539,18 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Category & Node Title + Detach Action
+          // Header with icon, category badge, and close/detach
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: node.accentColor.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+                  color: node.accentColor.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: PhosphorIcon(
                   node.icon,
-                  size: 14,
+                  size: 16,
                   color: node.accentColor,
                 ),
               ),
@@ -472,246 +560,114 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      node.category.displayName.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                        color: node.accentColor,
-                      ),
-                    ),
-                    Text(
                       node.title,
-                      style: AppTypography.titleSmall.copyWith(
+                      style: const TextStyle(
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    Text(
+                      node.category.displayName,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: node.accentColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              if (node.isDetachable) ...[
+              if (node.isDetachable)
                 TextButton.icon(
                   key: const Key('song_dna_detach_node_btn'),
-                  onPressed: () => notifier.detachInvasiveNode(node.id),
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    ref
+                        .read(songDnaGraphProvider.notifier)
+                        .detachInvasiveNode(node.id);
+                  },
                   icon: const PhosphorIcon(
                     PhosphorIconsBold.trash,
                     size: 13,
-                    color: Color(0xFFEF4444),
+                    color: AppColors.error,
                   ),
                   label: const Text(
                     'Detach from Graph',
                     style: TextStyle(
                       fontSize: 11,
+                      color: AppColors.error,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFFEF4444),
                     ),
                   ),
                   style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.12),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
                 ),
-              ],
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const PhosphorIcon(
+                  PhosphorIconsBold.x,
+                  size: 14,
+                  color: Colors.white54,
+                ),
+                onPressed: () {
+                  ref.read(songDnaGraphProvider.notifier).selectNode(null);
+                },
+              ),
             ],
           ),
           const SizedBox(height: 10),
 
-          // Contextual Node Mutators (Quantum Entanglement Writes)
-          _buildNodeMutators(context, node, form, notifier),
+          // Contextual tactile mutator controls
+          _buildContextualMutator(context, node, formState),
         ],
       ),
     );
   }
 
-  Widget _buildNodeMutators(
+  Widget _buildContextualMutator(
     BuildContext context,
     SongDnaNode node,
-    StudioFormState form,
-    SongDnaGraphNotifier notifier,
+    StudioFormState formState,
   ) {
-    if (node.id == 'node_beat_tempo') {
+    final notifier = ref.read(songDnaGraphProvider.notifier);
+
+    // 1. Beat & Tempo mutators
+    if (node.id == 'node_beat_tempo' ||
+        node.id == 'node_beat_tempo_feel' ||
+        node.id == 'node_beat_rhythm_pocket') {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Tempo (BPM)',
-            style: AppTypography.caption.copyWith(color: Colors.white70, fontSize: 10),
-          ),
-          const SizedBox(height: 4),
-          // Tempo Row
-          SizedBox(
-            height: 28,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final bpm in [95, 112, 115, 118, 124, 128]) ...[
-                  _buildMutatorPill(
-                    label: '$bpm',
-                    isSelected: (bpm == 118 && form.tempo == TempoBracket.fast) ||
-                        (bpm == 112 && form.tempo == TempoBracket.medium) ||
-                        (bpm == 95 && form.tempo == TempoBracket.slow) ||
-                        (bpm == 128 && form.tempo == TempoBracket.veryFast),
-                    onTap: () => notifier.updateTempo(bpm),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                for (final t in TempoBracket.values) ...[
-                  _buildMutatorPill(
-                    label: t.label,
-                    isSelected: form.tempo == t,
-                    onTap: () => notifier.updateTempo(t),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-              ],
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.white70,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Genre & Culture',
-            style: AppTypography.caption.copyWith(color: Colors.white70, fontSize: 10),
-          ),
-          const SizedBox(height: 4),
-          // Genre Row
-          SizedBox(
-            height: 28,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final g in [
-                  'Amapiano',
-                  'Gqom',
-                  'Maskandi',
-                  'Afro House',
-                  'Kwaito',
-                  'Afrobeats',
-                ]) ...[
-                  _buildMutatorPill(
-                    label: g,
-                    isSelected: form.genre.toLowerCase() == g.toLowerCase(),
-                    onTap: () => notifier.updateGenre(g),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (node.id == 'node_vocal_persona') {
-      return SizedBox(
-        height: 32,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: [
-            for (final v in kBantuVoiceProfiles) ...[
-              _buildMutatorPill(
-                label: '${v.name} (${v.language})',
-                isSelected: form.selectedVoiceProfile.id == v.id,
-                onTap: () => notifier.updateVocalPersona(v),
-              ),
-              const SizedBox(width: 6),
-            ],
-          ],
-        ),
-      );
-    }
-
-    if (node.id == 'node_language_lyrics') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Indigenous Language Selection
-          SizedBox(
-            height: 28,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final lang in [
-                  'isiZulu',
-                  'isiXhosa',
-                  'Sesotho',
-                  'Sepedi',
-                  'Setswana',
-                  'English',
-                ]) ...[
-                  _buildMutatorPill(
-                    label: lang,
-                    isSelected: form.language == lang,
-                    onTap: () => notifier.updateLanguage(lang),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Lyrics Mode Toggle
+          const SizedBox(height: 6),
           Row(
             children: [
-              _buildMutatorPill(
-                label: 'AI Writes Lyrics',
-                isSelected: form.lyricsMode == LyricsMode.aiWrite,
-                onTap: () => notifier.updateLyricsMode(LyricsMode.aiWrite),
-              ),
-              const SizedBox(width: 6),
-              _buildMutatorPill(
-                label: 'My Custom Lyrics',
-                isSelected: form.lyricsMode == LyricsMode.myOwn,
-                onTap: () => notifier.updateLyricsMode(LyricsMode.myOwn),
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-
-    if (node.id == 'node_mood_energy') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Mood Row
-          SizedBox(
-            height: 28,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final m in [
-                  'Euphoric & Uplifting',
-                  'Soulful & Deep',
-                  'Dark & Intense',
-                  'Groovy & Bouncy',
-                ]) ...[
-                  _buildMutatorPill(
-                    label: m,
-                    isSelected: form.mood == m,
-                    onTap: () => notifier.updateMood(m),
+              for (final bpm in [112, 115, 118, 122, 128]) ...[
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: _buildMutatorPill(
+                      label: '$bpm',
+                      isSelected:
+                          formState.tempo.label.contains('$bpm') ||
+                          (bpm == 118 &&
+                              formState.tempo == TempoBracket.medium),
+                      onTap: () => notifier.updateTempo(bpm),
+                    ),
                   ),
-                  const SizedBox(width: 6),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Vocal Energy Row
-          Row(
-            children: [
-              for (final e in VocalEnergy.values) ...[
-                _buildMutatorPill(
-                  label: e.name.toUpperCase(),
-                  isSelected: form.vocalEnergy == e,
-                  onTap: () => notifier.updateVocalEnergy(e),
                 ),
-                const SizedBox(width: 6),
               ],
             ],
           ),
@@ -719,41 +675,76 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
       );
     }
 
-    if (node.id == 'node_sketchpad_groove') {
+    // 2. Vocal Persona & Bantu Language
+    if (node.id == 'node_vocal_persona' ||
+        node.id == 'node_language_lyrics' ||
+        node.id == 'node_vocal_lora' ||
+        node.id == 'node_vocal_dialects') {
+      final bantuLangs = ['isiZulu', 'Xitsonga', 'Tshivenda', 'Sesotho'];
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Linguistic Attunement:',
+            style: TextStyle(fontSize: 11, color: Colors.white70),
+          ),
+          const SizedBox(height: 6),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final lang in bantuLangs) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: _buildMutatorPill(
+                      label: lang,
+                      isSelected: formState.language == lang,
+                      onTap: () => notifier.updateLanguage(lang),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // 3. Instrument & 5-Channel Groove Matrix
+    if (node.id == 'node_sketchpad_groove' ||
+        node.id.startsWith('node_inst_') ||
+        node.id == 'node_heritage_mpc') {
       return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              icon: const PhosphorIcon(
-                PhosphorIconsBold.waveform,
-                size: 14,
-                color: Colors.black,
-              ),
-              label: const Text(
-                'Open 5-Ch Multitrack Sketchpad',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-                showModalBottomSheet<void>(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (ctx) => const MelodySketchpadModal(),
-                );
-              },
+          const Expanded(
+            child: Text(
+              '5-Channel Groove Sequencer Attached',
+              style: TextStyle(fontSize: 11, color: Colors.white70),
             ),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.black,
+              visualDensity: VisualDensity.compact,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            icon: const PhosphorIcon(PhosphorIconsBold.faders, size: 14),
+            label: const Text(
+              'Open Sketchpad',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+            ),
+            onPressed: () {
+              showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (ctx) => const MelodySketchpadModal(),
+              );
+            },
           ),
         ],
       );
@@ -802,28 +793,17 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
     );
   }
 
+  /// Bottom CTA: Synthesize Song from 3D DNA (REQ-P50-CARD-07, REQ-P51-FIX-04).
+  /// Uses FittedBox to guarantee single-line button rendering across all mobile screen widths.
   Widget _buildBottomCtaDock() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
       child: SizedBox(
         width: double.infinity,
         height: 50,
-        child: ElevatedButton.icon(
+        child: ElevatedButton(
           key: const Key('song_dna_synthesize_btn'),
           onPressed: _synthesizeFromDna,
-          icon: const PhosphorIcon(
-            PhosphorIconsBold.sparkle,
-            size: 20,
-            color: Colors.black,
-          ),
-          label: Text(
-            '⚡ Synthesize Song from 3D DNA',
-            style: AppTypography.titleMedium.copyWith(
-              fontWeight: FontWeight.w900,
-              color: Colors.black,
-              letterSpacing: 0.6,
-            ),
-          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.brandPrimary,
             shape: RoundedRectangleBorder(
@@ -831,6 +811,29 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
             ),
             elevation: 8,
             shadowColor: AppColors.brandPrimary.withValues(alpha: 0.5),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const PhosphorIcon(
+                  PhosphorIconsBold.sparkle,
+                  size: 20,
+                  color: Colors.black,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '⚡ Synthesize Song from 3D DNA',
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -838,35 +841,32 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
   }
 }
 
-/// 3D CustomPainter projecting Song DNA topology into 2D screen space (REQ-P50-TREE-01..04).
-class _SongDna3DPainter extends CustomPainter {
+/// 3D Bioluminescent Organelle CustomPainter (REQ-P51-WORLD-01..02, REQ-P51-MEMB-01, REQ-P51-CORE-01, REQ-P51-DENDR-01..04).
+/// Paints the 100% opaque deep bio-space, depth-of-field bokeh satellite organelles,
+/// 3D harmonic deformed geodesic cyan membrane, inner blazing amber nucleus with curved neural filaments,
+/// and articulated multi-jointed molecular dendrite chains.
+class _BioluminescentOrganelle3DPainter extends CustomPainter {
   final double yaw;
   final double pitch;
   final double cameraDistance;
+  final Offset panOffset;
   final List<SongDnaNode> nodes;
   final String? selectedNodeId;
   final double pulseValue;
   final double flowProgress;
+  final double waveProgress;
   final void Function(String id, Offset screenOffset) onScreenProjected;
 
-  final Paint _conduitPaint = Paint()
-    ..style = PaintingStyle.stroke
-    ..strokeCap = StrokeCap.round;
-
-  final Paint _nodePaint = Paint()..style = PaintingStyle.fill;
-  final Paint _glowPaint = Paint()
-    ..style = PaintingStyle.fill
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-  final Paint _particlePaint = Paint()..style = PaintingStyle.fill;
-
-  _SongDna3DPainter({
+  _BioluminescentOrganelle3DPainter({
     required this.yaw,
     required this.pitch,
     required this.cameraDistance,
+    required this.panOffset,
     required this.nodes,
     this.selectedNodeId,
     required this.pulseValue,
     required this.flowProgress,
+    required this.waveProgress,
     required this.onScreenProjected,
   });
 
@@ -874,136 +874,477 @@ class _SongDna3DPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0 || nodes.isEmpty) return;
 
-    final cx = size.width * 0.5;
-    final cy = size.height * 0.44;
+    final cx = size.width * 0.5 + panOffset.dx;
+    final cy = size.height * 0.44 + panOffset.dy;
     const focalLength = 380.0;
 
-    // Draw ambient cosmic grid lines
-    final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.04)
-      ..strokeWidth = 1.0;
-    for (double x = 0; x < size.width; x += 40) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
+    // =========================================================================
+    // LAYER 1: ABYSSAL MICROSCOPIC VOID & BOKEH SATELLITE ORGANELLES
+    // =========================================================================
+    // Deep radial bio-fluid gradient
+    final bgPaint = Paint()
+      ..shader = RadialGradient(
+        center: Alignment(
+          ((cx / size.width) - 0.5) * 1.2,
+          ((cy / size.height) - 0.5) * 1.2,
+        ),
+        radius: 1.1,
+        colors: const [Color(0xFF04162B), Color(0xFF020914), Color(0xFF01040A)],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
-    // 3D Rotation transform matrix
+    // Subtle horizontal anamorphic cyan lens flare beam
+    final flarePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          Colors.transparent,
+          const Color(0xFF00F5D4).withValues(alpha: 0.08),
+          const Color(0xFF00F5D4).withValues(alpha: 0.18),
+          const Color(0xFF00F5D4).withValues(alpha: 0.08),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.35, 0.5, 0.65, 1.0],
+      ).createShader(Rect.fromLTWH(0, cy - 2, size.width, 4));
+    canvas.drawRect(Rect.fromLTWH(0, cy - 1.5, size.width, 3), flarePaint);
+
+    // 4 Blurred Depth-of-Field Satellite Bokeh Organelles (REQ-P51-WORLD-02)
+    final parallaxX = math.sin(yaw) * 22.0;
+    final parallaxY = math.sin(pitch) * 22.0;
+    _drawBokehSatellite(
+      canvas,
+      Offset(size.width * 0.14 + parallaxX, size.height * 0.16 + parallaxY),
+      radius: 42.0,
+      color: const Color(0xFF00F5D4),
+      subCount: 3,
+    );
+    _drawBokehSatellite(
+      canvas,
+      Offset(size.width * 0.86 - parallaxX, size.height * 0.14 - parallaxY),
+      radius: 48.0,
+      color: const Color(0xFF06B6D4),
+      subCount: 4,
+    );
+    _drawBokehSatellite(
+      canvas,
+      Offset(size.width * 0.84 - parallaxX, size.height * 0.82 - parallaxY),
+      radius: 52.0,
+      color: const Color(0xFFFF6B00),
+      subCount: 4,
+    );
+    _drawBokehSatellite(
+      canvas,
+      Offset(size.width * 0.16 + parallaxX, size.height * 0.80 + parallaxY),
+      radius: 38.0,
+      color: const Color(0xFF10B981),
+      subCount: 3,
+    );
+
+    // Subtle holographic bio-telemetry HUD lines on far left and right horizons
+    _drawBioTelemetryHud(canvas, size, cx, cy);
+
+    // =========================================================================
+    // LAYER 2: 3D PROJECTION & TRANSFORMATION MATRICES
+    // =========================================================================
     final cosY = math.cos(yaw);
     final sinY = math.sin(yaw);
     final cosP = math.cos(pitch);
     final sinP = math.sin(pitch);
 
-    // Project Core (0, 0, 0)
-    final coreScreen = Offset(cx, cy);
-
-    // Project each node into 3D view space
-    final projectedItems = <_Projected3DItem>[];
-
-    for (final node in nodes) {
-      final pos = node.localPosition;
-
-      // Rotate around Y (yaw)
+    Offset project(Vector3D pos) {
       final x1 = pos.x * cosY - pos.z * sinY;
       final z1 = pos.x * sinY + pos.z * cosY;
-
-      // Rotate around X (pitch)
       final y2 = pos.y * cosP - z1 * sinP;
       final z2 = pos.y * sinP + z1 * cosP;
-
-      // Perspective projection
       final depth = focalLength + cameraDistance + z2;
       final scale = depth > 10.0 ? (focalLength / depth) : 0.1;
-      final screenOffset = Offset(cx + x1 * scale, cy + y2 * scale);
+      return Offset(cx + x1 * scale, cy + y2 * scale);
+    }
 
-      onScreenProjected(node.id, screenOffset);
-
-      projectedItems.add(
-        _Projected3DItem(
-          node: node,
-          screenOffset: screenOffset,
-          depth: z2,
-          scale: scale,
-        ),
+    _Projected3DItem projectItem(SongDnaNode node) {
+      final pos = node.localPosition;
+      final x1 = pos.x * cosY - pos.z * sinY;
+      final z1 = pos.x * sinY + pos.z * cosY;
+      final y2 = pos.y * cosP - z1 * sinP;
+      final z2 = pos.y * sinP + z1 * cosP;
+      final depth = focalLength + cameraDistance + z2;
+      final scale = depth > 10.0 ? (focalLength / depth) : 0.1;
+      final offset = Offset(cx + x1 * scale, cy + y2 * scale);
+      onScreenProjected(node.id, offset);
+      return _Projected3DItem(
+        node: node,
+        screenOffset: offset,
+        depth: z2,
+        scale: scale,
       );
     }
 
-    // Painter's algorithm: sort farthest to nearest
-    projectedItems.sort((a, b) => a.depth.compareTo(b.depth));
+    final projectedNodes = nodes.map(projectItem).toList();
+    final nodeMap = {for (final item in projectedNodes) item.node.id: item};
+    final coreScreen = Offset(cx, cy);
 
-    // 1. Draw Energy Conduits from Core to Nodes
-    for (final item in projectedItems) {
+    // Sort items for painter's algorithm (deepest first)
+    projectedNodes.sort((a, b) => a.depth.compareTo(b.depth));
+
+    // =========================================================================
+    // LAYER 3: MOLECULAR BOND DENDRITE CONDUITS & PHOTON PACKETS
+    // =========================================================================
+    for (final item in projectedNodes) {
       if (item.node.id == 'node_core') continue;
 
-      final progress = item.node.branchUnlockProgress;
-      final color = item.node.accentColor;
-
-      // Conduit line
-      _conduitPaint
-        ..color = color.withValues(
-          alpha: item.node.isInvasive ? 0.65 : 0.35,
-        )
-        ..strokeWidth = (item.scale * (item.node.isInvasive ? 2.8 : 2.0)).clamp(1.0, 4.0);
-
-      canvas.drawLine(coreScreen, item.screenOffset, _conduitPaint);
-
-      // Streaming Energy Particle (0% -> 100% flow along conduit)
-      if (progress > 0.05) {
-        final particleT = (flowProgress + (item.node.id.hashCode % 100) / 100.0) % 1.0;
-        final particlePos = Offset.lerp(coreScreen, item.screenOffset, particleT)!;
-
-        _particlePaint.color = color.withValues(alpha: 0.9);
-        canvas.drawCircle(particlePos, 2.8 * item.scale, _particlePaint);
+      // Determine parent screen coordinate
+      Offset parentScreen = coreScreen;
+      if (item.node.parentId != null &&
+          nodeMap.containsKey(item.node.parentId)) {
+        parentScreen = nodeMap[item.node.parentId!]!.screenOffset;
       }
+
+      final color = item.node.accentColor;
+      final isSelected = item.node.id == selectedNodeId;
+      final lineWidth = (item.scale * (isSelected ? 2.6 : 1.4)).clamp(0.8, 3.5);
+
+      // Outer glowing aura of bond tube
+      final auraPaint = Paint()
+        ..color = color.withValues(alpha: isSelected ? 0.45 : 0.20)
+        ..strokeWidth = lineWidth * 2.2
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(parentScreen, item.screenOffset, auraPaint);
+
+      // Core molecular bond line
+      final bondPaint = Paint()
+        ..color = color.withValues(alpha: isSelected ? 0.95 : 0.70)
+        ..strokeWidth = lineWidth
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(parentScreen, item.screenOffset, bondPaint);
+
+      // Traveling bioluminescent photon packet with light trail
+      final packetT =
+          (flowProgress * 1.4 + (item.node.id.hashCode.abs() % 100) / 100.0) %
+          1.0;
+      final packetPos = Offset.lerp(parentScreen, item.screenOffset, packetT)!;
+      final packetPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.95)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(packetPos, 2.2 * item.scale, packetPaint);
+
+      final packetGlow = Paint()
+        ..color = color.withValues(alpha: 0.75)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(packetPos, 4.5 * item.scale, packetGlow);
     }
 
-    // 2. Draw 3D Spherical Nodes & Halos
-    for (final item in projectedItems) {
+    // =========================================================================
+    // LAYER 4: THE CENTRAL BREATHING 3D CELLULAR ORGANELLE (REQ-P51-MEMB-01)
+    // =========================================================================
+    _drawCentralBreathingOrganelle(
+      canvas: canvas,
+      center: coreScreen,
+      scale: focalLength / (focalLength + cameraDistance),
+      cosY: cosY,
+      sinY: sinY,
+      cosP: cosP,
+      sinP: sinP,
+      focalLength: focalLength,
+      cameraDistance: cameraDistance,
+      cx: cx,
+      cy: cy,
+    );
+
+    // =========================================================================
+    // LAYER 5: STIPPLED 3D SPHERES & DOUBLE-RING RECEPTORS (◎) (REQ-P51-NODE-01)
+    // =========================================================================
+    for (final item in projectedNodes) {
+      if (item.node.id == 'node_core') continue; // Handled by Central Organelle
+
       final node = item.node;
       final isSelected = node.id == selectedNodeId;
-      final baseRadius = (node.id == 'node_core' ? 24.0 : 16.0) * item.scale;
-      final currentRadius = baseRadius * (isSelected ? (1.0 + pulseValue * 0.16) : 1.0);
+      final isTerminal = node.isTerminalReceptor;
+      final baseRadius = (isTerminal ? 8.0 : 13.0) * item.scale;
+      final currentRadius =
+          baseRadius * (isSelected ? (1.0 + pulseValue * 0.15) : 1.0);
 
-      // Outer Glow Halo
-      _glowPaint.color = node.accentColor.withValues(
-        alpha: isSelected ? 0.65 : (node.isInvasive ? 0.45 : 0.25),
-      );
-      canvas.drawCircle(item.screenOffset, currentRadius * 1.6, _glowPaint);
+      // 1. Soft corona glow
+      final glowPaint = Paint()
+        ..color = node.accentColor.withValues(alpha: isSelected ? 0.75 : 0.35)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, isSelected ? 12 : 6)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(item.screenOffset, currentRadius * 1.8, glowPaint);
 
-      // Solid Node Body
-      _nodePaint.color = isSelected
-          ? node.accentColor
-          : const Color(0xFF141420);
-      canvas.drawCircle(item.screenOffset, currentRadius, _nodePaint);
+      if (isTerminal) {
+        // DOUBLE-RING TERMINAL RECEPTOR (◎)
+        final outerRingPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = (isSelected ? 2.0 : 1.2) * item.scale
+          ..color = node.accentColor.withValues(alpha: isSelected ? 1.0 : 0.75);
+        canvas.drawCircle(
+          item.screenOffset,
+          currentRadius * 1.3,
+          outerRingPaint,
+        );
 
-      // Border Ring
-      final borderPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = (isSelected ? 2.5 : 1.5) * item.scale
-        ..color = node.accentColor;
-      canvas.drawCircle(item.screenOffset, currentRadius, borderPaint);
+        final innerCorePaint = Paint()
+          ..style = PaintingStyle.fill
+          ..color = isSelected ? node.accentColor : const Color(0xFF071220);
+        canvas.drawCircle(
+          item.screenOffset,
+          currentRadius * 0.7,
+          innerCorePaint,
+        );
 
-      // Additive Satellites (Sub-Nodes orbiting channel matrix)
-      if (node.isAdditive && node.subNodes.isNotEmpty) {
-        final satelliteCount = node.subNodes.length;
-        for (int i = 0; i < satelliteCount; i++) {
-          final sub = node.subNodes[i];
-          final orbitAngle = (flowProgress * 2 * math.pi) + (i * 2 * math.pi / satelliteCount);
-          final orbitRadius = currentRadius * 2.1;
-          final satOffset = Offset(
-            item.screenOffset.dx + math.cos(orbitAngle) * orbitRadius,
-            item.screenOffset.dy + math.sin(orbitAngle) * orbitRadius * 0.4, // Elliptical tilt
-          );
+        final innerDotPaint = Paint()
+          ..style = PaintingStyle.fill
+          ..color = Colors.white;
+        canvas.drawCircle(
+          item.screenOffset,
+          currentRadius * 0.35,
+          innerDotPaint,
+        );
+      } else {
+        // PRIMARY JUNCTION SPHERE (Stippled 3D shading)
+        final sphereShader =
+            RadialGradient(
+              center: const Alignment(-0.35, -0.35),
+              radius: 0.9,
+              colors: [Colors.white, node.accentColor, const Color(0xFF071220)],
+              stops: const [0.0, 0.45, 1.0],
+            ).createShader(
+              Rect.fromCircle(center: item.screenOffset, radius: currentRadius),
+            );
 
-          final satPaint = Paint()
-            ..color = sub.color.withValues(alpha: sub.isActive ? 0.9 : 0.3)
-            ..style = PaintingStyle.fill;
-          canvas.drawCircle(satOffset, 3.2 * item.scale, satPaint);
-        }
+        final spherePaint = Paint()..shader = sphereShader;
+        canvas.drawCircle(item.screenOffset, currentRadius, spherePaint);
+
+        // Precision outer bounding ring
+        final ringPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = (isSelected ? 2.2 : 1.4) * item.scale
+          ..color = node.accentColor;
+        canvas.drawCircle(item.screenOffset, currentRadius * 1.25, ringPaint);
       }
     }
   }
 
+  /// Draws 3D Geodesic Deformable Filamentous Membrane & Blazing Amber Nucleus.
+  void _drawCentralBreathingOrganelle({
+    required Canvas canvas,
+    required Offset center,
+    required double scale,
+    required double cosY,
+    required double sinY,
+    required double cosP,
+    required double sinP,
+    required double focalLength,
+    required double cameraDistance,
+    required double cx,
+    required double cy,
+  }) {
+    // --- 1. Inner Blazing Amber Nucleus (REQ-P51-CORE-01) ---
+    final nucleusRadius = 24.0 * scale * (1.0 + pulseValue * 0.08);
+
+    // Blazing amber corona glow
+    final amberCorona = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              const Color(
+                0xFFFFF176,
+              ).withValues(alpha: 0.95), // White-yellow core
+              const Color(0xFFFFB703).withValues(alpha: 0.85),
+              const Color(0xFFFF6B00).withValues(alpha: 0.65),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.35, 0.75, 1.0],
+          ).createShader(
+            Rect.fromCircle(center: center, radius: nucleusRadius * 2.2),
+          );
+    canvas.drawCircle(center, nucleusRadius * 2.2, amberCorona);
+
+    // Solid nucleus core
+    final nucleusCore = Paint()
+      ..color = const Color(0xFFFF8500)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, nucleusRadius, nucleusCore);
+
+    // 4 Internal Orange Sub-Organelle Vesicles (Key, BPM, Energy, Mastery)
+    for (int i = 0; i < 4; i++) {
+      final vAngle = (i * math.pi * 0.5) + (waveProgress * 2 * math.pi);
+      final vDist = nucleusRadius * 1.25;
+      final vesiclePos = Offset(
+        center.dx + math.cos(vAngle) * vDist,
+        center.dy + math.sin(vAngle) * vDist * 0.6,
+      );
+
+      final vPaint = Paint()
+        ..color = const Color(0xFFFFB703).withValues(alpha: 0.85)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(vesiclePos, 3.8 * scale, vPaint);
+
+      // Curved internal neural filament connecting vesicle to core
+      final filamentPaint = Paint()
+        ..color = const Color(0xFFFF6B00).withValues(alpha: 0.55)
+        ..strokeWidth = 1.0 * scale
+        ..style = PaintingStyle.stroke;
+      final path = Path()
+        ..moveTo(center.dx, center.dy)
+        ..quadraticBezierTo(
+          (center.dx + vesiclePos.dx) * 0.5 + 4,
+          (center.dy + vesiclePos.dy) * 0.5 - 4,
+          vesiclePos.dx,
+          vesiclePos.dy,
+        );
+      canvas.drawPath(path, filamentPaint);
+    }
+
+    // --- 2. Outer Cyan Geodesic Filamentous Membrane Mesh (REQ-P51-MEMB-01) ---
+    const int latSteps = 8;
+    const int lonSteps = 14;
+    const double baseRadius = 76.0;
+    final t = waveProgress * 2 * math.pi;
+
+    final gridPoints = List.generate(latSteps + 1, (j) {
+      final phi = -math.pi / 2 + (j * math.pi / latSteps);
+      return List.generate(lonSteps, (i) {
+        final theta = i * 2 * math.pi / lonSteps;
+
+        // 3D Harmonic Wave Deformation Equation:
+        // r(θ, φ, t) = R * (1 + 0.07*sin(3θ + 1.6t)*cos(2φ - 1.2t) + 0.04*cos(4φ + 2.2t))
+        final r =
+            baseRadius *
+            (1.0 +
+                0.07 *
+                    math.sin(3 * theta + 1.6 * t) *
+                    math.cos(2 * phi - 1.2 * t) +
+                0.04 * math.cos(4 * phi + 2.2 * t));
+
+        final x = r * math.cos(phi) * math.cos(theta);
+        final y = r * math.sin(phi);
+        final z = r * math.cos(phi) * math.sin(theta);
+
+        // 3D Camera Rotation (yaw then pitch)
+        final x1 = x * cosY - z * sinY;
+        final z1 = x * sinY + z * cosY;
+        final y2 = y * cosP - z1 * sinP;
+        final z2 = y * sinP + z1 * cosP;
+
+        final depth = focalLength + cameraDistance + z2;
+        final s = depth > 10.0 ? (focalLength / depth) : 0.1;
+        return Offset(cx + x1 * s, cy + y2 * s);
+      });
+    });
+
+    final filamentPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0 * scale
+      ..color = const Color(0xFF00F5D4).withValues(alpha: 0.35);
+
+    // Draw longitudinal strands
+    for (int i = 0; i < lonSteps; i++) {
+      final path = Path()..moveTo(gridPoints[0][i].dx, gridPoints[0][i].dy);
+      for (int j = 1; j <= latSteps; j++) {
+        path.lineTo(gridPoints[j][i].dx, gridPoints[j][i].dy);
+      }
+      canvas.drawPath(path, filamentPaint);
+    }
+
+    // Draw latitudinal rings
+    for (int j = 1; j < latSteps; j++) {
+      final path = Path()..moveTo(gridPoints[j][0].dx, gridPoints[j][0].dy);
+      for (int i = 1; i < lonSteps; i++) {
+        path.lineTo(gridPoints[j][i].dx, gridPoints[j][i].dy);
+      }
+      path.close();
+      canvas.drawPath(path, filamentPaint);
+    }
+
+    // Outer Fresnel Rim Glow (Glowing silhouette ring)
+    final rimPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4 * scale
+      ..color = const Color(0xFF00F5D4).withValues(alpha: 0.85)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
+    canvas.drawCircle(center, baseRadius * scale * 1.05, rimPaint);
+  }
+
+  /// Draws out-of-focus background bokeh satellite organelle clusters.
+  void _drawBokehSatellite(
+    Canvas canvas,
+    Offset position, {
+    required double radius,
+    required Color color,
+    required int subCount,
+  }) {
+    final blurPaint = Paint()
+      ..color = color.withValues(alpha: 0.16)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22.0)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(position, radius, blurPaint);
+
+    final innerPaint = Paint()
+      ..color = color.withValues(alpha: 0.28)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.0)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(position, radius * 0.45, innerPaint);
+
+    for (int i = 0; i < subCount; i++) {
+      final angle = i * 2 * math.pi / subCount;
+      final dist = radius * 0.7;
+      final subPos = Offset(
+        position.dx + math.cos(angle) * dist,
+        position.dy + math.sin(angle) * dist * 0.7,
+      );
+      canvas.drawCircle(subPos, radius * 0.25, innerPaint);
+    }
+  }
+
+  /// Draws subtle holographic bio-telemetry HUD lines and ticks on horizons.
+  void _drawBioTelemetryHud(Canvas canvas, Size size, double cx, double cy) {
+    final hudLinePaint = Paint()
+      ..color = const Color(0xFF00F5D4).withValues(alpha: 0.12)
+      ..strokeWidth = 1.0;
+
+    // Left horizon bracket
+    canvas.drawLine(
+      Offset(16, size.height * 0.35),
+      Offset(16, size.height * 0.65),
+      hudLinePaint,
+    );
+    canvas.drawLine(
+      Offset(16, size.height * 0.35),
+      Offset(32, size.height * 0.35),
+      hudLinePaint,
+    );
+    canvas.drawLine(
+      Offset(16, size.height * 0.65),
+      Offset(32, size.height * 0.65),
+      hudLinePaint,
+    );
+
+    // Right horizon bracket
+    canvas.drawLine(
+      Offset(size.width - 16, size.height * 0.35),
+      Offset(size.width - 16, size.height * 0.65),
+      hudLinePaint,
+    );
+    canvas.drawLine(
+      Offset(size.width - 16, size.height * 0.35),
+      Offset(size.width - 32, size.height * 0.35),
+      hudLinePaint,
+    );
+    canvas.drawLine(
+      Offset(size.width - 16, size.height * 0.65),
+      Offset(size.width - 32, size.height * 0.65),
+      hudLinePaint,
+    );
+  }
+
   @override
-  bool shouldRepaint(covariant _SongDna3DPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _BioluminescentOrganelle3DPainter oldDelegate) =>
+      true;
 }
 
 class _Projected3DItem {

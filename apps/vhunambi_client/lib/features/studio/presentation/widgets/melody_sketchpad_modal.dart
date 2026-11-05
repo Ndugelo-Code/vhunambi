@@ -36,7 +36,9 @@ class MelodySketchpadModal extends ConsumerStatefulWidget {
         context: context,
         barrierColor: Colors.black87,
         builder: (_) => Dialog(
-          backgroundColor: AppColors.surfaceModal,
+          backgroundColor: const Color(
+            0xFF16161C,
+          ), // 100% Opaque surface (REQ-P51-FIX-03)
           insetPadding: const EdgeInsets.all(AppSpacing.lg),
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.cardBorder,
@@ -53,14 +55,21 @@ class MelodySketchpadModal extends ConsumerStatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
         side: BorderSide(color: AppColors.borderSubtle),
       ),
       builder: (_) => FractionallySizedBox(
         heightFactor: 0.94,
-        child: MelodySketchpadModal(initialInstrument: initialInstrument),
+        child: Material(
+          color: const Color(
+            0xFF16161C,
+          ), // 100% Opaque surface (REQ-P51-FIX-03)
+          borderRadius: AppRadius.modalBorder,
+          clipBehavior: Clip.antiAlias,
+          child: MelodySketchpadModal(initialInstrument: initialInstrument),
+        ),
       ),
     );
   }
@@ -245,8 +254,11 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                           children: [
                             // Instrument / Kit Selector Dropdown Pill
                             InkWell(
-                              key: const Key('sketchpad_instrument_dropdown_btn'),
-                              onTap: () => _openInstrumentPicker(context, state),
+                              key: const Key(
+                                'sketchpad_instrument_dropdown_btn',
+                              ),
+                              onTap: () =>
+                                  _openInstrumentPicker(context, state),
                               borderRadius: AppRadius.pillBorder,
                               splashColor: Colors.transparent,
                               highlightColor: Colors.transparent,
@@ -259,7 +271,9 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                                   color: AppColors.surfaceElevated,
                                   borderRadius: AppRadius.pillBorder,
                                   border: Border.all(
-                                    color: AppColors.brandPrimary.withAlpha(120),
+                                    color: AppColors.brandPrimary.withAlpha(
+                                      120,
+                                    ),
                                   ),
                                 ),
                                 child: Row(
@@ -268,16 +282,23 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                                     PhosphorIcon(
                                       state.isDrumOrHatChannel
                                           ? PhosphorIconsFill.waveform
-                                          : _resolveInstrumentIcon(pattern.instrument),
+                                          : _resolveInstrumentIcon(
+                                              pattern.instrument,
+                                            ),
                                       color: AppColors.brandPrimary,
                                       size: 16,
                                     ),
                                     const SizedBox(width: 6),
                                     ConstrainedBox(
-                                      constraints: const BoxConstraints(maxWidth: 130),
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 130,
+                                      ),
                                       child: Text(
                                         state.isDrumOrHatChannel
-                                            ? state.currentChannelTrack.beatKit.label
+                                            ? state
+                                                  .currentChannelTrack
+                                                  .beatKit
+                                                  .label
                                             : pattern.instrument.label,
                                         style: AppTypography.caption.copyWith(
                                           color: AppColors.textPrimary,
@@ -301,7 +322,9 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
 
                             // Musical Key & Scale Dropdown Pill
                             InkWell(
-                              key: const Key('sketchpad_key_scale_dropdown_btn'),
+                              key: const Key(
+                                'sketchpad_key_scale_dropdown_btn',
+                              ),
                               onTap: () => _openKeyScalePicker(context, state),
                               borderRadius: AppRadius.pillBorder,
                               splashColor: Colors.transparent,
@@ -314,7 +337,9 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                                 decoration: BoxDecoration(
                                   color: AppColors.surfaceSecondary,
                                   borderRadius: AppRadius.pillBorder,
-                                  border: Border.all(color: AppColors.borderSubtle),
+                                  border: Border.all(
+                                    color: AppColors.borderSubtle,
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -365,7 +390,9 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                         minWidth: 40,
                         minHeight: 40,
                       ),
-                      tooltip: _isFullscreenLocal ? 'Exit Fullscreen' : 'Fullscreen Workstation',
+                      tooltip: _isFullscreenLocal
+                          ? 'Exit Fullscreen'
+                          : 'Fullscreen Workstation',
                       onPressed: () {
                         setState(() {
                           _isFullscreenLocal = !_isFullscreenLocal;
@@ -455,12 +482,15 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: SketchpadChannelRole.values.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.xs),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(width: AppSpacing.xs),
                   itemBuilder: (context, index) {
                     final role = SketchpadChannelRole.values[index];
                     final isSelected = state.activeChannelRole == role;
-                    final channel = state.multiTrackGroove.channels[role] ??
-                        state.multiTrackGroove.channels[SketchpadChannelRole.lead]!;
+                    final channel =
+                        state.multiTrackGroove.channels[role] ??
+                        state.multiTrackGroove.channels[SketchpadChannelRole
+                            .lead]!;
                     final hasNotes = channel.steps.isNotEmpty;
 
                     return InkWell(
@@ -481,8 +511,8 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                             color: isSelected
                                 ? AppColors.brandPrimary
                                 : (channel.isSolo
-                                    ? AppColors.coinGold
-                                    : AppColors.borderSubtle),
+                                      ? AppColors.coinGold
+                                      : AppColors.borderSubtle),
                             width: isSelected ? 1.5 : 1.0,
                           ),
                         ),
@@ -494,8 +524,8 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                               color: isSelected
                                   ? AppColors.brandPrimary
                                   : (channel.isMuted
-                                      ? AppColors.textTertiary
-                                      : AppColors.textSecondary),
+                                        ? AppColors.textTertiary
+                                        : AppColors.textSecondary),
                               size: 15,
                             ),
                             const SizedBox(width: 6),
@@ -505,8 +535,8 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                                 color: isSelected
                                     ? AppColors.brandPrimary
                                     : (channel.isMuted
-                                        ? AppColors.textTertiary
-                                        : AppColors.textPrimary),
+                                          ? AppColors.textTertiary
+                                          : AppColors.textPrimary),
                                 fontWeight: isSelected
                                     ? FontWeight.w700
                                     : FontWeight.w500,
@@ -795,7 +825,10 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                               ),
                               child: Slider(
                                 key: const Key('sketchpad_conditioning_slider'),
-                                value: pattern.conditioningStrength.clamp(0.15, 0.95),
+                                value: pattern.conditioningStrength.clamp(
+                                  0.15,
+                                  0.95,
+                                ),
                                 min: 0.15,
                                 max: 0.95,
                                 activeColor: AppColors.brandPrimary,
@@ -823,7 +856,9 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Master Groove saved to Local Vault'),
+                              content: Text(
+                                'Master Groove saved to Local Vault',
+                              ),
                               duration: Duration(seconds: 2),
                             ),
                           );
@@ -1030,9 +1065,7 @@ class _InstrumentPickerSheet extends StatelessWidget {
                     SketchpadInstrument.soloViolin,
                     SketchpadInstrument.vendaMbira,
                     SketchpadInstrument.marimbaWood,
-                  ]) ...[
-                    _buildInstrumentTile(inst),
-                  ],
+                  ]) ...[_buildInstrumentTile(inst)],
                   const SizedBox(height: AppSpacing.md),
 
                   // Bass & Low-End
@@ -1041,9 +1074,7 @@ class _InstrumentPickerSheet extends StatelessWidget {
                     SketchpadInstrument.amapianoLogDrum,
                     SketchpadInstrument.hipHop808Sub,
                     SketchpadInstrument.gqomDarkSub,
-                  ]) ...[
-                    _buildInstrumentTile(inst),
-                  ],
+                  ]) ...[_buildInstrumentTile(inst)],
                   const SizedBox(height: AppSpacing.md),
 
                   // Traditional, Wind & Pads
@@ -1053,9 +1084,7 @@ class _InstrumentPickerSheet extends StatelessWidget {
                     SketchpadInstrument.sopranoSax,
                     SketchpadInstrument.neoSoulPad,
                     SketchpadInstrument.mbaqangaOrgan,
-                  ]) ...[
-                    _buildInstrumentTile(inst),
-                  ],
+                  ]) ...[_buildInstrumentTile(inst)],
                 ],
               ),
             ),
@@ -1317,7 +1346,8 @@ class _ChannelMixerSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(melodySketchpadProvider);
     final notifier = ref.read(melodySketchpadProvider.notifier);
-    final channel = state.multiTrackGroove.channels[role] ??
+    final channel =
+        state.multiTrackGroove.channels[role] ??
         state.multiTrackGroove.channels[SketchpadChannelRole.lead]!;
 
     return SafeArea(
@@ -1573,11 +1603,7 @@ class _StepNoteInspectorSheetState
               activeTrackColor: AppColors.brandPrimary,
               onChanged: (g) {
                 setState(() => _hasGlide = g);
-                notifier.toggleCell(
-                  widget.row,
-                  widget.step,
-                  forceGlide: g,
-                );
+                notifier.toggleCell(widget.row, widget.step, forceGlide: g);
               },
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -1784,7 +1810,8 @@ class _MobileAdaptiveSurface extends StatelessWidget {
                           step: barStartStep + offset,
                           isDrumTrack: state.isDrumOrHatChannel,
                           note: pattern.noteAt(row, barStartStep + offset),
-                          isPlayhead: state.isPlayingPreview &&
+                          isPlayhead:
+                              state.isPlayingPreview &&
                               state.currentPlayheadStep ==
                                   (barStartStep + offset),
                           onTap: () =>
@@ -1887,7 +1914,8 @@ class _DesktopWorkstationMatrix extends StatelessWidget {
                           step: step,
                           isDrumTrack: state.isDrumOrHatChannel,
                           note: pattern.noteAt(row, step),
-                          isPlayhead: state.isPlayingPreview &&
+                          isPlayhead:
+                              state.isPlayingPreview &&
                               state.currentPlayheadStep == step,
                           onTap: () => notifier.toggleCell(row, step),
                           onLongPress: () {
@@ -1943,8 +1971,8 @@ class _DesktopWorkstationMatrix extends StatelessWidget {
                       final maxVel = stepNotes.isEmpty
                           ? 0.0
                           : stepNotes
-                              .map((n) => n.velocity)
-                              .reduce((a, b) => a > b ? a : b);
+                                .map((n) => n.velocity)
+                                .reduce((a, b) => a > b ? a : b);
                       final hasAnyGlide = stepNotes.any((n) => n.hasGlide);
 
                       return InkWell(
@@ -1972,8 +2000,8 @@ class _DesktopWorkstationMatrix extends StatelessWidget {
                                 color: stepNotes.isEmpty
                                     ? AppColors.borderSubtle
                                     : (hasAnyGlide
-                                        ? AppColors.brandPrimary
-                                        : AppColors.coinGold),
+                                          ? AppColors.brandPrimary
+                                          : AppColors.coinGold),
                                 borderRadius: AppRadius.pillBorder,
                               ),
                             ),
@@ -2038,8 +2066,8 @@ class _SequencerCellWidget extends StatelessWidget {
           color: isActive
               ? activeColor
               : (step % 4 == 0
-                  ? AppColors.surfaceSecondary
-                  : AppColors.surfaceElevated),
+                    ? AppColors.surfaceSecondary
+                    : AppColors.surfaceElevated),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isPlayhead
@@ -2059,19 +2087,19 @@ class _SequencerCellWidget extends StatelessWidget {
         ),
         child: isActive
             ? (hasGlide
-                ? const PhosphorIcon(
-                    PhosphorIconsRegular.arrowDownRight,
-                    color: AppColors.brandContrast,
-                    size: 14,
-                  )
-                : Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
+                  ? const PhosphorIcon(
+                      PhosphorIconsRegular.arrowDownRight,
                       color: AppColors.brandContrast,
-                      shape: BoxShape.circle,
-                    ),
-                  ))
+                      size: 14,
+                    )
+                  : Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: AppColors.brandContrast,
+                        shape: BoxShape.circle,
+                      ),
+                    ))
             : null,
       ),
     );
