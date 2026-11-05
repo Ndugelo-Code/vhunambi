@@ -68,6 +68,25 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     state = state.copyWith(tempoPreference: tempo);
   }
 
+  // Phase 49: Birth Year, Generation Era & Cultural Roots
+  void setBirthYear(int year) {
+    final era = SonicGenerationEra.fromBirthYear(year);
+    state = state.copyWith(
+      birthYear: year,
+      generationEra: era,
+    );
+  }
+
+  void setCulturalHeritage(String heritage) {
+    state = state.copyWith(culturalHeritage: heritage);
+  }
+
+  void autotuneEraGenres() {
+    final eraGenres = state.generationEra.recommendedGenres;
+    final merged = {...state.selectedGenres, ...eraGenres}.toList();
+    state = state.copyWith(selectedGenres: merged);
+  }
+
   void setVocalEnergyPreference(String energy) {
     state = state.copyWith(vocalEnergyPreference: energy);
   }

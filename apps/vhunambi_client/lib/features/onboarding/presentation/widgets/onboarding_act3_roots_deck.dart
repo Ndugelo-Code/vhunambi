@@ -7,8 +7,11 @@ import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/onboarding_models.dart';
 import '../providers/onboarding_providers.dart';
 
-/// Act 3: Tactile Roots & Vibe Playground (REQ-P47-ACT3-01..03).
-/// Combines 12 distinct African Genre Cards, Vibe Energy Slider, and Indigenous Language Orbs.
+/// Act 3: Generation-Aware Roots & Cultural Intelligence Deck (REQ-P49-ROOTS-01..06).
+/// Features a non-scrolling 3-Tier layout:
+/// Tier 1: Interactive Birth Year & Generation Era Dial
+/// Tier 2: Cultural Tongues & Linguistic Roots Orbs
+/// Tier 3: Era-Recommended African Genre Cards (✨ Era Match)
 class OnboardingAct3RootsDeck extends ConsumerWidget {
   final VoidCallback? onInteraction;
 
@@ -31,40 +34,264 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
     'English',
   ];
 
-  static const List<Map<String, String>> kVibeTempos = [
-    {'key': 'slow', 'label': 'Laid Back', 'bpm': '95-108 BPM'},
-    {'key': 'medium', 'label': 'Easy Groove', 'bpm': '112-118 BPM'},
-    {'key': 'fast', 'label': 'Driving Club', 'bpm': '124-128 BPM'},
-    {'key': 'hyperspeed', 'label': 'Full Speed', 'bpm': '160-180 BPM'},
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(onboardingStateProvider);
     final notifier = ref.read(onboardingStateProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SingleChildScrollView(
+    return Padding(
       key: const Key('onboarding_act_3_roots_deck'),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Section 1: Genre Heritage Grid (12 Distinct African Genres)
+          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'African Genre Roots',
+                style: AppTypography.bouncyTitleLarge.copyWith(
+                  fontSize: 18,
+                  color: AppColors.textPrimaryOf(context),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.brandPrimary.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.brandPrimary.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Text(
+                  '${state.selectedGenres.length} active',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.brandPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Calibrate your generational sound signature & cultural DNA',
+            style: AppTypography.bodySmall.copyWith(
+              color: AppColors.textSecondaryOf(context),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Tier 1: Interactive Birth Year & Generation Era Dial (REQ-P49-ROOTS-01..03)
+          _buildBirthYearTier(context, notifier, state, isDark),
+
+          const SizedBox(height: 12),
+
+          // Tier 2: Cultural Tongues & Linguistic Roots Orbs
+          _buildCultureLanguageTier(context, notifier, state, isDark),
+
+          const SizedBox(height: 12),
+
+          // Tier 3: Era-Recommended African Genre Cards (REQ-P49-ROOTS-04..06)
+          _buildEraGenreDeck(context, notifier, state, isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBirthYearTier(
+    BuildContext context,
+    OnboardingNotifier notifier,
+    OnboardingState state,
+    bool isDark,
+  ) {
+    final era = state.generationEra;
+    final currentYear = state.birthYear;
+
+    return Container(
+      key: const Key('onboarding_birth_year_selector'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF14141A) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.badgeCyan.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Birth Year & Generation Era',
                 style: AppTypography.titleMedium.copyWith(
                   fontWeight: FontWeight.w800,
+                  fontSize: 14,
                   color: AppColors.textPrimaryOf(context),
-                  fontSize: 18,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.badgeCyan.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.badgeCyan.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Text(
+                  era.label,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.badgeCyan,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Horizontal Year Drum Dial (1970 to 2018)
+          SizedBox(
+            height: 36,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: 49, // 1970 to 2018
+              separatorBuilder: (_, _) => const SizedBox(width: 6),
+              itemBuilder: (context, idx) {
+                final year = 1970 + idx;
+                final isSelected = year == currentYear;
+                return GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    onInteraction?.call();
+                    notifier.setBirthYear(year);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.brandPrimary
+                          : (isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.brandPrimary
+                            : Colors.transparent,
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$year',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                          color: isSelected
+                              ? Colors.black
+                              : AppColors.textPrimaryOf(context),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  era.description,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondaryOf(context),
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              InkWell(
+                key: const Key('onboarding_autotune_era_btn'),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onInteraction?.call();
+                  notifier.autotuneEraGenres();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const PhosphorIcon(
+                        PhosphorIconsRegular.magicWand,
+                        size: 13,
+                        color: AppColors.brandPrimary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Auto-Tune Era',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.brandPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCultureLanguageTier(
+    BuildContext context,
+    OnboardingNotifier notifier,
+    OnboardingState state,
+    bool isDark,
+  ) {
+    return Container(
+      key: const Key('onboarding_culture_language_orbs'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF14141A) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: (isDark ? Colors.white12 : Colors.black12),
+          width: 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Cultural & Linguistic Roots',
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: AppColors.textPrimaryOf(context),
                 ),
               ),
               Text(
-                '${state.selectedGenres.length} selected',
+                '${state.selectedLanguages.length} tongues',
                 style: AppTypography.caption.copyWith(
                   color: AppColors.brandPrimary,
                   fontWeight: FontWeight.bold,
@@ -72,344 +299,201 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Tap your signature sounds to shape your studio synthesizers',
-            style: AppTypography.bodySmall.copyWith(
-              color: AppColors.textSecondaryOf(context),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // 12 Distinct Genre Cards (Zero Duplicate Amapiano Chips!)
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: kAfricanOnboardingGenres.map((genre) {
-              final isSelected = state.selectedGenres.contains(genre.name);
-              return TactileGenreCard(
-                genre: genre,
-                isSelected: isSelected,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  onInteraction?.call();
-                  notifier.toggleGenre(genre.name);
-                },
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 22),
-
-          // Section 2: Tactile Vibe Energy Slider (Replaces Radio Buttons)
-          Text(
-            'Vibe Energy & Tempo Feel',
-            style: AppTypography.titleMedium.copyWith(
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimaryOf(context),
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Select your baseline groove pace for session synthesis',
-            style: AppTypography.bodySmall.copyWith(
-              color: AppColors.textSecondaryOf(context),
-            ),
-          ),
-          const SizedBox(height: 10),
-          _buildVibeSlider(context, notifier, state.tempoPreference, isDark),
-
-          const SizedBox(height: 22),
-
-          // Section 3: Indigenous Language Orbs
-          Text(
-            'Vocal Dialects & Tongues',
-            style: AppTypography.titleMedium.copyWith(
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimaryOf(context),
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Languages used to calibrate Voice DNA and Bantu lyric engines',
-            style: AppTypography.bodySmall.copyWith(
-              color: AppColors.textSecondaryOf(context),
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: kAvailableLanguages.map((lang) {
-              final isSelected = state.selectedLanguages.contains(lang);
-              final isPrimary = state.primaryLanguage == lang;
-
-              return GestureDetector(
-                key: Key('language_orb_$lang'),
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  onInteraction?.call();
-                  notifier.toggleLanguage(lang);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? (isPrimary ? AppColors.brandPrimary : AppColors.badgeCyan)
-                            .withValues(alpha: isDark ? 0.22 : 0.12)
-                        : (isDark ? const Color(0xFF141418) : Colors.grey.shade100),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 32,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: kAvailableLanguages.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 6),
+              itemBuilder: (context, idx) {
+                final lang = kAvailableLanguages[idx];
+                final isSelected = state.selectedLanguages.contains(lang);
+                return GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    onInteraction?.call();
+                    notifier.toggleLanguage(lang);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
                       color: isSelected
-                          ? (isPrimary ? AppColors.brandPrimary : AppColors.badgeCyan)
-                          : (isDark ? Colors.white12 : Colors.black12),
-                      width: isSelected ? 1.4 : 1.0,
+                          ? AppColors.brandPrimary.withValues(alpha: 0.18)
+                          : (isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04)),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? AppColors.brandPrimary : Colors.transparent,
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        PhosphorIcon(
+                          PhosphorIconsRegular.translate,
+                          size: 13,
+                          color: isSelected
+                              ? AppColors.brandPrimary
+                              : AppColors.textSecondaryOf(context),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          lang,
+                          style: AppTypography.caption.copyWith(
+                            color: isSelected
+                                ? AppColors.brandPrimary
+                                : AppColors.textPrimaryOf(context),
+                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      PhosphorIcon(
-                        PhosphorIconsRegular.translate,
-                        size: 13,
-                        color: isSelected
-                            ? (isPrimary ? AppColors.brandPrimary : AppColors.badgeCyan)
-                            : AppColors.textSecondaryOf(context),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        lang,
-                        style: AppTypography.caption.copyWith(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected
-                              ? (isPrimary ? AppColors.brandPrimary : AppColors.badgeCyan)
-                              : AppColors.textPrimaryOf(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
+                );
+              },
+            ),
           ),
-
-          const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  Widget _buildVibeSlider(
+  Widget _buildEraGenreDeck(
     BuildContext context,
     OnboardingNotifier notifier,
-    String currentTempo,
+    OnboardingState state,
     bool isDark,
   ) {
+    final eraRecs = state.generationEra.recommendedGenres;
+
     return Container(
-      key: const Key('onboarding_vibe_slider'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      key: const Key('onboarding_era_genre_deck'),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF141418) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        color: isDark ? const Color(0xFF14141A) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark ? Colors.white12 : Colors.black12,
+          color: (isDark ? Colors.white12 : Colors.black12),
+          width: 1.0,
         ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: kVibeTempos.map((opt) {
-              final isCurrent = opt['key'] == currentTempo;
-              return GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  onInteraction?.call();
-                  notifier.setTempoPreference(opt['key']!);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isCurrent
-                        ? AppColors.brandPrimary.withValues(alpha: 0.18)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isCurrent ? AppColors.brandPrimary : Colors.transparent,
-                      width: 1.0,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        opt['label']!,
-                        style: AppTypography.caption.copyWith(
-                          fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w500,
-                          color: isCurrent
-                              ? AppColors.brandPrimary
-                              : AppColors.textPrimaryOf(context),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        opt['bpm']!,
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: isCurrent
-                              ? AppColors.brandPrimary.withValues(alpha: 0.8)
-                              : AppColors.textSecondaryOf(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Tactile Genre Card with unique styling and animated dancing EQ bars (REQ-P47-ACT3-01).
-class TactileGenreCard extends StatelessWidget {
-  final AfricanGenreModel genre;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const TactileGenreCard({
-    super.key,
-    required this.genre,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Semantics(
-      button: true,
-      selected: isSelected,
-      label: 'Select genre ${genre.name}',
-      child: InkWell(
-        key: Key('genre_card_${genre.id}'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          constraints: const BoxConstraints(minWidth: 100),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? genre.accentColor.withValues(alpha: isDark ? 0.22 : 0.12)
-                : (isDark ? const Color(0xFF141418) : Colors.white),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected
-                  ? genre.accentColor
-                  : (isDark ? Colors.white12 : Colors.black12),
-              width: isSelected ? 1.6 : 1.0,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: genre.accentColor.withValues(alpha: 0.20),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    )
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              // Dancing Mini EQ Bars (Animated when selected)
-              if (isSelected) ...[
-                _DancingMiniEqualizer(color: genre.accentColor),
-                const SizedBox(width: 8),
-              ],
               Text(
-                genre.name,
-                style: AppTypography.bodySmall.copyWith(
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: isSelected ? genre.accentColor : AppColors.textPrimaryOf(context),
-                  fontSize: 13,
+                'Signature African Genres',
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: AppColors.textPrimaryOf(context),
+                ),
+              ),
+              Text(
+                'Auto-Era Highlighted',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.badgeCyan,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 8),
+
+          // 2-row horizontal grid of 12 distinct genres
+          SizedBox(
+            height: 98,
+            child: GridView.builder(
+              scrollDirection: Axis.horizontal,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 6,
+                crossAxisSpacing: 6,
+                mainAxisExtent: 140,
+              ),
+              itemCount: kAfricanOnboardingGenres.length,
+              itemBuilder: (context, idx) {
+                final genre = kAfricanOnboardingGenres[idx];
+                final isSelected = state.selectedGenres.contains(genre.name);
+                final isEraMatch = eraRecs.contains(genre.name);
+
+                return GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    onInteraction?.call();
+                    notifier.toggleGenre(genre.name);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? genre.accentColor.withValues(alpha: isDark ? 0.22 : 0.14)
+                          : (isDark ? const Color(0xFF1C1C24) : Colors.grey.shade100),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? genre.accentColor
+                            : (isEraMatch
+                                ? AppColors.brandPrimary.withValues(alpha: 0.5)
+                                : Colors.transparent),
+                        width: isSelected ? 1.6 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: genre.accentColor,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                genre.name,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight:
+                                      isSelected ? FontWeight.bold : FontWeight.w600,
+                                  color: isSelected
+                                      ? genre.accentColor
+                                      : AppColors.textPrimaryOf(context),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (isEraMatch)
+                                const Text(
+                                  '✨ Era Match',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.brandPrimary,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 }
-
-/// 3-Band Mini Dancing Equalizer indicator
-class _DancingMiniEqualizer extends StatefulWidget {
-  final Color color;
-
-  const _DancingMiniEqualizer({required this.color});
-
-  @override
-  State<_DancingMiniEqualizer> createState() => _DancingMiniEqualizerState();
-}
-
-class _DancingMiniEqualizerState extends State<_DancingMiniEqualizer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 650),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final val = _controller.value;
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            _buildBar(4.0 + (val * 8.0)),
-            const SizedBox(width: 2),
-            _buildBar(12.0 - (val * 7.0)),
-            const SizedBox(width: 2),
-            _buildBar(6.0 + (val * 6.0)),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildBar(double height) {
-    return Container(
-      width: 2.2,
-      height: height.clamp(3.0, 14.0),
-      decoration: BoxDecoration(
-        color: widget.color,
-        borderRadius: BorderRadius.circular(2),
-      ),
-    );
-  }
-}
-

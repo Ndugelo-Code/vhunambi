@@ -1369,3 +1369,41 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
     - 8/8 client unit tests green in `phase48_sync_hardening_test.dart`.
     - Clean static analysis: `dart analyze` reports **0 issues found**.
 
+
+
+---
+
+## 25. Phase 49: MMORPG Creator DNA Helix & Generation-Aware Onboarding V2 (`docs/phases/phase_49_mmorpg_dna_helix_and_generation_onboarding/`)
+
+- **Location:** [`docs/phases/phase_49_mmorpg_dna_helix_and_generation_onboarding/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_49_mmorpg_dna_helix_and_generation_onboarding/blueprint.md)
+- **Status:** Complete (Tracks A–E implemented; `flutter analyze` reports **No issues found!**; 12/12 unit and widget tests green across `phase47_motion_onboarding_and_dna_helix_test.dart` and `phase49_mmorpg_dna_and_generation_onboarding_test.dart`; release APK build held for Phase 50).
+- **Scope:**
+  - **Track A: Bouncy Kinetic Typography & Safe Backdrop Staging (`app_typography.dart`, `onboarding_procedural_canvas.dart`, `onboarding_act1_showcase.dart`):**
+    - Added expressive geometric display typography (`bouncyDisplayLarge`, `bouncyTitleLarge`, `bouncyBadge`) using `GoogleFonts.outfit`.
+    - Confined orbiting constellation nodes to the central emblem stage ($Y \in [0.18H, 0.38H]$) and painted a soft radial vignette mask behind the typography zone, eliminating background collisions behind title text.
+  - **Track B: 3D Card Stack Bleed Elimination & Navigation Controls (`interactive_identity_card_stack.dart`):**
+    - Rendered the active front card with 100% opaque surface background (`alpha: 1.0`).
+    - Suppressed text rendering on background cards (`Opacity(opacity: 0.0)` for inactive cards), completely eradicating ghost-stacking and text bleed-through.
+    - Added upward fan offset (`translateY: -14.0 * relativeDiff.abs()`) and explicit previous/next arrow buttons (`Key('identity_stack_prev_btn')`, `Key('identity_stack_next_btn')`).
+  - **Track C: Generation-Aware Roots Deck (`onboarding_models.dart`, `onboarding_providers.dart`, `onboarding_act3_roots_deck.dart`):**
+    - Modeled `SonicGenerationEra` enum partitioning:
+      - `1970..1989` $\rightarrow$ `era80sGolden` (Mbaqanga, Maskandi, African Gospel, Kwaito)
+      - `1990..1999` $\rightarrow$ `era90sKwaitoHouse` (Kwaito, Afro House, Maskandi, SA Hip-Hop)
+      - `2000..2010` $\rightarrow$ `era2000sPianoGqom` (Amapiano, Private School Piano, Gqom, Afrobeats)
+      - `2011..2026+` $\rightarrow$ `era2011NextGenKinetic` (Amapiano, Shangaan Electro, Gqom, Afrobeats)
+    - Replaced the redundant 4-box `Vibe Energy & Tempo Feel` questionnaire with a non-scrolling 3-tier deck:
+      - Tier 1: Interactive Birth Year Drum Dial (`Key('onboarding_birth_year_selector')`) + Era Badge + 1-tap `[ Auto-Tune Era ]` button (`Key('onboarding_autotune_era_btn')`).
+      - Tier 2: Cultural Tongues & Linguistic Roots Orbs (`Key('onboarding_culture_language_orbs')`).
+      - Tier 3: Era-Recommended African Genre Cards (`Key('onboarding_era_genre_deck')`) with glowing `"✨ Era Match"` tag.
+  - **Track D: MMORPG 8-Node Genomic Model & 3D DNA Helix (`creator_dna_node.dart`, `creator_dna_helix_finale.dart`, `creator_dna_helix_lab_sheet.dart`, `creator_dna_profile_card.dart`):**
+    - Created `CreatorDnaNode` modeling 8 genomic loci:
+      - Nodes 1–4 sequenced in onboarding: Craft Persona (friendly titles e.g. `'Kinetic Creator & Curator'`, never raw enum `'MUSICLOVER'`), Generation Era (`'Born $year • ${era.label}'`), Linguistic Roots, Sonic Genres.
+      - Nodes 5–8 locked studio quests: Voice Signature (`'Record a 20s voice take in Studio'`), Groove Architect (`'Build a 5-channel log-drum groove in Sketchpad'`), Co-Creation Lineage (`'Drop an Open-Verse or Stem-Flip on Explore'`), AR Tastemaker (`'Co-sign emerging artists in the Fresh Crate'`).
+    - Upgraded `CreatorDnaHelixFinale` with tap-to-inspect hit-testing ($\le 36\text{dp}$ proximity), pulsating target halo on active locus, horizontal node pill carousel (`Key('dna_helix_node_$index')`), and MMORPG Node Inspector Card (`Key('dna_node_inspector_card')`).
+    - Created `CreatorDnaHelixLabSheet` (`Key('creator_dna_helix_lab_sheet')`) modal with interactive 3D Double-Helix sandbox and `[ Complete Quest in Studio → ]` button (`Key('dna_lab_complete_quest_btn')`).
+    - Embedded 3D Mini-Helix preview and `[ 🧬 Open 3D DNA Lab ]` button (`Key('open_3d_dna_lab_btn')`) in `CreatorDnaProfileCard`.
+  - **Track E: Verification Gates & Phase 50 Staging:**
+    - Authored `test/features/onboarding/phase49_mmorpg_dna_and_generation_onboarding_test.dart`.
+    - `flutter analyze` reports **No issues found!** (0 errors, 0 warnings across all 13 modified/new files).
+    - 12/12 unit and widget tests green across `phase47_motion_onboarding_and_dna_helix_test.dart` and `phase49_mmorpg_dna_and_generation_onboarding_test.dart`.
+    - Release APK build is held until Phase 50 completes per user instruction.

@@ -124,7 +124,7 @@ void main() {
       expect(find.text('🎧'), findsNothing);
     });
 
-    testWidgets('5. Act 3: Tactile Roots Deck renders genre cards & continuous energy slider', (tester) async {
+    testWidgets('5. Act 3: Tactile Roots Deck renders genre cards & generation dial', (tester) async {
       tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -145,7 +145,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('African Genre Roots'), findsOneWidget);
-      expect(find.byKey(const Key('onboarding_vibe_slider')), findsOneWidget);
+      expect(find.byKey(const Key('onboarding_birth_year_selector')), findsOneWidget);
       // Zero duplicate "Energetic" pills
       expect(find.text('Energetic'), findsNothing);
     });

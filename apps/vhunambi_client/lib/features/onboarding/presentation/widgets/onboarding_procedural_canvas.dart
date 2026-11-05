@@ -83,7 +83,8 @@ class _ConstellationBackdropPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
 
-    final center = Offset(size.width * 0.5, size.height * 0.38);
+    // Confine primary constellation to central emblem stage (above typography zone)
+    final center = Offset(size.width * 0.5, size.height * 0.26);
     final minDim = math.min(size.width, size.height);
 
     // 1. Draw Subtle Ambient Vignette & Radial Atmosphere
@@ -99,6 +100,26 @@ class _ConstellationBackdropPainter extends CustomPainter {
     );
     _fillPaint.shader = bgGlow.createShader(Offset.zero & size);
     canvas.drawRect(Offset.zero & size, _fillPaint);
+    _fillPaint.shader = null;
+
+    // 1b. Soft Radial Vignette Mask behind typography zone (REQ-P49-TYPO-04)
+    final textZoneCenter = Offset(size.width * 0.5, size.height * 0.48);
+    final textVignette = RadialGradient(
+      center: Alignment.center,
+      radius: 0.75,
+      colors: [
+        (isDark ? const Color(0xFF0D0D12) : const Color(0xFFFAF8F5)).withValues(alpha: 0.65),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 1.0],
+    );
+    _fillPaint.shader = textVignette.createShader(
+      Rect.fromCenter(center: textZoneCenter, width: size.width * 0.92, height: size.height * 0.28),
+    );
+    canvas.drawRect(
+      Rect.fromCenter(center: textZoneCenter, width: size.width * 0.92, height: size.height * 0.28),
+      _fillPaint,
+    );
     _fillPaint.shader = null;
 
     // 2. Draw Ambient Acoustic Waveform Ribbon across canvas
@@ -158,7 +179,8 @@ class _ConstellationBackdropPainter extends CustomPainter {
   }
 
   void _paintConstellation(Canvas canvas, Offset center, double minDim) {
-    final baseRadius = minDim * 0.28;
+    // Confine primary constellation to central emblem stage (REQ-P49-TYPO-03)
+    final baseRadius = minDim * 0.22;
     final speed = time * 2 * math.pi;
 
     // Parallax & Stage Deformation Factor derived from active page
@@ -170,7 +192,7 @@ class _ConstellationBackdropPainter extends CustomPainter {
     for (int i = 0; i < 4; i++) {
       final angle = speed + (i * math.pi * 0.5);
       final ellipseX = baseRadius * (1.15 + (i % 2 == 0 ? 0.15 : -0.15));
-      final ellipseY = baseRadius * 0.68;
+      final ellipseY = baseRadius * 0.52;
 
       final nx = center.dx + (math.cos(angle) * ellipseX);
       final ny = center.dy + (math.sin(angle) * ellipseY);

@@ -2,6 +2,60 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:vhunambi_client/features/creator_dna/domain/entities/creator_dna_profile.dart';
 
+/// Cultural and chronological generation era derived from the creator's birth year (REQ-P49-ROOTS-01..03).
+enum SonicGenerationEra {
+  era80sGolden,
+  era90sKwaitoHouse,
+  era2000sPianoGqom,
+  era2011NextGenKinetic;
+
+  String get label {
+    switch (this) {
+      case SonicGenerationEra.era80sGolden:
+        return '80s Heritage & Golden Era';
+      case SonicGenerationEra.era90sKwaitoHouse:
+        return '90s Kwaito & House Era';
+      case SonicGenerationEra.era2000sPianoGqom:
+        return '2000s Piano & Gqom Wave';
+      case SonicGenerationEra.era2011NextGenKinetic:
+        return 'Next-Gen Kinetic & Sgija Era';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case SonicGenerationEra.era80sGolden:
+        return 'Mbaqanga brass, Bubblegum synths, and classic Maskandi finger-picking';
+      case SonicGenerationEra.era90sKwaitoHouse:
+        return '110 BPM township house, Kwaito kicks, and pioneering Afro-House';
+      case SonicGenerationEra.era2000sPianoGqom:
+        return 'Soulful Rhodes keys, deep house chords, and Durban broken-beat Gqom';
+      case SonicGenerationEra.era2011NextGenKinetic:
+        return 'Amapiano log drums, private school horns, and 3-step kinetic polyrhythms';
+    }
+  }
+
+  List<String> get recommendedGenres {
+    switch (this) {
+      case SonicGenerationEra.era80sGolden:
+        return const ['Mbaqanga', 'Maskandi', 'African Gospel', 'Kwaito'];
+      case SonicGenerationEra.era90sKwaitoHouse:
+        return const ['Kwaito', 'Afro House', 'Maskandi', 'SA Hip-Hop'];
+      case SonicGenerationEra.era2000sPianoGqom:
+        return const ['Amapiano', 'Private School Piano', 'Gqom', 'Afrobeats'];
+      case SonicGenerationEra.era2011NextGenKinetic:
+        return const ['Amapiano', 'Shangaan Electro', 'Gqom', 'Afrobeats'];
+    }
+  }
+
+  static SonicGenerationEra fromBirthYear(int year) {
+    if (year <= 1989) return SonicGenerationEra.era80sGolden;
+    if (year <= 1999) return SonicGenerationEra.era90sKwaitoHouse;
+    if (year <= 2010) return SonicGenerationEra.era2000sPianoGqom;
+    return SonicGenerationEra.era2011NextGenKinetic;
+  }
+}
+
 @immutable
 class OnboardingState {
   final bool hasCompletedOnboarding;
@@ -18,6 +72,11 @@ class OnboardingState {
   final String vocalEnergyPreference;
   final double onboardingCompleteness;
 
+  // Phase 49: Birth Year, Generation Era & Cultural Roots
+  final int birthYear;
+  final SonicGenerationEra generationEra;
+  final String culturalHeritage;
+
   const OnboardingState({
     this.hasCompletedOnboarding = false,
     this.selectedGenres = const ['Amapiano', 'Afro House'],
@@ -30,6 +89,9 @@ class OnboardingState {
     this.tempoPreference = 'medium',
     this.vocalEnergyPreference = 'balanced',
     this.onboardingCompleteness = 0.0,
+    this.birthYear = 2002,
+    this.generationEra = SonicGenerationEra.era2000sPianoGqom,
+    this.culturalHeritage = 'Tshivenḓa & Zulu Roots',
   });
 
   OnboardingState copyWith({
@@ -44,7 +106,11 @@ class OnboardingState {
     String? tempoPreference,
     String? vocalEnergyPreference,
     double? onboardingCompleteness,
+    int? birthYear,
+    SonicGenerationEra? generationEra,
+    String? culturalHeritage,
   }) {
+    final effectiveYear = birthYear ?? this.birthYear;
     return OnboardingState(
       hasCompletedOnboarding:
           hasCompletedOnboarding ?? this.hasCompletedOnboarding,
@@ -60,6 +126,12 @@ class OnboardingState {
           vocalEnergyPreference ?? this.vocalEnergyPreference,
       onboardingCompleteness:
           onboardingCompleteness ?? this.onboardingCompleteness,
+      birthYear: effectiveYear,
+      generationEra: generationEra ??
+          (birthYear != null
+              ? SonicGenerationEra.fromBirthYear(effectiveYear)
+              : this.generationEra),
+      culturalHeritage: culturalHeritage ?? this.culturalHeritage,
     );
   }
 

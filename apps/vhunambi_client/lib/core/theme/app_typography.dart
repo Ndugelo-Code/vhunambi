@@ -78,4 +78,30 @@ abstract final class AppTypography {
     fontWeight: FontWeight.w700,
     letterSpacing: 0.5,
   );
+
+  // ---------------------------------------------------------------------------
+  // Phase 49: Bouncy Expressive Kinetic Typography Scales (Outfit / Plus Jakarta)
+  // ---------------------------------------------------------------------------
+  static TextStyle get bouncyDisplayLarge => GoogleFonts.outfit(
+    fontSize: 28,
+    height: 34 / 28,
+    fontWeight: FontWeight.w900,
+    color: AppColors.textPrimary,
+    letterSpacing: -0.6,
+  );
+
+  static TextStyle get bouncyTitleLarge => GoogleFonts.outfit(
+    fontSize: 22,
+    height: 28 / 22,
+    fontWeight: FontWeight.w800,
+    color: AppColors.textPrimary,
+    letterSpacing: -0.4,
+  );
+
+  static TextStyle get bouncyBadge => GoogleFonts.outfit(
+    fontSize: 11,
+    height: 14 / 11,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 0.2,
+  );
 }

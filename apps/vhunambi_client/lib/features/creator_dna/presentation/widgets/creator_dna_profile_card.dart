@@ -1,16 +1,19 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../profile/domain/models/creator_dna_node.dart';
+import '../../../profile/presentation/widgets/creator_dna_helix_lab_sheet.dart';
 import '../providers/creator_dna_provider.dart';
 import '../../domain/entities/creator_dna_profile.dart';
 import 'dna_genre_badge.dart';
 import 'dna_strength_meter.dart';
 
 /// Full-fidelity Creator DNA card rendered in Owner and Artist profiles,
-/// showcasing sound signature metrics, genre affinities, on-device privacy status,
-/// and self-sovereign reset controls.
+/// showcasing sound signature metrics, 3D interactive double-helix preview,
+/// genre affinities, on-device privacy status, and DNA Lab launcher (REQ-P49-LAB-01).
 class CreatorDnaProfileCard extends ConsumerWidget {
   final bool isOwner;
   final CreatorDnaProfile? customDna;
@@ -102,6 +105,41 @@ class CreatorDnaProfileCard extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           DnaStrengthMeter(strengthPercent: dna.strengthPercent),
+
+          const SizedBox(height: AppSpacing.md),
+
+          // 3D Mini-Helix Interactive Preview (REQ-P49-LAB-01)
+          _MiniDnaHelixPreview(dna: dna),
+
+          const SizedBox(height: AppSpacing.sm),
+
+          // Open 3D DNA Lab Action Button (REQ-P49-LAB-01)
+          SizedBox(
+            width: double.infinity,
+            height: 38,
+            child: OutlinedButton.icon(
+              key: const Key('open_3d_dna_lab_btn'),
+              onPressed: () =>
+                  CreatorDnaHelixLabSheet.show(context, profile: dna),
+              icon: const Text('🧬', style: TextStyle(fontSize: 14)),
+              label: Text(
+                'Open 3D DNA Lab',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.brandPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: AppColors.brandPrimary.withValues(alpha: 0.5),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.pillBorder,
+                ),
+              ),
+            ),
+          ),
 
           const SizedBox(height: AppSpacing.md),
 
@@ -273,5 +311,144 @@ class CreatorDnaProfileCard extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// Lightweight 3D Mini-Helix preview embedded in profile card (REQ-P49-LAB-01).
+class _MiniDnaHelixPreview extends StatefulWidget {
+  final CreatorDnaProfile dna;
+
+  const _MiniDnaHelixPreview({required this.dna});
+
+  @override
+  State<_MiniDnaHelixPreview> createState() => _MiniDnaHelixPreviewState();
+}
+
+class _MiniDnaHelixPreviewState extends State<_MiniDnaHelixPreview>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _rotationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nodes = CreatorDnaNode.fromCreatorDnaProfile(widget.dna);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: () => CreatorDnaHelixLabSheet.show(context, profile: widget.dna),
+      child: Container(
+        height: 110,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF101017) : const Color(0xFFF7F7FA),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.brandPrimary.withValues(alpha: 0.18),
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedBuilder(
+            animation: _rotationController,
+            builder: (context, _) {
+              final angle = _rotationController.value * 2 * math.pi;
+              return CustomPaint(
+                size: Size.infinite,
+                painter: _MiniHelixPainter(
+                  angle: angle,
+                  nodes: nodes,
+                  isDark: isDark,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniHelixPainter extends CustomPainter {
+  final double angle;
+  final List<CreatorDnaNode> nodes;
+  final bool isDark;
+
+  final Paint _strandPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round;
+
+  final Paint _nodePaint = Paint()..style = PaintingStyle.fill;
+
+  _MiniHelixPainter({
+    required this.angle,
+    required this.nodes,
+    required this.isDark,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0 || nodes.isEmpty) return;
+
+    final centerX = size.width * 0.5;
+    final topY = size.height * 0.12;
+    final bottomY = size.height * 0.88;
+    final totalHeight = bottomY - topY;
+
+    final helixRadius = (size.width * 0.22).clamp(40.0, 75.0);
+    final int count = nodes.length;
+    final double stepY = totalHeight / (count - 1);
+
+    for (int i = 0; i < count; i++) {
+      final y = topY + (i * stepY);
+      final phase = angle + (i * 0.7);
+
+      final x1 = centerX + (math.cos(phase) * helixRadius);
+      final z1 = math.sin(phase);
+
+      final x2 = centerX + (math.cos(phase + math.pi) * helixRadius);
+      final z2 = math.sin(phase + math.pi);
+
+      final node = nodes[i];
+      final normDepth = (((z1 + z2) * 0.5 + 1.0) / 2.0).clamp(0.2, 1.0);
+      final alpha = isDark
+          ? (0.20 + (normDepth * 0.65))
+          : (0.15 + (normDepth * 0.55));
+
+      _strandPaint
+        ..color = node.accentColor.withValues(alpha: alpha * 0.6)
+        ..strokeWidth = 1.2 * normDepth;
+      canvas.drawLine(Offset(x1, y), Offset(x2, y), _strandPaint);
+
+      // Node circles
+      final scale1 = 0.6 + (((z1 + 1.0) / 2.0) * 0.4);
+      _nodePaint.color = node.accentColor.withValues(alpha: alpha * scale1);
+      canvas.drawCircle(Offset(x1, y), 5.0 * scale1, _nodePaint);
+
+      final scale2 = 0.6 + (((z2 + 1.0) / 2.0) * 0.4);
+      _nodePaint.color = (node.isSequenced
+              ? AppColors.badgeCyan
+              : AppColors.textTertiary)
+          .withValues(alpha: alpha * scale2);
+      canvas.drawCircle(Offset(x2, y), 5.0 * scale2, _nodePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MiniHelixPainter oldDelegate) {
+    return oldDelegate.angle != angle || oldDelegate.isDark != isDark;
   }
 }

@@ -158,26 +158,50 @@ class _InteractiveIdentityCardStackState
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 3D Card Stack Stage
-        SizedBox(
-          height: 330,
-          child: GestureDetector(
-            onHorizontalDragEnd: (details) {
-              if (details.primaryVelocity != null) {
-                if (details.primaryVelocity! < -200) {
-                  _swipeNext();
-                } else if (details.primaryVelocity! > 200) {
-                  _swipePrev();
-                }
-              }
-            },
-            child: Stack(
-              alignment: Alignment.center,
-              children: List.generate(kIdentityCards.length, (index) {
-                return _buildTransformCard(context, index, isDark);
-              }),
+        // 3D Card Stack Stage with Physical Nav Arrows (REQ-P49-CARD-04)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              key: const Key('identity_stack_prev_btn'),
+              icon: PhosphorIcon(
+                PhosphorIconsRegular.caretLeft,
+                size: 24,
+                color: AppColors.textSecondaryOf(context),
+              ),
+              onPressed: _swipePrev,
             ),
-          ),
+            SizedBox(
+              width: 290,
+              height: 330,
+              child: GestureDetector(
+                onHorizontalDragEnd: (details) {
+                  if (details.primaryVelocity != null) {
+                    if (details.primaryVelocity! < -200) {
+                      _swipeNext();
+                    } else if (details.primaryVelocity! > 200) {
+                      _swipePrev();
+                    }
+                  }
+                },
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: List.generate(kIdentityCards.length, (index) {
+                    return _buildTransformCard(context, index, isDark);
+                  }),
+                ),
+              ),
+            ),
+            IconButton(
+              key: const Key('identity_stack_next_btn'),
+              icon: PhosphorIcon(
+                PhosphorIconsRegular.caretRight,
+                size: 24,
+                color: AppColors.textSecondaryOf(context),
+              ),
+              onPressed: _swipeNext,
+            ),
+          ],
         ),
 
         const SizedBox(height: 16),
@@ -212,15 +236,13 @@ class _InteractiveIdentityCardStackState
     final card = kIdentityCards[index];
     final relativeDiff = (index - _activeIndex);
 
-    // Compute 3D Card Perspective and Depth Transform
-    final double zTranslate = relativeDiff == 0
-        ? 0
-        : -35.0 * relativeDiff.abs();
-    final double yTranslate = relativeDiff == 0 ? 0 : 12.0 * relativeDiff.abs();
-    final double xTranslate = relativeDiff * 28.0;
-    final double rotationY = relativeDiff * -0.06;
-    final double scale = (1.0 - (relativeDiff.abs() * 0.08)).clamp(0.78, 1.0);
-    final double opacity = (1.0 - (relativeDiff.abs() * 0.32)).clamp(0.0, 1.0);
+    // Compute 3D Card Perspective and Depth Transform (REQ-P49-CARD-01..03)
+    final double zTranslate = relativeDiff == 0 ? 0 : -35.0 * relativeDiff.abs();
+    final double yTranslate = relativeDiff == 0 ? 0 : -14.0 * relativeDiff.abs();
+    final double xTranslate = relativeDiff * 24.0;
+    final double rotationY = relativeDiff * -0.05;
+    final double scale = (1.0 - (relativeDiff.abs() * 0.055)).clamp(0.78, 1.0);
+    final double opacity = (1.0 - (relativeDiff.abs() * 0.28)).clamp(0.0, 1.0);
 
     final transform = Matrix4.identity()
       ..setEntry(3, 2, 0.0012) // 3D perspective field
@@ -246,30 +268,39 @@ class _InteractiveIdentityCardStackState
             height: 310,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF141418).withValues(alpha: 0.94)
-                  : Colors.white.withValues(alpha: 0.96),
+              // 100% OPAQUE base surface: zero bleed-through from background cards (REQ-P49-CARD-01)
+              color: isDark ? const Color(0xFF16161C) : Colors.white,
+              gradient: isSelected
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        card.accentColor.withValues(alpha: 0.14),
+                        isDark ? const Color(0xFF16161C) : Colors.white,
+                      ],
+                    )
+                  : null,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: isSelected
                     ? card.accentColor
-                    : (isDark ? Colors.white12 : Colors.black12),
-                width: isSelected ? 1.8 : 1.0,
+                    : card.accentColor.withValues(alpha: isDark ? 0.35 : 0.25),
+                width: isSelected ? 2.0 : 1.2,
               ),
               boxShadow: [
                 BoxShadow(
                   color: isSelected
-                      ? card.accentColor.withValues(alpha: isDark ? 0.30 : 0.20)
-                      : Colors.black.withValues(alpha: 0.15),
-                  blurRadius: isSelected ? 24 : 12,
-                  offset: const Offset(0, 10),
+                      ? card.accentColor.withValues(alpha: isDark ? 0.35 : 0.22)
+                      : Colors.black.withValues(alpha: 0.18),
+                  blurRadius: isSelected ? 24 : 10,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with Chromatic Icon Badge & Craft Pill
+                // Header with Chromatic Icon Badge & Selected Craft Pill
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -313,76 +344,86 @@ class _InteractiveIdentityCardStackState
                   ],
                 ),
 
-                const SizedBox(height: 18),
+                // Inner body content is rendered ONLY on active card (REQ-P49-CARD-02)
+                Expanded(
+                  child: Opacity(
+                    opacity: isSelected ? 1.0 : 0.0,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 18),
 
-                // Card Title
-                Text(
-                  card.title,
-                  style: AppTypography.titleLarge.copyWith(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    color: AppColors.textPrimaryOf(context),
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                // Subtitle
-                Text(
-                  card.subtitle,
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textSecondaryOf(context),
-                    height: 1.35,
-                  ),
-                ),
-
-                const Spacer(),
-
-                // Programmatic Vector Art Accent (Zero Raw Emojis)
-                Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: (isDark ? Colors.black : Colors.grey.shade100)
-                        .withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: card.accentColor.withValues(alpha: 0.18),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: CustomPaint(
-                    size: const Size(double.infinity, 48),
-                    painter: _CardVectorWaveformPainter(
-                      color: card.accentColor,
-                      isSelected: isSelected,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Sonic Trait Badge
-                Row(
-                  children: [
-                    PhosphorIcon(
-                      PhosphorIconsRegular.sparkle,
-                      size: 13,
-                      color: card.accentColor,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        card.sonicTrait,
-                        style: AppTypography.caption.copyWith(
-                          color: card.accentColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
+                        // Card Title
+                        Text(
+                          card.title,
+                          style: AppTypography.bouncyTitleLarge.copyWith(
+                            fontSize: 20,
+                            color: AppColors.textPrimaryOf(context),
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+
+                        const SizedBox(height: 8),
+
+                        // Subtitle
+                        Text(
+                          card.subtitle,
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.textSecondaryOf(context),
+                            height: 1.35,
+                          ),
+                        ),
+
+                        const Spacer(),
+
+                        // Programmatic Vector Art Accent (Zero Raw Emojis)
+                        Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: (isDark ? Colors.black : Colors.grey.shade100)
+                                .withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: card.accentColor.withValues(alpha: 0.18),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: CustomPaint(
+                            size: const Size(double.infinity, 48),
+                            painter: _CardVectorWaveformPainter(
+                              color: card.accentColor,
+                              isSelected: isSelected,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Sonic Trait Badge
+                        Row(
+                          children: [
+                            PhosphorIcon(
+                              PhosphorIconsRegular.sparkle,
+                              size: 13,
+                              color: card.accentColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                card.sonicTrait,
+                                style: AppTypography.caption.copyWith(
+                                  color: card.accentColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),

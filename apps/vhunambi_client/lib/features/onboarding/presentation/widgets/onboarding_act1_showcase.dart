@@ -149,12 +149,10 @@ class _OnboardingAct1ShowcaseState extends State<OnboardingAct1Showcase>
 
           const SizedBox(height: 12),
 
-          // Platform Welcome Title & Slogan
+          // Platform Welcome Title & Slogan with Bouncy Kinetic Typography (REQ-P49-TYPO-01..02)
           Text(
             'Welcome to Vhunambi',
-            style: AppTypography.displayLarge.copyWith(
-              fontWeight: FontWeight.w900,
-              fontSize: 26,
+            style: AppTypography.bouncyDisplayLarge.copyWith(
               color: AppColors.textPrimaryOf(context),
             ),
             textAlign: TextAlign.center,
@@ -164,7 +162,7 @@ class _OnboardingAct1ShowcaseState extends State<OnboardingAct1Showcase>
             'The African AI Audio Synthesis & Co-Creation Network',
             style: AppTypography.bodySmall.copyWith(
               color: AppColors.textSecondaryOf(context),
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
           ),
