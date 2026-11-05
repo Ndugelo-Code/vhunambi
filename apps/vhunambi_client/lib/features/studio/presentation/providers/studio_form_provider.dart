@@ -132,6 +132,16 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
     state = state.copyWith(dialectInflection: inflection);
   }
 
+  void setBranchStemLockModes(Map<String, StemLockMode> modes) {
+    state = state.copyWith(branchStemLockModes: modes);
+  }
+
+  void setBranchStemLockMode(String branchId, StemLockMode mode) {
+    final updated = Map<String, StemLockMode>.from(state.branchStemLockModes);
+    updated[branchId] = mode;
+    state = state.copyWith(branchStemLockModes: updated);
+  }
+
   void applyDnaPresetPrivateSchoolPiano() {
     state = state.copyWith(
       genre: 'Amapiano',

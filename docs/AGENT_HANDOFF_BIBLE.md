@@ -1474,3 +1474,39 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
     - Verified all 25/25 tests passing across Phases 47–51 with zero regressions.
     - Static analysis: \lutter analyze\ reports **No issues found!** (0 errors, 0 warnings).
     - Built ARM64 release APK (\pp-release.apk\) and deployed to physical hardware \EPHUT20917014649\.
+
+
+---
+
+## 28. Phase 52: Macro-Canopy 3D Organelle Biome & Pre-Generation Stem-Lock Engine (`docs/phases/phase_52_macro_organelle_biome_and_pregen_stem_lock/`)
+
+- **Location:** [`docs/phases/phase_52_macro_organelle_biome_and_pregen_stem_lock/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_52_macro_organelle_biome_and_pregen_stem_lock/blueprint.md)
+- **Status:** Complete (Tracks A–E implemented; 5/5 tests passing in `phase52_macro_organelle_and_stem_lock_test.dart`, 18/18 passing tests across Phases 50–52, clean static analysis with 0 issues found in `flutter analyze`, compiled ARM64 release APK `app-release.apk` 41.9MB).
+- **Scope:**
+  - **Track A & B: Macro-Canopy 3D Living Ecosystem & 2-Tier Spatial Camera Hierarchy:**
+    - Replaced the distant 240x240dp microscopic cluster with an immersive macro perspective ("ants on the organelle surface", scale factor `2.1x`, base distance `320dp`, 3-layer volumetric parallax: background `0.35x`, mid `1.0x`, foreground spores `1.6x`).
+    - Implemented a 2-tier spatial camera hierarchy:
+      - *Overview Mode:* Centered above the blazing orange nucleus with only the 4 primary branch roots (`Beat & Groove`, `Vocal & Dialect`, `Instruments & Harmony`, `Spatial & Invasive`) showing billboard text bubbles, completely eliminating text pill overlap.
+      - *Branch-Dive Mode:* Tapping any primary branch root springs the camera down the mucus-membrane stem (`cameraDistance = 210dp`, 2.25x macro dive) into the branch canopy, revealing child leaf clusters (`Rhodes Piano`, `Bamboo Flute`, `Maskandi Guitar`, `Log-Drum Sub`, `MPC Chops`) and dynamic user instruments.
+      - Floating `[ Surface Overview ]` compass pill (`Key('song_dna_return_overview_btn')`) to glide smoothly back to the central overview.
+    - Moved the background pan gesture detector to a `Positioned.fill` layer behind HUD and receptor buttons, ensuring immediate touch responsiveness.
+  - **Track C: Organic Mucus-Membrane Stem Bridges & Living Core Mechanics:**
+    - Replaced straight lines with organic flared cubic Bézier tubes featuring smooth-min meniscus webbing (`startRadius * 1.45` to curved mid-span waist to `endRadius * 1.35`).
+    - Rendered 3 intertwined sinusoidal internal neural fibers using additive light blending (`BlendMode.plus`) with traveling synaptic photon packets.
+    - Added crystalline golden-cyan double-sheaths indicating pure 44.1 kHz stem-locked structural integrity.
+    - Multi-layered additive orange-gold plasma core (`#FFFFFF` -> `#FFDD00` -> `#FF6B00` -> `#FB5607`) with 3 tilted elliptical atomic energy rings rotating in 3D space with satellite energy beads.
+    - Calm idle vs contextual network surge: unselected branches rest at 30% luminosity, while selecting a branch illuminates the entire connected family to 100% additive brilliance.
+  - **Track D: Pre-Generation Stem Ingestion & Stem-Lock Authority:**
+    - Eliminated "6 AM AI beat degradation" by introducing per-branch `StemLockMode`:
+      - `lockedPure44k`: Pure 44.1 kHz pass-through to mastering; AI receives rhythm/key grid only.
+      - `harmonicInpaint`: Guided AI inpainting harmonically anchored to locked stems.
+      - `elasticResynth`: Creative AI style re-imagining.
+    - Modeled default stem-lock authority in `StudioFormState` (Beat and Sketchpad stems default to `lockedPure44k`).
+    - Added 3-way Stem Authority Selector Pill (`Key('song_dna_stem_lock_selector')`) with individual tab touch targets (`Key('song_dna_stem_lock_tab_${mode.name}')`).
+    - Added dynamic `[ + Add Instrument Leaf ]` button (`Key('song_dna_add_instrument_leaf_btn')`) and bottom selection sheet to spawn instrument leaf nodes in 3D space.
+    - Connected hybrid stem-lock pipeline: client pregen manifest export, API `prompt_compiler.ts` passing `pregenStemLocks`, and GPU worker `handler.py` injecting untouched 44.1 kHz stems before mastering.
+  - **Track E: Verification Gates & Release Delivery:**
+    - Authored `test/features/studio/phase52_macro_organelle_and_stem_lock_test.dart` (5/5 tests passing).
+    - Verified 18/18 passing tests across Phase 50, 51, and 52 test suites with 0 regressions.
+    - Clean static analysis: `flutter analyze` reports **0 issues found** across all modified feature modules.
+    - Built release ARM64 APK (`build/app/outputs/flutter-apk/app-release.apk`, 41.9MB).

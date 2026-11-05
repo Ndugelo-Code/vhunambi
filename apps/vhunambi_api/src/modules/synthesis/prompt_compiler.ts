@@ -16,6 +16,7 @@ export interface SongSpecInput {
   clonedVoiceProfileId?: string;
   melodyPattern?: MelodyPatternManifest;
   melodyReferenceId?: string;
+  pregenStemLocks?: Record<string, 'lockedPure44k' | 'harmonicInpaint' | 'elasticResynth'>;
 }
 
 export interface CompiledSynthesisPrompt {
@@ -34,7 +35,10 @@ export interface CompiledSynthesisPrompt {
     language: string;
     /** Optional track title */
     title?: string;
+    /** Pre-generation stem locks for hybrid inpainting (REQ-P52-PIPE-02) */
+    pregenStemLocks?: Record<string, string>;
   };
+  pregenStemLocks?: Record<string, string>;
   svcConfig?: {
     mode: 'catalog_archetype' | 'zero_shot_clone';
     voiceId: string;
@@ -114,8 +118,10 @@ export function compileSongSpec(input: SongSpecInput): CompiledSynthesisPrompt {
       mood: preset.defaultMood,
       language: input.language,
       title: input.trackTitle || undefined,
+      pregenStemLocks: input.pregenStemLocks,
     },
     ...(svcConfig ? { svcConfig } : {}),
     ...(melodyConditioning ? { melodyConditioning } : {}),
+    ...(input.pregenStemLocks ? { pregenStemLocks: input.pregenStemLocks } : {}),
   };
 }

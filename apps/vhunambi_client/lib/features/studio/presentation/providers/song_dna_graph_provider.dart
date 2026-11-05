@@ -13,6 +13,7 @@ import 'vocal_identity_provider.dart';
 /// and Studio Cockpit state (REQ-P50-GRAPH-05, REQ-P50-CARD-02..06).
 class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
   final Ref _ref;
+  final List<SongDnaNode> _dynamicInstrumentLeaves = [];
 
   SongDnaGraphNotifier(this._ref)
     : super(
@@ -53,7 +54,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         icon: PhosphorIconsBold.sparkle,
         accentColor: const Color(0xFFF59E0B),
         branchUnlockProgress: 1.0,
-        localPosition: const Vector3D(0, 0, 0),
+        localPosition: Vector3D(0, 0, 0),
       ),
     );
 
@@ -61,6 +62,9 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
     // ARM 1: BEAT & RHYTHM DENDRITE (Blazing Amber/Coral #F59E0B)
     // =========================================================================
     final hasGenre = form.genre.isNotEmpty;
+    final beatLockMode =
+        form.branchStemLockModes['node_beat_tempo'] ??
+        StemLockMode.lockedPure44k;
     nodes.add(
       SongDnaNode(
         id: 'node_beat_tempo',
@@ -72,7 +76,9 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         icon: PhosphorIconsBold.disc,
         accentColor: const Color(0xFFF59E0B),
         branchUnlockProgress: hasGenre ? 1.0 : 0.5,
-        localPosition: const Vector3D(0, -180, 20),
+        localPosition: Vector3D(0, -180, 20),
+        isBranchRoot: true,
+        stemLockMode: beatLockMode,
       ),
     );
 
@@ -88,7 +94,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         accentColor: const Color(0xFFF59E0B),
         branchUnlockProgress: 0.85,
         isTerminalReceptor: true,
-        localPosition: const Vector3D(-45, -235, 55),
+        localPosition: Vector3D(-45, -235, 55),
       ),
     );
 
@@ -104,7 +110,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         accentColor: const Color(0xFFF59E0B),
         branchUnlockProgress: 0.9,
         isTerminalReceptor: true,
-        localPosition: const Vector3D(45, -240, 25),
+        localPosition: Vector3D(45, -240, 25),
       ),
     );
 
@@ -144,6 +150,9 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
     // ARM 2: VOCAL & LINGUISTIC DENDRITE (Bioluminescent Cyan #06B6D4)
     // =========================================================================
     final voiceProfile = form.selectedVoiceProfile;
+    final vocalLockMode =
+        form.branchStemLockModes['node_vocal_persona'] ??
+        StemLockMode.harmonicInpaint;
     nodes.add(
       SongDnaNode(
         id: 'node_vocal_persona',
@@ -156,7 +165,9 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         icon: PhosphorIconsBold.microphone,
         accentColor: const Color(0xFF06B6D4),
         branchUnlockProgress: 0.95,
-        localPosition: const Vector3D(-160, 40, -30),
+        localPosition: Vector3D(-160, 40, -30),
+        isBranchRoot: true,
+        stemLockMode: vocalLockMode,
       ),
     );
 
@@ -196,7 +207,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         branchUnlockProgress: hasLyrics || form.lyricsMode == LyricsMode.aiWrite
             ? 1.0
             : 0.6,
-        localPosition: const Vector3D(-210, 80, 20),
+        localPosition: Vector3D(-210, 80, 20),
       ),
     );
 
@@ -227,7 +238,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         icon: PhosphorIconsBold.waveform,
         accentColor: const Color(0xFF06B6D4),
         branchUnlockProgress: 0.9,
-        localPosition: const Vector3D(-215, -75, -70),
+        localPosition: Vector3D(-215, -75, -70),
       ),
     );
 
@@ -235,6 +246,11 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
     // ARM 3: HARMONIC & INSTRUMENT DENDRITE (Vibrant Emerald #10B981)
     // =========================================================================
     final hasSketchpadPattern = sketchpad.attachedPattern != null;
+    final instLockMode =
+        form.branchStemLockModes['node_sketchpad_groove'] ??
+        (hasSketchpadPattern
+            ? StemLockMode.lockedPure44k
+            : StemLockMode.harmonicInpaint);
     final subNodes = <SongDnaSubNode>[
       const SongDnaSubNode(
         id: 'sub_lead',
@@ -283,11 +299,13 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
             ? '5-Ch Groove Attached'
             : '+ Attach Groove',
         icon: PhosphorIconsBold.pianoKeys,
-        accentColor: const Color(0xFF10B981),
+        accentColor: Color(0xFF10B981),
         branchUnlockProgress: hasSketchpadPattern ? 1.0 : 0.4,
         isAdditive: true,
-        localPosition: const Vector3D(170, 30, -20),
+        localPosition: Vector3D(170, 30, -20),
         subNodes: subNodes,
+        isBranchRoot: true,
+        stemLockMode: instLockMode,
       ),
     );
 
@@ -386,11 +404,17 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
       ),
     );
 
+    // Append dynamic user-spawned instrument leaves (REQ-P52-LEAF-01)
+    nodes.addAll(_dynamicInstrumentLeaves);
+
     // =========================================================================
     // ARM 4: SPATIAL ATMOSPHERE & ACOUSTIC DENDRITE (Bioluminescent Violet #8B5CF6)
     // =========================================================================
+    final spatialLockMode =
+        form.branchStemLockModes['node_spatial_atmosphere'] ??
+        StemLockMode.harmonicInpaint;
     nodes.add(
-      const SongDnaNode(
+      SongDnaNode(
         id: 'node_spatial_atmosphere',
         parentId: 'node_core',
         category: SongDnaNodeCategory.instrumentsHarmony,
@@ -398,9 +422,11 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         subtitle: 'Bioluminescent Acoustic Field',
         cueLabel: 'Spatial Room',
         icon: PhosphorIconsBold.speakerHifi,
-        accentColor: Color(0xFF8B5CF6),
+        accentColor: const Color(0xFF8B5CF6),
         branchUnlockProgress: 0.85,
         localPosition: Vector3D(20, 160, -40),
+        isBranchRoot: true,
+        stemLockMode: spatialLockMode,
       ),
     );
 
@@ -443,6 +469,9 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
         form.referenceAudioPath != null && form.referenceAudioPath!.isNotEmpty;
     if (hasRefAudio) {
       invasiveCount++;
+      final refLockMode =
+          form.branchStemLockModes['node_invasive_reference'] ??
+          StemLockMode.elasticResynth;
       nodes.add(
         SongDnaNode(
           id: 'node_invasive_reference',
@@ -456,7 +485,9 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
           branchUnlockProgress: 1.0,
           isInvasive: true,
           isDetachable: true,
-          localPosition: const Vector3D(60, 160, -60),
+          localPosition: Vector3D(60, 160, -60),
+          isBranchRoot: true,
+          stemLockMode: refLockMode,
         ),
       );
 
@@ -515,7 +546,7 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
           branchUnlockProgress: 1.0,
           isInvasive: true,
           isDetachable: true,
-          localPosition: const Vector3D(-50, 170, 50),
+          localPosition: Vector3D(-50, 170, 50),
         ),
       );
     }
@@ -635,6 +666,57 @@ class SongDnaGraphNotifier extends StateNotifier<SongDnaGraphState> {
     final notifier = _ref.read(melodySketchpadProvider.notifier);
     notifier.applyEuclideanGroove();
     _recomputeGraph();
+  }
+
+  /// Sets authority mode for a stem branch (REQ-P52-STEM-01..03).
+  void setStemLockMode(String branchId, StemLockMode mode) {
+    _ref
+        .read(studioFormProvider.notifier)
+        .setBranchStemLockMode(branchId, mode);
+    _recomputeGraph();
+  }
+
+  /// Spawns a new dynamic instrument leaf bubble in 3D space (REQ-P52-LEAF-01).
+  void addInstrumentLeaf({
+    required String name,
+    required PhosphorIconData icon,
+    String? subtitle,
+  }) {
+    final id = 'node_leaf_${name.toLowerCase().replaceAll(' ', '_')}';
+    _dynamicInstrumentLeaves.add(
+      SongDnaNode(
+        id: id,
+        parentId: 'node_sketchpad_groove',
+        category: SongDnaNodeCategory.instrumentsHarmony,
+        title: name,
+        subtitle: subtitle ?? 'Acoustic Solo Articulation',
+        cueLabel: name,
+        icon: icon,
+        accentColor: Color(0xFF10B981),
+        branchUnlockProgress: 1.0,
+        isTerminalReceptor: true,
+        localPosition: Vector3D(
+          210.0 + (_dynamicInstrumentLeaves.length * 20.0),
+          120.0 + (_dynamicInstrumentLeaves.length * 25.0),
+          -20.0 + (_dynamicInstrumentLeaves.length * 15.0),
+        ),
+      ),
+    );
+    _recomputeGraph();
+  }
+
+  /// Exports pre-generation stem authority manifest (REQ-P52-PIPE-01).
+  Map<String, dynamic> exportPregenStemLocksManifest() {
+    final form = _ref.read(studioFormProvider);
+    final manifest = <String, dynamic>{
+      'version': '1.0',
+      'timestamp': DateTime.now().toIso8601String(),
+      'locks': <String, String>{},
+    };
+    for (final entry in form.branchStemLockModes.entries) {
+      manifest['locks'][entry.key] = entry.value.name;
+    }
+    return manifest;
   }
 }
 

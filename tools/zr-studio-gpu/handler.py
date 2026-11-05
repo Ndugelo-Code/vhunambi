@@ -185,6 +185,23 @@ def runpod_handler(job: dict) -> dict:
         })
 
         t0 = time.time()
+        # Ingest pregen stem locks: replace AI re-synthesized stems with pure 44.1 kHz audio (REQ-P52-PIPE-03)
+        pregen_stem_locks = job_input.get("pregen_stem_locks") or song_spec.get("pregen_stem_locks") or {}
+        locked_stems_payload = job_input.get("locked_stems_payload") or {}
+        if locked_stems_payload:
+            import base64
+            for stem_name, stem_b64 in locked_stems_payload.items():
+                if stem_name in stem_paths and pregen_stem_locks.get(f"node_{stem_name}") == "lockedPure44k":
+                    try:
+                        stem_bytes = base64.b64decode(stem_b64)
+                        locked_p = os.path.join(stems_dir, f"{stem_name}_locked_pure44k.wav")
+                        with open(locked_p, "wb") as f:
+                            f.write(stem_bytes)
+                        stem_paths[stem_name] = locked_p
+                        print(f"[GPU Worker] 🔒 Injected pure 44.1 kHz locked stem for {stem_name} (zero AI degradation)")
+                    except Exception as inj_err:
+                        print(f"[GPU Worker] Warning: failed to inject locked stem {stem_name}: {inj_err}")
+
         mastering_recipe = job_input.get("mastering_recipe") or {
             "target_lufs": -9.5,
             "true_peak_db": -0.8,

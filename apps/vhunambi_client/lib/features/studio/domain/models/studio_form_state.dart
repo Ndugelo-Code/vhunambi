@@ -36,6 +36,31 @@ enum GenerationPhase {
   failed,
 }
 
+/// Authority and processing mode for stems on the 3D Song Organelle (REQ-P52-STEM-01).
+enum StemLockMode {
+  /// Preserves the exact pre-generated/uploaded 44.1 kHz stem with ZERO AI degradation.
+  /// The AI receives timing/key grid for accompaniment synthesis only.
+  lockedPure44k,
+
+  /// The AI synthesizes or inpaints this specific missing stem harmonically locked to locked stems.
+  harmonicInpaint,
+
+  /// The AI freely transforms, re-harmonizes, and re-synthesizes the input reference audio.
+  elasticResynth;
+
+  String get displayName => switch (this) {
+        StemLockMode.lockedPure44k => 'Lock Pure 44.1k',
+        StemLockMode.harmonicInpaint => 'Guided Inpaint',
+        StemLockMode.elasticResynth => 'AI Re-Imagine',
+      };
+
+  String get fullLabel => switch (this) {
+        StemLockMode.lockedPure44k => '🔒 Stem-Locked (Pure 44.1 kHz)',
+        StemLockMode.harmonicInpaint => '🧬 Guided AI Inpaint',
+        StemLockMode.elasticResynth => '✨ AI Style Re-Imagine',
+      };
+}
+
 @immutable
 class StudioFormState {
   final String prompt;
@@ -68,6 +93,9 @@ class StudioFormState {
 
   /// Fine-grained dialect inflection shaping (vowels, vibrato, choir backing) (REQ-VOX-02).
   final DialectInflectionConfig dialectInflection;
+
+  /// Authority and processing modes for individual stem branches (REQ-P52-STEM-01..02).
+  final Map<String, StemLockMode> branchStemLockModes;
 
   const StudioFormState({
     this.prompt = '',
@@ -110,7 +138,15 @@ class StudioFormState {
       ],
     ),
     this.dialectInflection = const DialectInflectionConfig(),
-  }) : visibility = visibility ?? (isPublic == false ? 'private' : 'public');
+    Map<String, StemLockMode>? branchStemLockModes,
+  })  : branchStemLockModes = branchStemLockModes ??
+            const {
+              'node_beat_tempo': StemLockMode.lockedPure44k,
+              'node_sketchpad_groove': StemLockMode.lockedPure44k,
+              'node_vocal_persona': StemLockMode.harmonicInpaint,
+              'node_spatial_atmosphere': StemLockMode.harmonicInpaint,
+            },
+        visibility = visibility ?? (isPublic == false ? 'private' : 'public');
 
   /// Backward-compatible getter during VH-002 migration.
   bool get isPublic => visibility == 'public';
@@ -232,6 +268,7 @@ class StudioFormState {
     String? errorMessage,
     BantuVoiceProfile? selectedVoiceProfile,
     DialectInflectionConfig? dialectInflection,
+    Map<String, StemLockMode>? branchStemLockModes,
   }) {
     return StudioFormState(
       prompt: prompt ?? this.prompt,
@@ -264,6 +301,7 @@ class StudioFormState {
       errorMessage: errorMessage,
       selectedVoiceProfile: selectedVoiceProfile ?? this.selectedVoiceProfile,
       dialectInflection: dialectInflection ?? this.dialectInflection,
+      branchStemLockModes: branchStemLockModes ?? this.branchStemLockModes,
     );
   }
 

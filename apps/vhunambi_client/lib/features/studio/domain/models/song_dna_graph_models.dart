@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import 'studio_form_state.dart';
 
 const Object _dnaSentinel = Object();
 
@@ -95,6 +96,8 @@ class SongDnaNode {
   final List<SongDnaSubNode> subNodes;
   final String? parentId;
   final bool isTerminalReceptor;
+  final StemLockMode? stemLockMode;
+  final bool isBranchRoot;
 
   const SongDnaNode({
     required this.id,
@@ -112,6 +115,8 @@ class SongDnaNode {
     this.subNodes = const [],
     this.parentId,
     this.isTerminalReceptor = false,
+    this.stemLockMode,
+    this.isBranchRoot = false,
   });
 
   bool get isFullyUnlocked => branchUnlockProgress >= 0.99;
@@ -127,6 +132,8 @@ class SongDnaNode {
     Vector3D? localPosition,
     String? parentId,
     bool? isTerminalReceptor,
+    StemLockMode? stemLockMode,
+    bool? isBranchRoot,
   }) {
     return SongDnaNode(
       id: id,
@@ -144,6 +151,8 @@ class SongDnaNode {
       subNodes: subNodes ?? this.subNodes,
       parentId: parentId ?? this.parentId,
       isTerminalReceptor: isTerminalReceptor ?? this.isTerminalReceptor,
+      stemLockMode: stemLockMode ?? this.stemLockMode,
+      isBranchRoot: isBranchRoot ?? this.isBranchRoot,
     );
   }
 }
