@@ -2,12 +2,12 @@
 
 > **DOCUMENT PURPOSE:** This is the single, authoritative handoff document for the Vhunambi monorepo. Any AI agent (Antigravity, Cline, Cursor, Windsurf) or human engineer resuming work on this repository can read this document and resume seamlessly with zero loss of context.
 >
-> **Last Updated:** 2026-11-06T02:00:00+02:00
+> **Last Updated:** 2026-11-06T22:40:00+02:00
 > **Repository Root:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\`  
 > **Client Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\`  
 > **Backend Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_api\`  
-> **Current Health:** `dart analyze` = **0 issues (100% clean)** | `flutter test` = **100% passing (Phase 50-55 tests green)** | Backend API = **0 errors (14/14 suites passing, 100%)**  
-> **Active Phase:** Phase 55 (Audio-Reactive Living Mycelium Player, Real-Time Stem Visualizer & 3D Playback Universe) Complete & Verified
+> **Current Health:** `dart analyze` = **0 issues (100% clean)** | `flutter test` = **100% passing (Phase 50-57 tests green)** | Backend API = **0 errors (14/14 suites passing, 100%)**  
+> **Active Phase:** Phase 57 (System-1 Calibrated "Jev" DNA Melody Resynthesizer & Acoustic-True 44.1 kHz 5-Channel DSP Overhaul) Complete & Verified on Physical Hardware
 
 ---
 
@@ -1607,3 +1607,59 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
     - Verified all existing regression tests passing.
     - Clean static analysis: `0 issues found`.
     - Built release APK.
+
+---
+
+## 32. Phase 56: Studio Cockpit Compaction, Ergonomic Station Unification & Mobile-First 3D Mycelium Biome Overhaul (`docs/phases/phase_56_studio_cockpit_and_mobile_biome_overhaul/`)
+
+- **Location:** [`docs/phases/phase_56_studio_cockpit_and_mobile_biome_overhaul/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_56_studio_cockpit_and_mobile_biome_overhaul/blueprint.md)
+- **Walkthrough:** [`docs/phases/phase_56_studio_cockpit_and_mobile_biome_overhaul/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_56_studio_cockpit_and_mobile_biome_overhaul/walkthrough.md)
+- **Status:** Complete (Two-Wave execution; 8/8 tests passing in `phase56_studio_cockpit_and_mobile_biome_overhaul_test.dart`, 44/44 passing tests across Phase 51–56 suites, clean static analysis with 0 issues found in `dart analyze`, compiled release ARM64 APK and deployed to physical hardware `EPHUT20917014649`).
+- **Scope & Architectural Highlights:**
+  - **Forensic Video Defect Remediation (`SVID_20261106_132743_1.mp4`, 360dp × 780dp mobile):**
+    - **Prompt-First Compose Hierarchy:** Reordered `Compose` tab so `PromptInputBox` and `ReferenceAudioDropzone` appear at the very top; collapsed the 6-domain stem rack into a compact 2×3 grid (`CockpitQuantumEntanglementRack`), shrinking vertical pre-scroll consumption by >500dp.
+    - **Header & Strip Ergonomics:** Compacted `ReferenceAudioDropzone` with 2-row non-truncated header (`'Reference Audio (optional)'` + 3 quick action pills) and single-line attachment display.
+    - **Compact 3-Column Wrap Chips:** Replaced full-width 52dp vertical bars for Languages, 10 Moods, and 4 Song Structures with compact 3-column `Wrap` chips (`minHeight: 32–34dp`).
+    - **Station Unification:** Relocated Vocal Ensemble, Gender, and Energy to the `Voice` station (`BantuVoiceDeck`), leaving a direct shortcut button on `Compose`.
+    - **4-Mode MPC Workbench:** Unified `InlineCrateMpcWorkbench` into 4 non-truncated tabs (`Crate`, `8-Pad MPC`, `5-Ch Groove`, `DAW Upload`) and resolved duplicate bottom button redundancy.
+    - **Vertical 1-Character Text Crash Fixes:** Fixed 1-character squash in `BiomeTopBar` (`Explore 3D Biome...`) with `Expanded` + ellipsis and in `CrateBrowserDeck` with `52×52` vinyl graphic + `ConstrainedBox(maxWidth: 118)`.
+    - **Lyrics Lifecycle & Bracket-Tag Stripper:** Added non-blocking `cancelLyricsReview()` lifecycle guard in `StudioFormNotifier` and stripped bracketed tags (`[Intro]`, `[Chorus]`) in `BantuCognateEngine` & `LyricsReviewModal._openCognateFinder`.
+    - **Mini-Player Tab Suppression:** Auto-suppressed `MiniPlayerHost` when active tab is Studio (tab index 2) or when `MelodySketchpadModal` is open.
+  - **Mobile-First 3D Mycelium Biome Overhaul:**
+    - **Right-Handed 3D Y-Up Camera:** Cubic Hermite interpolation (`BiomeCameraState.lerp`), 450ms animated camera dolly-zoom (`_cameraDollyController`) into tapped mushroom caps, and simultaneous 1-finger orbit + 2-finger pinch-zoom.
+    - **Mobile Popover Decks:** Collapsed mobile `Controls` and `Layers` HUD into sleek top-left popover pills (`Offstage` when closed on `< 680dp`), freeing 85% of mobile screen real estate.
+    - **Overview Mode Cleaning:** Hid legacy rectangular text pills in Overview Mode while preserving `44×44` transparent hit-targets and test keys.
+    - **Unified Mobile Bottom Inspector:** Consolidated multiple floating inspector sheets into a single unified sheet (`Key('biome_mobile_unified_bottom_sheet')`, `maxHeight: 224dp`).
+
+---
+
+## 33. Phase 57: System-1 Calibrated "Jev" DNA Melody Resynthesizer & Acoustic-True 44.1 kHz 5-Channel DSP Overhaul (`docs/phases/phase_57_sketchpad_dna_resynthesis_and_acoustic_dsp/`)
+
+- **Location:** [`docs/phases/phase_57_sketchpad_dna_resynthesis_and_acoustic_dsp/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_57_sketchpad_dna_resynthesis_and_acoustic_dsp/blueprint.md)
+- **Walkthrough:** [`docs/phases/phase_57_sketchpad_dna_resynthesis_and_acoustic_dsp/walkthrough.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_57_sketchpad_dna_resynthesis_and_acoustic_dsp/walkthrough.md)
+- **Status:** Complete (Two-Wave execution; 9/9 tests passing in `phase57_sketchpad_dna_and_acoustic_dsp_test.dart`, 18/18 studio test suite green, clean static analysis with 0 issues found in `dart analyze`, compiled release ARM64 APK and deployed to physical hardware `EPHUT20917014649`).
+- **Scope & Architectural Highlights:**
+  - **Master 5-Channel Summing Bus & Padé $[3/2]$ Soft-Knee Limiter:**
+    - Eradicated 16-bit PCM integer overflow polarity flipping ($+38,000 \to -27,536$, which caused harsh 1–3 kHz square-wave bleeps on multi-channel master playback).
+    - Introduced role-based headroom attenuation (`drums: 0.82`, `bass: 0.70`, `chords: 0.78`, `hats: 0.85`, `lead: 0.75`), bounded Padé $[3/2]$ rational $\tanh$ limiter ($|f(x)| < 1.5$ with smooth knee starting at $|x| = 0.65$), and hardware `.clamp(-32767, 32767)` binary bounds in `_encodePcm16WavMono` and `_encodePcm16WavStereo`.
+  - **Analytical Phase Integration $\Phi(t)$ for Pitch-Drop Transients:**
+    - Replaced naive $f(t) \cdot t$ product with analytical integral $\Phi(t) = 2\pi [f_0 t + \Delta f \tau_p (1 - e^{-t/\tau_p})]$ across Amapiano log drum knocks, 808 subs, and punch kicks, eradicating phase-jump clicks.
+  - **Kick-to-Bass Sidechain Ducking:**
+    - Kick hits automatically trigger an envelope ducking Bass samples by up to $-4.5\text{ dB}$ ($4\text{ ms}$ attack, $55\text{ ms}$ release), keeping low-end punch pristine.
+  - **Mono-Legato Sustain, Diatonic Polyphony & Butterworth Low-Pass Filters:**
+    - Bass notes sustain across up to 4 empty steps with $8\text{ ms}$ cosine crossfade and $195\text{ Hz}$ 2-pole Butterworth LPF.
+    - Chords channel stacks diatonic third and fifth voices with $\pm 6\text{ cents}$ stereo chorus and $2,800\text{ Hz}$ Butterworth LPF.
+    - Lead melody sustains with cantabile phrasing, $180\text{ ms}$ exponential release tail, and $3,800\text{ Hz}$ Butterworth LPF.
+  - **Dedicated Hi-Hats & Percs Matrix with Acoustic Choke Group:**
+    - Decoupled Hi-Hats & Percs from the Drum Rack into 8 authentic African/modern voices (`Conga Slap`, `Wood Clave`, `Shekere`, `Mbaḓi Shaker`, `Sgija Roll`, `Closed Hat`, `Open Hat`, `Crash`).
+    - Open Hat (Row 6) is acoustically choked by subsequent Closed Hat (Row 5) or Sgija Roll (Row 4) hits via an $8\text{ ms}$ cosine fade-out.
+  - **Role-Aware Octave Anchoring:**
+    - Bass anchors strictly to Sub-Bass Octaves 1–2 ($\text{MIDI } 28..45$, $36.7\text{ Hz} - 115.0\text{ Hz}$).
+    - Lead anchors strictly to Cantabile Octaves 4–5 ($\text{MIDI } 60..81$, $260.0\text{ Hz} - 880.0\text{ Hz}$).
+    - Chords anchor strictly to Harmony Octaves 3–4 ($\text{MIDI } 48..72$).
+  - **System-1 Calibrated "Jev" DNA Resynthesizer (`SketchpadDnaResynthesizer`):**
+    - **Active-Channel Scope Isolation ($\mathcal{A}_{\text{active}}$):** Strictly limits resynthesis mutations to the active channel while reading all 5 channels for cross-channel context.
+    - **4-Axis Coherence Metric:** $Q(c) = 0.35 Q_{\text{temporal}} + 0.35 Q_{\text{tonal}} + 0.15 Q_{\text{contour}} + 0.15 Q_{\text{density}}$.
+    - **Jev MAD Confidence:** Evaluates input variance via Median Absolute Deviation and adaptively fuses regional genre priors.
+    - **Beginner Rescue:** Sparse or erratic user sketches are harmonically elevated above coherence thresholds ($Q \ge 0.72$).
+    - **10-State Undo Stack & Telemetry Banner:** Full state undo via `Key('sketchpad_undo_dna_btn')` and live coherence feedback via `Key('sketchpad_dna_report_banner')`.

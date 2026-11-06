@@ -613,7 +613,7 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                 ),
               ),
 
-              // Quick Actions Sub-strip (Euclidean Groove, Glide, Input Mode, Clear)
+              // Quick Actions Sub-strip (Apply DNA, Undo DNA, Euclidean Groove, Glide, Input Mode, Clear)
               SizedBox(
                 height: 32,
                 child: ListView(
@@ -642,6 +642,50 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                           ),
                         ),
                         onPressed: notifier.toggleMobileInputMode,
+                      ),
+                      const SizedBox(width: AppSpacing.xxs),
+                    ],
+                    // Phase 57: Apply DNA (Jev System-1 Calibrated Co-Creator)
+                    ActionChip(
+                      key: const Key('sketchpad_apply_dna_btn'),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: AppColors.brandPrimary.withAlpha(42),
+                      side: const BorderSide(color: AppColors.brandPrimary),
+                      avatar: const PhosphorIcon(
+                        PhosphorIconsFill.dna,
+                        size: 13,
+                        color: AppColors.brandPrimary,
+                      ),
+                      label: Text(
+                        'Apply DNA',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.brandPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      onPressed: () => notifier.applyDnaResynthesis(),
+                    ),
+                    const SizedBox(width: AppSpacing.xxs),
+                    // Phase 57: Conditional Undo DNA Button (10-State LIFO Stack)
+                    if (state.canUndoDna) ...[
+                      ActionChip(
+                        key: const Key('sketchpad_undo_dna_btn'),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: AppColors.surfaceElevated,
+                        side: const BorderSide(color: AppColors.coinGold),
+                        avatar: const PhosphorIcon(
+                          PhosphorIconsRegular.arrowCounterClockwise,
+                          size: 13,
+                          color: AppColors.coinGold,
+                        ),
+                        label: Text(
+                          'Undo (${state.dnaUndoStack.length})',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.coinGold,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        onPressed: notifier.undoDnaResynthesis,
                       ),
                       const SizedBox(width: AppSpacing.xxs),
                     ],
@@ -743,6 +787,55 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
                   ],
                 ),
               ),
+              if (state.lastDnaReport != null) ...[
+                const SizedBox(height: 4),
+                Container(
+                  key: const Key('sketchpad_dna_report_banner'),
+                  height: 26,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandPrimary.withAlpha(28),
+                    borderRadius: AppRadius.pillBorder,
+                    border: Border.all(
+                      color: AppColors.brandPrimary.withAlpha(95),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const PhosphorIcon(
+                        PhosphorIconsFill.dna,
+                        color: AppColors.brandPrimary,
+                        size: 13,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          state.lastDnaReport!.summaryLabel,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 10.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      InkWell(
+                        key: const Key('sketchpad_dismiss_dna_report_btn'),
+                        onTap: notifier.dismissDnaReport,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: PhosphorIcon(
+                            PhosphorIconsRegular.x,
+                            color: AppColors.textSecondary,
+                            size: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 4),
 
               // ===============================================================
@@ -1666,19 +1759,19 @@ class _MobileAdaptiveSurface extends StatelessWidget {
         itemCount: 8,
         itemBuilder: (context, index) {
           final row = 7 - index; // High notes top, root sub-bass bottom
-          final noteLabel = state.isDrumOrHatChannel
-              ? kDrumRackVoiceNames[row]
-              : resolveScaleNoteLabel(
-                  pattern.musicalKey,
-                  pattern.scaleMode,
-                  row,
-                  instrument: pattern.instrument,
-                );
+          final noteLabel = resolveChannelRowLabel(
+            role: state.activeChannelRole,
+            musicalKey: pattern.musicalKey,
+            scale: pattern.scaleMode,
+            scaleRow: row,
+            instrument: pattern.instrument,
+          );
           final freqHz = resolveScaleFrequencyHz(
             pattern.musicalKey,
             pattern.scaleMode,
             row,
             instrument: pattern.instrument,
+            role: state.activeChannelRole,
           );
 
           return InkWell(
@@ -1707,9 +1800,11 @@ class _MobileAdaptiveSurface extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    state.isDrumOrHatChannel
-                        ? 'Studio Drum Voice'
-                        : '${freqHz.toStringAsFixed(1)} Hz',
+                    state.isHatsChannel
+                        ? 'High-Freq Hat & Perc'
+                        : (state.isDrumOrHatChannel
+                              ? 'Studio Drum Voice'
+                              : '${freqHz.toStringAsFixed(1)} Hz'),
                     style: AppTypography.caption.copyWith(
                       color: AppColors.coinGold,
                     ),
@@ -1783,14 +1878,13 @@ class _MobileAdaptiveSurface extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 4),
             itemBuilder: (context, listIdx) {
               final row = 7 - listIdx;
-              final noteLabel = state.isDrumOrHatChannel
-                  ? kDrumRackVoiceNames[row]
-                  : resolveScaleNoteLabel(
-                      pattern.musicalKey,
-                      pattern.scaleMode,
-                      row,
-                      instrument: pattern.instrument,
-                    );
+              final noteLabel = resolveChannelRowLabel(
+                role: state.activeChannelRole,
+                musicalKey: pattern.musicalKey,
+                scale: pattern.scaleMode,
+                scaleRow: row,
+                instrument: pattern.instrument,
+              );
 
               return Row(
                 children: [
@@ -1885,14 +1979,13 @@ class _DesktopWorkstationMatrix extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 3),
             itemBuilder: (context, listIdx) {
               final row = 7 - listIdx;
-              final noteLabel = state.isDrumOrHatChannel
-                  ? kDrumRackVoiceNames[row]
-                  : resolveScaleNoteLabel(
-                      pattern.musicalKey,
-                      pattern.scaleMode,
-                      row,
-                      instrument: pattern.instrument,
-                    );
+              final noteLabel = resolveChannelRowLabel(
+                role: state.activeChannelRole,
+                musicalKey: pattern.musicalKey,
+                scale: pattern.scaleMode,
+                scaleRow: row,
+                instrument: pattern.instrument,
+              );
 
               return Row(
                 children: [

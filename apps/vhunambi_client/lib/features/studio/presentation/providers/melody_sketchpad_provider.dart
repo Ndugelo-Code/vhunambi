@@ -4,10 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../creator_dna/domain/entities/creator_dna_profile.dart';
+import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 import '../../../mastering/presentation/providers/mastering_session_provider.dart';
 import '../../data/services/sketchpad_audio_player_service.dart';
 import '../../domain/models/melody_sketchpad_models.dart';
 import '../../domain/services/melody_wav_synthesizer.dart';
+import '../../domain/services/sketchpad_dna_resynthesizer.dart';
 import 'studio_form_provider.dart';
 
 /// Immutable state for the FL Studio-Style Multi-Track Master Groove Sketchpad (Phase 32).
@@ -29,6 +32,8 @@ class MelodySketchpadState {
     this.currentPlayheadStep = 0,
     this.euclideanPulses = 5,
     this.lastSynthesizedWavBytes,
+    this.dnaUndoStack = const [],
+    this.lastDnaReport,
   });
 
   final MelodyPatternEntity activePattern;
@@ -46,12 +51,18 @@ class MelodySketchpadState {
   final int currentPlayheadStep; // 0..15
   final int euclideanPulses; // 3..12
   final Uint8List? lastSynthesizedWavBytes;
+  final List<MultiTrackGrooveEntity> dnaUndoStack;
+  final DnaResynthesisReport? lastDnaReport;
 
   bool get hasAttachedReference => attachedPattern != null;
 
   bool get isDrumOrHatChannel =>
       activeChannelRole == SketchpadChannelRole.drums ||
       activeChannelRole == SketchpadChannelRole.hats;
+
+  bool get isHatsChannel => activeChannelRole == SketchpadChannelRole.hats;
+
+  bool get canUndoDna => dnaUndoStack.isNotEmpty;
 
   SketchpadChannelTrack get currentChannelTrack =>
       multiTrackGroove.channels[activeChannelRole] ??
@@ -74,6 +85,9 @@ class MelodySketchpadState {
     int? currentPlayheadStep,
     int? euclideanPulses,
     Uint8List? lastSynthesizedWavBytes,
+    List<MultiTrackGrooveEntity>? dnaUndoStack,
+    DnaResynthesisReport? lastDnaReport,
+    bool clearLastDnaReport = false,
   }) {
     return MelodySketchpadState(
       activePattern: activePattern ?? this.activePattern,
@@ -94,6 +108,10 @@ class MelodySketchpadState {
       euclideanPulses: euclideanPulses ?? this.euclideanPulses,
       lastSynthesizedWavBytes:
           lastSynthesizedWavBytes ?? this.lastSynthesizedWavBytes,
+      dnaUndoStack: dnaUndoStack ?? this.dnaUndoStack,
+      lastDnaReport: clearLastDnaReport
+          ? null
+          : (lastDnaReport ?? this.lastDnaReport),
     );
   }
 }
@@ -102,20 +120,20 @@ class MelodySketchpadState {
 /// and 44.1 kHz stereo Master Drive summing (REQ-SKP2-TRACK-01..04).
 class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   MelodySketchpadNotifier(this._ref)
-      : super(
-          MelodySketchpadState(
-            activePattern: kStarterMelodyPatterns.first,
-            multiTrackGroove: MultiTrackGrooveEntity.createDefault(
-              id: kStarterMelodyPatterns.first.id,
-              name: kStarterMelodyPatterns.first.name,
-              bpm: kStarterMelodyPatterns.first.bpm,
-              musicalKey: kStarterMelodyPatterns.first.musicalKey,
-              scaleMode: kStarterMelodyPatterns.first.scaleMode,
-              leadInstrument: kStarterMelodyPatterns.first.instrument,
-              initialLeadNotes: kStarterMelodyPatterns.first.notes,
-            ),
+    : super(
+        MelodySketchpadState(
+          activePattern: kStarterMelodyPatterns.first,
+          multiTrackGroove: MultiTrackGrooveEntity.createDefault(
+            id: kStarterMelodyPatterns.first.id,
+            name: kStarterMelodyPatterns.first.name,
+            bpm: kStarterMelodyPatterns.first.bpm,
+            musicalKey: kStarterMelodyPatterns.first.musicalKey,
+            scaleMode: kStarterMelodyPatterns.first.scaleMode,
+            leadInstrument: kStarterMelodyPatterns.first.instrument,
+            initialLeadNotes: kStarterMelodyPatterns.first.notes,
           ),
-        ) {
+        ),
+      ) {
     _loadSavedPatternsFromHive();
   }
 
@@ -127,11 +145,14 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 
   void _auditionSingleScaleRow(int scaleRow, {bool? hasGlide}) {
     final pattern = state.activePattern;
+    final activeChannel = state.currentChannelTrack;
     if (state.isDrumOrHatChannel) {
-      final voiceWav = _synthesizeSingleDrumHit(
-        state.currentChannelTrack.beatKit,
-        scaleRow,
+      final voiceWav = MelodyWavSynthesizer.synthesizeSingleDrumOrHatWavBytes(
+        role: state.activeChannelRole,
+        kit: activeChannel.beatKit,
+        row: scaleRow,
       );
+      state = state.copyWith(lastSynthesizedWavBytes: voiceWav);
       unawaited(_audioService.playSingleNoteHit(voiceWav));
     } else {
       final freqHz = resolveScaleFrequencyHz(
@@ -139,21 +160,112 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
         pattern.scaleMode,
         scaleRow,
         instrument: pattern.instrument,
+        role: state.activeChannelRole,
       );
       final hitWav = MelodyWavSynthesizer.synthesizeSingleNoteWavBytes(
         instrument: pattern.instrument,
         freqHz: freqHz,
         hasGlide: hasGlide ?? state.isGlideModeEnabled,
+        role: state.activeChannelRole,
       );
+      state = state.copyWith(lastSynthesizedWavBytes: hitWav);
       unawaited(_audioService.playSingleNoteHit(hitWav));
     }
   }
 
-  Uint8List _synthesizeSingleDrumHit(BeatKitGenre kit, int row) {
-    return MelodyWavSynthesizer.synthesizeSingleNoteWavBytes(
-      instrument: SketchpadInstrument.amapianoLogDrum,
-      freqHz: 55.0,
+  /// Phase 57 (`REQ-P57-DNA-01..05`, `REQ-P57-UNDO-01`):
+  /// Applies System-1 Calibrated "Jev" DNA Resynthesis strictly to the active (non-empty)
+  /// channels in `state.multiTrackGroove`, pushes the prior groove snapshot onto
+  /// `state.dnaUndoStack` (bounded at 10 snapshots), cleanly replaces the active channel
+  /// steps in-place, and re-synthesizes the 44.1 kHz master WAV preview.
+  void applyDnaResynthesis({CreatorDnaProfile? dnaOverride}) {
+    final CreatorDnaProfile dnaProfile = dnaOverride ??
+        _ref.read(creatorDnaProvider) ??
+        CreatorDnaProfile.initial();
+    final priorSnapshot = state.multiTrackGroove;
+
+    final updatedUndoStack = <MultiTrackGrooveEntity>[
+      ...state.dnaUndoStack,
+      priorSnapshot,
+    ];
+    while (updatedUndoStack.length > 10) {
+      updatedUndoStack.removeAt(0);
+    }
+
+    final result = SketchpadDnaResynthesizer.resynthesize(
+      groove: priorSnapshot,
+      dnaProfile: dnaProfile,
+      fallbackActiveRole: state.activeChannelRole,
     );
+
+    final newGroove = result.groove;
+    final activeRole = state.activeChannelRole;
+    final updatedActiveChannel =
+        newGroove.channels[activeRole] ??
+        newGroove.channels[SketchpadChannelRole.lead]!;
+
+    final syncedPattern = state.activePattern.copyWith(
+      instrument: updatedActiveChannel.instrument,
+      notes: updatedActiveChannel.steps,
+    );
+
+    final masterWav = MelodyWavSynthesizer.synthesizeMasterGrooveToWavBytes(
+      newGroove,
+    );
+
+    state = state.copyWith(
+      multiTrackGroove: newGroove,
+      activePattern: syncedPattern,
+      dnaUndoStack: updatedUndoStack,
+      lastDnaReport: result.report,
+      lastSynthesizedWavBytes: masterWav,
+    );
+
+    if (state.isPlayingPreview) {
+      unawaited(_audioService.updateLoopBuffer(masterWav, bpm: newGroove.bpm));
+    }
+  }
+
+  /// Phase 57 (`REQ-P57-UNDO-02`):
+  /// Pops the most recent groove snapshot from `state.dnaUndoStack` and restores
+  /// `state.multiTrackGroove` and `state.activePattern` to their exact prior state.
+  void undoDnaResynthesis() {
+    if (state.dnaUndoStack.isEmpty) return;
+
+    final stackCopy = List<MultiTrackGrooveEntity>.from(state.dnaUndoStack);
+    final restoredGroove = stackCopy.removeLast();
+    final activeRole = state.activeChannelRole;
+    final restoredChannel =
+        restoredGroove.channels[activeRole] ??
+        restoredGroove.channels[SketchpadChannelRole.lead]!;
+
+    final syncedPattern = state.activePattern.copyWith(
+      instrument: restoredChannel.instrument,
+      notes: restoredChannel.steps,
+    );
+
+    final masterWav = MelodyWavSynthesizer.synthesizeMasterGrooveToWavBytes(
+      restoredGroove,
+    );
+
+    state = state.copyWith(
+      multiTrackGroove: restoredGroove,
+      activePattern: syncedPattern,
+      dnaUndoStack: stackCopy,
+      clearLastDnaReport: stackCopy.isEmpty,
+      lastSynthesizedWavBytes: masterWav,
+    );
+
+    if (state.isPlayingPreview) {
+      unawaited(
+        _audioService.updateLoopBuffer(masterWav, bpm: restoredGroove.bpm),
+      );
+    }
+  }
+
+  /// Dismisses the Jev DNA telemetry report banner.
+  void dismissDnaReport() {
+    state = state.copyWith(clearLastDnaReport: true);
   }
 
   void _refreshLoopIfPlaying() {
@@ -209,7 +321,8 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   /// Switches the active channel track being viewed and edited on the 16-step matrix.
   void switchChannel(SketchpadChannelRole role) {
     if (state.activeChannelRole == role) return;
-    final channel = state.multiTrackGroove.channels[role] ??
+    final channel =
+        state.multiTrackGroove.channels[role] ??
         state.multiTrackGroove.channels[SketchpadChannelRole.lead]!;
 
     final patternForChannel = state.multiTrackGroove.toLegacyPattern(role);
@@ -223,12 +336,15 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   void setChannelVolume(SketchpadChannelRole role, double volume) {
     final channel = state.multiTrackGroove.channels[role];
     if (channel == null) return;
-    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
-      state.multiTrackGroove.channels,
-    );
+    final updatedChannels =
+        Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+          state.multiTrackGroove.channels,
+        );
     updatedChannels[role] = channel.copyWith(volume: volume.clamp(0.0, 1.2));
     state = state.copyWith(
-      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
+      multiTrackGroove: state.multiTrackGroove.copyWith(
+        channels: updatedChannels,
+      ),
     );
     _refreshLoopIfPlaying();
   }
@@ -237,12 +353,15 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   void toggleChannelMute(SketchpadChannelRole role) {
     final channel = state.multiTrackGroove.channels[role];
     if (channel == null) return;
-    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
-      state.multiTrackGroove.channels,
-    );
+    final updatedChannels =
+        Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+          state.multiTrackGroove.channels,
+        );
     updatedChannels[role] = channel.copyWith(isMuted: !channel.isMuted);
     state = state.copyWith(
-      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
+      multiTrackGroove: state.multiTrackGroove.copyWith(
+        channels: updatedChannels,
+      ),
     );
     _refreshLoopIfPlaying();
   }
@@ -251,12 +370,15 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   void toggleChannelSolo(SketchpadChannelRole role) {
     final channel = state.multiTrackGroove.channels[role];
     if (channel == null) return;
-    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
-      state.multiTrackGroove.channels,
-    );
+    final updatedChannels =
+        Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+          state.multiTrackGroove.channels,
+        );
     updatedChannels[role] = channel.copyWith(isSolo: !channel.isSolo);
     state = state.copyWith(
-      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
+      multiTrackGroove: state.multiTrackGroove.copyWith(
+        channels: updatedChannels,
+      ),
     );
     _refreshLoopIfPlaying();
   }
@@ -265,12 +387,15 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   void clearChannel(SketchpadChannelRole role) {
     final channel = state.multiTrackGroove.channels[role];
     if (channel == null) return;
-    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
-      state.multiTrackGroove.channels,
-    );
+    final updatedChannels =
+        Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+          state.multiTrackGroove.channels,
+        );
     updatedChannels[role] = channel.copyWith(steps: const []);
 
-    final updatedGroove = state.multiTrackGroove.copyWith(channels: updatedChannels);
+    final updatedGroove = state.multiTrackGroove.copyWith(
+      channels: updatedChannels,
+    );
     state = state.copyWith(
       multiTrackGroove: updatedGroove,
       activePattern: state.activeChannelRole == role
@@ -282,19 +407,27 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 
   /// Sets the BeatKitGenre for the drums channel.
   void setBeatKitGenre(BeatKitGenre kit) {
-    final drumsChan = state.multiTrackGroove.channels[SketchpadChannelRole.drums];
+    final drumsChan =
+        state.multiTrackGroove.channels[SketchpadChannelRole.drums];
     final hatsChan = state.multiTrackGroove.channels[SketchpadChannelRole.hats];
-    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
-      state.multiTrackGroove.channels,
-    );
+    final updatedChannels =
+        Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+          state.multiTrackGroove.channels,
+        );
     if (drumsChan != null) {
-      updatedChannels[SketchpadChannelRole.drums] = drumsChan.copyWith(beatKit: kit);
+      updatedChannels[SketchpadChannelRole.drums] = drumsChan.copyWith(
+        beatKit: kit,
+      );
     }
     if (hatsChan != null) {
-      updatedChannels[SketchpadChannelRole.hats] = hatsChan.copyWith(beatKit: kit);
+      updatedChannels[SketchpadChannelRole.hats] = hatsChan.copyWith(
+        beatKit: kit,
+      );
     }
     state = state.copyWith(
-      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
+      multiTrackGroove: state.multiTrackGroove.copyWith(
+        channels: updatedChannels,
+      ),
     );
     _refreshLoopIfPlaying();
   }
@@ -310,11 +443,13 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 
   /// Loads a starter preset or saved vault pattern into the active sequencer.
   void loadPattern(MelodyPatternEntity pattern) {
-    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
-      state.multiTrackGroove.channels,
-    );
+    final updatedChannels =
+        Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+          state.multiTrackGroove.channels,
+        );
     final currentRole = state.activeChannelRole;
-    final currentChannel = updatedChannels[currentRole] ??
+    final currentChannel =
+        updatedChannels[currentRole] ??
         updatedChannels[SketchpadChannelRole.lead]!;
 
     updatedChannels[currentRole] = currentChannel.copyWith(
@@ -347,18 +482,23 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 
   /// Changes the active instrument of the current channel.
   void setInstrument(SketchpadInstrument instrument) {
-    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
-      state.multiTrackGroove.channels,
-    );
+    final updatedChannels =
+        Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+          state.multiTrackGroove.channels,
+        );
     final currentRole = state.activeChannelRole;
     final currentChannel = updatedChannels[currentRole];
     if (currentChannel != null) {
-      updatedChannels[currentRole] = currentChannel.copyWith(instrument: instrument);
+      updatedChannels[currentRole] = currentChannel.copyWith(
+        instrument: instrument,
+      );
     }
 
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(instrument: instrument),
-      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
+      multiTrackGroove: state.multiTrackGroove.copyWith(
+        channels: updatedChannels,
+      ),
     );
     _auditionSingleScaleRow(0, hasGlide: false);
     _refreshLoopIfPlaying();
@@ -454,16 +594,16 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       final targetRows = switch (state.chordStampMode) {
         ChordStampMode.single => <int>[r],
         ChordStampMode.triad => <int>{
-            r,
-            (r + 2).clamp(0, 7),
-            (r + 4).clamp(0, 7),
-          }.toList(),
+          r,
+          (r + 2).clamp(0, 7),
+          (r + 4).clamp(0, 7),
+        }.toList(),
         ChordStampMode.seventh => <int>{
-            r,
-            (r + 2).clamp(0, 7),
-            (r + 4).clamp(0, 7),
-            (r + 6).clamp(0, 7),
-          }.toList(),
+          r,
+          (r + 2).clamp(0, 7),
+          (r + 4).clamp(0, 7),
+          (r + 6).clamp(0, 7),
+        }.toList(),
       };
 
       for (final targetRow in targetRows) {
@@ -485,18 +625,23 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       _auditionSingleScaleRow(r, hasGlide: useGlide);
     }
 
-    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
-      state.multiTrackGroove.channels,
-    );
+    final updatedChannels =
+        Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+          state.multiTrackGroove.channels,
+        );
     final currentRole = state.activeChannelRole;
     final currentChannel = updatedChannels[currentRole];
     if (currentChannel != null) {
-      updatedChannels[currentRole] = currentChannel.copyWith(steps: currentNotes);
+      updatedChannels[currentRole] = currentChannel.copyWith(
+        steps: currentNotes,
+      );
     }
 
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(notes: currentNotes),
-      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
+      multiTrackGroove: state.multiTrackGroove.copyWith(
+        channels: updatedChannels,
+      ),
     );
     _refreshLoopIfPlaying();
   }
@@ -539,18 +684,23 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   }
 
   void _syncCurrentChannelNotes(List<MelodyStepNote> currentNotes) {
-    final updatedChannels = Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
-      state.multiTrackGroove.channels,
-    );
+    final updatedChannels =
+        Map<SketchpadChannelRole, SketchpadChannelTrack>.from(
+          state.multiTrackGroove.channels,
+        );
     final currentRole = state.activeChannelRole;
     final currentChannel = updatedChannels[currentRole];
     if (currentChannel != null) {
-      updatedChannels[currentRole] = currentChannel.copyWith(steps: currentNotes);
+      updatedChannels[currentRole] = currentChannel.copyWith(
+        steps: currentNotes,
+      );
     }
 
     state = state.copyWith(
       activePattern: state.activePattern.copyWith(notes: currentNotes),
-      multiTrackGroove: state.multiTrackGroove.copyWith(channels: updatedChannels),
+      multiTrackGroove: state.multiTrackGroove.copyWith(
+        channels: updatedChannels,
+      ),
     );
     _refreshLoopIfPlaying();
   }
@@ -678,11 +828,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   }
 
   /// Seeds and aligns the sketchpad from parent reel DNA for viral remixing.
-  void initializeFromRemixDna({
-    String? musicalKey,
-    int? bpm,
-    String? genre,
-  }) {
+  void initializeFromRemixDna({String? musicalKey, int? bpm, String? genre}) {
     final key = (musicalKey != null && musicalKey.trim().isNotEmpty)
         ? musicalKey.trim()
         : state.activePattern.musicalKey;
@@ -695,8 +841,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 
     final matchingPreset = state.starterPresets.firstWhere(
       (p) =>
-          genre != null &&
-          p.genre.toLowerCase().contains(genre.toLowerCase()),
+          genre != null && p.genre.toLowerCase().contains(genre.toLowerCase()),
       orElse: () => state.starterPresets.first,
     );
 
@@ -715,5 +860,5 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 /// Global Riverpod provider for the Phase 32 Melody, Chord & Log-Drum Sketchpad.
 final melodySketchpadProvider =
     StateNotifierProvider<MelodySketchpadNotifier, MelodySketchpadState>((ref) {
-  return MelodySketchpadNotifier(ref);
-});
+      return MelodySketchpadNotifier(ref);
+    });

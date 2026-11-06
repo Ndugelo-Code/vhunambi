@@ -1,145 +1,177 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
+
 import '../models/melody_sketchpad_models.dart';
 import '../models/vocal_identity_models.dart';
 
-/// Pure-Dart Studio-Grade 44.1 kHz 16-Bit PCM RIFF/WAVE Synthesizer & Multi-Track Groove Engine (Phase 32).
+/// Deterministic, dependency-free 44.1 kHz 16-bit PCM RIFF/WAVE synthesizer
+/// for the Vhunambi Studio Melody & Beat Sketchpad and Regional Voice Previewer.
 ///
-/// Features:
-/// 1. **Sample-by-Sample Continuous Phase Accumulator:**
-///    $$\phi[n] = (\phi[n-1] + 2\pi \cdot f_{\text{inst}}[n] / f_s) \pmod{2\pi}$$
-///    Completely eliminates phase-discontinuity laser clicks and frequency foldover on kicks, 808s, and log drums.
-/// 2. **FL Studio 5-Channel Master Groove Drive:**
-///    Multi-track 44.1 kHz stereo summing with independent channel gain, pan, mute/solo gating, swing shuffle, and tube limiter.
-/// 3. **Physical & Acoustic Waveguides:**
-///    - Karplus-Strong plucked strings (Nylon & Electric Guitars, Maskandi).
-///    - Bowed excitation waveguide with 5.5 Hz vibrato (Solo Violin).
-///    - Breath-bore acoustic models with 5 Hz vibrato and embouchure noise (Bamboo Flute, Soprano Sax).
-///    - Inharmonic string dispersion & soundboard resonance (Concert Grand & Classic Piano).
-/// 4. **8-Row Studio Drum Rack:**
-///    Dedicated DSP algorithms across 6 genres (`amapiano`, `hipHop`, `gqom`, `afrobeats`, `house`, `pop`).
+/// Phase 57 Overhaul:
+/// 1. Bounded Padé [3/2] tanh soft-knee master limiter + Int16 clamp (zero wrap-around bleeps).
+/// 2. Kick-triggered Bass sidechain envelope ducking (-4.5 dB, 4 ms attack, 55 ms release).
+/// 3. Analytical phase-integrated pitch envelopes (zero phase-inversion FM chirps).
+/// 4. Dedicated 8-Row High-Frequency Percussion Matrix (`synthesizeHatPercVoice`) for
+///    `SketchpadChannelRole.hats` with Open-to-Closed Hat Choke Group.
+/// 5. Role-aware octave anchoring, Mono-Legato Bass sustain + 195 Hz 2-pole Butterworth LPF,
+///    Multi-Step Cantabile Lead sustain + 3.8 kHz LPF, and automatic diatonic Chord stacks.
 class MelodyWavSynthesizer {
   const MelodyWavSynthesizer._();
 
-  static const int kMasterSampleRate = 44100;
+  static const int kSampleRate = 44100;
+  static const int kMasterSampleRate = kSampleRate;
 
-  static double _fastTanh(double x) {
-    if (x > 3.0) return 1.0;
-    if (x < -3.0) return -1.0;
-    final x2 = x * x;
-    return x * (27.0 + x2) / (27.0 + 9.0 * x2);
+  /// Per-channel pre-summing headroom gain weights (Phase 57 REQ-P57-DSP-01).
+  static double resolveRoleHeadroomGain(SketchpadChannelRole role) {
+    switch (role) {
+      case SketchpadChannelRole.bass:
+        return 0.52;
+      case SketchpadChannelRole.drums:
+        return 0.55;
+      case SketchpadChannelRole.chords:
+        return 0.42;
+      case SketchpadChannelRole.lead:
+        return 0.48;
+      case SketchpadChannelRole.hats:
+        return 0.38;
+    }
   }
 
-  /// Synthesizes a 5-Channel FL Studio-Style Master Groove into a 44.1 kHz Stereo 16-Bit PCM WAV.
+  /// Bounded Padé [3/2] rational approximant to tanh(x) with hard saturation outside [-3, 3].
+  /// Guaranteed strictly within [-1.0, 1.0] for all real inputs (REQ-P57-DSP-01).
+  static double padeTanhLimiter(double x) {
+    if (x.isNaN) return 0.0;
+    if (x <= -3.0) return -1.0;
+    if (x >= 3.0) return 1.0;
+    final x2 = x * x;
+    return (x * (27.0 + x2)) / (27.0 + 9.0 * x2);
+  }
+
+  /// Synthesizes a 5-channel [MultiTrackGrooveEntity] into a stereo 16-bit PCM
+  /// RIFF/WAVE byte buffer with per-channel pan, multi-step overlap-add sustain,
+  /// Kick-triggered Bass sidechain ducking, 2-pole Butterworth filtering,
+  /// and Padé [3/2] master soft-knee limiting.
   static Uint8List synthesizeMasterGrooveToWavBytes(
     MultiTrackGrooveEntity groove, {
-    int sampleRate = kMasterSampleRate,
+    int sampleRate = kSampleRate,
   }) {
-    final stepSec = 60.0 / groove.bpm / 4.0;
-    final totalSec = (stepSec * 16.0).clamp(1.2, 8.0);
-    final totalSamples = (totalSec * sampleRate).round();
+    final safeBpm = groove.bpm.clamp(60, 200);
+    final stepDurationSec = 60.0 / (safeBpm * 4.0);
+    final totalDurationSec = stepDurationSec * 16.0;
+    final totalSamples = (totalDurationSec * sampleRate).round();
 
     final leftBuffer = Float64List(totalSamples);
     final rightBuffer = Float64List(totalSamples);
 
-    final anySolo = groove.channels.values.any((c) => c.isSolo);
+    final activeChannels = groove.effectiveAudibleChannels;
+    if (activeChannels.isEmpty) {
+      return _encodePcm16WavStereo(leftBuffer, rightBuffer, sampleRate);
+    }
 
-    // African swing delay offset for odd steps (1, 3, 5, 7, 9, 11, 13, 15)
-    final swingSecOffset = (groove.swingPercent / 100.0) * (stepSec * 0.33);
-
-    for (final channel in groove.channels.values) {
-      // Gate channel with isSolo + isMuted
-      final isAudible = !channel.isMuted && (!anySolo || channel.isSolo);
-      if (!isAudible || channel.steps.isEmpty) continue;
-
-      final channelVol = channel.volume.clamp(0.0, 1.4);
-      final panLeft = (1.0 - channel.pan).clamp(0.0, 1.0);
-      final panRight = (1.0 + channel.pan).clamp(0.0, 1.0);
-      final isDrumsOrHats = channel.role == SketchpadChannelRole.drums ||
-          channel.role == SketchpadChannelRole.hats;
-
-      for (final note in channel.steps) {
-        final isOddStep = note.stepIndex % 2 == 1;
-        final actualStepTime =
-            note.stepIndex * stepSec + (isOddStep ? swingSecOffset : 0.0);
-        final startSample = (actualStepTime * sampleRate).round().clamp(
-              0,
-              totalSamples - 1,
-            );
-
-        if (isDrumsOrHats) {
-          // 8-Row Studio Drum Rack Voice
-          final voiceDurationSec = _resolveDrumVoiceDuration(note.scaleRow);
-          final noteSamples = math.min(
-            (voiceDurationSec * sampleRate).round(),
-            totalSamples - startSample,
+    // Collect Kick onset samples from the drums channel for Bass sidechain ducking (REQ-P57-DSP-02)
+    final kickOnsetSamples = <int>[];
+    final drumsChannel = activeChannels
+        .where((c) => c.role == SketchpadChannelRole.drums)
+        .firstOrNull;
+    if (drumsChannel != null) {
+      for (final note in drumsChannel.steps) {
+        if (note.scaleRow == 0 || note.scaleRow == 1) {
+          final onsetSample = _computeGrooveNoteStartSample(
+            stepIndex: note.stepIndex,
+            isPercussion: true,
+            scaleRow: note.scaleRow,
+            stepDurationSec: stepDurationSec,
+            swingAmount: groove.swingAmount,
+            sampleRate: sampleRate,
           );
-
-          double phase = 0.0;
-          for (var i = 0; i < noteSamples; i++) {
-            final t = i / sampleRate;
-            final normT = i / math.max(1, noteSamples);
-            final sampleVal = _synthesizeDrumRackVoice(
-              kit: channel.beatKit,
-              row: note.scaleRow,
-              t: t,
-              normT: normT,
-              sampleRate: sampleRate,
-              phase: phase,
-              onPhaseAdvance: (nextP) => phase = nextP,
-            );
-
-            final amp = sampleVal * note.velocity * channelVol;
-            leftBuffer[startSample + i] += amp * panLeft;
-            rightBuffer[startSample + i] += amp * panRight;
-          }
-        } else {
-          // Melodic Voice (Lead, Chords, Bass)
-          final f0 = resolveScaleFrequencyHz(
-            groove.musicalKey,
-            groove.scaleMode,
-            note.scaleRow,
-            instrument: channel.instrument,
-          );
-          final noteDurationSec = (note.durationSteps * stepSec * 1.35).clamp(
-            0.15,
-            3.2,
-          );
-          final noteSamples = math.min(
-            (noteDurationSec * sampleRate).round(),
-            totalSamples - startSample,
-          );
-          final fadeSamples = math.max(1, (0.003 * sampleRate).round());
-
-          double phase = 0.0;
-          for (var i = 0; i < noteSamples; i++) {
-            final t = i / sampleRate;
-            final normT = i / math.max(1, noteSamples);
-
-            final fadeIn = i < fadeSamples
-                ? 0.5 * (1.0 - math.cos(math.pi * i / fadeSamples))
-                : 1.0;
-            final fadeOut = i > noteSamples - fadeSamples
-                ? (noteSamples - i) / fadeSamples
-                : 1.0;
-
-            final sampleVal = _synthesizeInstrumentSample(
-              instrument: channel.instrument,
-              f0: f0,
-              t: t,
-              normT: normT,
-              hasGlide: note.hasGlide,
-              phase: phase,
-              sampleRate: sampleRate,
-              onPhaseAdvance: (nextP) => phase = nextP,
-            );
-
-            final amp =
-                sampleVal * note.velocity * channelVol * fadeIn * fadeOut;
-            leftBuffer[startSample + i] += amp * panLeft;
-            rightBuffer[startSample + i] += amp * panRight;
-          }
+          kickOnsetSamples.add(onsetSample);
         }
+      }
+    }
+
+    for (final channel in activeChannels) {
+      final chanLeft = Float64List(totalSamples);
+      final chanRight = Float64List(totalSamples);
+
+      final panAngle =
+          (channel.pan.clamp(-1.0, 1.0) + 1.0) * (math.pi / 4.0);
+      final panLeft = math.cos(panAngle);
+      final panRight = math.sin(panAngle);
+      final channelGain =
+          channel.volume.clamp(0.0, 1.2) * resolveRoleHeadroomGain(channel.role);
+
+      switch (channel.role) {
+        case SketchpadChannelRole.drums:
+          _renderDrumsChannel(
+            channel: channel,
+            groove: groove,
+            stepDurationSec: stepDurationSec,
+            sampleRate: sampleRate,
+            totalSamples: totalSamples,
+            channelGain: channelGain,
+            panLeft: panLeft,
+            panRight: panRight,
+            outLeft: chanLeft,
+            outRight: chanRight,
+          );
+        case SketchpadChannelRole.hats:
+          _renderHatsPercChannel(
+            channel: channel,
+            groove: groove,
+            stepDurationSec: stepDurationSec,
+            sampleRate: sampleRate,
+            totalSamples: totalSamples,
+            channelGain: channelGain,
+            panLeft: panLeft,
+            panRight: panRight,
+            outLeft: chanLeft,
+            outRight: chanRight,
+          );
+        case SketchpadChannelRole.bass:
+          _renderBassMonoLegatoChannel(
+            channel: channel,
+            groove: groove,
+            stepDurationSec: stepDurationSec,
+            sampleRate: sampleRate,
+            totalSamples: totalSamples,
+            channelGain: channelGain,
+            panLeft: panLeft,
+            panRight: panRight,
+            kickOnsetSamples: kickOnsetSamples,
+            outLeft: chanLeft,
+            outRight: chanRight,
+          );
+        case SketchpadChannelRole.chords:
+          _renderChordsPolyphonicChannel(
+            channel: channel,
+            groove: groove,
+            stepDurationSec: stepDurationSec,
+            sampleRate: sampleRate,
+            totalSamples: totalSamples,
+            channelGain: channelGain,
+            panLeft: panLeft,
+            panRight: panRight,
+            outLeft: chanLeft,
+            outRight: chanRight,
+          );
+        case SketchpadChannelRole.lead:
+          _renderLeadCantabileChannel(
+            channel: channel,
+            groove: groove,
+            stepDurationSec: stepDurationSec,
+            sampleRate: sampleRate,
+            totalSamples: totalSamples,
+            channelGain: channelGain,
+            panLeft: panLeft,
+            panRight: panRight,
+            outLeft: chanLeft,
+            outRight: chanRight,
+          );
+      }
+
+      for (var i = 0; i < totalSamples; i++) {
+        leftBuffer[i] += chanLeft[i];
+        rightBuffer[i] += chanRight[i];
       }
     }
 
@@ -147,135 +179,756 @@ class MelodyWavSynthesizer {
       leftBuffer,
       rightBuffer,
       sampleRate,
-      drive: groove.masterDriveAmount,
+      drive: groove.masterDrive,
     );
   }
 
-  /// Synthesizes a 16-step single-track pattern into a 16-bit PCM WAV (Phase 27 compatibility).
-  static Uint8List synthesizePatternToWavBytes(
-    MelodyPatternEntity pattern, {
-    int sampleRate = kMasterSampleRate,
-    bool includeShakerPulse = true,
+  static int _computeGrooveNoteStartSample({
+    required int stepIndex,
+    required bool isPercussion,
+    required int scaleRow,
+    required double stepDurationSec,
+    required double swingAmount,
+    required int sampleRate,
   }) {
-    final stepSec = 60.0 / pattern.bpm / 4.0;
-    final totalSec = (stepSec * 16.0).clamp(1.2, 6.0);
-    final totalSamples = (totalSec * sampleRate).round();
-    final mixBuffer = Float64List(totalSamples);
+    final isOffbeatStep = stepIndex.isOdd;
+    final swingShiftSec = isOffbeatStep
+        ? (swingAmount - 0.5).clamp(0.0, 0.25) * stepDurationSec * 0.65
+        : 0.0;
+    final microDelaySec =
+        (isPercussion && scaleRow >= 5 && isOffbeatStep) ? 0.006 : 0.0;
+    final startSec =
+        (stepIndex * stepDurationSec) + swingShiftSec + microDelaySec;
+    return (startSec * sampleRate).round().clamp(0, sampleRate * 60);
+  }
 
-    if (includeShakerPulse) {
-      for (var step = 0; step < 16; step++) {
-        final startSample = (step * stepSec * sampleRate).round().clamp(
-              0,
-              totalSamples - 1,
-            );
-        final shakerDurSamples = math.min(
-          (0.040 * sampleRate).round(),
-          totalSamples - startSample,
+  // ---------------------------------------------------------------------------
+  // Channel 1: Drums Rack Renderer (8-Row Studio & African Drum Kit)
+  // ---------------------------------------------------------------------------
+  static void _renderDrumsChannel({
+    required SketchpadChannelState channel,
+    required MultiTrackGrooveEntity groove,
+    required double stepDurationSec,
+    required int sampleRate,
+    required int totalSamples,
+    required double channelGain,
+    required double panLeft,
+    required double panRight,
+    required Float64List outLeft,
+    required Float64List outRight,
+  }) {
+    final hitRenderWindowSec = math.max(stepDurationSec * 2.6, 0.34);
+    final hitSampleCount = (hitRenderWindowSec * sampleRate).round();
+
+    for (final note in channel.steps) {
+      final startSample = _computeGrooveNoteStartSample(
+        stepIndex: note.stepIndex,
+        isPercussion: true,
+        scaleRow: note.scaleRow,
+        stepDurationSec: stepDurationSec,
+        swingAmount: groove.swingAmount,
+        sampleRate: sampleRate,
+      );
+      final noteGain = note.velocity.clamp(0.05, 1.0) * channelGain;
+
+      for (var i = 0; i < hitSampleCount; i++) {
+        final targetIdx = startSample + i;
+        if (targetIdx >= totalSamples) break;
+        final localSec = i / sampleRate;
+        final raw = synthesizeDrumRackVoice(
+          kit: channel.beatKit,
+          row: note.scaleRow,
+          t: localSec,
         );
-        final isDownbeat = step % 4 == 0;
-        final isOffbeat = step % 2 == 1;
-        final gain = isDownbeat ? 0.09 : (isOffbeat ? 0.06 : 0.03);
+        final sample = raw * noteGain;
+        outLeft[targetIdx] += sample * panLeft;
+        outRight[targetIdx] += sample * panRight;
+      }
+    }
+  }
 
-        for (var i = 0; i < shakerDurSamples; i++) {
-          final t = i / sampleRate;
-          final noise = math.sin(i * 12.9898 + step * 78.233) *
-              math.cos(i * 4.1414 + 1.7);
-          final rim = isDownbeat
-              ? 0.45 *
-                  math.exp(-t / 0.007) *
-                  math.sin(2.0 * math.pi * 920.0 * t)
-              : 0.0;
-          final env = math.exp(-t / 0.014);
-          mixBuffer[startSample + i] += (noise * env + rim) * gain;
+  // ---------------------------------------------------------------------------
+  // Channel 2: Dedicated Hi-Hats & Percs Renderer with Open->Closed Choke Group
+  // ---------------------------------------------------------------------------
+  static void _renderHatsPercChannel({
+    required SketchpadChannelState channel,
+    required MultiTrackGrooveEntity groove,
+    required double stepDurationSec,
+    required int sampleRate,
+    required int totalSamples,
+    required double channelGain,
+    required double panLeft,
+    required double panRight,
+    required Float64List outLeft,
+    required Float64List outRight,
+  }) {
+    // Identify all Closed Hat (Row 5) and 32nd Sgija Roll (Row 4) onset samples
+    // so Open Shimmer Hat (Row 6) is acoustically choked when a closed hat hits (REQ-P57-HATS-02).
+    final closedChokeOnsets = <int>[];
+    for (final note in channel.steps) {
+      if (note.scaleRow == 5 || note.scaleRow == 4) {
+        closedChokeOnsets.add(
+          _computeGrooveNoteStartSample(
+            stepIndex: note.stepIndex,
+            isPercussion: true,
+            scaleRow: note.scaleRow,
+            stepDurationSec: stepDurationSec,
+            swingAmount: groove.swingAmount,
+            sampleRate: sampleRate,
+          ),
+        );
+      }
+    }
+    closedChokeOnsets.sort();
+
+    for (final note in channel.steps) {
+      final startSample = _computeGrooveNoteStartSample(
+        stepIndex: note.stepIndex,
+        isPercussion: true,
+        scaleRow: note.scaleRow,
+        stepDurationSec: stepDurationSec,
+        swingAmount: groove.swingAmount,
+        sampleRate: sampleRate,
+      );
+
+      final maxVoiceSec = note.scaleRow == 7
+          ? 0.45
+          : (note.scaleRow == 6 ? 0.32 : math.max(stepDurationSec * 1.35, 0.16));
+      final hitSampleCount = (maxVoiceSec * sampleRate).round();
+
+      // Determine choke sample for Open Hat (Row 6)
+      int? chokeAtSample;
+      if (note.scaleRow == 6) {
+        for (final closedSample in closedChokeOnsets) {
+          if (closedSample > startSample) {
+            chokeAtSample = closedSample;
+            break;
+          }
+        }
+      }
+
+      final noteGain = note.velocity.clamp(0.05, 1.0) * channelGain;
+      // Subtle per-row stereo spread for natural percussion imaging
+      final rowPanOffset = ((note.scaleRow - 3.5) * 0.04).clamp(-0.18, 0.18);
+      final effLeft = (panLeft - rowPanOffset).clamp(0.15, 1.0);
+      final effRight = (panRight + rowPanOffset).clamp(0.15, 1.0);
+
+      for (var i = 0; i < hitSampleCount; i++) {
+        final targetIdx = startSample + i;
+        if (targetIdx >= totalSamples) break;
+
+        double chokeGain = 1.0;
+        if (chokeAtSample != null && targetIdx >= chokeAtSample) {
+          final chokeElapsedSec = (targetIdx - chokeAtSample) / sampleRate;
+          if (chokeElapsedSec >= 0.008) break; // Completely choked after 8 ms
+          chokeGain = 0.5 * (1.0 + math.cos(math.pi * (chokeElapsedSec / 0.008)));
+        }
+
+        final localSec = i / sampleRate;
+        final raw = synthesizeHatPercVoice(
+          kit: channel.beatKit,
+          row: note.scaleRow,
+          t: localSec,
+          stepDurationSec: stepDurationSec,
+        );
+        final sample = raw * noteGain * chokeGain;
+        outLeft[targetIdx] += sample * effLeft;
+        outRight[targetIdx] += sample * effRight;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Channel 3: Mono-Legato Sub-Bass Renderer + 195 Hz LPF + Kick Sidechain Duck
+  // ---------------------------------------------------------------------------
+  static void _renderBassMonoLegatoChannel({
+    required SketchpadChannelState channel,
+    required MultiTrackGrooveEntity groove,
+    required double stepDurationSec,
+    required int sampleRate,
+    required int totalSamples,
+    required double channelGain,
+    required double panLeft,
+    required double panRight,
+    required List<int> kickOnsetSamples,
+    required Float64List outLeft,
+    required Float64List outRight,
+  }) {
+    // Mono-legato voice allocation: at most 1 note per step (lowest scaleRow wins)
+    final stepNotes = <int, MelodyStepNote>{};
+    for (final note in channel.steps) {
+      final step = note.stepIndex.clamp(0, 15);
+      final existing = stepNotes[step];
+      if (existing == null || note.scaleRow < existing.scaleRow) {
+        stepNotes[step] = note;
+      }
+    }
+    if (stepNotes.isEmpty) return;
+
+    final sortedSteps = stepNotes.keys.toList()..sort();
+    final monoBuffer = Float64List(totalSamples);
+
+    // If user selected a high-register instrument on the bass tab, render with warm sub-bass physics
+    final effectiveBassInstrument = channel.instrument.isSubBass
+        ? channel.instrument
+        : SketchpadInstrument.amapianoLogDrum;
+
+    for (var idx = 0; idx < sortedSteps.length; idx++) {
+      final step = sortedSteps[idx];
+      final note = stepNotes[step]!;
+      final nextOccupiedStep =
+          idx + 1 < sortedSteps.length ? sortedSteps[idx + 1] : 16;
+
+      // Sustain across empty steps up to 4 steps (REQ-P57-DSP-05)
+      final holdSteps = (nextOccupiedStep - step).clamp(1, 4);
+      final gateDurationSec = holdSteps * stepDurationSec;
+      final totalNoteSec = gateDurationSec + 0.035; // 35 ms smooth release tail
+
+      final startSample = _computeGrooveNoteStartSample(
+        stepIndex: step,
+        isPercussion: false,
+        scaleRow: note.scaleRow,
+        stepDurationSec: stepDurationSec,
+        swingAmount: groove.swingAmount,
+        sampleRate: sampleRate,
+      );
+      final noteSamples = (totalNoteSec * sampleRate).round();
+
+      final targetFreqHz = resolveScaleFrequencyHz(
+        groove.musicalKey,
+        groove.scaleMode,
+        note.scaleRow,
+        instrument: effectiveBassInstrument,
+        role: SketchpadChannelRole.bass,
+      );
+      final startFreqHz =
+          note.hasGlide ? (targetFreqHz * 0.7937) : targetFreqHz;
+      final noteGain = note.velocity.clamp(0.05, 1.0) * channelGain;
+
+      for (var i = 0; i < noteSamples; i++) {
+        final targetIdx = startSample + i;
+        if (targetIdx >= totalSamples) break;
+        final localSec = i / sampleRate;
+
+        final instantFreq = _computeInstantFrequency(
+          localSec: localSec,
+          stepDurationSec: gateDurationSec,
+          startFreqHz: startFreqHz,
+          targetFreqHz: targetFreqHz,
+          hasGlide: note.hasGlide,
+        );
+
+        final env = _computeLegatoEnvelope(
+          localSec: localSec,
+          gateDurationSec: gateDurationSec,
+          totalNoteSec: totalNoteSec,
+          attackSec: 0.006,
+          sustainDecayTau: 0.42,
+        );
+
+        final raw = _synthesizeVoiceSample(
+          instrument: effectiveBassInstrument,
+          freq: instantFreq,
+          t: localSec,
+        );
+
+        // 8 ms cosine retrigger crossfade if overlapping previous bass tail
+        double crossfadeWeight = 1.0;
+        if (localSec < 0.008 && monoBuffer[targetIdx].abs() > 1e-6) {
+          crossfadeWeight =
+              0.5 * (1.0 - math.cos(math.pi * (localSec / 0.008)));
+          monoBuffer[targetIdx] *= (1.0 - crossfadeWeight);
+        }
+
+        monoBuffer[targetIdx] += raw * env * noteGain * crossfadeWeight;
+      }
+    }
+
+    // Apply 2-pole Butterworth Low-Pass Filter at fc = 195 Hz (REQ-P57-DSP-05)
+    _applyButterworthLowPassInPlace(
+      monoBuffer,
+      cutoffHz: 195.0,
+      sampleRate: sampleRate,
+    );
+
+    // Apply Kick-triggered Sidechain Envelope Ducking (-4.5 dB, 4 ms attack, 55 ms release)
+    for (var n = 0; n < totalSamples; n++) {
+      var duckAtten = 0.0;
+      for (final kickSample in kickOnsetSamples) {
+        final dt = (n - kickSample) / sampleRate;
+        if (dt >= 0.0 && dt < 0.25) {
+          final env = dt < 0.004
+              ? (dt / 0.004)
+              : math.exp(-(dt - 0.004) / 0.055);
+          if (env > duckAtten) duckAtten = env;
+        }
+      }
+      final sidechainGain = (1.0 - 0.41 * duckAtten).clamp(0.59, 1.0);
+      final sample = monoBuffer[n] * sidechainGain;
+      outLeft[n] += sample * panLeft;
+      outRight[n] += sample * panRight;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Channel 4: Polyphonic Chords & Pads Renderer + Diatonic Voicing + Chorus
+  // ---------------------------------------------------------------------------
+  static void _renderChordsPolyphonicChannel({
+    required SketchpadChannelState channel,
+    required MultiTrackGrooveEntity groove,
+    required double stepDurationSec,
+    required int sampleRate,
+    required int totalSamples,
+    required double channelGain,
+    required double panLeft,
+    required double panRight,
+    required Float64List outLeft,
+    required Float64List outRight,
+  }) {
+    // Group notes by stepIndex so single root notes automatically expand into warm diatonic triads
+    final notesByStep = <int, List<MelodyStepNote>>{};
+    for (final note in channel.steps) {
+      final s = note.stepIndex.clamp(0, 15);
+      notesByStep.putIfAbsent(s, () => []).add(note);
+    }
+    if (notesByStep.isEmpty) return;
+
+    final sortedSteps = notesByStep.keys.toList()..sort();
+
+    for (var idx = 0; idx < sortedSteps.length; idx++) {
+      final step = sortedSteps[idx];
+      final stepChordNotes = notesByStep[step]!;
+      final nextStep =
+          idx + 1 < sortedSteps.length ? sortedSteps[idx + 1] : 16;
+
+      // Sustain chords across empty steps up to 4 steps (REQ-P57-DSP-06)
+      final holdSteps = (nextStep - step).clamp(1, 4);
+      final gateDurationSec = holdSteps * stepDurationSec;
+      final totalNoteSec = gateDurationSec + 0.14;
+      final noteSamples = (totalNoteSec * sampleRate).round();
+
+      final startSample = _computeGrooveNoteStartSample(
+        stepIndex: step,
+        isPercussion: false,
+        scaleRow: stepChordNotes.first.scaleRow,
+        stepDurationSec: stepDurationSec,
+        swingAmount: groove.swingAmount,
+        sampleRate: sampleRate,
+      );
+
+      // If user placed a single root pad on the chords channel, voice it as a warm diatonic triad
+      final expandedRowsAndWeights = <(int row, double vel, bool glide)>[];
+      if (stepChordNotes.length == 1) {
+        final root = stepChordNotes.first;
+        expandedRowsAndWeights.add((root.scaleRow, root.velocity, root.hasGlide));
+        expandedRowsAndWeights.add((
+          (root.scaleRow + 2).clamp(0, 7),
+          root.velocity * 0.72,
+          root.hasGlide,
+        ));
+        expandedRowsAndWeights.add((
+          (root.scaleRow + 4).clamp(0, 7),
+          root.velocity * 0.68,
+          root.hasGlide,
+        ));
+      } else {
+        final polyNorm = 1.0 / math.sqrt(stepChordNotes.length);
+        for (final n in stepChordNotes) {
+          expandedRowsAndWeights.add((
+            n.scaleRow,
+            n.velocity * polyNorm,
+            n.hasGlide,
+          ));
+        }
+      }
+
+      for (final (row, vel, hasGlide) in expandedRowsAndWeights) {
+        final targetFreqHz = resolveScaleFrequencyHz(
+          groove.musicalKey,
+          groove.scaleMode,
+          row,
+          instrument: channel.instrument,
+          role: SketchpadChannelRole.chords,
+        );
+        final startFreqHz = hasGlide ? (targetFreqHz * 0.9438) : targetFreqHz;
+        final voiceGain = vel.clamp(0.05, 1.0) * channelGain * 0.62;
+
+        // Stereo chorus detuning (+/- 6 cents = 2^(+/-6/1200) ~= 1.00347 / 0.99654)
+        for (var i = 0; i < noteSamples; i++) {
+          final targetIdx = startSample + i;
+          if (targetIdx >= totalSamples) break;
+          final localSec = i / sampleRate;
+
+          final instantFreq = _computeInstantFrequency(
+            localSec: localSec,
+            stepDurationSec: gateDurationSec,
+            startFreqHz: startFreqHz,
+            targetFreqHz: targetFreqHz,
+            hasGlide: hasGlide,
+          );
+          final env = _computeLegatoEnvelope(
+            localSec: localSec,
+            gateDurationSec: gateDurationSec,
+            totalNoteSec: totalNoteSec,
+            attackSec: 0.016,
+            sustainDecayTau: 0.65,
+          );
+
+          final sampleL = _synthesizeVoiceSample(
+            instrument: channel.instrument,
+            freq: instantFreq * 0.9965,
+            t: localSec,
+          );
+          final sampleR = _synthesizeVoiceSample(
+            instrument: channel.instrument,
+            freq: instantFreq * 1.0035,
+            t: localSec,
+          );
+
+          outLeft[targetIdx] += sampleL * env * voiceGain * panLeft;
+          outRight[targetIdx] += sampleR * env * voiceGain * panRight;
         }
       }
     }
 
+    // Warm 2,800 Hz LPF polish on Chords channel
+    _applyButterworthLowPassInPlace(
+      outLeft,
+      cutoffHz: 2800.0,
+      sampleRate: sampleRate,
+    );
+    _applyButterworthLowPassInPlace(
+      outRight,
+      cutoffHz: 2800.0,
+      sampleRate: sampleRate,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Channel 5: Cantabile Lead Melody Renderer + Multi-Step Sustain + 3.8 kHz LPF
+  // ---------------------------------------------------------------------------
+  static void _renderLeadCantabileChannel({
+    required SketchpadChannelState channel,
+    required MultiTrackGrooveEntity groove,
+    required double stepDurationSec,
+    required int sampleRate,
+    required int totalSamples,
+    required double channelGain,
+    required double panLeft,
+    required double panRight,
+    required Float64List outLeft,
+    required Float64List outRight,
+  }) {
+    if (channel.steps.isEmpty) return;
+    final sortedNotes = List<MelodyStepNote>.from(channel.steps)
+      ..sort((a, b) => a.stepIndex.compareTo(b.stepIndex));
+
+    for (var idx = 0; idx < sortedNotes.length; idx++) {
+      final note = sortedNotes[idx];
+      // Find next step onset on lead channel to determine phrase sustain
+      var nextStep = 16;
+      for (var j = idx + 1; j < sortedNotes.length; j++) {
+        if (sortedNotes[j].stepIndex > note.stepIndex) {
+          nextStep = sortedNotes[j].stepIndex;
+          break;
+        }
+      }
+
+      // Sustain lead notes across empty steps (min 2.2 steps, up to 3.5 steps) + 180 ms release tail
+      final emptyStepSpan = (nextStep - note.stepIndex).clamp(1, 3);
+      final holdMultiplier = math.max(2.2, emptyStepSpan.toDouble());
+      final gateDurationSec = holdMultiplier * stepDurationSec;
+      final totalNoteSec = gateDurationSec + 0.18;
+      final noteSamples = (totalNoteSec * sampleRate).round();
+
+      final startSample = _computeGrooveNoteStartSample(
+        stepIndex: note.stepIndex,
+        isPercussion: false,
+        scaleRow: note.scaleRow,
+        stepDurationSec: stepDurationSec,
+        swingAmount: groove.swingAmount,
+        sampleRate: sampleRate,
+      );
+
+      final targetFreqHz = resolveScaleFrequencyHz(
+        groove.musicalKey,
+        groove.scaleMode,
+        note.scaleRow,
+        instrument: channel.instrument,
+        role: SketchpadChannelRole.lead,
+      );
+      final startFreqHz =
+          note.hasGlide ? (targetFreqHz * 0.8909) : targetFreqHz;
+      final noteGain = note.velocity.clamp(0.05, 1.0) * channelGain;
+
+      for (var i = 0; i < noteSamples; i++) {
+        final targetIdx = startSample + i;
+        if (targetIdx >= totalSamples) break;
+        final localSec = i / sampleRate;
+
+        final baseFreq = _computeInstantFrequency(
+          localSec: localSec,
+          stepDurationSec: gateDurationSec,
+          startFreqHz: startFreqHz,
+          targetFreqHz: targetFreqHz,
+          hasGlide: note.hasGlide,
+        );
+
+        // Expressive cantabile vibrato after 90 ms (5.5 Hz, +/- 0.35%)
+        final vibratoDepth = localSec > 0.09
+            ? ((localSec - 0.09) / 0.12).clamp(0.0, 1.0) * 0.0035
+            : 0.0;
+        final instantFreq =
+            baseFreq * (1.0 + vibratoDepth * math.sin(2.0 * math.pi * 5.5 * localSec));
+
+        final env = _computeLegatoEnvelope(
+          localSec: localSec,
+          gateDurationSec: gateDurationSec,
+          totalNoteSec: totalNoteSec,
+          attackSec: 0.012,
+          sustainDecayTau: 0.55,
+        );
+
+        final raw = _synthesizeVoiceSample(
+          instrument: channel.instrument,
+          freq: instantFreq,
+          t: localSec,
+        );
+
+        final sample = raw * env * noteGain;
+        outLeft[targetIdx] += sample * panLeft;
+        outRight[targetIdx] += sample * panRight;
+      }
+    }
+
+    // Apply 3,800 Hz 2-pole Butterworth Low-Pass Filter to remove metallic high-frequency harshness
+    _applyButterworthLowPassInPlace(
+      outLeft,
+      cutoffHz: 3800.0,
+      sampleRate: sampleRate,
+    );
+    _applyButterworthLowPassInPlace(
+      outRight,
+      cutoffHz: 3800.0,
+      sampleRate: sampleRate,
+    );
+  }
+
+  /// Synthesizes a single-channel [MelodyPatternEntity] into a 16-bit PCM RIFF/WAVE byte buffer.
+  static Uint8List synthesizePatternToWavBytes(
+    MelodyPatternEntity pattern, {
+    int sampleRate = kSampleRate,
+    SketchpadChannelRole? role,
+  }) {
+    final safeBpm = pattern.bpm.clamp(60, 200);
+    final stepDurationSec = 60.0 / (safeBpm * 4.0);
+    final totalDurationSec = stepDurationSec * 16.0;
+    final totalSamples = (totalDurationSec * sampleRate).round();
+
+    final mixBuffer = Float64List(totalSamples);
+    final effectiveRole = role ??
+        (pattern.instrument.isSubBass
+            ? SketchpadChannelRole.bass
+            : SketchpadChannelRole.lead);
+
     for (final note in pattern.notes) {
-      final f0 = resolveScaleFrequencyHz(
+      final startSample =
+          (note.stepIndex * stepDurationSec * sampleRate).round();
+      final holdSec = stepDurationSec * 2.2;
+      final stepSamples = (holdSec * sampleRate).round();
+
+      final targetFreqHz = resolveScaleFrequencyHz(
         pattern.musicalKey,
         pattern.scaleMode,
         note.scaleRow,
         instrument: pattern.instrument,
+        role: effectiveRole,
       );
-      final startSample = (note.stepIndex * stepSec * sampleRate).round().clamp(
-            0,
-            totalSamples - 1,
-          );
-      final noteDurationSec = (note.durationSteps * stepSec * 1.35).clamp(
-        0.16,
-        2.5,
-      );
-      final noteSamples = math.min(
-        (noteDurationSec * sampleRate).round(),
-        totalSamples - startSample,
-      );
-      final fadeSamples = math.max(1, (0.003 * sampleRate).round());
 
-      double phase = 0.0;
-      for (var i = 0; i < noteSamples; i++) {
-        final t = i / sampleRate;
-        final normT = i / math.max(1, noteSamples);
-        final fadeIn = i < fadeSamples
-            ? 0.5 * (1.0 - math.cos(math.pi * i / fadeSamples))
-            : 1.0;
-        final fadeOut = i > noteSamples - fadeSamples
-            ? (noteSamples - i) / fadeSamples
-            : 1.0;
+      final startFreqHz =
+          note.hasGlide ? (targetFreqHz * 0.8909) : targetFreqHz;
+      final velocityGain = note.velocity.clamp(0.05, 1.0) * 0.45;
 
-        final sampleVal = _synthesizeInstrumentSample(
-          instrument: pattern.instrument,
-          f0: f0,
-          t: t,
-          normT: normT,
+      for (var i = 0; i < stepSamples; i++) {
+        final sampleIdx = startSample + i;
+        if (sampleIdx >= totalSamples) break;
+
+        final localSec = i / sampleRate;
+        final instantFreq = _computeInstantFrequency(
+          localSec: localSec,
+          stepDurationSec: holdSec,
+          startFreqHz: startFreqHz,
+          targetFreqHz: targetFreqHz,
           hasGlide: note.hasGlide,
-          phase: phase,
-          sampleRate: sampleRate,
-          onPhaseAdvance: (nextPhase) => phase = nextPhase,
         );
-        mixBuffer[startSample + i] +=
-            sampleVal * note.velocity * fadeIn * fadeOut;
+
+        final env = _computeLegatoEnvelope(
+          localSec: localSec,
+          gateDurationSec: stepDurationSec * 1.8,
+          totalNoteSec: holdSec,
+          attackSec: 0.010,
+          sustainDecayTau: 0.45,
+        );
+
+        final rawSample = _synthesizeVoiceSample(
+          instrument: pattern.instrument,
+          freq: instantFreq,
+          t: localSec,
+        );
+
+        mixBuffer[sampleIdx] += rawSample * env * velocityGain;
       }
+    }
+
+    if (effectiveRole == SketchpadChannelRole.bass) {
+      _applyButterworthLowPassInPlace(
+        mixBuffer,
+        cutoffHz: 195.0,
+        sampleRate: sampleRate,
+      );
+    } else {
+      _applyButterworthLowPassInPlace(
+        mixBuffer,
+        cutoffHz: 3800.0,
+        sampleRate: sampleRate,
+      );
     }
 
     return _encodePcm16WavMono(mixBuffer, sampleRate);
   }
 
-  /// Synthesizes a single note/chord hit for instant tactile feedback (< 4 ms).
+  /// Synthesizes a single pitched note audition when a user taps a cell or live scale pad.
   static Uint8List synthesizeSingleNoteWavBytes({
     required SketchpadInstrument instrument,
     required double freqHz,
+    double velocity = 0.85,
     bool hasGlide = false,
-    double velocity = 0.90,
-    int sampleRate = kMasterSampleRate,
+    double durationSec = 0.36,
+    int sampleRate = kSampleRate,
+    SketchpadChannelRole? role,
   }) {
-    final durationSec = hasGlide ? 0.54 : 0.40;
     final totalSamples = (durationSec * sampleRate).round();
     final mixBuffer = Float64List(totalSamples);
-    final fadeSamples = math.max(1, (0.003 * sampleRate).round());
+    final effectiveInst = (role == SketchpadChannelRole.bass && !instrument.isSubBass)
+        ? SketchpadInstrument.amapianoLogDrum
+        : instrument;
+    final startFreqHz = hasGlide ? (freqHz * 0.8909) : freqHz;
+    final gain = velocity.clamp(0.05, 1.0) * 0.52;
 
-    double phase = 0.0;
     for (var i = 0; i < totalSamples; i++) {
-      final t = i / sampleRate;
-      final normT = i / totalSamples;
-      final fadeIn = i < fadeSamples
-          ? 0.5 * (1.0 - math.cos(math.pi * i / fadeSamples))
-          : 1.0;
-      final fadeOut = i > totalSamples - fadeSamples * 3
-          ? (totalSamples - i) / (fadeSamples * 3)
-          : 1.0;
-
-      final sampleVal = _synthesizeInstrumentSample(
-        instrument: instrument,
-        f0: freqHz,
-        t: t,
-        normT: normT,
+      final localSec = i / sampleRate;
+      final instantFreq = _computeInstantFrequency(
+        localSec: localSec,
+        stepDurationSec: durationSec,
+        startFreqHz: startFreqHz,
+        targetFreqHz: freqHz,
         hasGlide: hasGlide,
-        phase: phase,
-        sampleRate: sampleRate,
-        onPhaseAdvance: (nextPhase) => phase = nextPhase,
       );
-      mixBuffer[i] = sampleVal * velocity * fadeIn * fadeOut;
+      final env = _computeLegatoEnvelope(
+        localSec: localSec,
+        gateDurationSec: durationSec * 0.78,
+        totalNoteSec: durationSec,
+        attackSec: 0.008,
+        sustainDecayTau: 0.42,
+      );
+      final rawSample = _synthesizeVoiceSample(
+        instrument: effectiveInst,
+        freq: instantFreq,
+        t: localSec,
+      );
+      mixBuffer[i] = rawSample * env * gain;
+    }
+
+    if (role == SketchpadChannelRole.bass || effectiveInst.isSubBass) {
+      _applyButterworthLowPassInPlace(
+        mixBuffer,
+        cutoffHz: 195.0,
+        sampleRate: sampleRate,
+      );
+    } else {
+      _applyButterworthLowPassInPlace(
+        mixBuffer,
+        cutoffHz: 3800.0,
+        sampleRate: sampleRate,
+      );
+    }
+
+    return _encodePcm16WavMono(mixBuffer, sampleRate);
+  }
+
+  /// Synthesizes a single drum or hat-percussion hit for immediate pad auditioning
+  /// on [SketchpadChannelRole.drums] or [SketchpadChannelRole.hats] (REQ-P57-HATS-03).
+  static Uint8List synthesizeSingleDrumOrHatWavBytes({
+    required SketchpadChannelRole role,
+    required BeatKitGenre kit,
+    required int row,
+    double velocity = 0.88,
+    double durationSec = 0.28,
+    int sampleRate = kSampleRate,
+  }) {
+    final totalSamples = (durationSec * sampleRate).round();
+    final mixBuffer = Float64List(totalSamples);
+    final gain = velocity.clamp(0.05, 1.0) * 0.62;
+    final clampedRow = row.clamp(0, 7);
+
+    for (var i = 0; i < totalSamples; i++) {
+      final localSec = i / sampleRate;
+      final raw = role == SketchpadChannelRole.hats
+          ? synthesizeHatPercVoice(
+              kit: kit,
+              row: clampedRow,
+              t: localSec,
+              stepDurationSec: 0.132,
+            )
+          : synthesizeDrumRackVoice(
+              kit: kit,
+              row: clampedRow,
+              t: localSec,
+            );
+      mixBuffer[i] = raw * gain;
+    }
+
+    return _encodePcm16WavMono(mixBuffer, sampleRate);
+  }
+
+  /// Synthesizes a 2.5-second Regional Voice Archetype preview clip.
+  static Uint8List synthesizeVoiceArchetypePreviewWavBytes(
+    RegionalVoiceArchetype archetype, {
+    int sampleRate = kSampleRate,
+  }) {
+    const durationSec = 2.5;
+    final totalSamples = (durationSec * sampleRate).round();
+    final mixBuffer = Float64List(totalSamples);
+
+    final baseFreq = _resolveArchetypeBaseFrequencyHz(archetype);
+    final phraseSemitones = [0, 3, 5, 7, 10, 7, 5, 0];
+    final noteDuration = durationSec / phraseSemitones.length;
+
+    for (var n = 0; n < phraseSemitones.length; n++) {
+      final semitone = phraseSemitones[n];
+      final noteFreq = baseFreq * math.pow(2.0, semitone / 12.0);
+      final startSample = (n * noteDuration * sampleRate).round();
+      final noteSamples = (noteDuration * sampleRate).round();
+
+      for (var i = 0; i < noteSamples; i++) {
+        final idx = startSample + i;
+        if (idx >= totalSamples) break;
+        final t = i / sampleRate;
+
+        final vibrato = 1.0 + 0.009 * math.sin(2.0 * math.pi * 5.8 * t);
+        final f = noteFreq * vibrato;
+
+        final f1 = math.sin(2.0 * math.pi * f * t);
+        final f2 = 0.52 * math.sin(2.0 * math.pi * (f * 2.0) * t);
+        final f3 = 0.28 * math.sin(2.0 * math.pi * (f * 3.0) * t);
+        final f4 = 0.14 * math.sin(2.0 * math.pi * (f * 4.0) * t);
+
+        final attack = (t / 0.035).clamp(0.0, 1.0);
+        final release = ((noteDuration - t) / 0.06).clamp(0.0, 1.0);
+        final env = attack * release;
+
+        mixBuffer[idx] += (f1 + f2 + f3 + f4) * env * 0.34;
+      }
     }
 
     return _encodePcm16WavMono(mixBuffer, sampleRate);
@@ -284,7 +937,7 @@ class MelodyWavSynthesizer {
   /// Synthesizes a vocal archetype melody preview.
   static Uint8List synthesizeVocalPreviewWavBytes(
     RegionalVoiceArchetype archetype, {
-    int sampleRate = kMasterSampleRate,
+    int sampleRate = kSampleRate,
   }) {
     final baseFreq = _resolveArchetypeBaseFrequencyHz(archetype);
     final semitones = switch (archetype.deliveryStyle) {
@@ -335,13 +988,13 @@ class MelodyWavSynthesizer {
     return _encodePcm16WavMono(mixBuffer, sampleRate);
   }
 
-  /// Synthesizes an multi-layered African reel groove for instant preview.
+  /// Synthesizes a multi-layered African reel groove for instant preview.
   static Uint8List synthesizeReelGrooveWavBytes({
     required String genre,
     required int bpm,
     String musicalKey = 'Am',
     int seed = 1,
-    int sampleRate = kMasterSampleRate,
+    int sampleRate = kSampleRate,
   }) {
     final safeBpm = bpm.clamp(85, 160);
     final stepSec = 60.0 / safeBpm / 4.0;
@@ -461,382 +1114,349 @@ class MelodyWavSynthesizer {
   }
 
   // ---------------------------------------------------------------------------
-  // Internal Instrument Synthesis DSP
+  // Internal Synthesis & Filtering Helpers
   // ---------------------------------------------------------------------------
 
-  static double _synthesizeInstrumentSample({
-    required SketchpadInstrument instrument,
-    required double f0,
-    required double t,
-    required double normT,
-    required bool hasGlide,
-    required double phase,
+  /// In-place 2-pole Butterworth Low-Pass Filter (Q = 0.7071).
+  static void _applyButterworthLowPassInPlace(
+    Float64List buffer, {
+    required double cutoffHz,
     required int sampleRate,
-    required void Function(double) onPhaseAdvance,
   }) {
-    switch (instrument) {
-      // 1. Amapiano Log Drum: Phase-Integrated Continuous Knock + 2-Op FM + Sub-Octave + Glide
-      case SketchpadInstrument.amapianoLogDrum:
-        final glideRatio = (hasGlide && normT > 0.30)
-            ? math.pow(2.0, -5.0 * ((normT - 0.30) / 0.70) / 12.0).toDouble()
-            : 1.0;
-        final pitchAttackEnv = 1.0 + 2.5 * math.exp(-t / 0.016);
-        final instFreq = f0 * glideRatio * pitchAttackEnv;
-        final nextPhase = (phase + (2.0 * math.pi * instFreq) / sampleRate) %
-            (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
+    if (buffer.isEmpty) return;
+    final nyquist = sampleRate * 0.48;
+    final fc = cutoffHz.clamp(20.0, nyquist);
+    final w0 = 2.0 * math.pi * fc / sampleRate;
+    final cosW0 = math.cos(w0);
+    final sinW0 = math.sin(w0);
+    final alpha = sinW0 / math.sqrt2;
 
-        final fmMod = 2.2 *
-            math.exp(-t / 0.028) *
-            math.sin(2.0 * math.pi * 2.41 * instFreq * t);
-        final fundamental = math.exp(-t / 0.24) * math.sin(nextPhase + fmMod);
-        final secondHarmonic = 0.58 *
-            math.exp(-t / 0.16) *
-            math.sin(2.0 * nextPhase + 0.5 * fmMod);
-        final subOctave =
-            0.75 * math.exp(-t / 0.28) * math.sin(0.5 * nextPhase);
-        final woodKnock =
-            0.42 * math.exp(-t / 0.012) * math.sin(2.0 * math.pi * 380.0 * t);
-        return _fastTanh(
-          (fundamental + secondHarmonic + subOctave + woodKnock) * 0.82,
-        );
+    final a0 = 1.0 + alpha;
+    final b0 = ((1.0 - cosW0) * 0.5) / a0;
+    final b1 = (1.0 - cosW0) / a0;
+    final b2 = ((1.0 - cosW0) * 0.5) / a0;
+    final a1 = (-2.0 * cosW0) / a0;
+    final a2 = (1.0 - alpha) / a0;
 
-      // 2. Hip-Hop 808 Sub: Phase-Integrated Sub Boom + Warm Tanh Saturation
-      case SketchpadInstrument.hipHop808Sub:
-        final glideRatio = (hasGlide && normT > 0.30)
-            ? math.pow(2.0, -5.0 * ((normT - 0.30) / 0.70) / 12.0).toDouble()
-            : 1.0;
-        final pitchDrop = 1.0 + 1.8 * math.exp(-t / 0.040);
-        final instFreq = f0 * glideRatio * pitchDrop;
-        final nextPhase = (phase + (2.0 * math.pi * instFreq) / sampleRate) %
-            (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
+    var x1 = 0.0;
+    var x2 = 0.0;
+    var y1 = 0.0;
+    var y2 = 0.0;
 
-        final subSine = math.sin(nextPhase);
-        final sat = _fastTanh(subSine * 1.6);
-        final env = math.exp(-t / 0.55);
-        final click =
-            0.30 * math.exp(-t / 0.005) * math.sin(2.0 * math.pi * 950.0 * t);
-        return (sat + click) * env * 0.88;
-
-      // 3. Gqom Dark Sub: Broken-Beat Warehouse Overdriven Sub
-      case SketchpadInstrument.gqomDarkSub:
-        final instFreq = f0 * (1.0 + 2.0 * math.exp(-t / 0.022));
-        final nextPhase = (phase + (2.0 * math.pi * instFreq) / sampleRate) %
-            (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final wave = math.sin(nextPhase);
-        final driven = wave - 0.22 * (wave * wave * wave);
-        final env = math.exp(-t / 0.32);
-        return _fastTanh(driven * 1.8) * env * 0.84;
-
-      // 4. Private School Rhodes: Neo-Soul Minor 9th + Tine Bell + Tremolo
-      case SketchpadInstrument.privateSchoolRhodes:
-        final nextPhase =
-            (phase + (2.0 * math.pi * f0) / sampleRate) % (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final rootWave = math.sin(nextPhase);
-        final thirdWave =
-            0.50 * math.sin(2.0 * math.pi * (f0 * 1.1892) * t);
-        final fifthWave =
-            0.42 * math.sin(2.0 * math.pi * (f0 * 1.4983) * t);
-        final seventhWave =
-            0.30 * math.sin(2.0 * math.pi * (f0 * 1.7818) * t);
-        final tineBell = 0.26 *
-            math.exp(-t / 0.024) *
-            math.sin(2.0 * math.pi * (f0 * 6.0) * t);
-        final tremolo = 1.0 + 0.12 * math.sin(2.0 * math.pi * 4.5 * t);
-        final env = math.exp(-t / 0.52);
-        return (rootWave + thirdWave + fifthWave + seventhWave + tineBell) *
-            env *
-            tremolo *
-            0.50;
-
-      // 5. Warm Neo-Soul Pad: Lush Poly-Choral Analog Pad
-      case SketchpadInstrument.neoSoulPad:
-        final nextPhase =
-            (phase + (2.0 * math.pi * f0) / sampleRate) % (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final osc1 = math.sin(nextPhase);
-        final osc2 = 0.70 * math.sin(nextPhase * 1.006 + 0.4);
-        final osc3 = 0.50 * math.sin(nextPhase * 1.998 + 1.1);
-        final attack = (t / 0.080).clamp(0.0, 1.0);
-        final decay = math.exp(-t / 0.75);
-        return (osc1 + osc2 + osc3) * attack * decay * 0.42;
-
-      // 6. Mbaqanga Organ: Drawbar Harmonics + Fast Leslie Rotor
-      case SketchpadInstrument.mbaqangaOrgan:
-        final nextPhase =
-            (phase + (2.0 * math.pi * f0) / sampleRate) % (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final h1 = math.sin(nextPhase);
-        final h2 = 0.65 * math.sin(2.0 * nextPhase);
-        final h3 = 0.45 * math.sin(3.0 * nextPhase);
-        final h4 = 0.30 * math.sin(4.0 * nextPhase);
-        final leslie = 1.0 + 0.18 * math.sin(2.0 * math.pi * 6.2 * t);
-        final env = math.exp(-t / 0.60);
-        return (h1 + h2 + h3 + h4) * leslie * env * 0.38;
-
-      // 7. Concert Grand Piano: Inharmonic String Dispersion + Dual Soundboard Decay
-      case SketchpadInstrument.concertGrandPiano:
-        final nextPhase =
-            (phase + (2.0 * math.pi * f0) / sampleRate) % (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        var pianoSum = 0.0;
-        for (var k = 1; k <= 7; k++) {
-          final inharmonicFreq =
-              f0 * k * math.sqrt(1.0 + 0.0004 * k * k);
-          final decay = math.exp(-t / (0.16 + 1.2 / k));
-          final amp = (1.0 / math.pow(k, 1.25)) * decay;
-          pianoSum += amp * math.sin(2.0 * math.pi * inharmonicFreq * t);
-        }
-        final hammerFelt = 0.25 * math.exp(-t / 0.010);
-        return (pianoSum * 0.65 + hammerFelt) * math.exp(-t / 0.85);
-
-      // 8. Classic Upright Piano: Punchy Mid-Range Body
-      case SketchpadInstrument.classicPiano:
-        final nextPhase =
-            (phase + (2.0 * math.pi * f0) / sampleRate) % (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final fund = math.exp(-t / 0.45) * math.sin(nextPhase);
-        final harm2 =
-            0.50 * math.exp(-t / 0.30) * math.sin(2.0 * nextPhase);
-        final harm3 =
-            0.35 * math.exp(-t / 0.20) * math.sin(3.0 * nextPhase);
-        final transient = 0.30 * math.exp(-t / 0.008);
-        return (fund + harm2 + harm3 + transient) * 0.60;
-
-      // 9. Nylon Acoustic Guitar & Maskandi Guitar: Karplus-Strong Physical Waveguide
-      case SketchpadInstrument.nylonGuitar:
-      case SketchpadInstrument.maskandiGuitar:
-        final nextPhase =
-            (phase + (2.0 * math.pi * f0) / sampleRate) % (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        var guitarSum = 0.0;
-        for (var k = 1; k <= 6; k++) {
-          final amp = 1.0 / math.pow(k, 1.15);
-          final decay = math.exp(-(k * t) / 0.22);
-          guitarSum += amp * decay * math.sin(2.0 * math.pi * k * f0 * t);
-        }
-        final pluck = 0.40 *
-            math.exp(-t / 0.006) *
-            math.sin(2.0 * math.pi * 3200.0 * t);
-        return (guitarSum * 0.62 + pluck * 0.38) * math.exp(-t / 0.50);
-
-      // 10. Clean Electric Guitar: Karplus-Strong Waveguide + Magnetic Pickup Comb
-      case SketchpadInstrument.electricGuitar:
-        final nextPhase =
-            (phase + (2.0 * math.pi * f0) / sampleRate) % (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final fund = math.exp(-t / 0.55) * math.sin(nextPhase);
-        final pickupComb =
-            0.45 * math.exp(-t / 0.40) * math.sin(2.0 * nextPhase + 0.3);
-        final sat = _fastTanh((fund + pickupComb) * 1.3);
-        return sat * 0.68;
-
-      // 11. Solo Violin: Bowed Waveguide + 5.5 Hz Vibrato + 65ms Bow Attack Swell
-      case SketchpadInstrument.soloViolin:
-        final vibrato = 1.0 + 0.012 * math.sin(2.0 * math.pi * 5.5 * t);
-        final instFreq = f0 * vibrato;
-        final nextPhase = (phase + (2.0 * math.pi * instFreq) / sampleRate) %
-            (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final bowAttack = (t / 0.065).clamp(0.0, 1.0);
-        var violinHarmonics = 0.0;
-        for (var k = 1; k <= 8; k++) {
-          final amp = (1.0 / k) * math.exp(-k * 0.18);
-          violinHarmonics += amp * math.sin(k * nextPhase);
-        }
-        final bodyDecay = math.exp(-t / 0.65);
-        return violinHarmonics * bowAttack * bodyDecay * 0.55;
-
-      // 12. African Bamboo Flute: Breath-Bore Model + 5 Hz Vibrato + Embouchure Chiff
-      case SketchpadInstrument.bambooFlute:
-        final vibrato = 1.0 + 0.008 * math.sin(2.0 * math.pi * 5.0 * t);
-        final instFreq = f0 * vibrato;
-        final nextPhase = (phase + (2.0 * math.pi * instFreq) / sampleRate) %
-            (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final breathAttack = (t / 0.040).clamp(0.0, 1.0);
-        final fund = math.sin(nextPhase);
-        final harm3 = 0.18 * math.sin(3.0 * nextPhase); // Hollow cylinder odd harmonic
-        final chiff = 0.14 *
-            math.exp(-t / 0.030) *
-            math.sin(2.0 * math.pi * 2800.0 * t);
-        final decay = math.exp(-t / 0.48);
-        return (fund + harm3 + chiff) * breathAttack * decay * 0.62;
-
-      // 13. Soprano Saxophone: Expressive Reed/Brass Bore Model + Vibrato
-      case SketchpadInstrument.sopranoSax:
-        final vibrato = 1.0 + 0.010 * math.sin(2.0 * math.pi * 5.2 * t);
-        final instFreq = f0 * vibrato;
-        final nextPhase = (phase + (2.0 * math.pi * instFreq) / sampleRate) %
-            (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final reedAttack = (t / 0.030).clamp(0.0, 1.0);
-        final h1 = math.sin(nextPhase);
-        final h2 = 0.55 * math.sin(2.0 * nextPhase);
-        final h3 = 0.35 * math.sin(3.0 * nextPhase);
-        final h4 = 0.20 * math.sin(4.0 * nextPhase);
-        final decay = math.exp(-t / 0.50);
-        return _fastTanh((h1 + h2 + h3 + h4) * 1.2) *
-            reedAttack *
-            decay *
-            0.52;
-
-      // 14. Venda Mbira: Royal Tine Overtone (2.756*f0)
-      case SketchpadInstrument.vendaMbira:
-        final nextPhase =
-            (phase + (2.0 * math.pi * f0) / sampleRate) % (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final fundamental = math.exp(-t / 0.32) * math.sin(nextPhase);
-        final octaveHarm =
-            0.40 * math.exp(-t / 0.20) * math.sin(2.0 * nextPhase);
-        final metallicTine = 0.52 *
-            math.exp(-t / 0.09) *
-            math.sin(2.0 * math.pi * (2.756 * f0) * t);
-        return (fundamental + octaveHarm + metallicTine) * 0.68;
-
-      // 15. Marimba Wood: Wooden Resonator
-      case SketchpadInstrument.marimbaWood:
-        final nextPhase =
-            (phase + (2.0 * math.pi * f0) / sampleRate) % (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final woodFund = math.exp(-t / 0.18) * math.sin(nextPhase);
-        final woodOct =
-            0.42 * math.exp(-t / 0.11) * math.sin(2.0 * nextPhase);
-        final woodRes = 0.35 *
-            math.exp(-t / 0.045) *
-            math.sin(2.0 * math.pi * 4.0 * f0 * t);
-        return (woodFund + woodOct + woodRes) * 0.72;
+    for (var i = 0; i < buffer.length; i++) {
+      final x0 = buffer[i];
+      final y0 = (b0 * x0) + (b1 * x1) + (b2 * x2) - (a1 * y1) - (a2 * y2);
+      buffer[i] = y0;
+      x2 = x1;
+      x1 = x0;
+      y2 = y1;
+      y1 = y0;
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // 8-Row Studio Drum Rack Engine (6 Genre Kits)
-  // ---------------------------------------------------------------------------
-
-  static double _resolveDrumVoiceDuration(int row) {
-    return switch (row) {
-      0 => 0.450, // Sub 808
-      1 => 0.180, // Punch Kick
-      2 => 0.200, // Snare
-      3 => 0.080, // Rimshot / Clack
-      4 => 0.120, // Clap
-      5 => 0.060, // Closed Hat
-      6 => 0.240, // Open Shimmer Hat
-      7 => 0.090, // Shaker / Conga
-      _ => 0.120,
-    };
+  static double _computeInstantFrequency({
+    required double localSec,
+    required double stepDurationSec,
+    required double startFreqHz,
+    required double targetFreqHz,
+    required bool hasGlide,
+  }) {
+    if (!hasGlide) return targetFreqHz;
+    final glideWindow = stepDurationSec * 0.55;
+    if (localSec >= glideWindow || glideWindow <= 0.0) return targetFreqHz;
+    final progress = (localSec / glideWindow).clamp(0.0, 1.0);
+    final smoothProgress = 0.5 - 0.5 * math.cos(math.pi * progress);
+    return startFreqHz + (targetFreqHz - startFreqHz) * smoothProgress;
   }
 
-  static double _synthesizeDrumRackVoice({
+  static double _computeLegatoEnvelope({
+    required double localSec,
+    required double gateDurationSec,
+    required double totalNoteSec,
+    required double attackSec,
+    required double sustainDecayTau,
+  }) {
+    if (localSec < 0.0 || localSec >= totalNoteSec) return 0.0;
+    if (localSec < attackSec) {
+      return 0.5 * (1.0 - math.cos(math.pi * (localSec / attackSec)));
+    }
+    final sustainLevel =
+        0.35 + 0.65 * math.exp(-(localSec - attackSec) / sustainDecayTau);
+    if (localSec <= gateDurationSec) {
+      return sustainLevel;
+    }
+    final releaseDuration = math.max(0.015, totalNoteSec - gateDurationSec);
+    final releaseProgress =
+        ((localSec - gateDurationSec) / releaseDuration).clamp(0.0, 1.0);
+    final releaseCurve = 0.5 * (1.0 + math.cos(math.pi * releaseProgress));
+    return sustainLevel * releaseCurve;
+  }
+
+  /// Exact analytical phase integral for an exponential pitch-drop envelope:
+  /// f(tau) = f0 + df * exp(-tau / tauP)
+  /// Phi(t) = 2*pi * [ f0 * t + df * tauP * (1 - exp(-t / tauP)) ]
+  static double _integratedPitchDropPhase({
+    required double f0,
+    required double deltaFreq,
+    required double tauSec,
+    required double t,
+  }) {
+    return 2.0 *
+        math.pi *
+        (f0 * t + deltaFreq * tauSec * (1.0 - math.exp(-t / tauSec)));
+  }
+
+  static double _synthesizeVoiceSample({
+    required SketchpadInstrument instrument,
+    required double freq,
+    required double t,
+  }) {
+    final twoPiF = 2.0 * math.pi * freq;
+
+    switch (instrument) {
+      case SketchpadInstrument.amapianoLogDrum:
+        // Phase 57 True Phase-Integrated Amapiano Log Drum:
+        // Warm wooden mallet transient (deltaF = +65 Hz over tau = 14 ms) +
+        // phase-locked 2nd harmonic (0.42x) and fast-decaying 3rd harmonic (0.16x).
+        // Zero 380 Hz sine beep!
+        final phi1 = _integratedPitchDropPhase(
+          f0: freq,
+          deltaFreq: 65.0,
+          tauSec: 0.014,
+          t: t,
+        );
+        final sub1 = math.sin(phi1);
+        final sub2 = 0.42 * math.sin(2.0 * phi1) * math.exp(-t / 0.14);
+        final wood3 = 0.16 * math.sin(3.0 * phi1) * math.exp(-t / 0.025);
+        return padeTanhLimiter((sub1 + sub2 + wood3) * 1.35);
+
+      case SketchpadInstrument.hipHop808Sub:
+        // Phase-integrated 808 Sub: tight 18 ms punch glide (+55 Hz -> f0) + warm 2nd harmonic
+        final phi = _integratedPitchDropPhase(
+          f0: freq,
+          deltaFreq: 55.0,
+          tauSec: 0.018,
+          t: t,
+        );
+        final sub = math.sin(phi);
+        final drive2 = 0.34 * math.sin(2.0 * phi) * math.exp(-t / 0.20);
+        return padeTanhLimiter((sub + drive2) * 1.40);
+
+      case SketchpadInstrument.gqomDarkSub:
+        // Phase-integrated Gqom Dark Sub: deep hollow sub + low-mid body (zero 620 Hz beep)
+        final phi = _integratedPitchDropPhase(
+          f0: freq,
+          deltaFreq: 48.0,
+          tauSec: 0.015,
+          t: t,
+        );
+        final sub = math.sin(phi);
+        final fifth = 0.25 * math.sin(1.5 * phi) * math.exp(-t / 0.09);
+        final octave = 0.35 * math.sin(2.0 * phi) * math.exp(-t / 0.12);
+        return padeTanhLimiter((sub + fifth + octave) * 1.35);
+
+      case SketchpadInstrument.concertGrandPiano:
+      case SketchpadInstrument.classicPiano:
+        final b = 0.00035;
+        final h1 = math.sin(twoPiF * t);
+        final h2 =
+            0.52 * math.sin(2.0 * twoPiF * math.sqrt(1.0 + 4.0 * b) * t) * math.exp(-t / 0.35);
+        final h3 =
+            0.26 * math.sin(3.0 * twoPiF * math.sqrt(1.0 + 9.0 * b) * t) * math.exp(-t / 0.22);
+        final h4 =
+            0.12 * math.sin(4.0 * twoPiF * math.sqrt(1.0 + 16.0 * b) * t) * math.exp(-t / 0.14);
+        return (h1 + h2 + h3 + h4) * 0.62;
+
+      case SketchpadInstrument.privateSchoolRhodes:
+        final modIndex = 1.45 * math.exp(-t / 0.18);
+        final modulator = math.sin(twoPiF * 2.0 * t);
+        final carrier = math.sin(twoPiF * t + modIndex * modulator);
+        final warmOctave =
+            0.28 * math.sin(twoPiF * 0.5 * t) * (1.0 - math.exp(-t / 0.02));
+        final tremolo = 1.0 - 0.12 * (1.0 - math.cos(2.0 * math.pi * 4.5 * t));
+        return (carrier * 0.76 + warmOctave) * tremolo * 0.72;
+
+      case SketchpadInstrument.maskandiGuitar:
+      case SketchpadInstrument.nylonGuitar:
+        final brightness =
+            instrument == SketchpadInstrument.maskandiGuitar ? 1.0 : 0.65;
+        final h1 = math.sin(twoPiF * t);
+        final h2 =
+            0.58 * brightness * math.sin(twoPiF * 2.0 * t) * math.exp(-t / 0.18);
+        final h3 =
+            0.34 * brightness * math.sin(twoPiF * 3.0 * t) * math.exp(-t / 0.11);
+        final h4 =
+            0.18 * brightness * math.sin(twoPiF * 4.0 * t) * math.exp(-t / 0.06);
+        return (h1 + h2 + h3 + h4) * 0.60;
+
+      case SketchpadInstrument.electricGuitar:
+        final clean = math.sin(twoPiF * t) +
+            0.48 * math.sin(twoPiF * 2.0 * t) * math.exp(-t / 0.24) +
+            0.22 * math.sin(twoPiF * 3.0 * t) * math.exp(-t / 0.14);
+        return padeTanhLimiter(clean * 1.25) * 0.68;
+
+      case SketchpadInstrument.soloViolin:
+        final bowAttack = (1.0 - math.exp(-t / 0.045));
+        final vib = 1.0 + 0.005 * math.sin(2.0 * math.pi * 5.8 * t);
+        final vf = twoPiF * vib;
+        final s1 = math.sin(vf * t);
+        final s2 = 0.45 * math.sin(vf * 2.0 * t);
+        final s3 = 0.28 * math.sin(vf * 3.0 * t);
+        final s4 = 0.15 * math.sin(vf * 4.0 * t);
+        return (s1 + s2 + s3 + s4) * bowAttack * 0.56;
+
+      case SketchpadInstrument.vendaMbira:
+        final fundamental = math.sin(twoPiF * t);
+        final overtone =
+            0.38 * math.sin(twoPiF * 2.92 * t) * math.exp(-t / 0.09);
+        final warmSub = 0.25 * math.sin(twoPiF * 0.5 * t);
+        return (fundamental + overtone + warmSub) * 0.64;
+
+      case SketchpadInstrument.marimbaWood:
+        final fundamental = math.sin(twoPiF * t);
+        final fourthHarm =
+            0.32 * math.sin(twoPiF * 3.98 * t) * math.exp(-t / 0.032);
+        return (fundamental + fourthHarm) * 0.72;
+
+      case SketchpadInstrument.bambooFlute:
+        final vib = 1.0 + 0.004 * math.sin(2.0 * math.pi * 5.0 * t);
+        final vf = twoPiF * vib;
+        final pure = math.sin(vf * t) + 0.22 * math.sin(vf * 2.0 * t);
+        return pure * 0.68;
+
+      case SketchpadInstrument.sopranoSax:
+        final vib = 1.0 + 0.005 * math.sin(2.0 * math.pi * 5.4 * t);
+        final vf = twoPiF * vib;
+        final reed = math.sin(vf * t) +
+            0.52 * math.sin(vf * 2.0 * t) +
+            0.30 * math.sin(vf * 3.0 * t) +
+            0.14 * math.sin(vf * 4.0 * t);
+        return padeTanhLimiter(reed * 0.95) * 0.62;
+
+      case SketchpadInstrument.neoSoulPad:
+        final d1 = math.sin(twoPiF * 0.997 * t);
+        final d2 = math.sin(twoPiF * 1.003 * t);
+        final fifth = 0.36 * math.sin(twoPiF * 1.498 * t);
+        final octave = 0.22 * math.sin(twoPiF * 2.002 * t);
+        return (d1 + d2 + fifth + octave) * 0.36;
+
+      case SketchpadInstrument.mbaqangaOrgan:
+        final sub = 0.50 * math.sin(twoPiF * 0.5 * t);
+        final fund = 0.80 * math.sin(twoPiF * t);
+        final fifth = 0.42 * math.sin(twoPiF * 1.498 * t);
+        final oct = 0.46 * math.sin(twoPiF * 2.0 * t);
+        final third = 0.24 * math.sin(twoPiF * 2.52 * t);
+        final rotary = 1.0 + 0.08 * math.sin(2.0 * math.pi * 6.2 * t);
+        return (sub + fund + fifth + oct + third) * rotary * 0.40;
+    }
+  }
+
+  /// Deterministic pseudo-random white noise generator in [-1.0, 1.0] using integer bit-mixing.
+  static double _whiteNoiseAtSample(int sampleIdx, int seedSalt) {
+    var n = (sampleIdx * 374761393) + (seedSalt * 668265263);
+    n = (n ^ (n >> 13)) * 1274126177;
+    n = n ^ (n >> 16);
+    return ((n & 0x7FFFFFFF) / 1073741823.5) - 1.0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 8-Row Studio Drum Rack Synthesizer (SketchpadChannelRole.drums)
+  // ---------------------------------------------------------------------------
+  static double synthesizeDrumRackVoice({
     required BeatKitGenre kit,
     required int row,
     required double t,
-    required double normT,
-    required int sampleRate,
-    required double phase,
-    required void Function(double) onPhaseAdvance,
   }) {
-    switch (row) {
-      // Row 0: Sub 808 / Log Kick
+    final sampleIdx = (t * kSampleRate).round();
+
+    switch (row.clamp(0, 7)) {
+      // Row 0: Sub 808 / Log Kick (Phase-Integrated, Zero 420 Hz Beep)
       case 0:
-        final baseSub = kit == BeatKitGenre.hipHop ? 38.0 : 52.0;
-        final sweepDrop = kit == BeatKitGenre.gqom ? 65.0 : 85.0;
-        final instFreq = baseSub + sweepDrop * math.exp(-t / 0.040);
-        final nextPhase = (phase + (2.0 * math.pi * instFreq) / sampleRate) %
-            (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
+        final baseFreq = kit == BeatKitGenre.gqom
+            ? 46.0
+            : (kit == BeatKitGenre.amapiano ? 52.0 : 48.0);
+        final decayTau = kit == BeatKitGenre.hipHop ? 0.34 : 0.26;
+        final phi = _integratedPitchDropPhase(
+          f0: baseFreq,
+          deltaFreq: 95.0,
+          tauSec: 0.016,
+          t: t,
+        );
+        final sub = math.sin(phi) * math.exp(-t / decayTau);
+        final harm2 = 0.28 * math.sin(2.0 * phi) * math.exp(-t / 0.08);
+        return padeTanhLimiter((sub + harm2) * 1.45) * 0.86;
 
-        final decayTau = kit == BeatKitGenre.hipHop ? 0.48 : 0.22;
-        final wave = math.sin(nextPhase);
-        final driven = kit == BeatKitGenre.gqom
-            ? _fastTanh(wave * 2.2)
-            : wave;
-        return driven * math.exp(-t / decayTau) * 0.90;
-
-      // Row 1: Studio Punch Kick
+      // Row 1: Punch Kick (Phase-Integrated Tight Chest Thump)
       case 1:
-        final startFreq = kit == BeatKitGenre.house ? 175.0 : 155.0;
-        final endFreq = 48.0;
-        final instFreq = endFreq + (startFreq - endFreq) * math.exp(-t / 0.016);
-        final nextPhase = (phase + (2.0 * math.pi * instFreq) / sampleRate) %
-            (2.0 * math.pi);
-        onPhaseAdvance(nextPhase);
-
-        final body = math.sin(nextPhase) * math.exp(-t / 0.120);
+        final phi = _integratedPitchDropPhase(
+          f0: 56.0,
+          deltaFreq: 130.0,
+          tauSec: 0.012,
+          t: t,
+        );
+        final body = math.sin(phi) * math.exp(-t / 0.14);
         final beater =
-            0.35 * math.exp(-t / 0.005) * math.sin(2.0 * math.pi * 3200.0 * t);
-        return (body + beater) * 0.85;
+            0.22 * _whiteNoiseAtSample(sampleIdx, 101) * math.exp(-t / 0.005);
+        return padeTanhLimiter((body + beater) * 1.35) * 0.84;
 
-      // Row 2: Crisp Snare (Dual-Membrane + Wires)
+      // Row 2: Crisp Acoustic / Trap Snare
       case 2:
-        final f1 = kit == BeatKitGenre.hipHop ? 210.0 : 185.0;
-        final f2 = f1 * 1.78;
-        final mem = (0.60 * math.sin(2.0 * math.pi * f1 * t) +
-                0.40 * math.sin(2.0 * math.pi * f2 * t)) *
-            math.exp(-t / 0.065);
-        final noise =
-            (math.sin(t * 8923.1) * math.cos(t * 3141.5)) * math.exp(-t / 0.16);
-        return (mem * 0.55 + noise * 0.45) * 0.78;
+        final phi = _integratedPitchDropPhase(
+          f0: 185.0,
+          deltaFreq: 65.0,
+          tauSec: 0.010,
+          t: t,
+        );
+        final body = 0.52 * math.sin(phi) * math.exp(-t / 0.055);
+        final n0 = _whiteNoiseAtSample(sampleIdx, 202);
+        final n1 = _whiteNoiseAtSample(sampleIdx - 1, 202);
+        final snareWires = (n0 - 0.45 * n1) * math.exp(-t / 0.115);
+        return (body + snareWires * 0.65) * 0.78;
 
-      // Row 3: Woody Rimshot / Clack
+      // Row 3: Afro-Wood Rimshot
       case 3:
-        final rim1 = math.sin(2.0 * math.pi * 520.0 * t);
-        final rim2 = 0.65 * math.sin(2.0 * math.pi * 1220.0 * t);
-        return (rim1 + rim2) * math.exp(-t / 0.025) * 0.80;
+        final mode1 = math.sin(2.0 * math.pi * 490.0 * t);
+        final mode2 = 0.68 * math.sin(2.0 * math.pi * 1340.0 * t);
+        final click = 0.30 * _whiteNoiseAtSample(sampleIdx, 303) * math.exp(-t / 0.004);
+        return ((mode1 + mode2) * math.exp(-t / 0.022) + click) * 0.76;
 
-      // Row 4: Club Handclap (4 Diffused Micro-Bursts)
+      // Row 4: Club Handclap (4 Micro-Diffused Noise Bursts)
       case 4:
-        final b1 = math.exp(-t / 0.008);
-        final b2 = t > 0.011 ? math.exp(-(t - 0.011) / 0.008) : 0.0;
-        final b3 = t > 0.022 ? math.exp(-(t - 0.022) / 0.008) : 0.0;
-        final b4 = t > 0.033 ? math.exp(-(t - 0.033) / 0.060) : 0.0;
-        final clapNoise = math.sin(t * 14234.0) * math.cos(t * 4124.0);
-        return clapNoise * (b1 + b2 + b3 + b4) * 0.55;
+        final b1 = math.exp(-t / 0.007);
+        final b2 = t >= 0.010 ? math.exp(-(t - 0.010) / 0.007) : 0.0;
+        final b3 = t >= 0.020 ? math.exp(-(t - 0.020) / 0.008) : 0.0;
+        final b4 = t >= 0.030 ? math.exp(-(t - 0.030) / 0.065) : 0.0;
+        final n0 = _whiteNoiseAtSample(sampleIdx, 404);
+        final n1 = _whiteNoiseAtSample(sampleIdx - 1, 404);
+        final hpNoise = n0 - 0.65 * n1;
+        return hpNoise * (b1 + b2 + b3 + b4) * 0.52;
 
-      // Row 5: Closed Hi-Hat (Metallic Ring Matrix)
+      // Row 5: Closed Hi-Hat
       case 5:
-        final ring = (math.sin(2.0 * math.pi * 7500.0 * t) +
-                0.5 * math.sin(2.0 * math.pi * 8900.0 * t)) *
-            (math.sin(t * 19234.0) > 0.0 ? 1.0 : -1.0);
-        final decay = kit == BeatKitGenre.hipHop ? 0.022 : 0.028;
-        return ring * math.exp(-t / decay) * 0.60;
+        return synthesizeHatPercVoice(
+          kit: kit,
+          row: 5,
+          t: t,
+          stepDurationSec: 0.132,
+        );
 
-      // Row 6: Open Shimmer Hat / Cymbal
+      // Row 6: Open Shimmer Hat
       case 6:
-        final ring = math.sin(2.0 * math.pi * 6800.0 * t) +
-            0.6 * math.sin(2.0 * math.pi * 9400.0 * t);
-        return ring * math.exp(-t / 0.180) * 0.65;
+        return synthesizeHatPercVoice(
+          kit: kit,
+          row: 6,
+          t: t,
+          stepDurationSec: 0.132,
+        );
 
-      // Row 7: African Mbaḓi Shaker / Conga
+      // Row 7: Mbaḓi Shaker
       case 7:
-        if (kit == BeatKitGenre.afrobeats) {
-          // Conga Slap
-          final conga = math.sin(2.0 * math.pi * 240.0 * t) * math.exp(-t / 0.075);
-          final slap = 0.35 *
-              math.exp(-t / 0.008) *
-              math.sin(2.0 * math.pi * 1400.0 * t);
-          return (conga + slap) * 0.72;
-        } else {
-          // Mbaḓi 16th Shaker
-          final grain = math.sin(t * 12345.0) * math.cos(t * 6789.0);
-          return grain * math.exp(-t / 0.035) * 0.55;
-        }
+        return synthesizeHatPercVoice(
+          kit: kit,
+          row: 3,
+          t: t,
+          stepDurationSec: 0.132,
+        );
 
       default:
         return 0.0;
@@ -844,7 +1464,154 @@ class MelodyWavSynthesizer {
   }
 
   // ---------------------------------------------------------------------------
-  // RIFF/WAVE Encoding (Mono & Stereo)
+  // Dedicated 8-Row High-Frequency Percussion Matrix (SketchpadChannelRole.hats)
+  // Phase 57 REQ-P57-HATS-01..03
+  // ---------------------------------------------------------------------------
+  static double synthesizeHatPercVoice({
+    required BeatKitGenre kit,
+    required int row,
+    required double t,
+    double stepDurationSec = 0.132,
+  }) {
+    if (t < 0.0) return 0.0;
+    final sampleIdx = (t * kSampleRate).round();
+
+    switch (row.clamp(0, 7)) {
+      // Row 0: Talking Conga Slap (Phase-integrated 460 Hz -> 380 Hz membrane slap)
+      case 0:
+        final phi = _integratedPitchDropPhase(
+          f0: 380.0,
+          deltaFreq: 80.0,
+          tauSec: 0.010,
+          t: t,
+        );
+        final membrane = math.sin(phi) * math.exp(-t / 0.065);
+        final overtone =
+            0.38 * math.sin(1.58 * phi) * math.exp(-t / 0.024);
+        final palmSlap = 0.35 *
+            (_whiteNoiseAtSample(sampleIdx, 700) -
+                _whiteNoiseAtSample(sampleIdx - 1, 700)) *
+            math.exp(-t / 0.008);
+        return (membrane + overtone + palmSlap) * 0.74;
+
+      // Row 1: Afro Wood Clave (Dual-mode hollow rosewood resonator 1,420 Hz + 2,180 Hz)
+      case 1:
+        final mode1 = math.sin(2.0 * math.pi * 1420.0 * t);
+        final mode2 = 0.58 * math.sin(2.0 * math.pi * 2180.0 * t);
+        final woodClick = 0.22 *
+            (_whiteNoiseAtSample(sampleIdx, 701) -
+                _whiteNoiseAtSample(sampleIdx - 1, 701)) *
+            math.exp(-t / 0.003);
+        return ((mode1 + mode2) * math.exp(-t / 0.018) + woodClick) * 0.72;
+
+      // Row 2: Shekere Bead Groove (Triple-grain woven gourd friction envelope at 4.6 kHz)
+      case 2:
+        final n0 = _whiteNoiseAtSample(sampleIdx, 702);
+        final n2 = _whiteNoiseAtSample(sampleIdx - 2, 702);
+        final bandNoise = (n0 - n2) * 0.55;
+        final carrier = math.sin(2.0 * math.pi * 4600.0 * t);
+        final grain1 = math.exp(-math.pow((t - 0.010) / 0.011, 2));
+        final grain2 = 0.75 * math.exp(-math.pow((t - 0.032) / 0.014, 2));
+        final grain3 = 0.55 * math.exp(-math.pow((t - 0.056) / 0.016, 2));
+        final gourdBody =
+            0.22 * math.sin(2.0 * math.pi * 310.0 * t) * math.exp(-t / 0.026);
+        return ((bandNoise * (0.65 + 0.35 * carrier) * (grain1 + grain2 + grain3)) +
+                gourdBody) *
+            0.76;
+
+      // Row 3: Mbaḓi Seed Shaker (Dual-grain band-passed seed rattle at 5.8 kHz)
+      case 3:
+        final n0 = _whiteNoiseAtSample(sampleIdx, 703);
+        final n1 = _whiteNoiseAtSample(sampleIdx - 1, 703);
+        final hpNoise = (n0 - 0.82 * n1) * 0.65;
+        final bandMod = 0.6 + 0.4 * math.sin(2.0 * math.pi * 5800.0 * t);
+        final attackScrape = (t / 0.016).clamp(0.0, 1.0);
+        final decay = math.exp(-t / 0.034);
+        final secondGrain =
+            t > 0.024 ? 0.48 * math.exp(-(t - 0.024) / 0.022) : 0.0;
+        return hpNoise * bandMod * (attackScrape * decay + secondGrain) * 0.78;
+
+      // Row 4: 32nd Sgija Hat Roll (3-hit micro-ratchet closed hat roll across step)
+      case 4:
+        final subStepSec = (stepDurationSec / 3.0).clamp(0.028, 0.065);
+        final hitIndex = (t / subStepSec).floor();
+        if (hitIndex < 0 || hitIndex >= 3) return 0.0;
+        final localHitSec = t - (hitIndex * subStepSec);
+        const crescendoVelocities = [0.55, 0.78, 1.00];
+        final hitVel = crescendoVelocities[hitIndex];
+        return _synthesizeMetallicHatCore(
+              t: localHitSec,
+              sampleIdx: sampleIdx + hitIndex * 97,
+              decayTau: 0.018,
+              highPassAlpha: 0.88,
+            ) *
+            hitVel;
+
+      // Row 5: Closed Crisp Hat (High-passed at 8.2 kHz, tight 22 ms chick envelope)
+      case 5:
+        final decay = kit == BeatKitGenre.hipHop ? 0.020 : 0.024;
+        return _synthesizeMetallicHatCore(
+          t: t,
+          sampleIdx: sampleIdx,
+          decayTau: decay,
+          highPassAlpha: 0.90,
+        );
+
+      // Row 6: Open Shimmer Hat (6-oscillator metallic ring matrix, tau = 240 ms)
+      case 6:
+        return _synthesizeMetallicHatCore(
+          t: t,
+          sampleIdx: sampleIdx,
+          decayTau: 0.240,
+          highPassAlpha: 0.84,
+        ) *
+            0.88;
+
+      // Row 7: Crash / Ride Shimmer (Inharmonic bronze cluster + air sheen, tau = 380 ms)
+      case 7:
+        final c1 = math.sin(2.0 * math.pi * 3420.0 * t);
+        final c2 = 0.82 * math.sin(2.0 * math.pi * 4870.0 * t);
+        final c3 = 0.70 * math.sin(2.0 * math.pi * 6310.0 * t);
+        final c4 = 0.58 * math.sin(2.0 * math.pi * 7840.0 * t);
+        final c5 = 0.45 * math.sin(2.0 * math.pi * 9190.0 * t);
+        final n0 = _whiteNoiseAtSample(sampleIdx, 707);
+        final n1 = _whiteNoiseAtSample(sampleIdx - 1, 707);
+        final hpSizzle = (n0 - 0.85 * n1) * 0.65;
+        final shimmerCluster = (c1 + c2 + c3 + c4 + c5) * 0.22 + hpSizzle;
+        return shimmerCluster * math.exp(-t / 0.380) * 0.76;
+
+      default:
+        return 0.0;
+    }
+  }
+
+  /// 6-oscillator non-harmonic metallic cymbal/hi-hat matrix combined with
+  /// first-difference high-passed sizzle noise (zero low-frequency energy).
+  static double _synthesizeMetallicHatCore({
+    required double t,
+    required int sampleIdx,
+    required double decayTau,
+    required double highPassAlpha,
+  }) {
+    // Classic 6-ratio inharmonic metallic frequencies (all > 3.1 kHz)
+    final m1 = math.sin(2.0 * math.pi * 3240.0 * t);
+    final m2 = math.sin(2.0 * math.pi * 4580.0 * t);
+    final m3 = math.sin(2.0 * math.pi * 5960.0 * t);
+    final m4 = math.sin(2.0 * math.pi * 7410.0 * t);
+    final m5 = math.sin(2.0 * math.pi * 8890.0 * t);
+    final m6 = math.sin(2.0 * math.pi * 10420.0 * t);
+    final metalRing = (m1 + m2 + m3 + m4 + m5 + m6) * 0.14;
+
+    final n0 = _whiteNoiseAtSample(sampleIdx, 505);
+    final n1 = _whiteNoiseAtSample(sampleIdx - 1, 505);
+    final hpCrispNoise = (n0 - highPassAlpha * n1) * 0.55;
+
+    final env = math.exp(-t / decayTau);
+    return (metalRing + hpCrispNoise) * env * 0.78;
+  }
+
+  // ---------------------------------------------------------------------------
+  // RIFF/WAVE Encoding (Mono & Stereo) with Bounded Padé [3/2] Soft-Knee Limiter
   // ---------------------------------------------------------------------------
 
   static Uint8List _encodePcm16WavMono(Float64List mixBuffer, int sampleRate) {
@@ -882,8 +1649,8 @@ class MelodyWavSynthesizer {
     wav.setUint32(40, dataSize, Endian.little);
 
     for (var i = 0; i < totalSamples; i++) {
-      final saturated = _fastTanh(mixBuffer[i] * 1.15);
-      final pcm16 = (saturated * 31500.0).round().clamp(-32767, 32767);
+      final saturated = padeTanhLimiter(mixBuffer[i] * 1.12);
+      final pcm16 = (saturated * 31800.0).round().clamp(-32767, 32767);
       wav.setInt16(44 + i * 2, pcm16, Endian.little);
     }
 
@@ -897,7 +1664,7 @@ class MelodyWavSynthesizer {
     double drive = 0.20,
   }) {
     final totalSamples = leftBuffer.length;
-    final numChannels = 2;
+    const numChannels = 2;
     final dataSize = totalSamples * numChannels * 2;
     final wav = ByteData(44 + dataSize);
 
@@ -930,13 +1697,13 @@ class MelodyWavSynthesizer {
     wav.setUint8(39, 0x61);
     wav.setUint32(40, dataSize, Endian.little);
 
-    final driveMult = 1.0 + 0.5 * drive.clamp(0.0, 1.0);
+    final driveMult = 1.0 + 0.45 * drive.clamp(0.0, 1.0);
     for (var i = 0; i < totalSamples; i++) {
-      final leftSat = _fastTanh(leftBuffer[i] * driveMult);
-      final rightSat = _fastTanh(rightBuffer[i] * driveMult);
+      final leftSat = padeTanhLimiter(leftBuffer[i] * driveMult);
+      final rightSat = padeTanhLimiter(rightBuffer[i] * driveMult);
 
-      final leftPcm = (leftSat * 31500.0).round().clamp(-32767, 32767);
-      final rightPcm = (rightSat * 31500.0).round().clamp(-32767, 32767);
+      final leftPcm = (leftSat * 31800.0).round().clamp(-32767, 32767);
+      final rightPcm = (rightSat * 31800.0).round().clamp(-32767, 32767);
 
       wav.setInt16(44 + (i * 4), leftPcm, Endian.little);
       wav.setInt16(44 + (i * 4) + 2, rightPcm, Endian.little);
