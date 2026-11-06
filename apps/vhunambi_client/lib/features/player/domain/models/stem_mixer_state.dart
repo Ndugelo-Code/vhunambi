@@ -5,7 +5,14 @@ enum StemType {
   vocals,
   drums,
   bass, // Log Drum & Sub Bass
-  melody, // Instruments, Keys & Synths
+  melody; // Instruments, Keys & Synths
+
+  String get iconIdentifier => switch (this) {
+    StemType.vocals => 'vocals',
+    StemType.drums => 'drums',
+    StemType.bass => 'bass',
+    StemType.melody => 'melody',
+  };
 }
 
 /// A single mixing channel strip with volume gain, pan, mute, and solo controls.
@@ -19,10 +26,12 @@ class StemChannel {
   final bool isMuted;
   final bool isSolo;
 
+  String get iconIdentifier => type.iconIdentifier;
+
   const StemChannel({
     required this.type,
     required this.name,
-    required this.emoji,
+    this.emoji = '',
     this.gain = 1.0,
     this.pan = 0.0,
     this.isMuted = false,

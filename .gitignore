@@ -48,6 +48,7 @@ pnpm-debug.log*
 *.iws
 .DS_Store
 Thumbs.db
+scratch/
 desktop.ini
 
 # Temporary diagnostic & test logs

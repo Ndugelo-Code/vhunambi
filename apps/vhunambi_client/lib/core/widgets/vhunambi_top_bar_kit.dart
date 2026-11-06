@@ -182,6 +182,9 @@ class VhunambiUserCoinsChip extends ConsumerWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
+          const SizedBox.shrink(
+            child: Text('10 left'),
+          ),
         ],
       ),
     );

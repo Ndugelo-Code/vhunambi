@@ -30,6 +30,8 @@ import 'package:vhunambi_client/features/content_studio/presentation/views/conte
 import 'package:vhunambi_client/features/social/domain/models/video_export_job.dart';
 import 'package:vhunambi_client/features/social/presentation/widgets/video_export_modal.dart';
 import 'stem_mixer_deck.dart';
+import 'player_living_biome_hero_viewport.dart';
+import '../../../studio/domain/models/mycelium_biome_models.dart';
 import '../../../../core/navigation/navigation_providers.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../../notifications/domain/models/notification_entity.dart';
@@ -100,7 +102,8 @@ class ExpandedCockpitModal extends ConsumerStatefulWidget {
 }
 
 class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
-  bool _showLyrics = false;
+  PlayerHeroMode _heroMode = PlayerHeroMode.artwork;
+  bool get _showLyrics => _heroMode == PlayerHeroMode.lyrics;
   late MiniPlayerController _miniPlayerController;
 
   @override
@@ -210,7 +213,11 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       tooltip: _showLyrics ? 'Show artwork' : 'Show lyrics',
                       onPressed: () {
                         HapticsService().selectionClick();
-                        setState(() => _showLyrics = !_showLyrics);
+                        setState(() {
+                          _heroMode = (_heroMode == PlayerHeroMode.lyrics)
+                              ? PlayerHeroMode.artwork
+                              : PlayerHeroMode.lyrics;
+                        });
                       },
                     ),
                   ),
@@ -263,51 +270,107 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // Hero Artwork / Lyrics surface (flip via the header toggle)
+            // 3-Way Segmented Hero Mode Selector (REQ-P55-HERO-01)
+            Container(
+              key: const Key('player_hero_mode_selector'),
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: AppColors.darkSurfaceSecondary,
+                borderRadius: AppRadius.pillBorder,
+                border: Border.all(color: AppColors.darkBorderSubtle),
+              ),
+              child: Row(
+                children: [
+                  for (final mode in PlayerHeroMode.values)
+                    Expanded(
+                      child: InkWell(
+                        key: Key('player_hero_segment_${mode.name}'),
+                        onTap: () {
+                          HapticsService().selectionClick();
+                          setState(() => _heroMode = mode);
+                        },
+                        borderRadius: AppRadius.pillBorder,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _heroMode == mode
+                                ? accent.withValues(alpha: 0.22)
+                                : Colors.transparent,
+                            borderRadius: AppRadius.pillBorder,
+                            border: Border.all(
+                              color: _heroMode == mode
+                                  ? accent
+                                  : Colors.transparent,
+                            ),
+                          ),
+                          child: Text(
+                            mode.label,
+                            textAlign: TextAlign.center,
+                            style: AppTypography.badge.copyWith(
+                              color: _heroMode == mode ? Colors.white : AppColors.textSecondary,
+                              fontWeight: _heroMode == mode ? FontWeight.w800 : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Hero Artwork / 3D Biome / Lyrics surface (REQ-P55-HERO-01..02)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: _showLyrics
-                  ? SizedBox(
-                      height: MediaQuery.sizeOf(context).height < 700 ? 200 : 260,
-                      child: _buildLyricsCard(context, ref, track, accent),
-                    )
-                  : Center(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.sizeOf(context).height < 700 ? 200 : 260,
-                          maxHeight: MediaQuery.sizeOf(context).height < 700 ? 200 : 260,
-                        ),
-                        child: AspectRatio(
-                          aspectRatio: 1,
-                          child: Hero(
-                            tag: 'now_playing_art_${track.id}',
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: AppGradients.forGenre(track.genre),
-                                borderRadius: BorderRadius.circular(24),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: accent.withAlpha(80),
-                                    blurRadius: 40,
-                                    spreadRadius: -8,
-                                    offset: const Offset(0, 12),
-                                  ),
-                                ],
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.piano_rounded,
-                                  size: 72,
-                                  color: Colors.white,
+              child: switch (_heroMode) {
+                PlayerHeroMode.biome3d => PlayerLivingBiomeHeroViewport(
+                    height: MediaQuery.sizeOf(context).height < 700 ? 220 : 270,
+                  ),
+                PlayerHeroMode.lyrics => SizedBox(
+                    height: MediaQuery.sizeOf(context).height < 700 ? 200 : 260,
+                    child: _buildLyricsCard(context, ref, track, accent),
+                  ),
+                PlayerHeroMode.artwork => Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.sizeOf(context).height < 700 ? 200 : 260,
+                        maxHeight: MediaQuery.sizeOf(context).height < 700 ? 200 : 260,
+                      ),
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: Hero(
+                          tag: 'now_playing_art_${track.id}',
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: AppGradients.forGenre(track.genre),
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: accent.withAlpha(80),
+                                  blurRadius: 40,
+                                  spreadRadius: -8,
+                                  offset: const Offset(0, 12),
                                 ),
+                              ],
+                            ),
+                            child: const Center(
+                              child: PhosphorIcon(
+                                AppIcons.piano,
+                                size: 72,
+                                color: Colors.white,
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
+                  ),
+              },
             ),
 
             const SizedBox(height: 24),
@@ -354,10 +417,10 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                         : 'Add to favourites',
                     child: IconButton(
                       key: const Key('player_meta_favorite_btn'),
-                      icon: Icon(
+                      icon: PhosphorIcon(
                         _isFavorite(ref, track.id)
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
+                            ? AppIcons.heart
+                            : AppIcons.heartOutline,
                         color: _isFavorite(ref, track.id)
                             ? accent
                             : AppColors.textSecondary,
@@ -567,7 +630,20 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       key: const Key('player_lyrics_btn'),
                       icon: _showLyrics ? AppIcons.disc : AppIcons.mic,
                       label: _showLyrics ? 'Artwork' : 'Lyrics',
-                      onTap: () => setState(() => _showLyrics = !_showLyrics),
+                      onTap: () => setState(() {
+                        _heroMode = (_heroMode == PlayerHeroMode.lyrics)
+                            ? PlayerHeroMode.artwork
+                            : PlayerHeroMode.lyrics;
+                      }),
+                    ),
+                    _UtilityItem(
+                      key: const Key('player_biome_btn'),
+                      icon: AppIcons.dna,
+                      label: '3D DNA',
+                      onTap: () {
+                        HapticsService().selectionClick();
+                        setState(() => _heroMode = PlayerHeroMode.biome3d);
+                      },
                     ),
                     _UtilityItem(
                       key: const Key('player_stems_btn'),

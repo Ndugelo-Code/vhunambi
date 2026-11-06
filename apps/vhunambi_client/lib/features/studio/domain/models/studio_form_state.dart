@@ -26,6 +26,57 @@ enum VocalEnergy { soft, mid, intense }
 
 enum SongStructure { standard, extended, freestyle, loop }
 
+enum ProductionEra {
+  modern,
+  vintage90s,
+  heritageOldSchool,
+  futuristic2030;
+
+  String get label => switch (this) {
+        modern => 'Modern (2020s)',
+        vintage90s => '90s Kwaito',
+        heritageOldSchool => 'Old School Heritage',
+        futuristic2030 => 'Futuristic 2030',
+      };
+}
+
+typedef VocalConfiguration = VocalVoices;
+typedef VocalIntensity = VocalEnergy;
+typedef SongStructureType = SongStructure;
+
+extension VocalVoicesLabel on VocalVoices {
+  String get label => switch (this) {
+        VocalVoices.solo => 'Solo',
+        VocalVoices.duet => 'Duet',
+        VocalVoices.choir => 'Choir',
+      };
+}
+
+extension VocalGenderLabel on VocalGender {
+  String get label => switch (this) {
+        VocalGender.male => 'Male',
+        VocalGender.female => 'Female',
+        VocalGender.mixed => 'Mixed',
+      };
+}
+
+extension VocalEnergyLabel on VocalEnergy {
+  String get label => switch (this) {
+        VocalEnergy.soft => 'Soft',
+        VocalEnergy.mid => 'Mid',
+        VocalEnergy.intense => 'Intense',
+      };
+}
+
+extension SongStructureLabel on SongStructure {
+  String get label => switch (this) {
+        SongStructure.standard => 'Standard',
+        SongStructure.extended => 'Extended (DJ)',
+        SongStructure.freestyle => 'Freestyle',
+        SongStructure.loop => 'Loop',
+      };
+}
+
 enum GenerationPhase {
   idle,
   generatingLyrics,
@@ -55,9 +106,9 @@ enum StemLockMode {
       };
 
   String get fullLabel => switch (this) {
-        StemLockMode.lockedPure44k => '🔒 Stem-Locked (Pure 44.1 kHz)',
-        StemLockMode.harmonicInpaint => '🧬 Guided AI Inpaint',
-        StemLockMode.elasticResynth => '✨ AI Style Re-Imagine',
+        StemLockMode.lockedPure44k => 'Stem-Locked (Pure 44.1 kHz)',
+        StemLockMode.harmonicInpaint => 'Guided AI Inpaint',
+        StemLockMode.elasticResynth => 'AI Style Re-Imagine',
       };
 }
 
@@ -79,6 +130,7 @@ class StudioFormState {
   final VocalMode vocalMode;
   final VocalEnergy vocalEnergy;
   final SongStructure songStructure;
+  final ProductionEra era;
   final bool isAutoTitle;
   final String? customTitle;
 
@@ -114,6 +166,7 @@ class StudioFormState {
     this.vocalMode = VocalMode.auto,
     this.vocalEnergy = VocalEnergy.mid,
     this.songStructure = SongStructure.standard,
+    this.era = ProductionEra.modern,
     this.isAutoTitle = true,
     this.customTitle,
     bool? isPublic,
@@ -142,14 +195,24 @@ class StudioFormState {
   })  : branchStemLockModes = branchStemLockModes ??
             const {
               'node_beat_tempo': StemLockMode.lockedPure44k,
+              'node_branch_beat': StemLockMode.lockedPure44k,
               'node_sketchpad_groove': StemLockMode.lockedPure44k,
+              'node_branch_instruments': StemLockMode.lockedPure44k,
+              'node_harmony_chords': StemLockMode.lockedPure44k,
               'node_vocal_persona': StemLockMode.harmonicInpaint,
+              'node_branch_vocal': StemLockMode.harmonicInpaint,
+              'node_emotion_mood': StemLockMode.harmonicInpaint,
               'node_spatial_atmosphere': StemLockMode.harmonicInpaint,
+              'node_branch_sfx': StemLockMode.harmonicInpaint,
             },
         visibility = visibility ?? (isPublic == false ? 'private' : 'public');
 
   /// Backward-compatible getter during VH-002 migration.
   bool get isPublic => visibility == 'public';
+
+  VocalConfiguration get vocalConfiguration => vocalVoices;
+  VocalIntensity get vocalIntensity => vocalEnergy;
+  SongStructureType get structure => songStructure;
 
   /// Title used for the pipeline card and the completion notification.
   ///
@@ -259,6 +322,7 @@ class StudioFormState {
     VocalMode? vocalMode,
     VocalEnergy? vocalEnergy,
     SongStructure? songStructure,
+    ProductionEra? era,
     bool? isAutoTitle,
     String? customTitle,
     bool? isPublic,
@@ -289,6 +353,7 @@ class StudioFormState {
       vocalMode: vocalMode ?? this.vocalMode,
       vocalEnergy: vocalEnergy ?? this.vocalEnergy,
       songStructure: songStructure ?? this.songStructure,
+      era: era ?? this.era,
       isAutoTitle: isAutoTitle ?? this.isAutoTitle,
       customTitle: customTitle ?? this.customTitle,
       visibility:

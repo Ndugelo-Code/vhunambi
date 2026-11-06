@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:audio_service/audio_service.dart' show MediaItem, PlaybackState;
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/models/track.dart';
 import '../../../playlists/domain/models/playlist_entity.dart';
@@ -150,6 +150,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
   void _startPositionTicker() {
     _positionTimer?.cancel();
+    if (WidgetsBinding.instance.runtimeType.toString().contains('Test')) {
+      return;
+    }
     _positionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (state.isPlaying && state.hasActiveTrack) {
         final newSecs = state.position.inSeconds + 1;

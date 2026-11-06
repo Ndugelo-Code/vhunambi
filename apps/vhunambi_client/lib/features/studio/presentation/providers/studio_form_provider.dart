@@ -2,19 +2,45 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vhunambi_client/core/design_system/models/generation_request_notifier.dart';
 import 'package:vhunambi_client/core/design_system/tokens/design_enums.dart';
-import '../../domain/models/studio_form_state.dart';
 import '../../domain/models/bantu_voice_profile.dart';
+import '../../domain/models/mycelium_biome_models.dart';
+import '../../domain/models/studio_form_state.dart';
+
+/// Tracks the active 2D Studio Cockpit workspace tab (REQ-P54-TELE-02).
+final studioCockpitTabProvider = StateProvider<CockpitWorkspaceTab>(
+  (ref) => CockpitWorkspaceTab.compose,
+);
+
+/// Type alias for CockpitWorkspaceTab.
+typedef StudioCockpitTab = CockpitWorkspaceTab;
+
+/// Number of completed steps in the studio form (0 to 9).
+final studioCompletedStepsProvider = Provider<int>((ref) {
+  final s = ref.watch(studioFormProvider);
+  int count = 0;
+  if (s.prompt.isNotEmpty) count++;
+  if (s.genre.isNotEmpty) count++;
+  if (s.mood.isNotEmpty) count++;
+  count++; // tempo has default
+  count++; // vocalEnergy has default
+  if (s.language.isNotEmpty) count++;
+  count++; // lyricsMode has default
+  count++; // dna usage has default
+  count++; // visibility has default
+  return count;
+});
 
 final studioFormProvider =
     StateNotifierProvider<StudioFormNotifier, StudioFormState>((ref) {
-  return StudioFormNotifier(ref.read(generationRequestProvider.notifier));
-});
+      return StudioFormNotifier(ref.read(generationRequestProvider.notifier));
+    });
 
 class StudioFormNotifier extends StateNotifier<StudioFormState> {
   StudioFormNotifier([this._generationRequestNotifier])
-      : super(const StudioFormState());
+    : super(const StudioFormState());
 
   final GenerationRequestNotifier? _generationRequestNotifier;
+  int _sonicVibePresetIndex = 0;
 
   static final List<String> _inspirationSeeds = [
     'A high-energy Amapiano anthem with driving log drums and soulful Tshivenḓa vocal harmonies celebrating heritage and resilience.',
@@ -62,6 +88,8 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
     state = state.copyWith(customLyrics: lyrics);
   }
 
+  void updateLyrics(String lyrics) => setCustomLyrics(lyrics);
+
   void setMood(String mood) {
     state = state.copyWith(mood: mood);
     // Sync with GenerationRequestNotifier (design system state)
@@ -91,6 +119,12 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
   void setSongStructure(SongStructure structure) {
     state = state.copyWith(songStructure: structure);
   }
+
+  void setStructure(SongStructure structure) => setSongStructure(structure);
+  void setVocalConfiguration(VocalVoices voices) => setVocalVoices(voices);
+  void setVocalIntensity(VocalEnergy energy) => setVocalEnergy(energy);
+  void selectMood(String mood) => setMood(mood);
+  void setEra(ProductionEra era) => state = state.copyWith(era: era);
 
   void toggleAutoTitle(bool auto) {
     state = state.copyWith(isAutoTitle: auto);
@@ -136,10 +170,71 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
     state = state.copyWith(branchStemLockModes: modes);
   }
 
+  /// Atomically sets a stem lock mode and synchronizes all canonical & legacy alias keys (REQ-P54-SYNC-02).
   void setBranchStemLockMode(String branchId, StemLockMode mode) {
     final updated = Map<String, StemLockMode>.from(state.branchStemLockModes);
     updated[branchId] = mode;
+
+    // Synchronize canonical <-> legacy alias pairs
+    switch (branchId) {
+      case 'node_beat_tempo':
+      case 'node_branch_beat':
+        updated['node_beat_tempo'] = mode;
+        updated['node_branch_beat'] = mode;
+      case 'node_sketchpad_groove':
+      case 'node_branch_instruments':
+      case 'node_harmony_chords':
+        updated['node_sketchpad_groove'] = mode;
+        updated['node_branch_instruments'] = mode;
+        updated['node_harmony_chords'] = mode;
+      case 'node_vocal_persona':
+      case 'node_branch_vocal':
+      case 'node_emotion_mood':
+        updated['node_vocal_persona'] = mode;
+        updated['node_branch_vocal'] = mode;
+        updated['node_emotion_mood'] = mode;
+      case 'node_spatial_atmosphere':
+      case 'node_branch_sfx':
+        updated['node_spatial_atmosphere'] = mode;
+        updated['node_branch_sfx'] = mode;
+    }
+
     state = state.copyWith(branchStemLockModes: updated);
+  }
+
+  /// Sets the StemLockMode for a specific 3D MyceliumClusterDomain (REQ-P54-SYNC-02).
+  void setClusterStemLockMode(MyceliumClusterDomain domain, StemLockMode mode) {
+    setBranchStemLockMode(domain.studioBranchKey, mode);
+  }
+
+  /// Cycles StemLockMode (lockedPure44k -> harmonicInpaint -> elasticResynth) for a domain (REQ-P54-RACK-02).
+  StemLockMode cycleClusterStemLockMode(MyceliumClusterDomain domain) {
+    final current =
+        state.branchStemLockModes[domain.studioBranchKey] ??
+        state.branchStemLockModes[domain.legacyBranchAliasKey] ??
+        StemLockMode.harmonicInpaint;
+    final next = switch (current) {
+      StemLockMode.lockedPure44k => StemLockMode.harmonicInpaint,
+      StemLockMode.harmonicInpaint => StemLockMode.elasticResynth,
+      StemLockMode.elasticResynth => StemLockMode.lockedPure44k,
+    };
+    setClusterStemLockMode(domain, next);
+    return next;
+  }
+
+  /// Cycles through the 4 curated African Sonic Vibe DNA presets (REQ-P54-RACK-03).
+  void cycleSonicVibeDice() {
+    _sonicVibePresetIndex = (_sonicVibePresetIndex + 1) % 4;
+    switch (_sonicVibePresetIndex) {
+      case 0:
+        applyDnaPresetPrivateSchoolPiano();
+      case 1:
+        applyDnaPresetDurbanDarkGqom();
+      case 2:
+        applyDnaPresetVendaTraditionalSoul();
+      case 3:
+        applyDnaPresetLagosAfroPop();
+    }
   }
 
   void applyDnaPresetPrivateSchoolPiano() {
@@ -229,6 +324,19 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
       phase: GenerationPhase.reviewingLyrics,
       generationProgress: 0.4,
     );
+  }
+
+  /// Opens the Phase 38 Lyrics Review & Section Editor gate prior to generation.
+  void openLyricsReview() {
+    state = state.copyWith(phase: GenerationPhase.reviewingLyrics);
+  }
+
+  /// Cancels an unapproved Lyrics Review session and restores idle state (REQ-P56-PIPE-01)
+  /// so the Studio viewport never renders a stuck empty Result skeleton card.
+  void cancelLyricsReview() {
+    if (state.phase == GenerationPhase.reviewingLyrics) {
+      state = state.copyWith(phase: GenerationPhase.idle);
+    }
   }
 
   /// Saves the approved lyrics and queues beat production (REQ-LYR-08).

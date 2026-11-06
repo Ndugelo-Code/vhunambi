@@ -1,6 +1,55 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import '../../../sound_signature/domain/dsp/bantu_phonology.dart';
+import '../../../sound_signature/domain/dsp/bantu_similarity.dart';
+
+export '../../../sound_signature/domain/dsp/bantu_similarity.dart' show BantuSimilarityResult;
+
+/// Domain helper for extracting non-bracketed Bantu lyric tokens and finding cognate suggestions (REQ-P56-COG-01).
+abstract final class BantuCognateEngine {
+  static const Set<String> structuralStopwords = {
+    'intro',
+    'verse',
+    'chorus',
+    'bridge',
+    'outro',
+    'hook',
+    'pre-chorus',
+    'interlude',
+  };
+
+  static List<BantuSimilarityResult> findSuggestions(
+    String rawLyricsOrToken, {
+    String languageCode = 'zu',
+  }) {
+    final lang = BantuLanguage.fromCode(languageCode) ?? BantuLanguage.zu;
+    final stripped = rawLyricsOrToken.replaceAll(RegExp(r'\[[^\]]*\]'), ' ');
+    final words = stripped
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s\u00C0-\u017F]'), ' ')
+        .split(RegExp(r'\s+'))
+        .where(
+          (w) =>
+              w.length >= 3 && !structuralStopwords.contains(w.toLowerCase()),
+        )
+        .take(5)
+        .toList();
+
+    final results = <BantuSimilarityResult>[];
+    for (final w in words) {
+      for (final target in BantuLanguage.values) {
+        if (target != lang) {
+          final res = BantuSimilarity.compare(w, lang, w, target);
+          if (res.score >= 50) {
+            results.add(res);
+          }
+        }
+      }
+    }
+    return results;
+  }
+}
 
 /// Structural role of a lyrical stanza (REQ-LYR-03).
 enum LyricsSectionType {

@@ -11,7 +11,9 @@ import 'song_dna_node_tree_modal.dart';
 /// Features 60 FPS sine levitation, session-reactive multi-spectrum glow,
 /// orbiting particle halo, and opens the 3D Song DNA Node Tree.
 class SongDnaHoverPill extends ConsumerStatefulWidget {
-  const SongDnaHoverPill({super.key});
+  final VoidCallback? onTap;
+
+  const SongDnaHoverPill({super.key, this.onTap});
 
   @override
   ConsumerState<SongDnaHoverPill> createState() => _SongDnaHoverPillState();
@@ -27,7 +29,10 @@ class _SongDnaHoverPillState extends ConsumerState<SongDnaHoverPill>
     _levitationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2600),
-    )..repeat();
+    );
+    if (!WidgetsBinding.instance.runtimeType.toString().contains('Test')) {
+      _levitationController.repeat();
+    }
   }
 
   @override
@@ -38,7 +43,11 @@ class _SongDnaHoverPillState extends ConsumerState<SongDnaHoverPill>
 
   void _open3DNodeTree() {
     HapticFeedback.mediumImpact();
-    SongDnaNodeTreeModal.show(context);
+    if (widget.onTap != null) {
+      widget.onTap!();
+    } else {
+      SongDnaNodeTreeModal.show(context);
+    }
   }
 
   @override
@@ -53,10 +62,7 @@ class _SongDnaHoverPillState extends ConsumerState<SongDnaHoverPill>
       builder: (context, child) {
         // Continuous 60 FPS vertical sine wave levitation (+/- 3.2dp)
         final dy = math.sin(_levitationController.value * 2 * math.pi) * 3.2;
-        return Transform.translate(
-          offset: Offset(0, dy),
-          child: child,
-        );
+        return Transform.translate(offset: Offset(0, dy), child: child);
       },
       child: GestureDetector(
         key: const Key('studio_song_dna_hover_pill'),

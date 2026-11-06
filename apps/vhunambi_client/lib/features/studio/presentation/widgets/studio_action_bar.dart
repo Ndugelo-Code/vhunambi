@@ -49,7 +49,9 @@ class StudioActionBar extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   PhosphorIcon(
-                    isPublic ? PhosphorIconsRegular.globe : PhosphorIconsRegular.lockKey,
+                    isPublic
+                        ? PhosphorIconsRegular.globe
+                        : PhosphorIconsRegular.lockKey,
                     color: AppColors.brandPrimary,
                     size: 16,
                   ),
@@ -100,18 +102,23 @@ class StudioActionBar extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       PhosphorIcon(
-                        isAiLyrics ? PhosphorIconsRegular.fileText : PhosphorIconsRegular.sparkle,
+                        isAiLyrics
+                            ? PhosphorIconsRegular.fileText
+                            : PhosphorIconsRegular.sparkle,
                         size: 18,
                         color: _contrastTextColor(accent),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        ctaLabel,
-                        maxLines: 1,
-                        style: AppTypography.titleSmall.copyWith(
-                          color: _contrastTextColor(accent),
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
+                      Flexible(
+                        child: Text(
+                          ctaLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.titleSmall.copyWith(
+                            color: _contrastTextColor(accent),
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                          ),
                         ),
                       ),
                     ],
@@ -182,7 +189,9 @@ class StudioActionBar extends ConsumerWidget {
     }
 
     formNotifier.beginLyricsReview();
-    await ref.read(lyricsReviewProvider.notifier).loadGeneratedLyrics(
+    await ref
+        .read(lyricsReviewProvider.notifier)
+        .loadGeneratedLyrics(
           prompt: formState.prompt,
           genre: formState.genre,
           language: formState.language,
@@ -191,6 +200,10 @@ class StudioActionBar extends ConsumerWidget {
 
     if (!context.mounted) return;
     await LyricsReviewModal.show(context);
+    if (context.mounted &&
+        ref.read(studioFormProvider).phase == GenerationPhase.reviewingLyrics) {
+      formNotifier.cancelLyricsReview();
+    }
   }
 
   /// Maps a free-form [genre] string from [StudioFormState] to a

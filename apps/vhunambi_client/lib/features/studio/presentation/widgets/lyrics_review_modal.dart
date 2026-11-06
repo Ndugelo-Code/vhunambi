@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/navigation/navigation_providers.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
@@ -74,6 +75,26 @@ class LyricsReviewModal extends ConsumerStatefulWidget {
 
 class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
   bool _storyMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(modalSheetOpenCountProvider.notifier).state++;
+    });
+  }
+
+  @override
+  void dispose() {
+    try {
+      final count = ref.read(modalSheetOpenCountProvider);
+      if (count > 0) {
+        ref.read(modalSheetOpenCountProvider.notifier).state = count - 1;
+      }
+    } catch (_) {}
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -168,14 +189,31 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
   }
 
   /// REQ-LYR-09 — confirms before dropping an edited draft.
-    void _openCognateFinder(BuildContext context, LyricsReviewDraft draft) {
+  void _openCognateFinder(BuildContext context, LyricsReviewDraft draft) {
+    const structuralStopwords = <String>{
+      'intro',
+      'verse',
+      'chorus',
+      'bridge',
+      'outro',
+      'hook',
+      'pre-chorus',
+      'interlude',
+    };
+
     final lang = BantuLanguage.fromCode(draft.language) ?? BantuLanguage.zu;
-    final words = draft
-        .rebuildRawText()
+
+    // Strip any bracketed tags [Intro], [Chorus], etc. and extract lyric tokens only (REQ-P56-COG-01)
+    final lyricBody = (draft.allLines.isNotEmpty ? draft.allLines.join(' ') : draft.rawText)
+        .replaceAll(RegExp(r'\[[^\]]*\]'), ' ');
+    final words = lyricBody
         .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s\u00C0-\u017F]'), '')
+        .replaceAll(RegExp(r'[^\w\s\u00C0-\u017F]'), ' ')
         .split(RegExp(r'\s+'))
-        .where((w) => w.length >= 3)
+        .where(
+          (w) =>
+              w.length >= 3 && !structuralStopwords.contains(w.toLowerCase()),
+        )
         .take(5)
         .toList();
 

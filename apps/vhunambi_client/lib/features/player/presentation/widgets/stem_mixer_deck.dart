@@ -12,6 +12,8 @@ import '../providers/audio_bridge_providers.dart';
 import '../providers/multi_stem_audio_provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/stem_mixer_provider.dart';
+import '../providers/audio_reactive_biome_provider.dart';
+import '../../../studio/domain/models/mycelium_biome_models.dart';
 import '../../../mastering/presentation/widgets/mobile_quick_master_sheet.dart';
 import '../../../mastering/presentation/views/desktop_mastering_studio_view.dart';
 import '../../../beats/presentation/providers/beats_provider.dart';
@@ -283,6 +285,10 @@ class _StemMixerDeckState extends ConsumerState<StemMixerDeck> {
                 ),
               ),
             ],
+            const SizedBox(height: AppSpacing.sm),
+
+            // Live 6-Cluster Mycelium Stem Entanglement Strip (REQ-P55-STEM-02)
+            const StemMixerBiomeEntanglementStrip(),
             const SizedBox(height: AppSpacing.sm),
 
             // Channel strips
@@ -786,6 +792,135 @@ class _DspSlider extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Live 6-Cluster Mycelium Stem Telemetry & Solo/Mute Entanglement Strip (REQ-P55-STEM-02).
+class StemMixerBiomeEntanglementStrip extends ConsumerWidget {
+  const StemMixerBiomeEntanglementStrip({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final modulation = ref.watch(audioReactiveBiomeModulationProvider);
+    final mixerNotifier = ref.read(stemMixerProvider.notifier);
+
+    return Container(
+      key: const Key('stem_mixer_biome_strip'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: AppRadius.inputBorder,
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const PhosphorIcon(
+                AppIcons.dna,
+                size: 15,
+                color: AppColors.brandPrimary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Living 3D Mycelium Stem Entanglement',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                'Tap: Solo • Hold: Mute',
+                style: AppTypography.badge.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final domain in MyceliumClusterDomain.values)
+                Builder(
+                  builder: (context) {
+                    final isDormant = modulation.isDomainDormant(domain);
+                    final isSolo = modulation.isDomainSoloed(domain);
+                    final energyPct =
+                        (modulation.domainEnergyFor(domain) * 100).round();
+                    final stemType = primaryStemForCluster(domain);
+                    final color = Color(domain.hexColor);
+
+                    return InkWell(
+                      key: Key('stem_mixer_cluster_pill_${domain.name}'),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        mixerNotifier.toggleSolo(stemType);
+                      },
+                      onLongPress: () {
+                        HapticFeedback.mediumImpact();
+                        mixerNotifier.toggleMute(stemType);
+                      },
+                      borderRadius: AppRadius.pillBorder,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 180),
+                        opacity: isDormant ? 0.35 : 1.0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSolo
+                                ? color.withValues(alpha: 0.25)
+                                : AppColors.surfaceSecondary,
+                            borderRadius: AppRadius.pillBorder,
+                            border: Border.all(
+                              color: isSolo
+                                  ? AppColors.coinGold
+                                  : color.withValues(alpha: 0.55),
+                              width: isSolo ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: isDormant
+                                      ? AppColors.textSecondary
+                                      : color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${domain.shortLabel} ${isDormant ? "MUTED" : "$energyPct%"}',
+                                style: AppTypography.badge.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: isSolo
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

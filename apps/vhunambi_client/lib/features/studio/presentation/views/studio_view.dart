@@ -12,14 +12,12 @@ import '../../../player/presentation/providers/player_provider.dart';
 import '../../../player/presentation/widgets/player_obstacle.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../providers/studio_form_provider.dart';
+import '../providers/generation_pipeline_providers.dart';
 import '../widgets/advanced_options_accordion.dart';
 import '../widgets/active_remix_lineage_banner.dart';
-import '../widgets/direct_daw_vocal_upload_sheet.dart';
 import '../widgets/bantu_voice_deck.dart';
-import '../widgets/crate_browser_deck.dart';
 import '../widgets/generation_pipeline_card.dart';
 import '../widgets/live_phonetic_alignment_preview.dart';
-import '../widgets/mpc_slicer_deck.dart';
 import '../widgets/multilingual_language_selector.dart';
 import '../widgets/prompt_input_box.dart';
 import '../widgets/reference_audio_dropzone.dart';
@@ -27,6 +25,9 @@ import '../widgets/regional_genre_selector.dart';
 import '../widgets/progress_tracker.dart';
 import '../widgets/studio_action_bar.dart';
 import '../widgets/studio_session_recovery_banner.dart';
+import '../../domain/models/mycelium_biome_models.dart';
+import '../widgets/cockpit_quantum_entanglement_rack.dart';
+import '../widgets/inline_crate_mpc_workbench.dart';
 import '../../../creator_dna/presentation/providers/dna_studio_defaults_provider.dart';
 
 class StudioView extends ConsumerStatefulWidget {
@@ -37,8 +38,6 @@ class StudioView extends ConsumerStatefulWidget {
 }
 
 class _StudioViewState extends ConsumerState<StudioView> {
-  int _mode = 0;
-
   /// Guards DNA pre-fill so it only applies once per session (T6.10).
   bool _dnaApplied = false;
 
@@ -67,9 +66,7 @@ class _StudioViewState extends ConsumerState<StudioView> {
     if (form.mood == 'Uplifting') notifier.setMood(defaults.mood);
   }
 
-  static const List<String> _modeLabels = ['Compose', 'Voice', 'Crate & MPC'];
-
-  Widget _modeSwitcher() {
+  Widget _modeSwitcher(CockpitWorkspaceTab currentTab) {
     return Container(
       margin: const EdgeInsets.fromLTRB(
         AppSpacing.md,
@@ -82,11 +79,12 @@ class _StudioViewState extends ConsumerState<StudioView> {
           constraints: const BoxConstraints(maxWidth: 840),
           child: Row(
             children: [
-              for (var i = 0; i < _modeLabels.length; i++) ...[
-                if (i > 0) const SizedBox(width: AppSpacing.xs),
+              for (final tab in CockpitWorkspaceTab.values) ...[
+                if (tab.index > 0) const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: InkWell(
-                    onTap: () => setState(() => _mode = i),
+                    key: Key('studio_tab_${tab == CockpitWorkspaceTab.crateAndMpc ? 'crate_mpc' : tab.name}'),
+                    onTap: () => ref.read(studioCockpitTabProvider.notifier).state = tab,
                     borderRadius: AppRadius.pillBorder,
                     child: Container(
                       constraints: const BoxConstraints(minHeight: 44),
@@ -96,23 +94,23 @@ class _StudioViewState extends ConsumerState<StudioView> {
                         horizontal: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: i == _mode
+                        color: tab == currentTab
                             ? AppColors.brandPrimary
                             : AppColors.surfaceSecondary,
                         borderRadius: AppRadius.pillBorder,
                         border: Border.all(
-                          color: i == _mode
+                          color: tab == currentTab
                               ? AppColors.brandPrimary
                               : AppColors.borderSubtle,
                         ),
                       ),
                       child: Text(
-                        _modeLabels[i],
+                        tab.label,
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.bodySmall.copyWith(
-                          color: i == _mode
+                          color: tab == currentTab
                               ? AppColors.brandContrast
                               : AppColors.textSecondary,
                           fontWeight: FontWeight.w600,
@@ -157,10 +155,18 @@ class _StudioViewState extends ConsumerState<StudioView> {
 
   @override
   Widget build(BuildContext context) {
+    final activeTab = ref.watch(studioCockpitTabProvider);
     final isDesktop = ResponsiveUtils.isDesktop(context);
     final phase = ref.watch(studioFormProvider.select((s) => s.phase));
+    final generationProgress = ref.watch(generationProgressProvider);
     final hasActiveTrack =
         ref.watch(playerStateProvider.select((s) => s.hasActiveTrack));
+
+    final isPipelineVisible = activeTab == CockpitWorkspaceTab.compose &&
+        (generationProgress != null ||
+            phase == GenerationPhase.queued ||
+            phase == GenerationPhase.processing ||
+            phase == GenerationPhase.ready);
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -172,9 +178,9 @@ class _StudioViewState extends ConsumerState<StudioView> {
       ),
       body: Column(
         children: [
-          _modeSwitcher(),
+          _modeSwitcher(activeTab),
           const ProgressTrackerWidget(),
-          if (phase != GenerationPhase.idle)
+          if (isPipelineVisible)
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.md,
@@ -184,22 +190,27 @@ class _StudioViewState extends ConsumerState<StudioView> {
               ),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: 840),
-                  child: GenerationPipelineCard(),
+                  constraints: const BoxConstraints(maxWidth: 840),
+                  child: GenerationPipelineCard(
+                    onNewSong: () {
+                      ref.read(generationProgressProvider.notifier).reset();
+                      ref.read(studioFormProvider.notifier).reset();
+                    },
+                  ),
                 ),
               ),
             ),
           Expanded(
             child: IndexedStack(
-              index: _mode,
+              index: activeTab.index,
               children: [
                 _tabScroll(isDesktop, [
                   const StudioSessionRecoveryBanner(),
-                  // T6.10: DNA suggestion banner (REQ-DNA-STU-03)
-                  _DnaSuggestionChip(),
-                  const ActiveRemixLineageBanner(),
                   const PromptInputBox(),
                   const ReferenceAudioDropzone(),
+                  const _DnaSuggestionChip(),
+                  const CockpitQuantumEntanglementRack(),
+                  const ActiveRemixLineageBanner(),
                   const RegionalGenreSelector(),
                   const MultilingualLanguageSelector(),
                   const AdvancedOptionsAccordion(),
@@ -208,53 +219,8 @@ class _StudioViewState extends ConsumerState<StudioView> {
                   BantuVoiceDeck(),
                   LivePhoneticAlignmentPreview(),
                 ]),
-                _tabScroll(isDesktop, [
-                  OutlinedButton.icon(
-                    key: const Key('studio_daw_uploader_btn'),
-                    onPressed: () => DirectDawVocalUploadSheet.show(context),
-                    icon: PhosphorIcon(
-                      PhosphorIconsRegular.uploadSimple,
-                      color: AppColors.brandPrimary,
-                      size: 20,
-                    ),
-                    label: Text(
-                      'Direct DAW & Vocal Uploader',
-                      style: AppTypography.bodyLarge.copyWith(
-                        color: AppColors.textPrimaryOf(context),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: AppColors.brandPrimary.withValues(alpha: 0.5)),
-                      backgroundColor: AppColors.brandPrimary.withValues(alpha: 0.08),
-                      minimumSize: const Size.fromHeight(48),
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: AppRadius.inputBorder,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  OutlinedButton.icon(
-                    key: const Key('studio_open_crate_btn'),
-                    onPressed: () => _openHeritageStudio(context),
-                    icon: const Icon(
-                      Icons.album_rounded,
-                      color: AppColors.coinGold,
-                    ),
-                    label: Text(
-                      'Heritage Crate & MPC Slicer',
-                      style: AppTypography.bodyLarge.copyWith(
-                        color: AppColors.textPrimaryOf(context),
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: AppColors.borderSubtleOf(context)),
-                      minimumSize: const Size.fromHeight(48),
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: AppRadius.inputBorder,
-                      ),
-                    ),
-                  ),
+                _tabScroll(isDesktop, const [
+                  InlineCrateMpcWorkbench(),
                 ]),
               ],
             ),
@@ -300,137 +266,86 @@ class _DnaSuggestionChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final defaults = ref.watch(dnaStudioDefaultsProvider);
-    if (!defaults.hasDnaDefaults) return const SizedBox.shrink();
+    final hasDefaults = defaults.hasDnaDefaults;
 
-    return Container(
-      key: const Key('dna_studio_suggestion_chip'),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.brandPrimary.withAlpha(20),
-        borderRadius: AppRadius.pillBorder,
-        border: Border.all(color: AppColors.brandPrimary.withAlpha(80)),
-      ),
-      child: Row(
-        children: [
-          const Text('🧬', style: TextStyle(fontSize: 14)),
-          const SizedBox(width: AppSpacing.xs),
+    return Row(
+      children: [
+        if (hasDefaults)
           Expanded(
-            child: Text(
-              'DNA suggests: ${defaults.genre} • ${defaults.language}',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.brandPrimary,
-                fontWeight: FontWeight.w600,
+            child: Container(
+              key: const Key('dna_studio_suggestion_chip'),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Opens the Heritage Crate Digging browser & 8-Pad MPC Slicer sheet.
-void _openHeritageStudio(BuildContext context) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black54,
-    builder: (_) => FractionallySizedBox(
-      heightFactor: 0.9,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceModal,
-          borderRadius: AppRadius.modalBorder,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black54,
-              blurRadius: 32,
-              offset: Offset(0, -8),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: AppRadius.modalBorder,
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              // Drag Handle
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.borderSubtle,
-                  borderRadius: BorderRadius.circular(9999),
-                ),
+              decoration: BoxDecoration(
+                color: AppColors.brandPrimary.withAlpha(20),
+                borderRadius: AppRadius.pillBorder,
+                border: Border.all(color: AppColors.brandPrimary.withAlpha(80)),
               ),
-              const SizedBox(height: 8),
-              const Expanded(child: _HeritageStudioSheet()),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-/// Toggles between the crate browser and the MPC slicer once a sample is
-/// chopped (Phase 22).
-class _HeritageStudioSheet extends StatefulWidget {
-  const _HeritageStudioSheet();
-
-  @override
-  State<_HeritageStudioSheet> createState() => _HeritageStudioSheetState();
-}
-
-class _HeritageStudioSheetState extends State<_HeritageStudioSheet> {
-  bool _showSlicer = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        child: _showSlicer
-            ? Column(
-                key: const ValueKey('heritage_slicer_view'),
+              child: Row(
                 children: [
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                    child: Row(
-                      children: [
-                        VhunambiBackButton(
-                          onPressed: () => setState(() => _showSlicer = false),
-                          tooltip: 'Back to Crate',
-                        ),
-                        const SizedBox(width: AppSpacing.xxs),
-                        Text(
-                          'Back to Crate',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                  PhosphorIcon(
+                    PhosphorIconsBold.dna,
+                    color: AppColors.brandPrimary,
+                    size: 16,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      'DNA suggests: ${defaults.genre} • ${defaults.language}',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.brandPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Expanded(child: MpcSlicerDeck()),
                 ],
-              )
-            : CrateBrowserDeck(
-                key: const ValueKey('heritage_crate_view'),
-                onChop: (_) => setState(() => _showSlicer = true),
               ),
-      ),
+            ),
+          )
+        else
+          const Spacer(),
+        const SizedBox(width: AppSpacing.xs),
+        Tooltip(
+          message: 'Shuffle Sonic Vibe Dice',
+          child: InkWell(
+            key: const Key('cockpit_sonic_vibe_dice_btn'),
+            onTap: () {
+              ref.read(studioFormProvider.notifier).cycleSonicVibeDice();
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.borderSubtle),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PhosphorIcon(
+                    PhosphorIconsBold.diceFive,
+                    color: AppColors.brandPrimary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Vibe Dice',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

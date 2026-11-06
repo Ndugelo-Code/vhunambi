@@ -236,6 +236,10 @@ class MpcSlicerNotifier extends StateNotifier<MpcSlicerState> {
     state = state.copyWith(timeStretchRatio: clamped);
   }
 
+  void setBpm(int bpm) {
+    state = state.copyWith(bpm: bpm);
+  }
+
   /// Bounces current 8-pad chop kit to local storage.
   Future<String> bounceChops() async {
     final timestamp = DateTime.now().millisecondsSinceEpoch;

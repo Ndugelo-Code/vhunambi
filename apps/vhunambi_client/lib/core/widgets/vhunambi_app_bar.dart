@@ -37,16 +37,20 @@ class VhunambiAppBar extends ConsumerWidget {
               AppAssets.compactMarkImage(size: 32),
               const SizedBox(width: AppSpacing.xs),
 
-              const Spacer(),
-
               // Studio Route Title
-              Text(
-                'Studio',
-                style: AppTypography.titleMedium.copyWith(
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'Studio',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.titleMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: AppSpacing.xs),
 
               // Synchronized User Coins Chip
               const VhunambiUserCoinsChip(),

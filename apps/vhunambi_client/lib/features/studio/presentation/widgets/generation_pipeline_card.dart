@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -91,19 +92,22 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
                   color: AppColors.textSecondary,
                 ),
               ),
-              InkWell(
-                onTap: widget.onNewSong,
-                child: Row(
-                  children: [
-                    Icon(Icons.refresh_rounded, size: 16, color: AppColors.textSecondary),
-                    const SizedBox(width: 4),
-                    Text(
-                      'New song',
-                      style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+              if (widget.onNewSong != null)
+                TextButton.icon(
+                  key: const Key('generation_pipeline_dismiss_btn'),
+                  onPressed: widget.onNewSong,
+                  icon: const PhosphorIcon(
+                    PhosphorIconsRegular.arrowCounterClockwise,
+                    size: 16,
+                  ),
+                  label: const Text('New song'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.brandPrimary,
+                    textStyle: AppTypography.caption.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 12),

@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/bantu_voice_profile.dart';
+import '../../domain/models/studio_form_state.dart';
 import '../providers/studio_form_provider.dart';
 import '../providers/vocal_identity_provider.dart';
 import 'vocal_identity_picker_sheet.dart';
@@ -25,7 +26,11 @@ class BantuVoiceDeck extends ConsumerWidget {
     final selected = state.selectedVoiceProfile;
     final inflection = state.dialectInflection;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final formNotifier = ref.read(studioFormProvider.notifier);
+
     return Container(
+      key: const Key('bantu_voice_deck'),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.surfaceElevated,
@@ -71,7 +76,56 @@ class BantuVoiceDeck extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Unified Vocal Ensemble, Gender & Energy Segmented Header Card (REQ-P56-VOICE-01)
+          Container(
+            key: const Key('voice_ensemble_header_card'),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.darkBackground.withValues(alpha: 0.55)
+                  : AppColors.surfaceSecondary,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : AppColors.borderSubtle,
+              ),
+            ),
+            child: Column(
+              children: [
+                _buildCompactSegmentRow<VocalVoices>(
+                  label: 'Voices',
+                  items: VocalVoices.values,
+                  selected: state.vocalVoices,
+                  labelBuilder: (v) => v.label,
+                  keyPrefix: 'voice_config',
+                  onSelect: formNotifier.setVocalVoices,
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 6),
+                _buildCompactSegmentRow<VocalGender>(
+                  label: 'Gender',
+                  items: VocalGender.values,
+                  selected: state.vocalGender,
+                  labelBuilder: (g) => g.label,
+                  keyPrefix: 'voice_gender',
+                  onSelect: formNotifier.setVocalGender,
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 6),
+                _buildCompactSegmentRow<VocalEnergy>(
+                  label: 'Energy',
+                  items: VocalEnergy.values,
+                  selected: state.vocalEnergy,
+                  labelBuilder: (e) => e.label,
+                  keyPrefix: 'voice_energy',
+                  onSelect: formNotifier.setVocalEnergy,
+                  isDark: isDark,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
 
           // Phase 26: 24-Voice Regional Catalog & Zero-Shot Voice Cloning Actions (Compact 2-Column Row)
           Container(
@@ -192,47 +246,172 @@ class BantuVoiceDeck extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.md),
 
-          // Dialect inflection sliders
-          _DialectSlider(
-            label: 'Syllable Stretch',
-            subtitle: 'Penultimate vowel elongation',
-            value: inflection.vowelElongation,
-            onChanged: (v) => ref
-                .read(studioFormProvider.notifier)
-                .updateDialectInflection(
-                  inflection.copyWith(vowelElongation: v),
-                ),
-          ),
-          _DialectSlider(
-            label: 'Ancestral Vibrato',
-            subtitle: 'Chest cavity resonance depth',
-            value: inflection.vibratoDepth,
-            onChanged: (v) => ref
-                .read(studioFormProvider.notifier)
-                .updateDialectInflection(inflection.copyWith(vibratoDepth: v)),
-          ),
-          _DialectSlider(
-            label: 'Call-and-Response',
-            subtitle: 'Choir backing intensity',
-            value: inflection.callAndResponseIntensity,
-            onChanged: (v) => ref
-                .read(studioFormProvider.notifier)
-                .updateDialectInflection(
-                  inflection.copyWith(callAndResponseIntensity: v),
-                ),
-          ),
-          _DialectSlider(
-            label: 'Cultural Ad-Libs',
-            subtitle: 'Spontaneous interjection frequency',
-            value: inflection.adLibFrequency,
-            onChanged: (v) => ref
-                .read(studioFormProvider.notifier)
-                .updateDialectInflection(
-                  inflection.copyWith(adLibFrequency: v),
-                ),
+          // 2x2 Compact Dialect Inflection Sliders Grid (REQ-P56-VOICE-02)
+          Container(
+            key: const Key('voice_dialect_grid_card'),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.darkBackground.withValues(alpha: 0.45)
+                  : AppColors.surfaceSecondary,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : AppColors.borderSubtle,
+              ),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isTwoCol = constraints.maxWidth >= 260;
+                final cellWidth = isTwoCol
+                    ? (constraints.maxWidth - 10) / 2
+                    : constraints.maxWidth;
+
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    SizedBox(
+                      width: cellWidth,
+                      child: _DialectSlider(
+                        sliderKey: const Key('dialect_slider_syllable_stretch'),
+                        label: 'Syllable Stretch',
+                        subtitle: 'Penultimate vowel elongation',
+                        value: inflection.vowelElongation,
+                        onChanged: (v) => ref
+                            .read(studioFormProvider.notifier)
+                            .updateDialectInflection(
+                              inflection.copyWith(vowelElongation: v),
+                            ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cellWidth,
+                      child: _DialectSlider(
+                        sliderKey: const Key('dialect_slider_vibrato'),
+                        label: 'Ancestral Vibrato',
+                        subtitle: 'Chest cavity resonance depth',
+                        value: inflection.vibratoDepth,
+                        onChanged: (v) => ref
+                            .read(studioFormProvider.notifier)
+                            .updateDialectInflection(
+                              inflection.copyWith(vibratoDepth: v),
+                            ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cellWidth,
+                      child: _DialectSlider(
+                        sliderKey: const Key('dialect_slider_call_response'),
+                        label: 'Call-and-Response',
+                        subtitle: 'Choir backing intensity',
+                        value: inflection.callAndResponseIntensity,
+                        onChanged: (v) => ref
+                            .read(studioFormProvider.notifier)
+                            .updateDialectInflection(
+                              inflection.copyWith(callAndResponseIntensity: v),
+                            ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cellWidth,
+                      child: _DialectSlider(
+                        sliderKey: const Key('dialect_slider_ad_libs'),
+                        label: 'Cultural Ad-Libs',
+                        subtitle: 'Spontaneous interjection frequency',
+                        value: inflection.adLibFrequency,
+                        onChanged: (v) => ref
+                            .read(studioFormProvider.notifier)
+                            .updateDialectInflection(
+                              inflection.copyWith(adLibFrequency: v),
+                            ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCompactSegmentRow<T extends Enum>({
+    required String label,
+    required List<T> items,
+    required T selected,
+    required String Function(T) labelBuilder,
+    required String keyPrefix,
+    required ValueChanged<T> onSelect,
+    required bool isDark,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 54,
+          child: Text(
+            label,
+            style: AppTypography.caption.copyWith(
+              fontWeight: FontWeight.w700,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
+              fontSize: 11,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Row(
+            children: [
+              for (int i = 0; i < items.length; i++) ...[
+                if (i > 0) const SizedBox(width: 6),
+                Expanded(
+                  child: GestureDetector(
+                    key: Key('${keyPrefix}_${items[i].name}'),
+                    onTap: () => onSelect(items[i]),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: items[i] == selected
+                            ? AppColors.brandPrimary
+                            : (isDark
+                                  ? AppColors.darkSurfaceElevated
+                                  : AppColors.surfaceElevated),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: items[i] == selected
+                              ? AppColors.brandPrimary
+                              : (isDark
+                                    ? AppColors.darkBorder
+                                    : AppColors.borderSubtle),
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          labelBuilder(items[i]),
+                          style: AppTypography.caption.copyWith(
+                            fontSize: 10.5,
+                            fontWeight: items[i] == selected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: items[i] == selected
+                                ? Colors.white
+                                : (isDark
+                                      ? AppColors.darkTextPrimary
+                                      : AppColors.textPrimary),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -358,11 +537,13 @@ class _TimbreCard extends StatelessWidget {
 }
 
 class _DialectSlider extends StatelessWidget {
+  final Key? sliderKey;
   final String label;
   final String subtitle;
   final double value;
   final ValueChanged<double> onChanged;
   const _DialectSlider({
+    this.sliderKey,
     required this.label,
     required this.subtitle,
     required this.value,
@@ -403,7 +584,11 @@ class _DialectSlider extends StatelessWidget {
               overlayColor: AppColors.coinGold.withAlpha(40),
               trackHeight: 4,
             ),
-            child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
+            child: Slider(
+              key: sliderKey,
+              value: value.clamp(0.0, 1.0),
+              onChanged: onChanged,
+            ),
           ),
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 4),

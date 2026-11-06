@@ -89,6 +89,7 @@ abstract final class AppIcons {
   /// Replaces '🎛️' in producer beatstore and DSP mastering mixer.
   static const IconData beatstore = PhosphorIconsFill.slidersHorizontal;
   static const IconData beatstoreOutline = PhosphorIconsRegular.slidersHorizontal;
+  static const IconData sliders = PhosphorIconsRegular.slidersHorizontal;
 
   /// Replaces '🎤' in vocal stem mixer, lyrics, and recording.
   static const IconData vocals = PhosphorIconsFill.microphone;

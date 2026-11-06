@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/navigation/navigation_providers.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -86,18 +87,25 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialInstrument != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(modalSheetOpenCountProvider.notifier).state++;
+      if (widget.initialInstrument != null) {
         ref
             .read(melodySketchpadProvider.notifier)
             .setInstrument(widget.initialInstrument!);
-      });
-    }
+      }
+    });
   }
 
   @override
   void dispose() {
+    try {
+      final count = ref.read(modalSheetOpenCountProvider);
+      if (count > 0) {
+        ref.read(modalSheetOpenCountProvider.notifier).state = count - 1;
+      }
+    } catch (_) {}
     _keyboardFocusNode.dispose();
     super.dispose();
   }

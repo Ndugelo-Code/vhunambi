@@ -163,6 +163,11 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     final modalSheetCount = ref.watch(modalSheetOpenCountProvider);
     if (modalSheetCount > 0) return true;
 
+    // Phase 56 (REQ-P56-MINI-01): Auto-hide MiniPlayerHost across Studio (tab index 2)
+    // so transport controls never block the Action Bar, 5-Ch Sketchpad, or Studio controls.
+    final activeTab = ref.watch(appNavigationTabProvider);
+    if (activeTab == 2) return true;
+
     // Hide when no active track or track is placeholder / 'Unknown' (REQ-P44-MINI-01).
     if (!playerState.hasActiveTrack) return true;
     final track = playerState.currentTrack;

@@ -179,6 +179,13 @@ abstract final class AppColors {
   static const Color amberGlow = Color(0x1AF97316);
   static const Color amberInset = Color(0xFF3A2508);
 
+  // Phase 56 Convenience Aliases
+  static const Color darkBorder = darkBorderSubtle;
+  static const Color lightBorder = lightBorderSubtle;
+  static const Color darkBackground = darkSurfaceCanvas;
+  static const Color lightBackground = lightSurfaceCanvas;
+  static const Color brandSecondary = Color(0xFF00F5D4);
+
   // Semantic Accent Tokens (M8 Notifications / Foundation Blueprint §1.2)
   static const Color accentElectric = Color(
     0xFF8B5CF6,

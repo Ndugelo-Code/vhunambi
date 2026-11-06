@@ -8,6 +8,8 @@ import '../../domain/models/heritage_crate_models.dart';
 import '../providers/heritage_crate_provider.dart';
 import 'melody_sketchpad_modal.dart';
 
+typedef HeritageCrateModal = CrateBrowserDeck;
+
 /// Indigenous Heritage Sound Archive browser with a spinning vinyl audition
 /// graphic and 1-tap MPC chop hand-off (REQ-HRC-01 … REQ-HRC-03).
 class CrateBrowserDeck extends ConsumerWidget {
@@ -28,44 +30,66 @@ class CrateBrowserDeck extends ConsumerWidget {
           // Header + vinyl
           Row(
             children: [
-              _VinylDiskWidget(
-                  isSpinning: state.auditioningSampleId != null),
-              const SizedBox(width: AppSpacing.md),
+              _VinylDiskWidget(isSpinning: state.auditioningSampleId != null),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Heritage Crate Digging 💿',
-                        style: AppTypography.titleLarge
-                            .copyWith(fontWeight: FontWeight.bold)),
-                    Text('Indigenous Sound Archive',
-                        style: AppTypography.caption
-                            .copyWith(color: AppColors.textSecondary)),
+                    Text(
+                      'Heritage Crate Digging',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.titleMedium.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Indigenous Sound Archive — Tap to audition & slice',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              TextButton.icon(
-                key: const Key('crate_open_sketchpad_btn'),
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(44, 44),
-                  backgroundColor: AppColors.surfaceElevated,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.buttonBorder,
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 118),
+                child: TextButton.icon(
+                  key: const Key('crate_open_sketchpad_btn'),
+                  style: TextButton.styleFrom(
+                    backgroundColor: AppColors.surfaceElevated,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    minimumSize: const Size(0, 36),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: AppRadius.buttonBorder,
+                    ),
                   ),
-                ),
-                onPressed: () {
-                  MelodySketchpadModal.show(context);
-                },
-                icon: const Icon(
-                  Icons.piano_rounded,
-                  size: 16,
-                  color: AppColors.brandPrimary,
-                ),
-                label: Text(
-                  '🎹 Open in Melody Sketchpad',
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
+                  onPressed: () {
+                    MelodySketchpadModal.show(context);
+                  },
+                  icon: const Icon(
+                    Icons.piano_rounded,
+                    size: 14,
+                    color: AppColors.brandPrimary,
+                  ),
+                  label: Text(
+                    'Sketchpad',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.brandPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),
@@ -81,10 +105,13 @@ class CrateBrowserDeck extends ConsumerWidget {
                 ref.read(heritageCrateProvider.notifier).setSearchQuery(v),
             decoration: InputDecoration(
               hintText: 'Search instruments, regions, tags…',
-              hintStyle:
-                  AppTypography.caption.copyWith(color: AppColors.textTertiary),
-              prefixIcon:
-                  Icon(Icons.search_rounded, color: AppColors.textSecondary),
+              hintStyle: AppTypography.caption.copyWith(
+                color: AppColors.textTertiary,
+              ),
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                color: AppColors.textSecondary,
+              ),
               filled: true,
               fillColor: AppColors.surfaceSecondary,
               isDense: true,
@@ -127,11 +154,11 @@ class CrateBrowserDeck extends ConsumerWidget {
                         const SizedBox(height: AppSpacing.xs),
                     itemBuilder: (context, i) => _SampleTile(
                       sample: samples[i],
-                      isAuditioning:
-                          state.auditioningSampleId == samples[i].id,
+                      isAuditioning: state.auditioningSampleId == samples[i].id,
                       onAudition: () {
-                        final notifier =
-                            ref.read(heritageCrateProvider.notifier);
+                        final notifier = ref.read(
+                          heritageCrateProvider.notifier,
+                        );
                         if (state.auditioningSampleId == samples[i].id) {
                           notifier.stopAudition();
                         } else {
@@ -155,7 +182,6 @@ class CrateBrowserDeck extends ConsumerWidget {
     );
   }
 }
-
 
 class _VinylDiskWidget extends StatefulWidget {
   final bool isSpinning;
@@ -203,8 +229,8 @@ class _VinylDiskWidgetState extends State<_VinylDiskWidget>
         return Transform.rotate(
           angle: _controller.value * 2 * 3.14159,
           child: Container(
-            width: 84,
-            height: 84,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.surfaceElevated,
@@ -222,8 +248,8 @@ class _VinylDiskWidgetState extends State<_VinylDiskWidget>
               children: [
                 // Grooved vinyl ring
                 Container(
-                  width: 58,
-                  height: 58,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
@@ -236,8 +262,8 @@ class _VinylDiskWidgetState extends State<_VinylDiskWidget>
                 ClipOval(
                   child: Image.asset(
                     AppAssets.heritageCrateCover,
-                    width: 32,
-                    height: 32,
+                    width: 20,
+                    height: 20,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
                       width: 32,
@@ -276,8 +302,11 @@ class _CategoryChip extends StatelessWidget {
   final HeritageCrateCategory category;
   final bool isActive;
   final VoidCallback onTap;
-  const _CategoryChip(
-      {required this.category, required this.isActive, required this.onTap});
+  const _CategoryChip({
+    required this.category,
+    required this.isActive,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -296,12 +325,13 @@ class _CategoryChip extends StatelessWidget {
             color: isActive ? AppColors.brandPrimary : AppColors.borderSubtle,
           ),
         ),
-        child: Text('${category.emoji} ${category.label}',
-            style: AppTypography.caption.copyWith(
-              color:
-                  isActive ? AppColors.brandContrast : AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            )),
+        child: Text(
+          '${category.emoji} ${category.label}',
+          style: AppTypography.caption.copyWith(
+            color: isActive ? AppColors.brandContrast : AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
@@ -346,8 +376,11 @@ class _SampleTile extends StatelessWidget {
                   color: AppColors.surfaceSecondary,
                   borderRadius: AppRadius.thumbBorder,
                 ),
-                child: const Icon(Icons.graphic_eq_rounded,
-                    color: AppColors.brandPrimary, size: 20),
+                child: const Icon(
+                  Icons.graphic_eq_rounded,
+                  color: AppColors.brandPrimary,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -356,22 +389,29 @@ class _SampleTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(sample.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.bold)),
-                Text(sample.cultureRegion,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.caption
-                        .copyWith(color: AppColors.textSecondary)),
+                Text(
+                  sample.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  sample.cultureRegion,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Row(
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
                     _pill('${sample.bpm} BPM'),
-                    const SizedBox(width: 6),
                     _pill(sample.rootKey),
                   ],
                 ),
@@ -381,6 +421,7 @@ class _SampleTile extends StatelessWidget {
           IconButton(
             key: Key('audition_${sample.id}'),
             iconSize: 20,
+            visualDensity: VisualDensity.compact,
             onPressed: onAudition,
             icon: Icon(
               isAuditioning
@@ -392,6 +433,7 @@ class _SampleTile extends StatelessWidget {
           IconButton(
             key: Key('fav_${sample.id}'),
             iconSize: 18,
+            visualDensity: VisualDensity.compact,
             onPressed: onFavorite,
             icon: Icon(
               sample.isFavorite
@@ -405,10 +447,15 @@ class _SampleTile extends StatelessWidget {
           TextButton.icon(
             key: Key('chop_${sample.id}'),
             onPressed: onChop,
-            icon: const Icon(Icons.content_cut_rounded,
-                size: 16, color: AppColors.coinGold),
-            label: Text('Chop',
-                style: AppTypography.caption.copyWith(color: AppColors.coinGold)),
+            icon: const Icon(
+              Icons.content_cut_rounded,
+              size: 16,
+              color: AppColors.coinGold,
+            ),
+            label: Text(
+              'Chop',
+              style: AppTypography.caption.copyWith(color: AppColors.coinGold),
+            ),
           ),
         ],
       ),
@@ -422,8 +469,10 @@ class _SampleTile extends StatelessWidget {
         color: AppColors.surfaceSecondary,
         borderRadius: AppRadius.pillBorder,
       ),
-      child: Text(text,
-          style: AppTypography.caption.copyWith(color: AppColors.textSecondary)),
+      child: Text(
+        text,
+        style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+      ),
     );
   }
 }

@@ -179,11 +179,11 @@ class _MultilingualLanguageSelectorState
           borderRadius: AppRadius.pillBorder,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            constraints: const BoxConstraints(minHeight: 44),
+            constraints: const BoxConstraints(minHeight: 34),
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: 8,
+              horizontal: 10,
+              vertical: 6,
             ),
             decoration: BoxDecoration(
               color: isSelected
@@ -198,11 +198,12 @@ class _MultilingualLanguageSelectorState
             ),
             child: Text(
               lang,
-              style: AppTypography.bodySmall.copyWith(
+              style: AppTypography.caption.copyWith(
                 color: isSelected
                     ? AppColors.brandContrast
                     : AppColors.textPrimary,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                fontSize: 11.5,
               ),
             ),
           ),

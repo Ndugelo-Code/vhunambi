@@ -40,12 +40,22 @@ class LivePhoneticAlignmentPreview extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.record_voice_over_rounded,
-                  color: AppColors.brandPrimary, size: 18),
+              const Icon(
+                Icons.record_voice_over_rounded,
+                color: AppColors.brandPrimary,
+                size: 18,
+              ),
               const SizedBox(width: 8),
-              Text('Live Phonetic Alignment',
-                  style: AppTypography.titleMedium
-                      .copyWith(fontWeight: FontWeight.bold)),
+              Expanded(
+                child: Text(
+                  'Live Phonetic Alignment',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -55,20 +65,23 @@ class LivePhoneticAlignmentPreview extends ConsumerWidget {
               _LegendDot(color: AppColors.coinGold, label: 'Venda dental'),
               _LegendDot(color: AppColors.badgeCyan, label: 'Nguni click'),
               _LegendDot(
-                  color: AppColors.brandPrimary, label: 'Stressed vowel', bold: true),
+                color: AppColors.brandPrimary,
+                label: 'Stressed vowel',
+                bold: true,
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
           if (words.isEmpty)
-            Text('Add your lyrics to preview indigenous phonetic alignment.',
-                style: AppTypography.bodyMuted)
+            Text(
+              'Add your lyrics to preview indigenous phonetic alignment.',
+              style: AppTypography.bodyMuted,
+            )
           else
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: [
-                for (final word in words) _WordChip(word: word),
-              ],
+              children: [for (final word in words) _WordChip(word: word)],
             ),
         ],
       ),
@@ -80,8 +93,11 @@ class _LegendDot extends StatelessWidget {
   final Color color;
   final String label;
   final bool bold;
-  const _LegendDot(
-      {required this.color, required this.label, this.bold = false});
+  const _LegendDot({
+    required this.color,
+    required this.label,
+    this.bold = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -94,11 +110,13 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
-        Text(label,
-            style: AppTypography.caption.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-            )),
+        Text(
+          label,
+          style: AppTypography.caption.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
       ],
     );
   }

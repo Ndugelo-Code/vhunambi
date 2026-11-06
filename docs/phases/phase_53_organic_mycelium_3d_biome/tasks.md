@@ -1,256 +1,197 @@
 # Engineering Tasks & Milestone Plan: Phase 53 — 3D Organic Mycelium Biome
 
-This document delineates the step-by-step engineering tasks, architectural milestones (M1–M6), concrete method signatures, target files, acceptance criteria, and automated verification gates for implementing the 3D Organic Mycelium Biome ("A Song as a Living Ecosystem").
+This document delineates the step-by-step engineering tasks, architectural milestones (M1–M6), concrete method signatures, target file paths under `apps/vhunambi_client/`, acceptance criteria, and automated verification gates for implementing **Phase 53: The 3D Organic Mycelium Biome ("A Song as a Living Ecosystem")**.
 
 ---
 
 ## 1. Master Milestone Roadmap & Dependency Graph
 
 ```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                           PHASE 53 MILESTONE ROADMAP                           │
-├────────────────────────────────────────────────────────────────────────────────┤
-│ M1: Procedural 3D Mycelium & Mushroom Mesh Generator                           │
-│     ├── Domain models (Cluster, Leaf, Vector3D)                                │
-│     └── Truncated cone stem + hemispherical cap + 32 radial gills generator    │
-│                                       ▼                                        │
-│ M2: Organic Node, Hyphal Filament & Synaptic Pulse Animation                   │
-│     ├── Inter-cluster quadratic Bezier conduits                                │
-│     └── Energy spore photon particles with 60 FPS cycling                      │
-│                                       ▼                                        │
-│ M3: 6 Musical Clusters, Domain Modeling & Decoupled Graph Provider             │
-│     ├── Seed graph initialization (Melody, Rhythm, Vocal, Harmony, etc.)      │
-│     └── Riverpod state notifier reactive synchronization                       │
-│                                       ▼                                        │
-│ M4: 3D Terrain Camera, Fixed Scale/Orbit Gestures & Inspector Drawer           │
-│     ├── Gimbal-lock-free spherical camera controller                           │
-│     ├── Pointer-count isolated gestures (N=1 orbit, N>=2 pinch/pan)            │
-│     └── BiomeClusterInspectorPanel with live waveform & metric gauges          │
-│                                       ▼                                        │
-│ M5: Organic Growth State Machine & Song Journey Audio-Reactive Scrubber        │
-│     ├── 4-phase biological growth state machine                                │
-│     ├── Song Journey timeline scrubber (Intro -> Verse -> Chorus -> Outro)     │
-│     └── Section-to-Luminosity matrix modulation                                │
-│                                       ▼                                        │
-│ M6: Real Audio Analysis, MMO Integration, Benchmark & Release Delivery         │
-│     ├── MMO stem feature mapping & Hive binary serialization                   │
-│     ├── Full-screen route navigation from Studio Cockpit                       │
-│     └── Physical ARM64 device verification (Huawei JNY-LX1) & release APK      │
-└────────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                              PHASE 53 MILESTONE ROADMAP                                │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ M1: Pure Dart 3D Y-Up Domain Models & Terrain Elevation Math                           │
+│     ├── MyceliumClusterDomain, MushroomFruitingBody, MyceliumChildNode, Vector3D       │
+│     └── BiomeTerrainMath.heightAt(x, z) & 5-stage BiomeGrowthPhase                     │
+│                                           ▼                                            │
+│ M2: Space-Colonization Mycelium Web, 16 3D Sprout Mushrooms & Synaptic Photons         │
+│     ├── 15 Arterial MyceliumHyphaEdge 9-waypoint 3D splines on Y = h(X, Z) + 1.5       │
+│     ├── 72 Branching MyceliumRootTendril sub-filaments                                 │
+│     └── 16 Miniature 3D Bioluminescent MyceliumSproutNode pinhead mushrooms            │
+│                                           ▼                                            │
+│ M3: 6 Musical Clusters Seed Factory & Entangled Riverpod Graph Notifier                │
+│     ├── Canonical Y-Up 3D coordinates for Melody, Rhythm, Vocal, Harmony, Emo, Prod    │
+│     └── Bidirectional sync with StudioFormProvider & StemLockMode                      │
+│                                           ▼                                            │
+│ M4: 3D Vertices Mesh Painter, Y-Up Camera, Hit-Testing & Full 5-Deck HUD               │
+│     ├── OrganicMycelium3DPainter (ui.Vertices 3D Cap + 32 3D Gills + 8-Ring Stipe)     │
+│     ├── BiomeProjectionEngine.hitTest + Pointer-Isolated Orbit/Zoom Camera             │
+│     └── BiomeTopBar, BiomeClusterInspectorPanel, Controls Bar & Layer Filter Decks     │
+│                                           ▼                                            │
+│ M5: 5-Stage Organic Growth FSM & Song Journey Audio-Reactive Timeline Scrubber         │
+│     ├── Growth progression tau in [0.0, 1.0] (Nucleus -> Hyphae -> Stipe -> Mature)    │
+│     └── SongJourneyTimelineScrubber (Intro -> Verse -> Chorus -> Bridge -> Outro)      │
+│                                           ▼                                            │
+│ M6: Studio Cockpit Integration, Comprehensive Widget Tests & ARM64 APK Verification    │
+│     ├── Full-screen opaque route via SongDnaNodeTreeModal                              │
+│     └── 100% pass on flutter test, 0 issues on flutter analyze & physical device test  │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-| Milestone | Description | Target Files | Dependencies | Test Gate |
+| Milestone | Description | Target Files (`apps/vhunambi_client/`) | Dependencies | Verification Test Gate |
 | :--- | :--- | :--- | :--- | :--- |
-| **M1** | Procedural 3D Mesh Generator | `lib/features/studio/domain/models/mycelium_*.dart` | None | Unit tests for 3D math & mesh |
-| **M2** | Hyphae & Synaptic Pulse | `lib/features/studio/domain/models/mycelium_hypha.dart` | M1 | Spore Bezier path tests |
-| **M3** | 6 Musical Clusters & State | `lib/features/studio/presentation/providers/*` | M1, M2 | Graph synchronization tests |
-| **M4** | 3D Camera & Inspector Drawer | `lib/features/studio/presentation/widgets/biome/*` | M3 | Gesture & drawer widget tests |
-| **M5** | Timeline & Audio Modulation | `lib/features/studio/presentation/widgets/biome/*` | M3, M4 | Scrubber & lighting tests |
-| **M6** | MMO Sync, Route & ARM64 APK | `lib/features/studio/presentation/views/*` | M1–M5 | Physical device 60 FPS profiling |
+| **M1** | Pure Dart 3D Y-Up Domain & Terrain Math | `lib/features/studio/domain/models/mycelium_biome_models.dart` | None | `M1-DomainAndTerrainTest` |
+| **M2** | Space-Colonization Web & 16 3D Sprouts | `lib/features/studio/domain/models/mycelium_biome_models.dart` | M1 | `M2-MyceliumWebAndSproutsTest` |
+| **M3** | 6 Clusters Factory & Riverpod Provider | `lib/features/studio/presentation/providers/mycelium_biome_provider.dart` | M1, M2 | `M3-GraphProviderSyncTest` |
+| **M4** | 3D Vertices Painter, Camera & 5 HUD Decks | `lib/features/studio/presentation/widgets/biome/*.dart` | M1–M3 | `M4-PainterCameraAndHudTest` |
+| **M5** | 5-Stage Growth & Song Journey Scrubber | `lib/features/studio/presentation/widgets/biome/song_journey_*.dart` | M3, M4 | `M5-GrowthAndJourneyTest` |
+| **M6** | Cockpit Route Wiring & Hardware Release | `lib/features/studio/presentation/widgets/song_dna_node_tree_modal.dart` | M1–M5 | `phase53_organic_mycelium_3d_biome_test.dart` |
 
 ---
 
-## 2. Milestone M1: Procedural 3D Mycelium & Mushroom Mesh Generator
+## 2. Milestone M1: Pure Dart 3D Y-Up Domain Models & Terrain Elevation Math
 
-### Task 1.1: Core Domain Entities & Mathematical Types
-- **Target File**: `lib/features/studio/domain/models/mycelium_cluster.dart`
+### Task 1.1: Core Domain Entities & Enumerations
+- **Target File**: `apps/vhunambi_client/lib/features/studio/domain/models/mycelium_biome_models.dart`
 - **Specification**:
-  - Implement immutable domain classes: `MyceliumCluster`, `MyceliumLeaf`, and `Vector3D`.
-  - Properties: `id`, `clusterType`, `title`, `roleDescription`, `positionX`, `positionY`, `positionZ`, `stemHeight`, `capRadius`, `hexColor`, `intensity`, `complexity`, `influence`, `childLeaves`, and `connectedClusterIds`.
-  - Factory constructor: `MyceliumCluster.fromJson(Map<String, dynamic> json)`.
-  - Serialization: `Map<String, dynamic> toJson()`.
-  - Value equality: Override `operator ==` and `hashCode`.
+  - Implement pure Dart enums:
+    - `MyceliumClusterDomain` (`melodyCore`, `rhythmNetwork`, `vocalNetwork`, `harmonyNetwork`, `emotionNetwork`, `productionNetwork`)
+    - `MyceliumNetworkLayer` (`coreElements`, `supportingElements`, `atmosphere`, `emotionalLayer`)
+    - `SongJourneySection` (`intro`, `verse`, `chorus`, `bridge`, `outro`)
+    - `BiomeGrowthPhase` (`nucleusSeed`, `primaryNodesEmerge`, `hyphaeBranching`, `fruitingBodiesSprout`, `ecosystemMature`)
+  - Implement immutable classes:
+    - `Vector3D` (Right-Handed Y-Up: $X$ right, $+Y$ elevation up, $+Z$ foreground depth)
+    - `MushroomFruitingBody` (with `capApexPosition => Vector3D(rootPosition.x, rootPosition.y + stipeHeight, rootPosition.z)`)
+    - `MyceliumChildNode`
+    - `MusicalDnaGraph`
 - **Acceptance Criteria**:
-  - Zero dependencies on Flutter UI (`dart:ui` or `package:flutter`) in pure domain layer.
-  - Serialization round-trip maintains exact double floating-point precision.
+  - Zero imports of `package:flutter` or `dart:ui` in `mycelium_biome_models.dart` (`REQ-P53-NFR-04`).
 
-### Task 1.2: Procedural 3D Mushroom Mesh Generator
-- **Target File**: `lib/features/studio/presentation/painters/mushroom_mesh_generator.dart`
+### Task 1.2: 3D Y-Up Contoured Terrain Elevation Math (`BiomeTerrainMath`)
+- **Target File**: `apps/vhunambi_client/lib/features/studio/domain/models/mycelium_biome_models.dart`
 - **Method Signatures**:
   ```dart
-  class MushroomMeshGenerator {
-    static Path generateCapPath({
-      required Offset screenCenter,
-      required double radiusX,
-      required double radiusY,
-      required double curvature,
-    });
-
-    static List<Offset> generateStemPolygon({
-      required Offset basePoint,
-      required Offset apexPoint,
-      required double baseRadius,
-      required double topRadius,
-    });
-
-    static List<Offset> generateRadialGillRims({
-      required Offset apexPoint,
-      required double radiusX,
-      required double radiusY,
-      required int gillCount,
-    });
+  class BiomeTerrainMath {
+    static double heightAt(double x, double z);
+    static Vector3D normalAt(double x, double z);
   }
   ```
 - **Acceptance Criteria**:
-  - Generates 32 evenly distributed radial gill points around the elliptical rim.
-  - Generates smooth parabolic cap curvature with zero apex vertex pinching.
-
-### Task 1.3: Automated Test Verification (M1 Gate)
-- **Target File**: `test/features/studio/domain/mycelium_cluster_test.dart`
-- **Coverage**:
-  - 100% line coverage of domain entity instantiation, JSON serialization, and mesh vertex counts.
+  - `heightAt(x, z)` evaluates the 6 Gaussian cluster mounds plus micro-undulations and strictly satisfies $Y = h(X, Z) \ge 0$ across $(X, Z) \in [-320, 320] \times [-260, 260]$.
 
 ---
 
-## 3. Milestone M2: Organic Node, Hyphal Filament & Synaptic Pulse Animation
+## 3. Milestone M2: Space-Colonization Mycelium Web, 16 3D Sprout Mushrooms & Synaptic Photons
 
-### Task 2.1: Inter-Cluster Hyphal Conduits & Bezier Spline Models
-- **Target File**: `lib/features/studio/domain/models/mycelium_hypha.dart`
+### Task 2.1: 15 Cross-Cluster Arterial Hyphal Conduits (`MyceliumHyphaEdge`)
+- **Target File**: `apps/vhunambi_client/lib/features/studio/domain/models/mycelium_biome_models.dart`
 - **Specification**:
-  - Model attributes: `id`, `sourceClusterId`, `targetClusterId`, `weight`, `isActive`, `curvatureOffset`, `activeSpores`.
-  - Quadratic Bezier midpoint calculation taking into account vertical terrain sag and organic perturbation.
-  - Method: `Offset evaluateQuadraticBezier(Offset p0, Offset p1, Offset p2, double t)`.
+  - Implement `MyceliumHyphaEdge` with 9 3D spline waypoints locked to terrain elevation $Y(t) = h(X(t), Z(t)) + 1.5\text{dp}$.
+  - Implement `Vector3D sampleAt(double t)` for continuous 3D photon position evaluation along $t \in [0.0, 1.0]$.
 
-### Task 2.2: Synaptic Energy Spore & Particle Simulation
-- **Target File**: `lib/features/studio/domain/models/mycelium_spore.dart`
+### Task 2.2: 72 Branching Rootlet Tendrils & 16 3D Sprout Mushrooms
+- **Target File**: `apps/vhunambi_client/lib/features/studio/domain/models/mycelium_biome_models.dart`
 - **Specification**:
-  - Properties: `id`, `hyphaId`, `normalizedProgress`, `speed`, `colorHex`, `glowRadius`.
-  - Continuous cycling method: `MyceliumSpore advance(double deltaProgress)`.
-  - Velocity modulation based on song tempo (BPM) and transient energy.
-
-### Task 2.3: Automated Test Verification (M2 Gate)
-- **Target File**: `test/features/studio/domain/mycelium_hypha_test.dart`
-- **Coverage**:
-  - Verification that parameter $t=0.0 \to p_0$ and $t=1.0 \to p_2$ within $10^{-6}$ precision.
-  - Validation of continuous cycle wrap-around when `progress >= 1.0`.
+  - Implement `MyceliumRootTendril` (12 radiating 5-step branching rootlets per cluster hugging $Y = h(X, Z) + 0.8\text{dp}$).
+  - Implement `MyceliumSproutNode` (16 miniature 3D bioluminescent pinhead mushrooms at hyphal junctions with $H \in [9, 18]\text{dp}$ and $R_{\text{cap}} \in [5, 11]\text{dp}$).
 
 ---
 
-## 4. Milestone M3: 6 Musical Clusters, Domain Modeling & Decoupled Graph Provider
+## 4. Milestone M3: 6 Musical Clusters Seed Factory & Entangled Riverpod Graph Notifier
 
-### Task 3.1: Seed Ecosystem Graph Factory
-- **Target File**: `lib/features/studio/domain/factories/mycelium_seed_graph_factory.dart`
+### Task 3.1: Canonical 6-Cluster Y-Up Ecosystem Factory
+- **Target File**: `apps/vhunambi_client/lib/features/studio/presentation/providers/mycelium_biome_provider.dart`
 - **Specification**:
-  - Produce the canonical 6-cluster musical ecosystem:
-    1. 🎵 `melodyCore` ($X: 0, Y: 0, Z: 0$, Gold `#FF9E00`)
-    2. 🥁 `rhythmNetwork` ($X: -140, Y: 0, Z: 100$, Cyan `#00B4D8`)
-    3. 🎤 `vocalNetwork` ($X: -150, Y: -20, Z: -120$, Violet `#9D4EDD`)
-    4. 🎼 `harmonyNetwork` ($X: 150, Y: 0, Z: -110$, Emerald `#10B981`)
-    5. 💗 `emotionNetwork` ($X: 160, Y: 10, Z: 80$, Magenta `#F72585`)
-    6. 🎚️ `productionNetwork` ($X: 0, Y: -10, Z: 160$, Aqua `#06D6A0`)
-  - Construct 15 pairwise connecting hyphae with calibrated biological weights.
+  - Construct the 6 `MushroomFruitingBody` clusters in Right-Handed 3D Y-Up World Space:
+    1. `melodyCore`: Planar $(0, 0)$, $Y_{\text{root}} = h(0, 0) \approx 32\text{dp}$, $H_{\text{stipe}} = 108\text{dp} \implies$ Apex $(0, 140, 0)$, $R_{\text{cap}} = 56\text{dp}$, Gold `#FF9E00`, 5 child leaves.
+    2. `rhythmNetwork`: Planar $(-195, +95)$, $Y_{\text{root}} \approx 22\text{dp}$, $H_{\text{stipe}} = 74\text{dp} \implies$ Apex $(-195, 96, +95)$, $R_{\text{cap}} = 42\text{dp}$, Cyan `#00B4D8`, 5 child leaves.
+    3. `vocalNetwork`: Planar $(-155, -90)$, $Y_{\text{root}} \approx 26\text{dp}$, $H_{\text{stipe}} = 94\text{dp} \implies$ Apex $(-155, 120, -90)$, $R_{\text{cap}} = 47\text{dp}$, Violet `#9D4EDD`, 5 child leaves.
+    4. `harmonyNetwork`: Planar $(+165, -85)$, $Y_{\text{root}} \approx 25\text{dp}$, $H_{\text{stipe}} = 90\text{dp} \implies$ Apex $(+165, 115, -85)$, $R_{\text{cap}} = 45\text{dp}$, Emerald `#10B981`, 5 child leaves.
+    5. `emotionNetwork`: Planar $(+190, +75)$, $Y_{\text{root}} \approx 21\text{dp}$, $H_{\text{stipe}} = 75\text{dp} \implies$ Apex $(+190, 96, +75)$, $R_{\text{cap}} = 41\text{dp}$, Magenta `#F72585`, 4 child leaves.
+    6. `productionNetwork`: Planar $(-35, +155)$, $Y_{\text{root}} \approx 18\text{dp}$, $H_{\text{stipe}} = 64\text{dp} \implies$ Apex $(-35, 82, +155)$, $R_{\text{cap}} = 39\text{dp}$, Aqua `#06D6A0`, 5 child leaves.
 
-### Task 3.2: Riverpod Reactive Graph Notifier
-- **Target File**: `lib/features/studio/presentation/providers/mycelium_biome_provider.dart`
-- **Signatures**:
+### Task 3.2: Riverpod `MyceliumBiomeGraphNotifier` & Bidirectional Studio Entanglement
+- **Target File**: `apps/vhunambi_client/lib/features/studio/presentation/providers/mycelium_biome_provider.dart`
+- **Method Signatures**:
   ```dart
   class MyceliumBiomeGraphNotifier extends StateNotifier<MusicalDnaGraph> {
-    void updateClusterIntensity(String clusterId, double intensity);
-    void mutateLeafParameter(String clusterId, String leafId, dynamic value);
-    void triggerSynapticImpulse(String sourceClusterId, String targetClusterId);
-    void synchronizeWithStudioForm(StudioFormState formState);
+    void focusCluster(MyceliumClusterDomain? domain);
+    void selectChildLeaf(String? leafId);
+    void toggleNetworkLayer(MyceliumNetworkLayer layer);
+    void selectSongJourneySection(SongJourneySection section);
+    void setGrowthProgress(double progress);
+    void toggleCompareMode();
+    void toggleAnalyseOverlay();
   }
   ```
 
-### Task 3.3: Automated Test Verification (M3 Gate)
-- **Target File**: `test/features/studio/presentation/providers/mycelium_biome_provider_test.dart`
-- **Coverage**:
-  - Test Studio form mutation immediately reflects in cluster metrics and hyphae luminosities.
+---
+
+## 5. Milestone M4: 3D Vertices Mesh Painter, Y-Up Camera, Hit-Testing & Full 5-Deck HUD
+
+### Task 4.1: `BiomeProjectionEngine` & `BiomeCameraNotifier`
+- **Target File**: `apps/vhunambi_client/lib/features/studio/presentation/controllers/biome_camera_controller.dart`
+- **Specification**:
+  - Implement `BiomeProjectionEngine.project3D(Vector3D worldPt, BiomeCameraState camera, Size viewportSize)`.
+  - Implement synchronous `BiomeProjectionEngine.hitTest(...)` resolving taps on unfurled child leaves and parent mushroom caps/badges.
+  - Enforce pitch clamp $\phi \in [15^\circ, 75^\circ]$ and distance clamp $R \in [180\text{dp}, 650\text{dp}]$.
+
+### Task 4.2: True 3D Mesh CustomPainter (`OrganicMycelium3DPainter`)
+- **Target File**: `apps/vhunambi_client/lib/features/studio/presentation/widgets/biome/organic_mycelium_3d_painter.dart`
+- **Specification**:
+  - Render 5-ring $\times$ 24-segment fluted 3D umbrella cap domes via `ui.Vertices.raw(ui.VertexMode.triangles, ...)` and `canvas.drawVertices(..., BlendMode.plus, _meshPaint)`.
+  - Render 32 3D arched under-cap radial lamellae gills + sub-cap core bloom.
+  - Render 8-ring curved fibrous hyperboloid stalks rooted at $Y_{\text{root}} = h(X_k, Z_k)$.
+  - Render 20$\times$20 3D terrain grid, 72 rootlet tendrils, 15 arterial hyphae, traveling photons, and 16 3D sprout mushrooms.
+
+### Task 4.3: `BiomeClusterInspectorPanel` Right Drawer Widget
+- **Target File**: `apps/vhunambi_client/lib/features/studio/presentation/widgets/biome/biome_cluster_inspector_panel.dart`
+- **Specification**:
+  - Key: `Key('biome_cluster_inspector_panel')`.
+  - 32-bar animated live frequency waveform (`Key('biome_inspector_waveform')`), 3 metric readouts (`Intensity %`, `Complexity %`, `Influence %`), related node jump chips (`Key('biome_related_chip_${partner.name}')`), and Studio Cockpit mutator controls.
+
+### Task 4.4: `BiomeTopBar`, `BiomeInteractiveControlsBar` & `BiomeNetworkLayersFilter`
+- **Target Files**:
+  - `apps/vhunambi_client/lib/features/studio/presentation/widgets/biome/biome_top_bar.dart`
+  - `apps/vhunambi_client/lib/features/studio/presentation/widgets/biome/biome_hud_decks.dart`
+- **Specification**:
+  - `BiomeTopBar` (`Key('biome_top_bar')`) with `Now Playing` capsule (`Key('biome_play_pause_btn')`, `Key('biome_mute_btn')`, `Key('biome_close_btn')`).
+  - `BiomeInteractiveControlsBar` (`Key('biome_controls_bar')`) with `Rotate`, `Zoom`, `Focus`, `Compare`, and `Analyse` buttons.
+  - `BiomeNetworkLayersFilter` (`Key('biome_network_layers_filter')`) with `Core Elements`, `Supporting Elements`, `Atmosphere`, and `Emotional Layer` toggles.
+  - Semantic positioned badge overlays (`Key('biome_cluster_badge_${domain.name}')`) for 100% deterministic widget test tapping and screen-reader accessibility.
 
 ---
 
-## 5. Milestone M4: 3D Terrain Camera, Fixed Scale/Orbit Gestures & Inspector Drawer
+## 6. Milestone M5: 5-Stage Organic Growth FSM & Song Journey Audio-Reactive Scrubber
 
-### Task 4.1: Gimbal-Lock-Free Spherical Orbit Camera Controller
-- **Target File**: `lib/features/studio/presentation/controllers/biome_camera_controller.dart`
+### Task 5.1: 5-Stage Organic Growth Animation Controller
+- **Target File**: `apps/vhunambi_client/lib/features/studio/presentation/widgets/song_dna_node_tree_modal.dart`
 - **Specification**:
-  - State variables: `targetX`, `targetY`, `targetZ`, `yaw`, `pitch`, `distance`, `zoom`.
-  - Strict hardware bounds: $\text{pitch} \in [15^\circ, 80^\circ]$, $\text{distance} \in [180.0, 750.0]$.
-  - Smooth canopy glide method: `Future<void> glideToCluster(MyceliumCluster cluster)`.
-  - Overview reset method: `Future<void> returnToOverview()`.
-
-### Task 4.2: Gesture Pointer-Count Separation Handler
-- **Target File**: `lib/features/studio/presentation/widgets/biome/biome_gesture_boundary.dart`
-- **Specification**:
-  - Pointer count $N = 1$: Handle orbit yaw/pitch without touching distance/scale.
-  - Pointer count $N \ge 2$: Handle pinch-to-zoom distance scaling and 2-finger target pan without triggering orbit deltas.
-  - Zero canvas freeze or touch contention across multi-touch transitions.
-
-### Task 4.3: `BiomeClusterInspectorPanel` Drawer Widget
-- **Target File**: `lib/features/studio/presentation/widgets/biome/biome_cluster_inspector_panel.dart`
-- **Components**:
-  - Animated live FFT frequency spectrum canvas (24 bars).
-  - Metric arc indicators: `Intensity`, `Complexity`, `Influence`.
-  - Connected node quick-jump chips.
-  - Direct Studio Cockpit mutation action button.
-
-### Task 4.4: Automated Test Verification (M4 Gate)
-- **Target File**: `test/features/studio/presentation/widgets/biome_camera_and_drawer_test.dart`
-- **Coverage**:
-  - Widget test verifying tap on parent mushroom head invokes `glideToCluster` and displays `BiomeClusterInspectorPanel`.
-
----
-
-## 6. Milestone M5: Organic Growth State Machine & Song Journey Audio-Reactive Scrubber
-
-### Task 5.1: Biological Growth State Machine
-- **Target File**: `lib/features/studio/domain/models/biome_growth_state.dart`
-- **Specification**:
-  - Enums: `sporeFormation`, `hyphalExtension`, `primordiumFruiting`, `matureCanopy`.
-  - Growth progression interpolation parameter $\alpha_{growth} \in [0.0, 1.0]$.
-  - Stem height and cap radius scale according to Sigmoid growth curve:
-    $$S(\alpha) = \frac{1}{1 + e^{-10(\alpha - 0.5)}}$$
+  - Drive `growthProgress` $\tau \in [0.0, 1.0]$ across the 5 `BiomeGrowthPhase` stages (`nucleusSeed` $\to$ `primaryNodesEmerge` $\to$ `hyphaeBranching` $\to$ `fruitingBodiesSprout` $\to$ `ecosystemMature`).
 
 ### Task 5.2: `SongJourneyTimelineScrubber` Widget
-- **Target File**: `lib/features/studio/presentation/widgets/biome/song_journey_timeline_scrubber.dart`
+- **Target File**: `apps/vhunambi_client/lib/features/studio/presentation/widgets/biome/song_journey_timeline_scrubber.dart`
 - **Specification**:
-  - 5 formal song sections: `Intro`, `Verse`, `Chorus`, `Bridge`, `Outro`.
-  - Real-time scrubbing callback: `onSeek(double positionSeconds)`.
-  - Section marker highlight and active position pulse beacon.
-
-### Task 5.3: Section-to-Luminosity Lighting Matrix Coupling
-- **Target File**: `lib/features/studio/presentation/controllers/song_journey_notifier.dart`
-- **Specification**:
-  - Compute cluster illumination vector $\mathbf{L}(t)$ dynamically based on active song section and audio RMS energy.
-  - Chorus excitation: All 6 mushroom fruiting bodies fire at 100% saturation and emit bursting synaptic spores.
-
-### Task 5.4: Automated Test Verification (M5 Gate)
-- **Target File**: `test/features/studio/presentation/widgets/song_journey_timeline_test.dart`
-- **Coverage**:
-  - Verify seeking to Chorus activates 100% illumination across all 6 clusters.
+  - Key: `Key('biome_song_journey_scrubber')`.
+  - Interactive section nodes (`Key('biome_section_intro')`, `verse`, `chorus`, `bridge`, `outro`) modulating cluster luminosities and photon velocities.
 
 ---
 
-## 7. Milestone M6: Real Audio Analysis, MMO Integration, Benchmark & Release Delivery
+## 7. Milestone M6: Studio Cockpit Integration, Comprehensive Widget Tests & ARM64 APK Verification
 
-### Task 6.1: MasterMediaObject (MMO) & Hive Binary Serialization
-- **Target File**: `lib/features/studio/data/repositories/mycelium_cache_repository.dart`
+### Task 6.1: Upgrade `SongDnaNodeTreeModal` to Sovereign 3D Mycelium Biome Universe
+- **Target File**: `apps/vhunambi_client/lib/features/studio/presentation/widgets/song_dna_node_tree_modal.dart`
 - **Specification**:
-  - Hive Box `mycelium_biome_cache_v1`.
-  - Binary encoding/decoding of graph state, cluster positions, and cached spectral envelopes.
-  - Fallback to procedural generation if cached MMO is unavailable.
+  - Integrate `OrganicMycelium3DPainter`, pointer-isolated gesture handling, semantic mushroom cap badges, `BiomeTopBar`, `BiomeClusterInspectorPanel`, `SongJourneyTimelineScrubber`, `BiomeInteractiveControlsBar`, `BiomeNetworkLayersFilter`, and `[ Synthesize Song ]` CTA while preserving backwards-compatible keys required by existing studio regression tests.
 
-### Task 6.2: Full-Screen Biome Route & Cockpit Hovering Pill
-- **Target Files**:
-  - `lib/features/studio/presentation/views/organic_mycelium_3d_world_view.dart`
-  - `lib/features/studio/presentation/widgets/cockpit/song_dna_hover_pill.dart`
-- **Specification**:
-  - Tapping `SongDnaHoverPill` in Studio Cockpit opens `OrganicMycelium3DWorldView` with smooth scale/fade transition.
-  - Return button in top transport bar pops route back to Studio Cockpit with zero loss of state.
-
-### Task 6.3: ARM64 Device Profiling & 60 FPS Verification
-- **Target Device**: Huawei JNY-LX1 (`EPHUT20917014649`, Android 12)
-- **Benchmarking Protocol**:
-  - Run Flutter DevTools performance profile for 120 seconds of continuous 3D camera orbit and canopy diving.
-  - Verify: Average build + raster frame duration $\le 12.8\text{ ms}$ (locked 60 FPS).
-  - Verify: Zero frame drops during pointer-count transitions ($N=1 \leftrightarrow N=2$).
-
-### Task 6.4: Full Test Suite, Static Analysis & Production APK Build
-- **Target Commands**:
-  - `flutter test` (Verify 100% pass across all existing and new test suites).
-  - `flutter analyze` (Verify 0 issues found).
-  - `flutter build apk --release` (Compile ARM64 production APK).
-  - Install and launch on target device (`EPHUT20917014649`).
+### Task 6.2: Comprehensive Automated Test Suite (`phase53_organic_mycelium_3d_biome_test.dart`)
+- **Target File**: `apps/vhunambi_client/test/features/studio/phase53_organic_mycelium_3d_biome_test.dart`
+- **Coverage**:
+  - Headless domain & Y-Up terrain elevation tests ($Y = h(X, Z) \ge 0$).
+  - 6 Mushroom Fruiting Bodies, 15 arterial hyphae, 72 rootlets, and 16 sprout mushrooms verification.
+  - Deterministic 3D projection & hit-testing verification (`BiomeProjectionEngine.hitTest`).
+  - Widget tests for tapping mushroom badges, opening `BiomeClusterInspectorPanel`, jumping across related node chips, toggling `Network Layers`, toggling `Interactive Controls`, scrubbing `Song Journey` sections, and mutating Studio Cockpit state.
+  - Regression pass on Phase 50, 51, and 52 test suites.
 
 ---
 
@@ -258,19 +199,55 @@ This document delineates the step-by-step engineering tasks, architectural miles
 
 | Requirement ID | Requirement Description | Milestone | Verified By Test |
 | :--- | :--- | :--- | :--- |
-| **REQ-MYC-001** | Sovereign 3D Abyssal Void & Terrain Grid | M1, M4 | `organic_mycelium_3d_painter_test.dart` |
-| **REQ-MYC-002** | 6 Distinct Mushroom Fruiting Clusters | M1, M3 | `mycelium_cluster_test.dart` |
-| **REQ-MYC-003** | Inter-Cluster Hyphal Conduits & Synaptic Spores | M2 | `mycelium_hypha_test.dart` |
-| **REQ-MYC-004** | Clean Overview Icon Badges (Zero Ghost Collisions) | M1, M4 | `organic_mycelium_3d_painter_test.dart` |
-| **REQ-MYC-005** | Smooth Camera Glide on Mushroom Head Tap | M4 | `biome_camera_and_drawer_test.dart` |
-| **REQ-MYC-006** | Satellite Leaf Node Unfurling at Canopy | M1, M4 | `biome_camera_and_drawer_test.dart` |
-| **REQ-MYC-007** | Floating Frosted Glass Inspector Drawer | M4 | `biome_cluster_inspector_panel_test.dart` |
-| **REQ-MYC-008** | Live 24-Bar Audio Spectrum FFT Canvas | M4 | `biome_cluster_inspector_panel_test.dart` |
-| **REQ-MYC-009** | Triple Metric Gauges (Intensity, Complexity, Influence) | M3, M4 | `mycelium_biome_provider_test.dart` |
-| **REQ-MYC-010** | Connected Node Conduits & Inter-Cluster Glide | M2, M4 | `biome_camera_and_drawer_test.dart` |
-| **REQ-MYC-011** | Song Journey Timeline Scrubber | M5 | `song_journey_timeline_test.dart` |
-| **REQ-MYC-012** | Dynamic Section-to-Luminosity Audio Lighting | M5 | `song_journey_timeline_test.dart` |
-| **REQ-MYC-013** | Top Transport Bar & Studio Exit Sync | M4, M6 | `organic_mycelium_3d_world_view_test.dart` |
-| **REQ-MYC-014** | MasterMediaObject (MMO) & Hive Binary Caching | M6 | `mycelium_cache_repository_test.dart` |
-| **REQ-MYC-015** | Mathematical Gimbal-Lock & Pointer-Count Isolation | M4 | `biome_camera_controller_test.dart` |
-| **REQ-MYC-016** | 60 FPS Locked ARM64 Performance Budget | M6 | Physical device benchmark profiling |
+| **REQ-P53-CORE-01..06** | 6 3D Mushroom Fruiting Bodies (`ui.Vertices` + 32 Gills + Stipe) | M1, M3, M4 | `phase53_organic_mycelium_3d_biome_test.dart` |
+| **REQ-P53-MYCEL-01..06** | 15 Arterial Hyphae + 72 Rootlets + 16 3D Sprout Mushrooms | M2, M4 | `phase53_organic_mycelium_3d_biome_test.dart` |
+| **REQ-P53-CAM-01..06** | Y-Up Camera, Pointer-Count Isolation & 3D Hit-Testing | M4 | `phase53_organic_mycelium_3d_biome_test.dart` |
+| **REQ-P53-GROWTH-01..05**| 5-Stage Biological Growth State Machine | M5 | `phase53_organic_mycelium_3d_biome_test.dart` |
+| **REQ-P53-HUD-01..06** | TopBar, Inspector Drawer, Song Journey, Controls & Layers | M4, M5 | `phase53_organic_mycelium_3d_biome_test.dart` |
+| **REQ-P53-NFR-01..04** | 60 FPS Budget, Built-in `ui.Vertices` Law & Zero Raw Emojis | M1–M6 | `flutter analyze` & Hardware Profile |
+
+
+---
+
+## 9. Detailed Engineering Acceptance Checklist & Verification Gates
+
+Before Phase 53 is marked complete in Stage 5 execution, the implementation agent MUST verify every item in the checklist below:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                       STAGE 5 EXECUTION VERIFICATION CHECKLIST                         │
+├──────┬─────────────────────────────────────────────────────────────────────────────────┤
+│ [x]  │ 1. Zero 2D Oval Lollipops: OrganicMycelium3DPainter uses ui.Vertices.raw        │
+│      │    (VertexMode.triangles) for 5-ring x 24-seg fluted 3D mushroom caps.          │
+├──────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ [x]  │ 2. 32 3D Under-Cap Gills & 8-Ring Hyperboloid Stipes: Every fruiting body       │
+│      │    renders 32 arched 3D gill ribs + inner core bloom + fibrous curved stalk.    │
+├──────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ [x]  │ 3. Dense Mycelium Web & 16 Sprouts: 15 arterial hyphae + 72 branching rootlet   │
+│      │    tendrils + 16 3D bioluminescent sprout/pinhead mushrooms on Y = h(X, Z).     │
+├──────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ [x]  │ 4. Strict Right-Handed 3D Y-Up Space: All 6 clusters root at Y_root = h(X_k,Z_k)│
+│      │    and rise along +Y to Y_apex = Y_root + H_stipe.                              │
+├──────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ [x]  │ 5. Complete 5-Deck HUD: BiomeTopBar, BiomeClusterInspectorPanel,                │
+│      │    SongJourneyTimelineScrubber, BiomeInteractiveControlsBar, and                │
+│      │    BiomeNetworkLayersFilter are all wired and interactive.                      │
+├──────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ [x]  │ 6. Deterministic Hit-Testing & Keys: Both BiomeProjectionEngine.hitTest and     │
+│      │    semantic keys (`biome_cluster_badge_*`, `biome_related_chip_*`) work 100%.   │
+├──────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ [x]  │ 7. Authentic Imports & Tokens: Uses `package:vhunambi_client/...`,              │
+│      │    `package:phosphor_icons/phosphor_icons.dart`, `AppColors.darkSurfaceElevated`│
+│      │    and valid `AppTypography` getters with zero raw emojis.                      │
+└──────┴─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Verification Commands for Stage 5 Execution Agent
+1. **Headless & Widget Test Suite**:
+   `flutter test test/features/studio/phase53_organic_mycelium_3d_biome_test.dart`
+2. **Regression Test Suite across Phases 50–52**:
+   `flutter test test/features/studio/phase50_song_dna_quantum_tree_test.dart test/features/studio/phase51_bioluminescent_organelle_3d_test.dart test/features/studio/phase52_macro_canopy_and_stem_lock_test.dart`
+3. **Static Analysis Gate**:
+   `flutter analyze` (Must report `No issues found!`).
+4. **Physical ARM64 Release Build & Deployment**:
+   `flutter build apk --release` and install onto Huawei JNY-LX1 (`EPHUT20917014649`).

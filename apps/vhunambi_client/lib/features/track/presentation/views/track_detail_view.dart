@@ -5,6 +5,7 @@ import '../../../playlists/presentation/widgets/add_to_playlist_sheet.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -34,6 +35,7 @@ import '../widgets/emoji_reaction_deck.dart';
 import '../widgets/lyrics_teleprompter.dart';
 import '../widgets/more_like_this_shelf.dart';
 import '../widgets/prompt_attribution_card.dart';
+import '../widgets/track_living_biome_preview_card.dart';
 import '../widgets/stem_separation_lab.dart';
 import '../widgets/track_actions_bar.dart';
 import '../widgets/track_hero_section.dart';
@@ -577,7 +579,13 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                     },
                   ),
 
-                  // 7b. Open Pocket Stem Mixer (Phase 21)
+                  // 7b. Living Song DNA Biome Preview (Phase 55 - REQ-P55-TRK-01)
+                  TrackLivingBiomePreviewCard(
+                    trackTitle: track.title,
+                    genre: track.genre,
+                  ),
+
+                  // 7c. Open Pocket Stem Mixer (Phase 21)
                   const SizedBox(height: AppSpacing.sm),
                   OutlinedButton.icon(
                     key: const Key('track_open_mixer_btn'),
@@ -592,9 +600,10 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                         ),
                       );
                     },
-                    icon: const Icon(
-                      Icons.tune_rounded,
+                    icon: const PhosphorIcon(
+                      AppIcons.sliders,
                       color: AppColors.brandPrimary,
+                      size: 20,
                     ),
                     label: Text(
                       'Open Pocket Stem Mixer',
