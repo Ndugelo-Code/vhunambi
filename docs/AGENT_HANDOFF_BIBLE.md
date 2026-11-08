@@ -177,15 +177,18 @@ Committed under `docs/foundation_blueprints/`:
 * `lib/features/home/presentation/views/home_dashboard_view.dart` wired: avatar tap routes to `OwnerProfileView`, Jump Back In track title tap routes to `TrackDetailView`.
 * **Automated Tests:** **160 total automated tests passing (100%)** — 14 track unit tests, 4 track widget tests, 11 profile unit tests, 3 artist profile widget tests, 3 owner profile widget tests, plus 127 baseline tests.
 
-### Phase 8: Offline Audio Persistence & Hive Cache ✅
-* `lib/features/offline/domain/models/offline_models.dart` (`DownloadStatus`, `AudioDownloadQuality`, `DownloadTask`, `CacheStorageStats`, `OfflinePreferenceState`).
-* `lib/features/offline/data/services/offline_storage_service.dart` (`IOfflineStorageService`, `OfflineStorageService` with dual Hive boxes `vaultBoxKey` and `preferencesBoxKey`, in-memory fallback, physical file eviction on disk).
-* `lib/features/offline/data/services/audio_download_service.dart` (`IAudioDownloadService`, `AudioDownloadService` with Dio chunked streaming & deterministic test simulation mode).
-* `lib/features/offline/presentation/providers/offline_providers.dart` (`offlineStorageServiceProvider`, `audioDownloadServiceProvider`, `DownloadManagerNotifier`, `downloadManagerProvider`, `cacheStorageStatsProvider`, `offlinePreferencesProvider`).
-* `lib/features/offline/presentation/widgets/vault_storage_modal.dart` (Animated quota usage rail, summary chips, per-track shelf with eviction, clear all confirmation dialog).
-* `lib/features/offline/presentation/widgets/offline_indicator_badge.dart` (`Icons.offline_pin_rounded` brand badge with subtle amber glow).
-* UI Integration: `TrackActionsSheet` (dynamic Download Offline / live progress / Remove Offline Download), `LibraryAppBar` (storage quota modal button), `LibraryTrackTile` & `LibraryTrackGridCard` (progress bar and offline pin badge), `TrackDetailView` (offline download flow), `ExpandedCockpitModal` (offline playback badge).
-* **Automated Tests:** **207 total automated tests passing (100%)** — 18 offline storage tests, 18 download manager tests, 11 vault storage modal tests (47 new tests), plus 160 baseline tests with zero regressions.
+### Phase 8: Sovereign Offline Audio Vault & Encrypted Caching Pipeline ✅
+* **Architectural Standard:** All-Gemini Hardened Specification (`STD-SPEC-001` / `STD-UIUX-001`).
+* `lib/features/offline/domain/models/offline_models.dart`: Immutable models (`DownloadStatus`, `DownloadTaskStatus`, `AudioDownloadQuality`, `DownloadTask`, `CacheStorageStats`, `OfflinePreferenceState`). Includes real-time speed (`formattedSpeed`) and ETA (`formattedEta`) telemetry.
+* `lib/features/offline/domain/services/vault_envelope_crypto.dart`: Pure-Dart SHA-256 HMAC and AES-128-CTR stream cipher with 30-byte `"VHUN"` binary envelope format, 16-byte random IV, 64-bit payload length, and seekable chunk slice decryption (`decryptSlice(Uint8List envelope, int start, int end)`).
+* `lib/features/offline/data/services/audio_download_service.dart`: `IAudioDownloadService`, `ResilientAudioDownloadService` with `simulateDownloads: false` by default, Dio chunk streaming ($\le 64$ KB chunks), `.vswap` staging, HTTP `Range` resumption, 3x exponential backoff (2s, 4s, 8s), and atomic `.vmf` envelope commit.
+* `lib/features/offline/data/services/offline_storage_service.dart`: `IOfflineStorageService`, `SovereignOfflineStorageService` with lazy safe Hive box opening, torn-down directory guard, and physical file existence check in `isTrackCachedLocally`.
+* `lib/features/offline/presentation/providers/offline_providers.dart`: Riverpod `DownloadManagerNotifier` with strict 2-task parallel concurrency cap, automated queue advancement, speed/ETA calculations, and direct synchronization with `libraryTracksProvider`.
+* `lib/features/player/data/services/audio_source_resolver.dart`: `AudioSourceResolver` prioritized local `.vmf` files, custom `StreamAudioSource` (`EncryptedVmfStreamSource`) streaming decrypted slices on-the-fly to `just_audio` with zero whole-file memory bloat, and forced-offline circuit breaker throwing `AudioSourceException(requiresConnectivity: true)`.
+* `lib/features/offline/presentation/widgets/vault_storage_modal.dart`: Vault storage quota modal with `Key('vault_storage_meter')`, ceiling choice chips (`1.0 GB`, `2.0 GB`, `5.0 GB`, `10.0 GB`), Wi-Fi only switch (`Key('vault_wifi_only_switch')`), forced offline mode switch (`Key('vault_force_offline_switch')`), and `Key('vault_clear_all_downloads_btn')` with confirmation dialog.
+* `lib/features/library/presentation/views/library_view.dart`: Added `"Cached Only"` filter pill (`Key('vault_filter_cached_only')`) with responsive layout, and green offline pin badges on cached tiles.
+* **Automated Tests:** **8/8 verification gates passing 100%** in `phase08_sovereign_offline_vault_test.dart` (`P08-T01`..`P08-T08`), plus 46/46 regression tests passing in `download_manager_test.dart`, `vault_storage_modal_test.dart`, `audio_source_resolver_test.dart`, `library_view_test.dart`.
+* **Static Analysis:** `flutter analyze` = **0 errors, 0 warnings** across `lib/features/offline`, `lib/features/player`, `lib/features/library`, `test/features/offline`.
 
 ### Phase 9: Production Audio Engine Hardware Bridge & Platform Services ✅
 * `lib/features/player/domain/models/audio_session_events.dart` (`AudioInterruptionType`, `AudioInterruptionEvent`, `BecomingNoisyEvent`).

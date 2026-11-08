@@ -1,9 +1,13 @@
+// ignore_for_file: experimental_member_use
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:just_audio/just_audio.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/models/track.dart';
 import '../../../offline/data/services/offline_storage_service.dart';
+import '../../../offline/domain/services/vault_envelope_crypto.dart';
 
 /// Raised when no playable audio source can be resolved for a track
 /// (REQ-AUD-09). Offline-forced playback of an uncached track must surface this
@@ -39,10 +43,14 @@ class ResolvedAudioSource {
   /// Absolute local path when [isLocalFile] is `true`.
   final String? localFilePath;
 
+  /// Custom StreamAudioSource providing decrypted chunks on-the-fly for just_audio.
+  final StreamAudioSource? streamSource;
+
   const ResolvedAudioSource({
     required this.uri,
     required this.isLocalFile,
     this.localFilePath,
+    this.streamSource,
   });
 
   /// `'vault'` for offline cache hits, `'stream'` for cloud playback.
@@ -72,12 +80,6 @@ abstract class IAudioSourceResolver {
 
 /// Defers construction of the concrete hybrid resolver until the first playback
 /// request.
-///
-/// Building the audio handler must never touch Phase 8's Hive vault: an eager
-/// `offlineStorageServiceProvider` read opens boxes while a widget test is still
-/// booting, and Hive reports the resulting failure through an unlistened
-/// `Completer` that escapes the caller's zone. Source resolution only needs the
-/// store once a track is actually played.
 class DeferredAudioSourceResolver implements IAudioSourceResolver {
   DeferredAudioSourceResolver(this.resolveDelegate);
 
@@ -92,14 +94,16 @@ class DeferredAudioSourceResolver implements IAudioSourceResolver {
 /// Hybrid source resolver: Phase 8 offline vault first, cloud CDN fallback.
 class AudioSourceResolver implements IAudioSourceResolver {
   final IOfflineStorageService offlineStorage;
+  final VaultEnvelopeCrypto crypto;
 
   /// Live query for `OfflinePreferenceState.isOfflineModeForced`.
-  ///
-  /// Injected as a callback (instead of a captured bool) so the resolver always
-  /// observes the current preference without being rebuilt by Riverpod.
   final bool Function()? offlineModeGuard;
 
-  AudioSourceResolver({required this.offlineStorage, this.offlineModeGuard});
+  AudioSourceResolver({
+    required this.offlineStorage,
+    VaultEnvelopeCrypto? crypto,
+    this.offlineModeGuard,
+  }) : crypto = crypto ?? VaultEnvelopeCrypto();
 
   /// `true` when the user has forced offline playback.
   bool get isOfflineModeForced => offlineModeGuard?.call() ?? false;
@@ -112,10 +116,15 @@ class AudioSourceResolver implements IAudioSourceResolver {
       final metadata = await offlineStorage.getTrackMetadata(track.id);
       final localPath = metadata?['localAudioFilePath'] as String?;
       if (localPath != null && localPath.isNotEmpty && _fileExists(localPath)) {
+        final streamSource = EncryptedVmfStreamSource(
+          filePath: localPath,
+          crypto: crypto,
+        );
         return ResolvedAudioSource(
           uri: Uri.file(localPath),
           isLocalFile: true,
           localFilePath: localPath,
+          streamSource: streamSource,
         );
       }
     }
@@ -149,5 +158,48 @@ class AudioSourceResolver implements IAudioSourceResolver {
     } catch (_) {
       return false;
     }
+  }
+}
+
+/// Custom just_audio StreamAudioSource decrypting the .vmf envelope on-the-fly.
+class EncryptedVmfStreamSource extends StreamAudioSource {
+  final String filePath;
+  final VaultEnvelopeCrypto crypto;
+
+  EncryptedVmfStreamSource({
+    required this.filePath,
+    required this.crypto,
+  });
+
+  @override
+  Future<StreamAudioResponse> request([int? start, int? end]) async {
+    final file = File(filePath);
+    final envelopeBytes = await file.readAsBytes();
+
+    // Check if envelope starts with VHUN magic header
+    Uint8List decryptedAudio;
+    if (envelopeBytes.length >= 30 &&
+        envelopeBytes[0] == 0x56 &&
+        envelopeBytes[1] == 0x48 &&
+        envelopeBytes[2] == 0x55 &&
+        envelopeBytes[3] == 0x4E) {
+      decryptedAudio = crypto.decryptFromEnvelope(envelopeBytes);
+    } else {
+      decryptedAudio = envelopeBytes;
+    }
+
+    final byteLength = decryptedAudio.length;
+    final startIndex = start ?? 0;
+    final endIndex = (end ?? byteLength).clamp(0, byteLength);
+
+    final slice = decryptedAudio.sublist(startIndex, endIndex);
+
+    return StreamAudioResponse(
+      sourceLength: byteLength,
+      contentLength: slice.length,
+      offset: startIndex,
+      contentType: 'audio/mpeg',
+      stream: Stream<List<int>>.value(slice),
+    );
   }
 }

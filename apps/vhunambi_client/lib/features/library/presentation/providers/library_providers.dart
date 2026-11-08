@@ -176,6 +176,21 @@ class LibraryTracksNotifier extends StateNotifier<List<LibraryTrack>> {
     ];
   }
 
+  /// Unified sync status updater per Phase 08 specification.
+  void updateTrackSyncStatus(
+    String id,
+    TrackSyncStatus status, {
+    String? localAudioFilePath,
+  }) {
+    if (status == TrackSyncStatus.cachedLocally && localAudioFilePath != null) {
+      setTrackOfflinePath(id, localAudioFilePath);
+    } else if (status == TrackSyncStatus.cloudOnly) {
+      clearTrackOfflinePath(id);
+    } else {
+      setSyncStatus(id, status);
+    }
+  }
+
   /// Marks the record as cached locally once the vault audio file is written.
   void setTrackOfflinePath(String id, String path) {
     state = [

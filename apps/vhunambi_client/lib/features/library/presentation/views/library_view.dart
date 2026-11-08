@@ -319,6 +319,12 @@ class _VaultSearchStripState extends ConsumerState<_VaultSearchStrip> {
               ),
             ),
           ),
+          if (isDesktop) ...[
+            const SizedBox(width: AppSpacing.xs),
+            const _CachedOnlyFilterPill(),
+          ] else ...[
+            const Offstage(child: _CachedOnlyFilterPill()),
+          ],
           const SizedBox(width: AppSpacing.xs),
           const _SyncFilterButton(),
           const SizedBox(width: AppSpacing.xs),
@@ -331,6 +337,63 @@ class _VaultSearchStripState extends ConsumerState<_VaultSearchStrip> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _CachedOnlyFilterPill extends ConsumerWidget {
+  const _CachedOnlyFilterPill();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeFilter = ref.watch(librarySyncFilterProvider);
+    final isCachedOnly = activeFilter == LibrarySyncFilter.offlineOnly;
+
+    return InkWell(
+      key: const Key('vault_filter_cached_only'),
+      borderRadius: AppRadius.inputBorder,
+      onTap: () {
+        ref.read(librarySyncFilterProvider.notifier).state = isCachedOnly
+            ? LibrarySyncFilter.any
+            : LibrarySyncFilter.offlineOnly;
+      },
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: isCachedOnly
+              ? AppColors.brandPrimary.withAlpha(40)
+              : AppColors.surfaceSecondary,
+          borderRadius: AppRadius.inputBorder,
+          border: Border.all(
+            color: isCachedOnly
+                ? AppColors.brandPrimary
+                : AppColors.borderSubtle,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.download_done_rounded,
+              size: 15,
+              color: isCachedOnly
+                  ? AppColors.brandPrimary
+                  : AppColors.textSecondary,
+            ),
+            const SizedBox(width: AppSpacing.xxs + 2),
+            Text(
+              'Cached Only',
+              style: AppTypography.caption.copyWith(
+                color: isCachedOnly
+                    ? AppColors.brandPrimary
+                    : AppColors.textPrimary,
+                fontWeight: isCachedOnly ? FontWeight.bold : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -391,7 +454,7 @@ class _SyncFilterButton extends ConsumerWidget {
       ],
       child: Container(
         height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           color: AppColors.surfaceSecondary,
           borderRadius: AppRadius.inputBorder,

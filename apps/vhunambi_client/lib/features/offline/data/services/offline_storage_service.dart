@@ -38,29 +38,47 @@ class OfflineStorageService implements IOfflineStorageService {
   @override
   Future<void> init() async {
     if (_isInitialized) return;
-
-    try {
-      if (!kIsWeb) {
-        // Attempt Hive initialization if running in a full Flutter engine environment
-        if (!Hive.isBoxOpen(AppConstants.vaultBoxKey)) {
-          _vaultBox = await Hive.openBox(AppConstants.vaultBoxKey);
-        } else {
-          _vaultBox = Hive.box(AppConstants.vaultBoxKey);
-        }
-
-        if (!Hive.isBoxOpen(AppConstants.preferencesBoxKey)) {
-          _prefsBox = await Hive.openBox(AppConstants.preferencesBoxKey);
-        } else {
-          _prefsBox = Hive.box(AppConstants.preferencesBoxKey);
-        }
-      }
-    } catch (e) {
-      // In unit test or headless environments where path_provider / Hive is uninitialized,
-      // fallback smoothly to in-memory backing without throwing.
-      debugPrint('OfflineStorageService running with in-memory test store: $e');
-    }
-
+    await _getVaultBox();
+    await _getPrefsBox();
     _isInitialized = true;
+  }
+
+  Future<Box?> _getVaultBox() async {
+    if (_vaultBox != null && _vaultBox!.isOpen) return _vaultBox;
+    if (kIsWeb) return null;
+    try {
+      if (customVaultDirectory != null && !Directory(customVaultDirectory!).existsSync()) {
+        return null;
+      }
+      if (!Hive.isBoxOpen(AppConstants.vaultBoxKey)) {
+        _vaultBox = await Hive.openBox(AppConstants.vaultBoxKey);
+      } else {
+        _vaultBox = Hive.box(AppConstants.vaultBoxKey);
+      }
+      return _vaultBox;
+    } catch (e) {
+      debugPrint('OfflineStorageService running with in-memory vault store: $e');
+      return null;
+    }
+  }
+
+  Future<Box?> _getPrefsBox() async {
+    if (_prefsBox != null && _prefsBox!.isOpen) return _prefsBox;
+    if (kIsWeb) return null;
+    try {
+      if (customVaultDirectory != null && !Directory(customVaultDirectory!).existsSync()) {
+        return null;
+      }
+      if (!Hive.isBoxOpen(AppConstants.preferencesBoxKey)) {
+        _prefsBox = await Hive.openBox(AppConstants.preferencesBoxKey);
+      } else {
+        _prefsBox = Hive.box(AppConstants.preferencesBoxKey);
+      }
+      return _prefsBox;
+    } catch (e) {
+      debugPrint('OfflineStorageService running with in-memory prefs store: $e');
+      return null;
+    }
   }
 
   @override
@@ -218,32 +236,39 @@ class OfflineStorageService implements IOfflineStorageService {
     final path = meta['localAudioFilePath'] as String?;
     if (path == null || path.isEmpty) return false;
 
-    // Check file presence if physical disk access is supported
+    // Check file presence strictly if physical disk access is supported
     try {
       final file = File(path);
-      if (await file.exists()) return true;
-    } catch (_) {}
-
-    // In unit test or virtual memory mode, record existence in meta counts as cached
-    return true;
+      return await file.exists();
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
   Future<void> savePreference(String key, dynamic value) async {
-    await init();
     _inMemoryPrefs[key] = value;
-    if (_prefsBox != null && _prefsBox!.isOpen) {
-      await _prefsBox!.put(key, value);
-    }
+    try {
+      final box = await _getPrefsBox();
+      if (box != null && box.isOpen) {
+        await box.put(key, value);
+      }
+    } catch (_) {}
   }
 
   @override
   Future<dynamic> getPreference(String key) async {
-    await init();
-    if (_prefsBox != null && _prefsBox!.isOpen) {
-      final value = _prefsBox!.get(key);
-      if (value != null) return value;
-    }
+    try {
+      final box = await _getPrefsBox();
+      if (box != null && box.isOpen) {
+        final value = box.get(key);
+        if (value != null) return value;
+      }
+    } catch (_) {}
     return _inMemoryPrefs[key];
   }
 }
+
+/// Alias for SovereignOfflineStorageService per Phase 08 spec
+typedef SovereignOfflineStorageService = OfflineStorageService;
+

@@ -102,6 +102,7 @@ class VaultStorageModal extends ConsumerWidget {
 
             // 2. Storage Quota Bar Card
             Container(
+              key: const Key('vault_storage_meter'),
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
                 color: AppColors.surfaceElevated,
@@ -153,6 +154,24 @@ class VaultStorageModal extends ConsumerWidget {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Max Storage Ceiling',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.xs,
+              children: [
+                _LimitChip(label: '1.0 GB', bytes: 1073741824, current: prefs.storageLimitBytes),
+                _LimitChip(label: '2.0 GB', bytes: 2147483648, current: prefs.storageLimitBytes),
+                _LimitChip(label: '5.0 GB', bytes: 5368709120, current: prefs.storageLimitBytes),
+                _LimitChip(label: '10.0 GB', bytes: 10737418240, current: prefs.storageLimitBytes),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
 
@@ -240,6 +259,42 @@ class VaultStorageModal extends ConsumerWidget {
             const SizedBox(height: AppSpacing.md),
 
             // 5. Offline Preferences Toggle Strip
+            InkWell(
+              key: const Key('vault_wifi_only_switch'),
+              borderRadius: AppRadius.cardBorder,
+              onTap: () => ref.read(offlinePreferencesProvider.notifier).toggleWifiOnly(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                child: Row(
+                  children: [
+                    Text('Download over Wi-Fi only', style: AppTypography.bodySmall),
+                    const Spacer(),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 44,
+                      height: 24,
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        borderRadius: AppRadius.pillBorder,
+                        color: prefs.downloadWifiOnly ? AppColors.brandPrimary : AppColors.surfaceSecondary,
+                      ),
+                      child: Align(
+                        alignment: prefs.downloadWifiOnly ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
             Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md,
@@ -266,6 +321,7 @@ class VaultStorageModal extends ConsumerWidget {
                     ),
                   ),
                   Switch.adaptive(
+                    key: const Key('vault_force_offline_switch'),
                     value: prefs.isOfflineModeForced,
                     activeTrackColor: AppColors.brandPrimary,
                     onChanged: (_) {
@@ -275,6 +331,24 @@ class VaultStorageModal extends ConsumerWidget {
                     },
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const Key('vault_clear_all_downloads_btn'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  side: const BorderSide(color: AppColors.error),
+                  foregroundColor: AppColors.error,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: AppRadius.pillBorder,
+                  ),
+                ),
+                icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+                label: const Text('Clear All Offline Downloads'),
+                onPressed: cachedTracks.isEmpty ? null : () => _confirmClearAll(context, ref),
               ),
             ),
           ],
@@ -414,6 +488,38 @@ class _CachedTrackTile extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LimitChip extends ConsumerWidget {
+  final String label;
+  final int bytes;
+  final int current;
+
+  const _LimitChip({
+    required this.label,
+    required this.bytes,
+    required this.current,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isSelected = bytes == current;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: AppColors.brandPrimary.withAlpha(50),
+      backgroundColor: AppColors.surfaceSecondary,
+      labelStyle: TextStyle(
+        color: isSelected ? AppColors.brandPrimary : AppColors.textPrimary,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      onSelected: (_) {
+        ref
+            .read(offlinePreferencesProvider.notifier)
+            .setStorageLimitBytes(bytes);
+      },
     );
   }
 }

@@ -42,8 +42,14 @@ enum LibrarySortOrder {
 enum LibrarySyncFilter {
   any,
   offlineOnly,
-  cloudOnly,
+  cloudOnly;
+
+  /// Phase 08 spec alias for offlineOnly.
+  static const LibrarySyncFilter cachedOnly = LibrarySyncFilter.offlineOnly;
 }
+
+/// Backward-compatible alias for Phase 08 spec.
+typedef TrackSyncFilter = LibrarySyncFilter;
 
 const List<String> _monthNames = [
   'Jan',
