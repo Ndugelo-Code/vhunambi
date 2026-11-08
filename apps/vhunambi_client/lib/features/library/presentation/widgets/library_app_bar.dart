@@ -60,8 +60,8 @@ class LibraryAppBar extends ConsumerWidget {
                   const _CreditBalancePill(),
                   const SizedBox(width: AppSpacing.xs),
                   const NotificationBellButton(),
-        const SizedBox(width: AppSpacing.xxs),
-        const VhunambiUserAvatarButton(size: 32),
+                  const SizedBox(width: AppSpacing.xxs),
+                  const VhunambiUserAvatarButton(size: 34),
                   const SizedBox(width: AppSpacing.xxs),
                   const _AnalyticsButton(),
                   const SizedBox(width: AppSpacing.xxs),
@@ -86,7 +86,7 @@ class LibraryAppBar extends ConsumerWidget {
   Widget _mobileRow(BuildContext context) {
     return Row(
       children: [
-        _brandGroup(context, showBackChevron: false, showTitle: false),
+        _brandGroup(context, showBackChevron: false, showTitle: true),
         Expanded(
           child: Align(
             alignment: Alignment.centerRight,
@@ -100,7 +100,7 @@ class LibraryAppBar extends ConsumerWidget {
                   const SizedBox(width: AppSpacing.xxs),
                   const NotificationBellButton(),
                   const SizedBox(width: AppSpacing.xxs),
-                  const VhunambiUserAvatarButton(size: 30),
+                  const VhunambiUserAvatarButton(size: 34),
                   const SizedBox(width: AppSpacing.xxs),
                   const _OverflowMenu(),
                   const SizedBox(width: AppSpacing.xs),
@@ -192,7 +192,7 @@ class _HeaderIconButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         iconSize: 20,
         tooltip: tooltip,
-        icon: Icon(icon, color: AppColors.textSecondary),
+        icon: PhosphorIcon(icon, color: AppColors.textSecondary, size: 20),
         onPressed: onPressed,
       ),
     );
@@ -286,7 +286,7 @@ class _AnalyticsButton extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            PhosphorIcon(
               PhosphorIconsRegular.chartLineUp,
               size: 15,
               color: AppColors.textSecondary,
@@ -325,7 +325,7 @@ class _OverflowMenu extends ConsumerWidget {
           borderRadius: AppRadius.inputBorder,
           side: BorderSide(color: AppColors.borderSubtle),
         ),
-        icon: Icon(
+        icon: PhosphorIcon(
           PhosphorIconsRegular.dotsThreeVertical,
           color: AppColors.textSecondary,
         ),
@@ -345,7 +345,7 @@ class _OverflowMenu extends ConsumerWidget {
               height: 40,
               child: Row(
                 children: [
-                  Icon(
+                  PhosphorIcon(
                     _sortIcon(order),
                     size: 16,
                     color: order == activeOrder
@@ -365,7 +365,7 @@ class _OverflowMenu extends ConsumerWidget {
                     ),
                   ),
                   if (order == activeOrder)
-                    const Icon(
+                    const PhosphorIcon(
                       PhosphorIconsRegular.check,
                       size: 14,
                       color: AppColors.brandPrimary,
@@ -379,7 +379,7 @@ class _OverflowMenu extends ConsumerWidget {
             height: 40,
             child: Row(
               children: [
-                Icon(
+                PhosphorIcon(
                   PhosphorIconsRegular.hardDrives,
                   size: 16,
                   color: AppColors.textSecondary,
@@ -400,7 +400,7 @@ class _OverflowMenu extends ConsumerWidget {
             height: 40,
             child: Row(
               children: [
-                Icon(
+                PhosphorIcon(
                   PhosphorIconsRegular.chartLineUp,
                   size: 16,
                   color: AppColors.textSecondary,

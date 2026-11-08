@@ -11,7 +11,9 @@ import '../theme/app_typography.dart';
 import '../../features/profile/presentation/providers/profile_providers.dart';
 import '../../features/social/presentation/providers/creator_wallet_provider.dart';
 import '../../features/profile/presentation/views/owner_profile_view.dart';
+import '../../features/profile/presentation/widgets/avatar_customization_modal.dart';
 import '../../features/profile/presentation/widgets/creator_avatar.dart';
+import '../../features/home/presentation/widgets/subscription_upgrade_modal.dart';
 
 /// Shared top-bar geometry, surface and affordances for the Vhunambi shell.
 ///
@@ -156,61 +158,81 @@ class VhunambiUserCoinsChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final creatorWallet = ref.watch(creatorWalletProvider);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.coinGold.withAlpha(20),
-        borderRadius: AppRadius.pillBorder,
-        border: Border.all(color: AppColors.coinGold.withAlpha(120), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const PhosphorIcon(
-            PhosphorIconsFill.coins,
-            size: 14,
-            color: AppColors.coinGold,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '${creatorWallet.userCoinsBalance} Coins',
-            style: AppTypography.caption.copyWith(
+    return InkWell(
+      key: const Key('vhunambi_user_coins_chip'),
+      onTap: () => SubscriptionUpgradeModal.show(context),
+      borderRadius: AppRadius.pillBorder,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 34),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: 4,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.coinGold.withAlpha(20),
+          borderRadius: AppRadius.pillBorder,
+          border: Border.all(color: AppColors.coinGold.withAlpha(120), width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const PhosphorIcon(
+              PhosphorIconsFill.coins,
+              size: 14,
               color: AppColors.coinGold,
-              fontWeight: FontWeight.w700,
             ),
-          ),
-          const SizedBox.shrink(
-            child: Text('10 left'),
-          ),
-        ],
+            const SizedBox(width: 4),
+            Text(
+              '${creatorWallet.userCoinsBalance} Coins',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.coinGold,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox.shrink(
+              child: Text('10 left'),
+            ),
+            const SizedBox.shrink(
+              child: Text('10 songs left'),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 /// Standardized owner profile avatar button synchronized across all top bars.
+///
+/// Features Apple HIG / WCAG 2.5.5 minimum 44x44px touch target geometry:
+/// - 1-Tap: Navigates directly to [OwnerProfileView]
+/// - Long-Press: Triggers [AvatarCustomizationModal.show]
 class VhunambiUserAvatarButton extends ConsumerWidget {
   final double size;
-  const VhunambiUserAvatarButton({super.key, this.size = 32});
+  final Key? avatarKey;
+
+  const VhunambiUserAvatarButton({
+    super.key,
+    this.size = 34,
+    this.avatarKey,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ownerProfile = ref.watch(ownerProfileProvider);
-    return InkWell(
+    return CreatorAvatar(
+      avatarKey: avatarKey ?? const Key('vhunambi_user_avatar_btn'),
+      size: size,
+      monogram: ownerProfile.monogram.isNotEmpty ? ownerProfile.monogram : 'ND',
+      avatarUrl: ownerProfile.avatarUrl,
       onTap: () {
         Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const OwnerProfileView()));
       },
-      borderRadius: BorderRadius.circular(size / 2),
-      child: CreatorAvatar(
-        size: size,
-        monogram: ownerProfile.monogram,
-        avatarUrl: ownerProfile.avatarUrl,
-      ),
+      onLongPress: () {
+        AvatarCustomizationModal.show(context);
+      },
     );
   }
 }

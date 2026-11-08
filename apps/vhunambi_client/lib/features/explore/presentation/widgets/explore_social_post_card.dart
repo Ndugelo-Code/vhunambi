@@ -61,16 +61,19 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
   void _handleShare(BuildContext context) {
     Clipboard.setData(ClipboardData(text: widget.post.track.audioUrl ?? ''));
     final post = widget.post;
-    ref.read(notificationsProvider.notifier).addNotification(
-      NotificationEntity(
-        id: 'notif_share_${DateTime.now().millisecondsSinceEpoch}',
-        title: 'Social Link Shared',
-        message: 'Shared "${post.track.title}" by @${post.creatorHandle} to your network.',
-        createdAt: DateTime.now(),
-        category: NotificationCategory.creatorActivity,
-        isRead: false,
-      ),
-    );
+    ref
+        .read(notificationsProvider.notifier)
+        .addNotification(
+          NotificationEntity(
+            id: 'notif_share_${DateTime.now().millisecondsSinceEpoch}',
+            title: 'Social Link Shared',
+            message:
+                'Shared "${post.track.title}" by @${post.creatorHandle} to your network.',
+            createdAt: DateTime.now(),
+            category: NotificationCategory.creatorActivity,
+            isRead: false,
+          ),
+        );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Track link copied to clipboard!'),
@@ -88,11 +91,7 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
       fit: StackFit.expand,
       children: [
         // Genre Gradient Base
-        Container(
-          decoration: BoxDecoration(
-            gradient: genreGradient,
-          ),
-        ),
+        Container(decoration: BoxDecoration(gradient: genreGradient)),
         // Heritage Crate Cover Texture Overlay
         Opacity(
           opacity: 0.32,
@@ -138,7 +137,10 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
               ),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(12),
@@ -236,7 +238,9 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
             PhosphorIcon(
               PhosphorIconsFill.fire,
               size: 11,
-              color: post.isCosigned ? AppColors.coinGold : AppColors.textSecondaryOf(context),
+              color: post.isCosigned
+                  ? AppColors.coinGold
+                  : AppColors.textSecondaryOf(context),
             ),
             const SizedBox(width: 3),
             Text(
@@ -279,8 +283,8 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
             color: prov == AudioProvenanceType.humanDawMaster
                 ? AppColors.coinGold
                 : (prov == AudioProvenanceType.liveVocalRecording
-                    ? AppColors.badgeCyan
-                    : AppColors.brandPrimary),
+                      ? AppColors.badgeCyan
+                      : AppColors.brandPrimary),
           ),
           const SizedBox(width: 3),
           Text(
@@ -314,17 +318,17 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final post = widget.post;
     final followingIds = ref.watch(followingCreatorIdsProvider);
     final isFollowing = followingIds.contains(post.creatorId);
     final ownerProfile = ref.watch(ownerProfileProvider);
-    final isOwner = post.creatorHandle.toLowerCase() == ownerProfile.handle.toLowerCase() ||
-                    post.creatorId == ownerProfile.id ||
-                    post.creatorId == 'me' ||
-                    post.creatorHandle == '@current_user';
+    final isOwner =
+        post.creatorHandle.toLowerCase() == ownerProfile.handle.toLowerCase() ||
+        post.creatorId == ownerProfile.id ||
+        post.creatorId == 'me' ||
+        post.creatorHandle == '@current_user';
 
     final images = post.allImageAttachments;
     final hasImages = images.isNotEmpty;
@@ -452,11 +456,16 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
               if (isOwner)
                 Container(
                   key: Key('social_post_own_badge_${post.id}'),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceSecondaryOf(context),
                     borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: AppColors.borderSubtleOf(context)),
+                    border: Border.all(
+                      color: AppColors.borderSubtleOf(context),
+                    ),
                   ),
                   child: Text(
                     'Your Post',
@@ -469,7 +478,10 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
                 )
               else
                 ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 36, minWidth: 44),
+                  constraints: const BoxConstraints(
+                    minHeight: 36,
+                    minWidth: 44,
+                  ),
                   child: TextButton(
                     key: Key('social_post_follow_${post.id}'),
                     onPressed: () {
@@ -546,7 +558,10 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
                   clip: post.toPublishedClip,
                 ),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.brandPrimary.withValues(alpha: 0.12),
                     borderRadius: AppRadius.pillBorder,
@@ -563,14 +578,18 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
                         color: AppColors.brandPrimary,
                       ),
                       const SizedBox(width: 5),
-                      Text(
-                        post.isRemix
-                            ? 'Remix of ${post.parentCreatorHandle} · 70/30 Split'
-                            : 'Open Stems · ${post.remixCount} Remixes',
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.brandPrimary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
+                      Flexible(
+                        child: Text(
+                          post.isRemix
+                              ? 'Remix of ${post.parentCreatorHandle} · 70/30 Split'
+                              : 'Open Stems · ${post.remixCount} Remixes',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.brandPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ],
@@ -603,7 +622,8 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
                           return Image.network(
                             images[idx].imageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => _buildVisionProceduralCanvas(context, post),
+                            errorBuilder: (_, _, _) =>
+                                _buildVisionProceduralCanvas(context, post),
                           );
                         },
                       )
@@ -611,7 +631,8 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
                       Image.network(
                         images.first.imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => _buildVisionProceduralCanvas(context, post),
+                        errorBuilder: (_, _, _) =>
+                            _buildVisionProceduralCanvas(context, post),
                       ),
 
                     // Vhunambi Vision AI Badge
@@ -811,7 +832,8 @@ class _ActionButton extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.caption.copyWith(
-                      color: iconColor == AppColors.brandPrimary ||
+                      color:
+                          iconColor == AppColors.brandPrimary ||
                               iconColor == AppColors.badgeCyan ||
                               iconColor == AppColors.coinGold
                           ? iconColor

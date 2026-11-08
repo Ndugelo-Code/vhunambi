@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/notifications/domain/models/notification_entity.dart';
 import 'package:vhunambi_client/features/notifications/presentation/providers/notifications_provider.dart';
+import 'package:vhunambi_client/features/notifications/presentation/views/notifications_view.dart';
 import 'package:vhunambi_client/features/notifications/presentation/widgets/notification_bell_button.dart';
-import 'package:vhunambi_client/features/notifications/presentation/widgets/notifications_popover.dart';
 
 /// T11.4 — Header bell button suite.
 List<NotificationEntity> _alerts(int unread) => List<NotificationEntity>.generate(
@@ -93,27 +93,25 @@ void main() {
     expect(find.byTooltip(NotificationBellButton.tooltip), findsOneWidget);
   });
 
-  testWidgets('tapping opens the alerts drawer', (tester) async {
+  testWidgets('tapping opens the notifications view', (tester) async {
     await _pumpBell(tester, seed: _alerts(1));
 
     await tester.tap(find.byType(NotificationBellButton));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
 
-    expect(find.byType(NotificationsPopover), findsOneWidget);
+    expect(find.byType(NotificationsView), findsOneWidget);
     expect(find.text('Alert 0'), findsOneWidget);
   });
 
-  testWidgets('a custom onPressed overrides the default drawer behaviour',
+  testWidgets('a custom onPressed overrides the default navigation behaviour',
       (tester) async {
     var taps = 0;
     await _pumpBell(tester, onPressed: () => taps++);
 
     await tester.tap(find.byType(NotificationBellButton));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
 
     expect(taps, 1);
-    expect(find.byType(NotificationsPopover), findsNothing);
+    expect(find.byType(NotificationsView), findsNothing);
   });
 }

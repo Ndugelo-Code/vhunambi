@@ -12,7 +12,6 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../notifications/presentation/views/notifications_view.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
-import '../../../profile/presentation/views/owner_profile_view.dart';
 import '../providers/explore_providers.dart';
 import '../views/explore_search_view.dart';
 import 'explore_discovery_drawer_sheet.dart';
@@ -30,53 +29,38 @@ class DesktopExploreTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: barHeight,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCanvas,
-        border: Border(
-          bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Row(
-            children: [
-              const _BrandGroup(showBreadcrumb: true),
-              const SizedBox(width: AppSpacing.lg),
-              Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
-                    child: const _ExploreSearchField(
-                      hint: DesktopExploreTopBar.searchHint,
-                      showShortcutBadge: true,
-                      enableShortcut: true,
-                    ),
+    return VhunambiTopBarSurface(
+      toolbarHeight: barHeight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: Row(
+          children: [
+            const _BrandGroup(showBreadcrumb: true),
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: const _ExploreSearchField(
+                    hint: DesktopExploreTopBar.searchHint,
+                    showShortcutBadge: true,
+                    enableShortcut: true,
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.lg),
-              const _CreditPill(),
-              const SizedBox(width: AppSpacing.xs),
-              const NotificationBellButton(),
-              const SizedBox(width: AppSpacing.xs),
-              InkWell(
-                key: const Key('explore_desktop_user_avatar'),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const OwnerProfileView()),
-                  );
-                },
-                borderRadius: BorderRadius.circular(18),
-                child: const _UserAvatar(),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              _CreateAction(onPressed: onCreateRequested, compact: false),
-            ],
-          ),
+            ),
+            const SizedBox(width: AppSpacing.lg),
+            const _CreditPill(),
+            const SizedBox(width: AppSpacing.xs),
+            const NotificationBellButton(),
+            const SizedBox(width: AppSpacing.xs),
+            const VhunambiUserAvatarButton(
+              avatarKey: Key('explore_desktop_user_avatar'),
+              size: 36,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            _CreateAction(onPressed: onCreateRequested, compact: false),
+          ],
         ),
       ),
     );
@@ -159,36 +143,9 @@ class MobileExploreTopBar extends StatelessWidget {
             ),
 
             // 4. Compact Profile Avatar Action (Phase 30 REQ-PROF-NAV-02)
-            InkWell(
-              key: const Key('explore_mobile_user_avatar_btn'),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const OwnerProfileView()),
-                );
-              },
-              borderRadius: BorderRadius.circular(20),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 44),
-                child: Center(
-                  child: Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.brandPrimary,
-                        width: 1.2,
-                      ),
-                    ),
-                    child: const PhosphorIcon(
-                      AppIcons.user,
-                      size: 14,
-                      color: AppColors.brandPrimary,
-                    ),
-                  ),
-                ),
-              ),
+            const VhunambiUserAvatarButton(
+              avatarKey: Key('explore_mobile_user_avatar_btn'),
+              size: 28,
             ),
           ],
         ),
@@ -611,15 +568,6 @@ class _CreditPill extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _UserAvatar extends StatelessWidget {
-  const _UserAvatar();
-
-  @override
-  Widget build(BuildContext context) {
-    return const VhunambiUserAvatarButton(size: 36);
   }
 }
 

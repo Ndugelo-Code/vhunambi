@@ -81,7 +81,7 @@ class MarketplaceTopBar extends StatelessWidget {
             const SizedBox(width: AppSpacing.xxs),
             const NotificationBellButton(),
             const SizedBox(width: AppSpacing.xxs),
-            const VhunambiUserAvatarButton(size: 32),
+            const VhunambiUserAvatarButton(size: 34),
           ],
         ),
       ),
@@ -136,7 +136,7 @@ class _MarketplaceSearchFieldState
       ),
       child: Row(
         children: [
-          Icon(
+          PhosphorIcon(
             AppIcons.search,
             size: 18,
             color: AppColors.textTertiary,
