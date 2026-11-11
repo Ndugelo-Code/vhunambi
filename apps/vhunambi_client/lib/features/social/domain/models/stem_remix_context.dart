@@ -84,9 +84,9 @@ class StemRemixContext {
                 SplitParticipant.fromJson(Map<String, dynamic>.from(s as Map)),
           )
           .toList(),
-      originalDna: json['originalDna'] != null
+      originalDna: json['originalDna'] is Map
           ? SongMetadataDna.fromJson(
-              json['originalDna'] as Map<String, dynamic>,
+              Map<String, dynamic>.from(json['originalDna'] as Map),
             )
           : null,
     );

@@ -1,4 +1,8 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/auth/auth_providers.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/storage/sovereign_domain_repositories.dart';
 import '../../domain/models/published_clip.dart';
 import '../../domain/repositories/i_social_repository.dart';
 import 'social_repository_provider.dart';
@@ -40,9 +44,88 @@ class SocialFeedState {
 /// Backed by [ISocialRepository] with instant local seeding and offline resilience.
 class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
   final ISocialRepository? _repo;
+  static final Set<String> _seedClipIds = _seedClips().map((c) => c.id).toSet();
 
-  SocialFeedNotifier([this._repo]) : super(const SocialFeedState()) {
-    state = state.copyWith(clips: _seedClips());
+  SocialFeedNotifier([this._repo])
+    : super(SocialFeedState(clips: _initialClips()));
+
+  static List<PublishedClip> _initialClips() {
+    final seeds = _seedClips();
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.socialReelsBoxKey,
+    )) {
+      return seeds;
+    }
+
+    final merged = <PublishedClip>[];
+    final seenIds = <String>{};
+
+    final customRaw = SocialReelsCacheRepository.loadCustomClips();
+    if (customRaw != null && customRaw.isNotEmpty) {
+      for (final raw in customRaw) {
+        try {
+          final clip = PublishedClip.fromJson(raw);
+          if (seenIds.add(clip.id)) {
+            merged.add(clip);
+          }
+        } catch (_) {}
+      }
+    }
+
+    for (final seed in seeds) {
+      if (seenIds.add(seed.id)) {
+        merged.add(seed);
+      }
+    }
+
+    final loveCounts = SocialReelsCacheRepository.loadReelLoveCounts();
+    final likedIds = SocialReelsCacheRepository.loadReelLikedIds();
+    if (loveCounts == null && likedIds == null) {
+      return merged;
+    }
+
+    return [
+      for (final clip in merged)
+        () {
+          final persistedLoves = loveCounts?[clip.id];
+          final persistedLiked = likedIds?.contains(clip.id);
+          if (persistedLoves == null && persistedLiked == null) {
+            return clip;
+          }
+          final targetLoves = persistedLoves ?? clip.userReactionCount;
+          final delta = targetLoves - clip.userReactionCount;
+          return clip.copyWith(
+            userReactionCount: targetLoves,
+            isLikedByMe: persistedLiked ?? clip.isLikedByMe,
+            likeCount: (clip.likeCount + delta).clamp(0, 9999999),
+          );
+        }(),
+    ];
+  }
+
+  void _persistCustomClips() {
+    final custom = [
+      for (final clip in state.clips)
+        if (!_seedClipIds.contains(clip.id)) clip.toJson(),
+    ];
+    unawaited(SocialReelsCacheRepository.saveCustomClips(custom));
+  }
+
+  void _persistEngagement() {
+    final loveCounts = <String, int>{
+      for (final clip in state.clips)
+        if (clip.userReactionCount > 0) clip.id: clip.userReactionCount,
+    };
+    final likedIds = <String>{
+      for (final clip in state.clips)
+        if (clip.isLikedByMe) clip.id,
+    };
+    unawaited(
+      SocialReelsCacheRepository.saveReelEngagement(
+        loveCounts: loveCounts,
+        likedIds: likedIds,
+      ),
+    );
   }
 
   /// Refreshes the feed from the backend if a repository is provided.
@@ -57,6 +140,7 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
             .toList();
         if (newClips.isNotEmpty) {
           state = state.copyWith(clips: [...state.clips, ...newClips]);
+          _persistCustomClips();
         }
       }
     } catch (_) {}
@@ -64,7 +148,9 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
 
   /// Optimistically prepends a freshly published clip (REQ-SOC-04).
   void prependClip(PublishedClip clip) {
-    state = state.copyWith(clips: [clip, ...state.clips]);
+    final filtered = state.clips.where((c) => c.id != clip.id).toList();
+    state = state.copyWith(clips: [clip, ...filtered]);
+    _persistCustomClips();
   }
 
   /// Toggles the current user's like on a clip with an optimistic count bump.
@@ -82,6 +168,7 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
             clip,
       ],
     );
+    _persistEngagement();
     _repo?.toggleLikeClip(clipId);
   }
 
@@ -108,6 +195,7 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
             clip,
       ],
     );
+    _persistEngagement();
     _repo?.toggleLikeClip(clipId);
     return newReactionCount;
   }
@@ -153,6 +241,7 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
 
 final socialFeedProvider =
     StateNotifierProvider<SocialFeedNotifier, SocialFeedState>((ref) {
+      ref.watch(currentCreatorIdProvider);
       final repo = ref.watch(socialRepositoryProvider);
       return SocialFeedNotifier(repo);
     });
@@ -296,7 +385,8 @@ List<PublishedClip> _seedClips() {
       genre: 'Afro-fusion',
       bpm: 118,
       durationSec: 185,
-      caption: 'Testing the live nylon-string acoustic riffs with rolling basslines 🎸✨',
+      caption:
+          'Testing the live nylon-string acoustic riffs with rolling basslines 🎸✨',
       tags: const ['Afro-fusion', 'Guitar', 'Limpopo'],
       mood: 'Groovy',
       playCount: 11200,
@@ -304,7 +394,14 @@ List<PublishedClip> _seedClips() {
       commentCount: 45,
       remixCount: 7,
       lyricTokens: const [
-        'Limpopo', 'Guitar', 'Grooves', 'Vhunambi', 'Sound', 'Strings', 'Resonate', 'Rhythm'
+        'Limpopo',
+        'Guitar',
+        'Grooves',
+        'Vhunambi',
+        'Sound',
+        'Strings',
+        'Resonate',
+        'Rhythm',
       ],
     ),
     _seedClip(

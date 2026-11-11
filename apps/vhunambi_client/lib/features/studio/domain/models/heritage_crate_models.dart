@@ -186,6 +186,35 @@ class MpcPadEntity {
       isTriggered: isTriggered ?? this.isTriggered,
     );
   }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'id': id,
+    'index': index,
+    'label': label,
+    'sourceAudioUrl': sourceAudioUrl,
+    'startSec': startSec,
+    'endSec': endSec,
+    'pitchShiftSemitones': pitchShiftSemitones,
+    'isReversed': isReversed,
+    'volume': volume,
+    'isMuted': isMuted,
+  };
+
+  factory MpcPadEntity.fromJson(Map<String, dynamic> json) {
+    return MpcPadEntity(
+      id: json['id']?.toString() ?? 'pad_0',
+      index: (json['index'] as num?)?.toInt() ?? 0,
+      label: json['label']?.toString() ?? 'PAD',
+      sourceAudioUrl: json['sourceAudioUrl']?.toString() ?? '',
+      startSec: (json['startSec'] as num?)?.toDouble() ?? 0.0,
+      endSec: (json['endSec'] as num?)?.toDouble() ?? 0.5,
+      pitchShiftSemitones:
+          ((json['pitchShiftSemitones'] as num?)?.toInt() ?? 0).clamp(-12, 12),
+      isReversed: json['isReversed'] as bool? ?? false,
+      volume: ((json['volume'] as num?)?.toDouble() ?? 1.0).clamp(0.0, 1.5),
+      isMuted: json['isMuted'] as bool? ?? false,
+    );
+  }
 }
 
 /// State of the 8-Pad AI MPC Slicer instrument.
@@ -229,6 +258,44 @@ class MpcSlicerState {
       timeStretchRatio: timeStretchRatio ?? this.timeStretchRatio,
       isPlaying: isPlaying ?? this.isPlaying,
       lastBouncedChopPath: lastBouncedChopPath ?? this.lastBouncedChopPath,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'pads': pads.map((pad) => pad.toJson()).toList(),
+    'selectedPadIndex': selectedPadIndex,
+    'sourceTitle': sourceTitle,
+    'bpm': bpm,
+    'timeStretchRatio': timeStretchRatio,
+    if (lastBouncedChopPath != null)
+      'lastBouncedChopPath': lastBouncedChopPath,
+  };
+
+  factory MpcSlicerState.fromJson(Map<String, dynamic> json) {
+    final rawPads = json['pads'];
+    final parsedPads = <MpcPadEntity>[];
+    if (rawPads is List) {
+      for (final item in rawPads) {
+        if (item is Map) {
+          parsedPads.add(
+            MpcPadEntity.fromJson(Map<String, dynamic>.from(item)),
+          );
+        }
+      }
+    }
+    final pads = parsedPads.isNotEmpty ? parsedPads : defaultPads;
+    final rawIndex = (json['selectedPadIndex'] as num?)?.toInt() ?? 0;
+    return MpcSlicerState(
+      pads: pads,
+      selectedPadIndex: rawIndex.clamp(0, pads.length - 1),
+      sourceTitle: json['sourceTitle']?.toString() ?? 'Mbira DzaVadzimu',
+      bpm: (json['bpm'] as num?)?.toInt() ?? 112,
+      timeStretchRatio:
+          ((json['timeStretchRatio'] as num?)?.toDouble() ?? 1.0).clamp(
+            0.5,
+            2.0,
+          ),
+      lastBouncedChopPath: json['lastBouncedChopPath']?.toString(),
     );
   }
 

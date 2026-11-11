@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -59,7 +60,9 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
 
   /// Re-opens the pipeline socket for the failed session.
   void _retry(GenerationProgressState state) {
-    ref.read(generationProgressProvider.notifier).startGeneration(
+    ref
+        .read(generationProgressProvider.notifier)
+        .startGeneration(
           generationId: state.generationId,
           trackTitle: state.trackTitle,
           genre: state.genre,
@@ -133,152 +136,165 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
       children: [
         // Track Title, Genre Badge & Generating Pill
         Row(
-            children: [
-              Text(
-                state.trackTitle,
-                style: AppTypography.titleLarge.copyWith(fontSize: 22),
+          children: [
+            Text(
+              state.trackTitle,
+              style: AppTypography.titleLarge.copyWith(fontSize: 22),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSecondary,
+                borderRadius: AppRadius.pillBorder,
+                border: Border.all(color: AppColors.borderSubtle),
               ),
-              const SizedBox(width: 10),
+              child: Text(
+                state.genre,
+                style: AppTypography.badge.copyWith(
+                  color: AppColors.brandPrimary,
+                ),
+              ),
+            ),
+            const Spacer(),
+            if (state.isGenerating)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
+                  color: AppColors.amberInset,
                   borderRadius: AppRadius.pillBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: Text(
-                  state.genre,
-                  style: AppTypography.badge.copyWith(color: AppColors.brandPrimary),
-                ),
-              ),
-              const Spacer(),
-              if (state.isGenerating)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.amberInset,
-                    borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: AppColors.brandPrimary.withAlpha(120)),
+                  border: Border.all(
+                    color: AppColors.brandPrimary.withAlpha(120),
                   ),
-                  child: Row(
-                    children: [
-                      const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.brandPrimary),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.brandPrimary,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Generating',
-                        style: AppTypography.badge.copyWith(color: AppColors.brandPrimary),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Generating',
+                      style: AppTypography.badge.copyWith(
+                        color: AppColors.brandPrimary,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Inner Pipeline Progress Box
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceSecondary,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.borderSubtle),
+          ),
+          child: Column(
+            children: [
+              // Animated Equalizer Visualizer
+              AnimatedBuilder(
+                animation: _equalizerController,
+                builder: (context, _) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: List.generate(11, (index) {
+                      final centerDist = (index - 5).abs();
+                      final baseHeight = 32.0 - (centerDist * 4.0);
+                      final wave =
+                          (_equalizerController.value * 12.0) *
+                          (index % 2 == 0 ? 1 : -0.6);
+                      final height = (baseHeight + wave).clamp(8.0, 36.0);
+
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: 4,
+                        height: height,
+                        decoration: BoxDecoration(
+                          color: AppColors.brandPrimary,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      );
+                    }),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Dynamic Status Context Message
+              Text(
+                state.statusMessage,
+                style: AppTypography.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.coinGold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+
+              // 4-Step Synthesis Machine
+              _buildStep(
+                stepNumber: 1,
+                label: 'Starting up...',
+                isDone: state.stepNumber > 1,
+                isActive: state.stepNumber == 1,
+              ),
+              const SizedBox(height: 12),
+              _buildStep(
+                stepNumber: 2,
+                label: 'Writing lyrics...',
+                isDone: state.stepNumber > 2,
+                isActive: state.stepNumber == 2,
+              ),
+              const SizedBox(height: 12),
+              _buildStep(
+                stepNumber: 3,
+                label: 'Producing the beat...',
+                isDone: state.stepNumber > 3,
+                isActive: state.stepNumber == 3,
+              ),
+              const SizedBox(height: 12),
+              _buildStep(
+                stepNumber: 4,
+                label: 'Your song is ready!',
+                isDone: state.stepNumber >= 4,
+                isActive: false,
+              ),
             ],
           ),
-          const SizedBox(height: 16),
-
-          // Inner Pipeline Progress Box
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceSecondary,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.borderSubtle),
-            ),
-            child: Column(
-              children: [
-                // Animated Equalizer Visualizer
-                AnimatedBuilder(
-                  animation: _equalizerController,
-                  builder: (context, _) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: List.generate(11, (index) {
-                        final centerDist = (index - 5).abs();
-                        final baseHeight = 32.0 - (centerDist * 4.0);
-                        final wave = (_equalizerController.value * 12.0) * (index % 2 == 0 ? 1 : -0.6);
-                        final height = (baseHeight + wave).clamp(8.0, 36.0);
-
-                        return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: 4,
-                          height: height,
-                          decoration: BoxDecoration(
-                            color: AppColors.brandPrimary,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        );
-                      }),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Dynamic Status Context Message
-                Text(
-                  state.statusMessage,
-                  style: AppTypography.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.coinGold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-
-                // 4-Step Synthesis Machine
-                _buildStep(
-                  stepNumber: 1,
-                  label: 'Starting up...',
-                  isDone: state.stepNumber > 1,
-                  isActive: state.stepNumber == 1,
-                ),
-                const SizedBox(height: 12),
-                _buildStep(
-                  stepNumber: 2,
-                  label: 'Writing lyrics...',
-                  isDone: state.stepNumber > 2,
-                  isActive: state.stepNumber == 2,
-                ),
-                const SizedBox(height: 12),
-                _buildStep(
-                  stepNumber: 3,
-                  label: 'Producing the beat...',
-                  isDone: state.stepNumber > 3,
-                  isActive: state.stepNumber == 3,
-                ),
-                const SizedBox(height: 12),
-                _buildStep(
-                  stepNumber: 4,
-                  label: 'Your song is ready!',
-                  isDone: state.stepNumber >= 4,
-                  isActive: false,
-                ),
-              ],
-            ),
+        ),
+        if (state.hasFailed) ...[
+          const SizedBox(height: 14),
+          _ErrorBanner(
+            message:
+                state.errorMessage ?? 'Generation failed. Please try again.',
+            onRetry: () => _retry(state),
           ),
-          if (state.hasFailed) ...[
-            const SizedBox(height: 14),
-            _ErrorBanner(
-              message: state.errorMessage ??
-                  'Generation failed. Please try again.',
-              onRetry: () => _retry(state),
-            ),
-          ],
+        ],
 
-          if (state.isReady && state.completedTrack != null) ...[
-            const SizedBox(height: 14),
-            _ReadyTrackCard(track: state.completedTrack!),
-          ],
-          if (state.generatedLyrics != null) ...[
-            const SizedBox(height: 14),
-            // Collapsible Lyrics Viewer Toggle
-            InkWell(
+        if (state.isReady && state.completedTrack != null) ...[
+          const SizedBox(height: 14),
+          _ReadyTrackCard(track: state.completedTrack!),
+        ],
+        if (state.generatedLyrics != null) ...[
+          const SizedBox(height: 14),
+          // Collapsible Lyrics Viewer Toggle
+          InkWell(
             onTap: () => setState(() => _showLyrics = !_showLyrics),
             child: Row(
               children: [
@@ -319,7 +335,7 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
               ),
             ),
           ],
-          ],
+        ],
       ],
     );
   }
@@ -410,8 +426,10 @@ class _PipelineSkeletonLoaderState extends State<_PipelineSkeletonLoader>
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
     _opacity = _controller.drive(
-      Tween<double>(begin: 0.35, end: 0.9)
-          .chain(CurveTween(curve: Curves.easeInOut)),
+      Tween<double>(
+        begin: 0.35,
+        end: 0.9,
+      ).chain(CurveTween(curve: Curves.easeInOut)),
     );
   }
 
@@ -434,10 +452,7 @@ class _PipelineSkeletonLoaderState extends State<_PipelineSkeletonLoader>
         for (var index = 0; index < 4; index++) ...[
           FadeTransition(
             opacity: _opacity,
-            child: _SkeletonBar(
-              widthFactor: 1.0 - (index * 0.12),
-              height: 14,
-            ),
+            child: _SkeletonBar(widthFactor: 1.0 - (index * 0.12), height: 14),
           ),
           if (index < 3) const SizedBox(height: 12),
         ],
@@ -573,10 +588,7 @@ class _ReadyTrackCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text(
-                track.formattedDuration,
-                style: AppTypography.caption,
-              ),
+              Text(track.formattedDuration, style: AppTypography.caption),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -616,9 +628,13 @@ class _ReadyTrackCard extends ConsumerWidget {
                   ContentStudioDockView.open(
                     context,
                     dna: track.toSongMetadataDna(),
-                    audioUrl: track.masterMp3Url,
-                    coverArtUrl: track.coverUrl ??
-                        'https://r2.vhunambi.com/visuals/default_9_16.png',
+                    audioUrl: AppConstants.normalizeCloudMediaUrl(
+                      track.masterMp3Url,
+                    ),
+                    coverArtUrl: AppConstants.normalizeCloudMediaUrl(
+                      track.coverUrl ??
+                          'https://r2.vhunambi.com/visuals/default_9_16.png',
+                    ),
                   );
                 },
                 icon: const Icon(
@@ -649,7 +665,9 @@ class _ReadyTrackCard extends ConsumerWidget {
                     downloader.downloadStems(track.stemsUrl!);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Downloading stem bundle for ${track.title}...'),
+                        content: Text(
+                          'Downloading stem bundle for ${track.title}...',
+                        ),
                         backgroundColor: AppColors.surfaceElevated,
                       ),
                     );

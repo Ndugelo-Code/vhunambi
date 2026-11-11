@@ -1,6 +1,7 @@
 export type BeatLicenseTier =
   | 'basic_lease'
   | 'stems_trackout'
+  | 'exclusive_stem'
   | 'unlimited_commercial';
 
 export interface BeatStemPackageUrls {
@@ -28,6 +29,8 @@ export interface MarketplaceBeatListing {
   salesCount: number;
   auditionCount: number;
   licenseTiers: BeatLicenseTier[];
+  isExclusiveSold?: boolean;
+  exclusiveBuyerId?: string;
   mmoManifestUrl?: string;
   createdAt: string;
   updatedAt: string;
@@ -56,6 +59,10 @@ export interface LicenseBeatRequest {
   buyerHandle?: string;
   tier: BeatLicenseTier;
   paymentMethod?: 'coins' | 'credits' | 'zar';
+  certificateId?: string;
+  issuedAt?: string;
+  masterFileSha256?: string;
+  enforceWalletBalance?: boolean;
 }
 
 export interface BeatLicenseCertificate {
@@ -74,6 +81,7 @@ export interface BeatLicenseCertificate {
   producerRoyaltyCoins: number;
   issuedAt: string;
   commercialTerms: string;
+  masterFileSha256?: string;
   stemUrls: BeatStemPackageUrls;
 }
 

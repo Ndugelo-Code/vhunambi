@@ -4,7 +4,8 @@
 > **Route Paths:** `/market` (Beats Marketplace, Tab Index 4 of `RootShell`) & `/` (Home Marketing Funnel, Tab Index 0 of `RootShell`)  
 > **State Management:** Flutter Riverpod 2.x+  
 > **Source Origin:** Production Web Client (`https://vhunambi.com/market` & `https://vhunambi.com`)  
-> **Parent Blueprint:** [`docs/foundation_blueprints/05_MARKETPLACE_AND_LANDING_SPEC.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/foundation_blueprints/05_MARKETPLACE_AND_LANDING_SPEC.md)
+> **Parent Blueprint:** [`docs/foundation_blueprints/05_MARKETPLACE_AND_LANDING_SPEC.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/foundation_blueprints/05_MARKETPLACE_AND_LANDING_SPEC.md)  
+> **Commercial Licensing Successor:** [`docs/phases/phase_58_sovereign_beatstore_licensing/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_58_sovereign_beatstore_licensing/blueprint.md) *(supersedes Phase 6's single-tier placeholder modal & isolated credit counter with multi-tier Coins/ZAR checkout, SHA-256 ownership deeds, exclusive buyout locks, and automated 44.1 kHz Vault delivery)*.
 
 ---
 

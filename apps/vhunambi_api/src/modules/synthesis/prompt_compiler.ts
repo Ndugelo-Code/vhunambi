@@ -16,7 +16,10 @@ export interface SongSpecInput {
   clonedVoiceProfileId?: string;
   melodyPattern?: MelodyPatternManifest;
   melodyReferenceId?: string;
+  referenceAudioUrl?: string;
+  clonedVoiceReferenceUrl?: string;
   pregenStemLocks?: Record<string, 'lockedPure44k' | 'harmonicInpaint' | 'elasticResynth'>;
+  lockedStemsPayload?: Record<string, string>;
 }
 
 export interface CompiledSynthesisPrompt {
@@ -38,12 +41,15 @@ export interface CompiledSynthesisPrompt {
     /** Pre-generation stem locks for hybrid inpainting (REQ-P52-PIPE-02) */
     pregenStemLocks?: Record<string, string>;
   };
+  referenceAudioUrl?: string;
   pregenStemLocks?: Record<string, string>;
+  lockedStemsPayload?: Record<string, string>;
   svcConfig?: {
     mode: 'catalog_archetype' | 'zero_shot_clone';
     voiceId: string;
     f0Method: 'rmvpe';
     protectConsonants: number;
+    r2ReferenceUrl?: string;
   };
   melodyConditioning?: {
     patternId: string;
@@ -79,6 +85,9 @@ export function compileSongSpec(input: SongSpecInput): CompiledSynthesisPrompt {
         voiceId: input.clonedVoiceProfileId,
         f0Method: 'rmvpe' as const,
         protectConsonants: 0.42,
+        ...(input.clonedVoiceReferenceUrl
+          ? { r2ReferenceUrl: input.clonedVoiceReferenceUrl }
+          : {}),
       }
     : input.selectedVoiceId
       ? {
@@ -120,8 +129,10 @@ export function compileSongSpec(input: SongSpecInput): CompiledSynthesisPrompt {
       title: input.trackTitle || undefined,
       pregenStemLocks: input.pregenStemLocks,
     },
+    ...(input.referenceAudioUrl ? { referenceAudioUrl: input.referenceAudioUrl } : {}),
     ...(svcConfig ? { svcConfig } : {}),
     ...(melodyConditioning ? { melodyConditioning } : {}),
     ...(input.pregenStemLocks ? { pregenStemLocks: input.pregenStemLocks } : {}),
+    ...(input.lockedStemsPayload ? { lockedStemsPayload: input.lockedStemsPayload } : {}),
   };
 }

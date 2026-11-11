@@ -83,13 +83,18 @@ class MelodySketchpadModal extends ConsumerStatefulWidget {
 class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
   final FocusNode _keyboardFocusNode = FocusNode();
   bool _isFullscreenLocal = false;
+  StateController<int>? _modalSheetCounter;
+  bool _didIncrementModalCount = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(modalSheetOpenCountProvider.notifier).state++;
+      final counter = ref.read(modalSheetOpenCountProvider.notifier);
+      _modalSheetCounter = counter;
+      _didIncrementModalCount = true;
+      counter.state++;
       if (widget.initialInstrument != null) {
         ref
             .read(melodySketchpadProvider.notifier)
@@ -100,12 +105,15 @@ class _MelodySketchpadModalState extends ConsumerState<MelodySketchpadModal> {
 
   @override
   void dispose() {
-    try {
-      final count = ref.read(modalSheetOpenCountProvider);
-      if (count > 0) {
-        ref.read(modalSheetOpenCountProvider.notifier).state = count - 1;
-      }
-    } catch (_) {}
+    final counter = _modalSheetCounter;
+    if (_didIncrementModalCount && counter != null) {
+      _didIncrementModalCount = false;
+      Future<void>.microtask(() {
+        if (counter.mounted && counter.state > 0) {
+          counter.state = (counter.state - 1).clamp(0, 99);
+        }
+      });
+    }
     _keyboardFocusNode.dispose();
     super.dispose();
   }

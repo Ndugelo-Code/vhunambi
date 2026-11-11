@@ -1,4 +1,9 @@
 import { nanoid } from 'nanoid';
+import { resolveMediaUrl } from '../../config/env.js';
+import {
+  canonicalizeCreatorId,
+  vhunambiDb,
+} from '../../db/vhunambi_db.js';
 import {
   ClipFeedPage,
   CreateCommentRequest,
@@ -12,29 +17,6 @@ import {
   SupporterRankDto,
   TipRequest,
 } from './social_types.js';
-
-/**
- * In-memory social store (Phase 18 / Phase C).
- */
-const clips = new Map<string, PublishedClipDto>();
-
-/** Follower counts per creator id (REQ-SOC-08 / REQ-SOC-25). */
-const followerCounts = new Map<string, number>();
-
-/** Comments grouped by clip ID (Phase C). */
-const commentsByClip = new Map<string, ReelCommentDto[]>();
-
-/** Creator wallet balances & transaction ledgers (Phase C). */
-interface StoredWallet {
-  balanceZar: number;
-  totalCoinsReceived: number;
-  transactions: GiftTransactionDto[];
-}
-const creatorWallets = new Map<string, StoredWallet>();
-
-/** Single-demo-user follow graph. */
-const following = new Set<string>();
-const ME = 'vhunambi_user';
 
 /** Demo owner used when a publish request omits explicit identity. */
 const DEFAULT_CREATOR = {
@@ -86,8 +68,21 @@ export const CULTURAL_GIFTS: Record<string, CulturalGiftDto> = {
 };
 
 /** Newest-first ordered view of all clips. */
-function orderedClips(): PublishedClipDto[] {
-  return [...clips.values()].reverse();
+function orderedClips(viewerCreatorId = 'creator_cern'): PublishedClipDto[] {
+  seedSocialClips();
+  const likedTargets = vhunambiDb.listSocialInteractionTargets(
+    'clip_like',
+    canonicalizeCreatorId(viewerCreatorId),
+  );
+  return vhunambiDb.listPublishedClipRows().map((raw) => {
+    const clip = raw as PublishedClipDto;
+    return {
+      ...clip,
+      audioUrl: resolveMediaUrl(clip.audioUrl),
+      coverUrl: resolveMediaUrl(clip.coverUrl),
+      isLikedByMe: likedTargets.has(clip.id),
+    };
+  });
 }
 
 /**
@@ -155,8 +150,9 @@ function normalizeDna(
 }
 
 function makeClip(req: PublishClipRequest, id: string): PublishedClipDto {
+  const creatorId = canonicalizeCreatorId(req.creatorId ?? DEFAULT_CREATOR.creatorId);
   const creator = {
-    creatorId: req.creatorId ?? DEFAULT_CREATOR.creatorId,
+    creatorId,
     creatorUsername: req.creatorUsername ?? DEFAULT_CREATOR.creatorUsername,
     creatorDisplayName:
       req.creatorDisplayName ?? DEFAULT_CREATOR.creatorDisplayName,
@@ -174,8 +170,8 @@ function makeClip(req: PublishClipRequest, id: string): PublishedClipDto {
     caption: req.caption ?? '',
     tags: req.tags ?? [],
     genre,
-    audioUrl: req.audioUrl ?? `${base}/${req.trackId}.mp3`,
-    coverUrl: req.coverUrl ?? `${base}/${req.trackId}.jpg`,
+    audioUrl: resolveMediaUrl(req.audioUrl ?? `${base}/${req.trackId}.mp3`),
+    coverUrl: resolveMediaUrl(req.coverUrl ?? `${base}/${req.trackId}.jpg`),
     dna,
     playCount: 0,
     likeCount: 0,
@@ -195,19 +191,16 @@ export function publishClip(req: PublishClipRequest): {
   shareUrl: string;
   publishedAt: string;
 } {
+  seedSocialClips();
   const clipId = `clip_pub_${nanoid(8)}`;
   const clip = makeClip(req, clipId);
-  clips.set(clipId, clip);
 
-  if (!followerCounts.has(clip.creatorId)) {
-    followerCounts.set(clip.creatorId, 0);
-  }
-
-  // Phase D: Viral Remix Lineage Tracking
+  vhunambiDb.upsertPublishedClip(clip);
   if (req.remixedFromClipId) {
-    const parent = clips.get(req.remixedFromClipId);
+    const parent = vhunambiDb.getPublishedClipRow(req.remixedFromClipId);
     if (parent) {
-      parent.remixCount += 1;
+      parent.remixCount = Number(parent.remixCount ?? 0) + 1;
+      vhunambiDb.upsertPublishedClip(parent);
     }
   }
 
@@ -219,8 +212,12 @@ export function publishClip(req: PublishClipRequest): {
 }
 
 /** Cursor-paginated newest-first feed (design.md §5.2). */
-export function getFeed(cursor?: string, limit = 20): ClipFeedPage {
-  const all = orderedClips();
+export function getFeed(
+  cursor?: string,
+  limit = 20,
+  viewerCreatorId = 'creator_cern',
+): ClipFeedPage {
+  const all = orderedClips(viewerCreatorId);
   const offset = parseOffset(cursor);
   const size = clampLimit(limit);
   const page = all.slice(offset, offset + size);
@@ -232,34 +229,51 @@ export function getFeed(cursor?: string, limit = 20): ClipFeedPage {
 }
 
 /** All clips authored by a creator, newest-first. */
-export function getClipsByCreator(creatorId: string): PublishedClipDto[] {
-  return orderedClips().filter((clip) => clip.creatorId === creatorId);
+export function getClipsByCreator(
+  creatorId: string,
+  viewerCreatorId = 'creator_cern',
+): PublishedClipDto[] {
+  const canonical = canonicalizeCreatorId(creatorId);
+  return orderedClips(viewerCreatorId).filter(
+    (clip) => canonicalizeCreatorId(clip.creatorId) === canonical,
+  );
 }
 
-/** Toggles the demo user's like on a clip; returns null when not found. */
+/** Toggles a creator's like on a clip; returns null when not found. */
 export function likeClip(
   clipId: string,
+  actorCreatorId = 'creator_cern',
 ): { liked: boolean; likeCount: number } | null {
-  const clip = clips.get(clipId);
+  seedSocialClips();
+  const actor = canonicalizeCreatorId(actorCreatorId);
+  const clip = vhunambiDb.getPublishedClipRow(clipId);
   if (!clip) return null;
-  clip.isLikedByMe = !clip.isLikedByMe;
-  clip.likeCount = Math.max(0, clip.likeCount + (clip.isLikedByMe ? 1 : -1));
-  return { liked: clip.isLikedByMe, likeCount: clip.likeCount };
+  const liked = vhunambiDb.toggleSocialInteraction('clip_like', clipId, actor);
+  const likeCount = Math.max(0, Number(clip.likeCount ?? 0) + (liked ? 1 : -1));
+  vhunambiDb.upsertPublishedClip({ ...clip, likeCount });
+  return { liked, likeCount };
 }
 
-/** Toggles the demo user's follow on a creator; returns state + count. */
-export function followCreator(creatorId: string): {
+/** Toggles a creator's follow on another creator; returns state + count. */
+export function followCreator(
+  creatorId: string,
+  actorCreatorId = 'creator_cern',
+): {
   following: boolean;
   followerCount: number;
 } {
-  const key = `${ME}:${creatorId}`;
-  const base = followerCounts.get(creatorId) ?? 0;
-  const nowFollowing = !following.has(key);
-  if (nowFollowing) following.add(key);
-  else following.delete(key);
-  const count = Math.max(0, base + (nowFollowing ? 1 : -1));
-  followerCounts.set(creatorId, count);
-  return { following: nowFollowing, followerCount: count };
+  const canonicalTarget = canonicalizeCreatorId(creatorId);
+  const actor = canonicalizeCreatorId(actorCreatorId);
+  const nowFollowing = vhunambiDb.toggleSocialInteraction(
+    'creator_follow',
+    canonicalTarget,
+    actor,
+  );
+  const followerCount = vhunambiDb.countSocialInteractionActors(
+    'creator_follow',
+    canonicalTarget,
+  );
+  return { following: nowFollowing, followerCount };
 }
 
 // ---------------------------------------------------------------------------
@@ -267,8 +281,22 @@ export function followCreator(creatorId: string): {
 // ---------------------------------------------------------------------------
 
 /** Retrieves comments for a specific clip ID, newest first. */
-export function getComments(clipId: string): ReelCommentDto[] {
-  return commentsByClip.get(clipId) ?? [];
+export function getComments(
+  clipId: string,
+  viewerCreatorId = 'creator_cern',
+): ReelCommentDto[] {
+  seedSocialClips();
+  const likedComments = vhunambiDb.listSocialInteractionTargets(
+    'comment_like',
+    canonicalizeCreatorId(viewerCreatorId),
+  );
+  return vhunambiDb.listReelCommentsByClip(clipId).map((raw) => {
+    const comment = raw as ReelCommentDto;
+    return {
+      ...comment,
+      isLikedByMe: likedComments.has(comment.id),
+    };
+  });
 }
 
 /** Appends a new comment to a reel thread and increments the clip's commentCount. */
@@ -276,7 +304,8 @@ export function addComment(
   clipId: string,
   req: CreateCommentRequest,
 ): ReelCommentDto | null {
-  const clip = clips.get(clipId);
+  seedSocialClips();
+  const clip = vhunambiDb.getPublishedClipRow(clipId);
   if (!clip) return null;
 
   const commentId = `c_${nanoid(8)}`;
@@ -287,7 +316,8 @@ export function addComment(
     username: req.username ?? 'ndugelo_musician',
     displayName: req.displayName ?? 'Ndugelo Musician',
     avatarUrl: req.avatarUrl,
-    isCreator: req.userId === clip.creatorId || req.username === clip.creatorUsername,
+    isCreator:
+      req.userId === clip.creatorId || req.username === clip.creatorUsername,
     text: req.text.trim(),
     likeCount: 0,
     isLikedByMe: false,
@@ -297,127 +327,317 @@ export function addComment(
     createdAt: new Date().toISOString(),
   };
 
-  const existing = commentsByClip.get(clipId) ?? [];
-  commentsByClip.set(clipId, [comment, ...existing]);
-  clip.commentCount += 1;
-
+  vhunambiDb.insertReelComment(comment);
+  vhunambiDb.upsertPublishedClip({
+    ...clip,
+    commentCount: Number(clip.commentCount ?? 0) + 1,
+  });
   return comment;
 }
 
 /** Toggles like state on a comment. */
 export function likeComment(
   commentId: string,
+  actorCreatorId = 'creator_cern',
 ): { liked: boolean; likeCount: number } | null {
-  for (const list of commentsByClip.values()) {
-    const comment = list.find((c) => c.id === commentId);
-    if (comment) {
-      comment.isLikedByMe = !comment.isLikedByMe;
-      comment.likeCount = Math.max(0, comment.likeCount + (comment.isLikedByMe ? 1 : -1));
-      return { liked: comment.isLikedByMe, likeCount: comment.likeCount };
-    }
-  }
-  return null;
+  seedSocialClips();
+  const actor = canonicalizeCreatorId(actorCreatorId);
+  const comment = vhunambiDb.getReelCommentById(commentId);
+  if (!comment) return null;
+  const liked = vhunambiDb.toggleSocialInteraction('comment_like', commentId, actor);
+  const likeCount = Math.max(0, Number(comment.likeCount ?? 0) + (liked ? 1 : -1));
+  vhunambiDb.insertReelComment({
+    ...comment,
+    likeCount,
+    isLikedByMe: liked,
+  });
+  return { liked, likeCount };
 }
 
 // ---------------------------------------------------------------------------
-// Phase C: Creator Gifting & Tipping Ledger (REQ-GFT-02, REQ-WAL-01, REQ-WAL-02)
+// Phase C + 62: Atomic Creator Gifting & Unified Wallet Ledger
 // ---------------------------------------------------------------------------
 
-function getOrCreateWallet(creatorId: string): StoredWallet {
-  let wallet = creatorWallets.get(creatorId);
-  if (!wallet) {
-    wallet = {
-      balanceZar: 1420.0,
-      totalCoinsReceived: 4750,
-      transactions: [],
+export type SendCulturalTipResult =
+  | {
+    ok: true;
+    transaction: GiftTransactionDto;
+    comment: ReelCommentDto;
+    newBalanceZar: number;
+    senderRemainingCoins: number;
+    primaryCoins: number;
+    ancestorCoins: number;
+  }
+  | {
+    ok: false;
+    errorCode: 'CLIP_NOT_FOUND' | 'INSUFFICIENT_WALLET_BALANCE' | 'SELF_TIP_FORBIDDEN';
+    message: string;
+  };
+
+/**
+ * Atomic cultural tip transfer backed by `vhunambiDb.sendCulturalTipAtomic`.
+ * Enforces sender wallet balance (`402`), blocks self-tipping (`422`), and
+ * splits 70/30 royalties to parent creators on remixed clips.
+ */
+export function sendCulturalTip(
+  clipId: string,
+  senderId: string,
+  amountCoins?: number,
+  giftId?: string,
+  message?: string,
+  senderUsername?: string,
+): SendCulturalTipResult {
+  seedSocialClips();
+  const clip = vhunambiDb.getPublishedClipRow(clipId);
+
+  if (!clip) {
+    return {
+      ok: false,
+      errorCode: 'CLIP_NOT_FOUND',
+      message: `Clip ${clipId} not found`,
     };
-    creatorWallets.set(creatorId, wallet);
   }
-  return wallet;
+
+  const resolvedGift =
+    (giftId && CULTURAL_GIFTS[giftId]) || CULTURAL_GIFTS.cowrie_shell;
+  const effectiveCoins =
+    typeof amountCoins === 'number' && Number.isFinite(amountCoins) && amountCoins > 0
+      ? Math.round(amountCoins)
+      : resolvedGift.coinPrice;
+  const effectiveZar =
+    giftId && CULTURAL_GIFTS[giftId] && (!amountCoins || amountCoins === resolvedGift.coinPrice)
+      ? resolvedGift.zarPrice
+      : Number((effectiveCoins * 0.3).toFixed(2));
+
+  const effectiveGift: CulturalGiftDto =
+    effectiveCoins === resolvedGift.coinPrice && effectiveZar === resolvedGift.zarPrice
+      ? resolvedGift
+      : {
+        ...resolvedGift,
+        coinPrice: effectiveCoins,
+        zarPrice: effectiveZar,
+      };
+
+  const canonicalSender = canonicalizeCreatorId(senderId || 'creator_cern');
+  const resolvedUsername =
+    senderUsername?.trim() || canonicalSender.replace(/^creator_/, '');
+  const tipId = nanoid(10);
+
+  const parentClip = clip.remixedFromClipId
+    ? vhunambiDb.getPublishedClipRow(String(clip.remixedFromClipId))
+    : null;
+
+  const transfer = vhunambiDb.sendCulturalTipAtomic({
+    tipId,
+    clipId,
+    senderId: canonicalSender,
+    recipientId: String(clip.creatorId),
+    ancestorId: parentClip ? String(parentClip.creatorId) : undefined,
+    amountCoins: effectiveCoins,
+    amountZar: effectiveZar,
+    giftName: effectiveGift.name,
+    giftEmoji: effectiveGift.emoji,
+    giftId: effectiveGift.id,
+    senderUsername: resolvedUsername,
+    message,
+  });
+
+  if (transfer.outcome === 'self_tip_forbidden') {
+    return {
+      ok: false,
+      errorCode: 'SELF_TIP_FORBIDDEN',
+      message: 'Cannot send a cultural tip to your own clip.',
+    };
+  }
+  if (transfer.outcome === 'insufficient_funds') {
+    return {
+      ok: false,
+      errorCode: 'INSUFFICIENT_WALLET_BALANCE',
+      message: `Insufficient wallet coins: available ${transfer.senderRemainingCoins}, requested ${effectiveCoins}.`,
+    };
+  }
+
+  const senderRemainingCoins = transfer.senderRemainingCoins;
+  const primaryCoins = transfer.primaryCoins;
+  const ancestorCoins = transfer.ancestorCoins;
+  const newBalanceZar = vhunambiDb.getWalletSnapshot(String(clip.creatorId)).balanceZar;
+
+  const tx: GiftTransactionDto = {
+    id: `tx_${tipId}`,
+    clipId,
+    senderId: canonicalSender,
+    senderUsername: resolvedUsername,
+    recipientId: String(clip.creatorId),
+    recipientCreatorId: String(clip.creatorId),
+    amountCoins: effectiveCoins,
+    amountZar: effectiveZar,
+    splitPercentage: parentClip ? 70 : 100,
+    type: 'direct_tip',
+    gift: effectiveGift,
+    message,
+    timestamp: new Date().toISOString(),
+  };
+
+  const celebrationComment = addComment(clipId, {
+    text:
+      message && message.trim().length > 0
+        ? `${message.trim()} (Sent ${effectiveGift.name} ${effectiveGift.emoji})`
+        : `Sent ${effectiveGift.name} ${effectiveGift.emoji}! Proud of this sound.`,
+    userId: canonicalSender,
+    username: resolvedUsername,
+    displayName: resolvedUsername,
+    giftEmoji: effectiveGift.emoji,
+    giftName: effectiveGift.name,
+    userReelLoves: 5,
+  })!;
+
+  return {
+    ok: true,
+    transaction: tx,
+    comment: celebrationComment,
+    newBalanceZar,
+    senderRemainingCoins,
+    primaryCoins,
+    ancestorCoins,
+  };
 }
 
-/** Records a cultural micro-gift tip sent to a creator. */
+/** Legacy convenience wrapper for cultural micro-gift tipping. */
 export function sendTip(
   clipId: string,
   req: TipRequest,
+  senderId = 'creator_cern',
 ): {
   transaction: GiftTransactionDto;
   comment: ReelCommentDto;
   newBalanceZar: number;
 } | null {
-  const clip = clips.get(clipId);
-  if (!clip) return null;
-
-  const gift = CULTURAL_GIFTS[req.giftId] ?? CULTURAL_GIFTS.cowrie_shell;
-  const senderUsername = req.senderUsername ?? 'ndugelo_musician';
-  const wallet = getOrCreateWallet(clip.creatorId);
-
-  // Credit creator earnings in ZAR and coin count (70% Remixer / 30% Originator if remix)
-  if (clip.remixedFromClipId && clips.has(clip.remixedFromClipId)) {
-    const parentClip = clips.get(clip.remixedFromClipId)!;
-    const parentWallet = getOrCreateWallet(parentClip.creatorId);
-    const remixerZar = Number((gift.zarPrice * 0.70).toFixed(2));
-    const parentZar = Number((gift.zarPrice - remixerZar).toFixed(2));
-    const remixerCoins = Math.floor(gift.coinPrice * 0.70);
-    const parentCoins = gift.coinPrice - remixerCoins;
-
-    wallet.balanceZar += remixerZar;
-    wallet.totalCoinsReceived += remixerCoins;
-    parentWallet.balanceZar += parentZar;
-    parentWallet.totalCoinsReceived += parentCoins;
-  } else {
-    wallet.balanceZar += gift.zarPrice;
-    wallet.totalCoinsReceived += gift.coinPrice;
-  }
-
-  const tx: GiftTransactionDto = {
-    id: `tx_${nanoid(8)}`,
+  const res = sendCulturalTip(
     clipId,
-    senderUsername,
-    recipientCreatorId: clip.creatorId,
-    gift,
-    message: req.message,
-    timestamp: new Date().toISOString(),
-  };
-  wallet.transactions.unshift(tx);
-
-  // Auto-post public cultural celebration comment into reel thread (REQ-GFT-03)
-  const celebrationComment = addComment(clipId, {
-    text: req.message && req.message.trim().length > 0
-      ? `${req.message.trim()} (Sent ${gift.name} ${gift.emoji})`
-      : `Sent ${gift.name} ${gift.emoji}! Proud of this sound.`,
-    username: senderUsername,
-    displayName: senderUsername,
-    giftEmoji: gift.emoji,
-    giftName: gift.name,
-    userReelLoves: 5,
-  })!;
-
+    req.senderId || senderId,
+    req.amountCoins ?? req.coins,
+    req.giftId,
+    req.message,
+    req.senderUsername,
+  );
+  if (!res.ok) return null;
   return {
-    transaction: tx,
-    comment: celebrationComment,
-    newBalanceZar: wallet.balanceZar,
+    transaction: res.transaction,
+    comment: res.comment,
+    newBalanceZar: res.newBalanceZar,
   };
 }
 
-/** Retrieves creator earnings, supporter leaderboard, and transaction ledger. */
+/**
+ * Unified Creator Wallet backed directly by `vhunambiDb.getWalletSnapshot(creatorId)`
+ * (the exact same SQLite `wallet_ledger` as `GET /api/wallet/:creatorId`).
+ */
 export function getCreatorWallet(creatorId: string): CreatorWalletDto {
-  const wallet = getOrCreateWallet(creatorId);
+  const canonicalId = canonicalizeCreatorId(creatorId);
 
-  // Aggregate leaderboard from transactions
-  const userMap = new Map<string, { coins: number; zar: number; topEmoji: string }>();
-  for (const tx of wallet.transactions) {
-    const prev = userMap.get(tx.senderUsername) ?? {
+  const snapshot = vhunambiDb.getWalletSnapshot(canonicalId);
+  const unifiedTxs: GiftTransactionDto[] = snapshot.transactions.map((tx) => {
+    const meta = (tx.metadata ?? {}) as Record<string, unknown>;
+    const absCoins = Math.abs(Number(tx.amountCoins ?? 0));
+    const absZar = Math.abs(Number(tx.amountZar ?? 0));
+    const txType: GiftTransactionDto['type'] =
+      tx.type === 'remix_royalty'
+        ? 'remix_royalty'
+        : tx.type === 'license_sale'
+          ? 'beat_royalty'
+          : tx.type === 'payout' || tx.type === 'payout_withdrawal'
+            ? 'payout'
+            : tx.type === 'topup'
+              ? 'topup'
+              : 'direct_tip';
+
+    const giftId = String(
+      meta.giftId ??
+      (tx.type === 'license_sale'
+        ? 'beat_license_royalty'
+        : tx.type === 'topup'
+          ? 'sovereign_topup'
+          : 'cowrie_shell'),
+    );
+    const giftName = String(
+      meta.giftName ??
+      (tx.type === 'license_sale'
+        ? 'Beat Royalty (85%)'
+        : tx.type === 'topup'
+          ? 'Sovereign Top-Up'
+          : 'Cultural Gift'),
+    );
+    const giftEmoji = String(
+      meta.giftEmoji ?? (tx.type === 'license_sale' ? '💰' : '🎵'),
+    );
+    const msg = String(
+      meta.message ??
+      meta.note ??
+      (tx.reference ? `${tx.type} (${tx.reference})` : tx.type),
+    );
+    const senderUsername = String(
+      meta.senderUsername ??
+      meta.buyerHandle ??
+      meta.senderId ??
+      'system',
+    );
+
+    return {
+      id: String(tx.id),
+      clipId: String(
+        meta.clipId ?? (tx.type === 'license_sale' ? 'beat_sale' : tx.reference ?? ''),
+      ),
+      senderId: String(meta.senderId ?? meta.buyerId ?? 'system'),
+      senderUsername,
+      recipientId: canonicalId,
+      recipientCreatorId: canonicalId,
+      amountCoins: absCoins,
+      amountZar: absZar,
+      splitPercentage: Number(
+        meta.splitPct ?? (tx.type === 'license_sale' ? 85 : 100),
+      ),
+      type: txType,
+      gift: {
+        id: giftId,
+        name: giftName,
+        emoji: giftEmoji,
+        coinPrice: absCoins,
+        zarPrice: absZar,
+        culturalMeaning: msg,
+      },
+      message: msg,
+      timestamp: String(tx.createdAt),
+    };
+  });
+
+  // Aggregate supporter leaderboard from incoming tips/royalties
+  const userMap = new Map<
+    string,
+    { coins: number; zar: number; topEmoji: string }
+  >();
+  for (const tx of snapshot.transactions) {
+    if (
+      tx.type !== 'tip_received' &&
+      tx.type !== 'tip' &&
+      tx.type !== 'remix_royalty'
+    ) {
+      continue;
+    }
+    const meta = (tx.metadata ?? {}) as Record<string, unknown>;
+    const username = String(
+      meta.senderUsername ?? meta.senderId ?? '',
+    ).trim();
+    if (!username || username === 'system') continue;
+    const prev = userMap.get(username) ?? {
       coins: 0,
       zar: 0,
-      topEmoji: tx.gift.emoji,
+      topEmoji: String(meta.giftEmoji ?? '🎵'),
     };
-    prev.coins += tx.gift.coinPrice;
-    prev.zar += tx.gift.zarPrice;
-    userMap.set(tx.senderUsername, prev);
+    prev.coins += Math.max(0, Number(tx.amountCoins ?? 0));
+    prev.zar += Math.max(0, Number(tx.amountZar ?? 0));
+    userMap.set(username, prev);
   }
 
-  // Pre-seed some honorary supporters if new
   if (userMap.size === 0) {
     userMap.set('lerato_piano', { coins: 1800, zar: 540.0, topEmoji: '👑' });
     userMap.set('soweto_beats', { coins: 1200, zar: 360.0, topEmoji: '🎹' });
@@ -429,74 +649,65 @@ export function getCreatorWallet(creatorId: string): CreatorWalletDto {
       username,
       displayName: username.replaceAll('_', ' ').toUpperCase(),
       totalCoins: data.coins,
-      totalZar: data.zar,
+      totalZar: Number(data.zar.toFixed(2)),
       topGiftEmoji: data.topEmoji,
       rank: 1,
     }))
     .sort((a, b) => b.totalCoins - a.totalCoins)
     .map((item, idx) => ({ ...item, rank: idx + 1 }));
 
+  const pendingRoyaltiesZar = snapshot.transactions
+    .filter((tx) => tx.type === 'license_sale' || tx.type === 'remix_royalty')
+    .reduce((sum, tx) => sum + Math.max(0, Number(tx.amountZar ?? 0)), 0);
+
+  const positiveCoinsTotal = snapshot.transactions.reduce(
+    (sum, tx) =>
+      sum + (Number(tx.amountCoins ?? 0) > 0 ? Number(tx.amountCoins) : 0),
+    0,
+  );
+
   return {
-    creatorId,
-    balanceZar: wallet.balanceZar,
-    totalCoinsReceived: wallet.totalCoinsReceived,
+    creatorId: canonicalId,
+    balanceZar: snapshot.balanceZar,
+    balanceCoins: snapshot.balanceCoins,
+    pendingRoyaltiesZar: Number(pendingRoyaltiesZar.toFixed(2)),
+    totalCoinsReceived: Math.max(snapshot.balanceCoins, positiveCoinsTotal),
     topSupporters: leaderboard.slice(0, 10),
-    recentTransactions: wallet.transactions.slice(0, 20),
+    recentTransactions: unifiedTxs.slice(0, 20),
+    transactions: unifiedTxs,
   };
 }
 
-/** Requests a cashout payout from the creator's balance. */
+/** Requests a cashout payout from the creator's persistent SQLite wallet ledger. */
 export function requestPayout(
   creatorId: string,
   req: PayoutRequest,
 ): { success: boolean; payoutId: string; remainingBalanceZar: number } | null {
-  const wallet = getOrCreateWallet(creatorId);
-  if (req.amountZar < 50.0 || req.amountZar > wallet.balanceZar) {
+  const canonicalId = canonicalizeCreatorId(creatorId);
+  if (!Number.isFinite(req.amountZar) || req.amountZar < 50.0) {
     return null;
   }
-  wallet.balanceZar -= req.amountZar;
+  const receipt = vhunambiDb.requestPayout({
+    creatorId: canonicalId,
+    amountZar: req.amountZar,
+    bankName: 'Standard Bank',
+    accountNumber: '1234567890',
+    paymentRail: req.payoutMethod || 'eft',
+  });
+  if (!receipt.success || !receipt.payoutId) {
+    return null;
+  }
   return {
     success: true,
-    payoutId: `payout_${nanoid(8)}`,
-    remainingBalanceZar: wallet.balanceZar,
+    payoutId: receipt.payoutId,
+    remainingBalanceZar: receipt.remainingBalanceZar ?? 0,
   };
-}
-
-/**
- * Credits a producer's wallet with beat license royalty earnings (85% net split).
- */
-export function creditProducerBeatRoyalty(
-  creatorId: string,
-  amountZar: number,
-  coins: number,
-  description: string,
-  buyerUsername: string,
-): { newBalanceZar: number } {
-  const wallet = getOrCreateWallet(creatorId);
-  wallet.balanceZar += amountZar;
-  wallet.totalCoinsReceived += coins;
-  wallet.transactions.unshift({
-    id: `tx_beat_${nanoid(8)}`,
-    clipId: 'beat_sale',
-    senderUsername: buyerUsername,
-    recipientCreatorId: creatorId,
-    gift: {
-      id: 'beat_license_royalty',
-      name: 'Beat Royalty (85%)',
-      emoji: '💰',
-      coinPrice: coins,
-      zarPrice: amountZar,
-      culturalMeaning: description,
-    },
-    message: description,
-    timestamp: new Date().toISOString(),
-  });
-  return { newBalanceZar: wallet.balanceZar };
 }
 
 /** Test/observability helper — total stored clips. */
 export function countClips(): number {
-  return clips.size;
+  seedSocialClips();
+  return vhunambiDb.countPublishedClips();
 }
 
 function parseOffset(cursor?: string): number {
@@ -510,99 +721,110 @@ function clampLimit(limit: number): number {
   return Math.min(limit, 50);
 }
 
+let _seedingSocialClips = false;
+
 /**
  * Seeds a small catalogue so the feed & creator grids are never empty on a cold start.
+ * Invoked lazily by service entrypoints (not at module scope, for Cloudflare Workers compatibility).
  */
 export function seedSocialClips(): void {
-  if (clips.size > 0) return;
+  if (_seedingSocialClips) return;
+  if (vhunambiDb.countPublishedClips() > 0) return;
 
-  publishClip({
-    trackId: 'track_amapiano_101',
-    title: 'Ndo Mufuna Matibe',
-    caption:
-      'New late-night piano vibe featuring indigenous live percussion! 🎹🔥',
-    tags: ['Amapiano', 'Tshivenḓa', 'DeepSoul'],
-    visibility: 'public',
-    dna: {
-      genre: 'Amapiano',
-      bpm: 113,
-      mood: 'Uplifting',
-      paletteId: 'sunsetGold',
-      typographyPreset: 'karaokeBounce',
-      timestamps: [],
-    },
-  });
-  publishClip({
-    trackId: 'track_gqom_204',
-    title: 'Township Log Drum Heat',
-    caption: 'Durban energy, straight from the shins. #Gqom',
-    tags: ['Gqom', 'Durban'],
-    visibility: 'public',
-    dna: {
-      genre: 'Gqom',
-      bpm: 127,
-      mood: 'Intense',
-      paletteId: 'neonNight',
-      typographyPreset: 'boldPunch',
-      timestamps: [],
-    },
-  });
-  publishClip({
-    trackId: 'track_afrohouse_77',
-    title: 'Sunset Gold Sessions',
-    caption: 'Afro House for golden hour drives 🌅',
-    tags: ['AfroHouse', 'Sunset'],
-    visibility: 'public',
-    dna: {
-      genre: 'Afro House',
-      bpm: 122,
-      mood: 'Dreamy',
-      paletteId: 'sunsetGold',
-      typographyPreset: 'softGlow',
-      timestamps: [],
-    },
-  });
+  _seedingSocialClips = true;
+  try {
+    const firstPublished = publishClip({
+      trackId: 'track_amapiano_101',
+      title: 'Ndo Mufuna Matibe',
+      caption:
+        'New late-night piano vibe featuring indigenous live percussion! 🎹🔥',
+      tags: ['Amapiano', 'Tshivenḓa', 'DeepSoul'],
+      visibility: 'public',
+      dna: {
+        genre: 'Amapiano',
+        bpm: 113,
+        mood: 'Uplifting',
+        paletteId: 'sunsetGold',
+        typographyPreset: 'karaokeBounce',
+        timestamps: [],
+      },
+    });
+    publishClip({
+      trackId: 'track_gqom_204',
+      title: 'Township Log Drum Heat',
+      caption: 'Durban energy, straight from the shins. #Gqom',
+      tags: ['Gqom', 'Durban'],
+      visibility: 'public',
+      dna: {
+        genre: 'Gqom',
+        bpm: 127,
+        mood: 'Intense',
+        paletteId: 'neonNight',
+        typographyPreset: 'boldPunch',
+        timestamps: [],
+      },
+    });
+    publishClip({
+      trackId: 'track_afrohouse_77',
+      title: 'Sunset Gold Sessions',
+      caption: 'Afro House for golden hour drives 🌅',
+      tags: ['AfroHouse', 'Sunset'],
+      visibility: 'public',
+      dna: {
+        genre: 'Afro House',
+        bpm: 122,
+        mood: 'Dreamy',
+        paletteId: 'sunsetGold',
+        typographyPreset: 'softGlow',
+        timestamps: [],
+      },
+    });
 
-  const first = orderedClips()[0];
-  if (first) {
-    first.playCount = 24500;
-    first.likeCount = 1840;
-    first.commentCount = 96;
-    first.remixCount = 12;
+    const first = vhunambiDb.getPublishedClipRow(firstPublished.clipId);
+    if (first) {
+      vhunambiDb.upsertPublishedClip({
+        ...first,
+        playCount: 24500,
+        likeCount: 1840,
+        commentCount: 93,
+        remixCount: 12,
+      });
 
-    // Seed realistic African community comments
-    addComment(first.id, {
-      text: 'This log drum hits directly in the soul! 🎹🔥',
-      username: 'kgothatso_piano',
-      displayName: 'Kgothatso Piano',
-      userReelLoves: 8,
-    });
-    addComment(first.id, {
-      text: 'Tshivenḓa vocal delivery is elite here. Proud of our roots 🇿🇦',
-      username: 'thabo_beats',
-      displayName: 'Thabo Beats',
-      userReelLoves: 5,
-    });
-    addComment(first.id, {
-      text: 'Makhado sunrise vibe! Blessed 🌅',
-      username: 'lerato_piano',
-      displayName: 'Lerato Piano',
-      giftEmoji: '👑',
-      giftName: 'Royal Venda Crown (Khare)',
-      userReelLoves: 20,
-    });
+      addComment(firstPublished.clipId, {
+        text: 'This log drum hits directly in the soul! 🎹🔥',
+        username: 'kgothatso_piano',
+        displayName: 'Kgothatso Piano',
+        userReelLoves: 8,
+      });
+      addComment(firstPublished.clipId, {
+        text: 'Tshivenḓa vocal delivery is elite here. Proud of our roots 🇿🇦',
+        username: 'thabo_beats',
+        displayName: 'Thabo Beats',
+        userReelLoves: 5,
+      });
+      addComment(firstPublished.clipId, {
+        text: 'Makhado sunrise vibe! Blessed 🌅',
+        username: 'lerato_piano',
+        displayName: 'Lerato Piano',
+        giftEmoji: '👑',
+        giftName: 'Royal Venda Crown (Khare)',
+        userReelLoves: 20,
+      });
+    }
+  } finally {
+    _seedingSocialClips = false;
   }
 }
 
-seedSocialClips();
-
 /** Returns all remix descendant clips for a parent clip (Phase 37 REQ-RMX-TREE-01). */
 export function getClipRemixes(clipId: string): PublishedClipDto[] {
-  const result: PublishedClipDto[] = [];
-  for (const c of clips.values()) {
-    if (c.remixedFromClipId === clipId) {
-      result.push(c);
-    }
-  }
-  return result;
+  seedSocialClips();
+  return vhunambiDb.listRemixClipRows(clipId).map((raw) => {
+    const clip = raw as PublishedClipDto;
+    return {
+      ...clip,
+      audioUrl: resolveMediaUrl(clip.audioUrl),
+      coverUrl: resolveMediaUrl(clip.coverUrl),
+    };
+  });
 }

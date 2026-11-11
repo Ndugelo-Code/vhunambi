@@ -10,8 +10,10 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../domain/models/lyrics_review_models.dart';
+import '../../domain/models/studio_form_state.dart';
 import '../providers/generation_pipeline_providers.dart';
 import '../providers/lyrics_review_provider.dart';
+import '../providers/melody_sketchpad_provider.dart';
 import '../providers/studio_form_provider.dart';
 import 'voice_clone_recorder_sheet.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
@@ -75,24 +77,32 @@ class LyricsReviewModal extends ConsumerStatefulWidget {
 
 class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
   bool _storyMode = false;
+  StateController<int>? _modalSheetCounter;
+  bool _didIncrementModalCount = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(modalSheetOpenCountProvider.notifier).state++;
+      final counter = ref.read(modalSheetOpenCountProvider.notifier);
+      _modalSheetCounter = counter;
+      _didIncrementModalCount = true;
+      counter.state++;
     });
   }
 
   @override
   void dispose() {
-    try {
-      final count = ref.read(modalSheetOpenCountProvider);
-      if (count > 0) {
-        ref.read(modalSheetOpenCountProvider.notifier).state = count - 1;
-      }
-    } catch (_) {}
+    final counter = _modalSheetCounter;
+    if (_didIncrementModalCount && counter != null) {
+      _didIncrementModalCount = false;
+      Future<void>.microtask(() {
+        if (counter.mounted && counter.state > 0) {
+          counter.state = (counter.state - 1).clamp(0, 99);
+        }
+      });
+    }
     super.dispose();
   }
 
@@ -129,11 +139,16 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
                   if (_storyMode) ...[
                     const SizedBox(height: AppSpacing.sm),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.brandPrimary.withAlpha(25),
                         borderRadius: AppRadius.cardBorder,
-                        border: Border.all(color: AppColors.brandPrimary.withAlpha(60)),
+                        border: Border.all(
+                          color: AppColors.brandPrimary.withAlpha(60),
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -146,7 +161,9 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
                           Expanded(
                             child: Text(
                               'Story-to-Lyrics Mode Active: Original narrative mapped into authentic ${draft.genre} structure without rewriting your words.',
-                              style: AppTypography.caption.copyWith(color: AppColors.textPrimary),
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                           ),
                         ],
@@ -204,8 +221,9 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
     final lang = BantuLanguage.fromCode(draft.language) ?? BantuLanguage.zu;
 
     // Strip any bracketed tags [Intro], [Chorus], etc. and extract lyric tokens only (REQ-P56-COG-01)
-    final lyricBody = (draft.allLines.isNotEmpty ? draft.allLines.join(' ') : draft.rawText)
-        .replaceAll(RegExp(r'\[[^\]]*\]'), ' ');
+    final lyricBody =
+        (draft.allLines.isNotEmpty ? draft.allLines.join(' ') : draft.rawText)
+            .replaceAll(RegExp(r'\[[^\]]*\]'), ' ');
     final words = lyricBody
         .toLowerCase()
         .replaceAll(RegExp(r'[^\w\s\u00C0-\u017F]'), ' ')
@@ -251,10 +269,17 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
                     color: AppColors.brandPrimary,
                   ),
                   const SizedBox(width: AppSpacing.xs),
-                  Text('Bantu Cognate & Rhyme Finder', style: AppTypography.titleMedium),
+                  Text(
+                    'Bantu Cognate & Rhyme Finder',
+                    style: AppTypography.titleMedium,
+                  ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
                     onPressed: () => Navigator.of(ctx).pop(),
                   ),
                 ],
@@ -262,7 +287,9 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
               const SizedBox(height: AppSpacing.xxs),
               Text(
                 'Peer-branch sound correspondences (indicative):',
-                style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Flexible(
@@ -271,7 +298,9 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
                         padding: const EdgeInsets.all(AppSpacing.md),
                         child: Text(
                           'No direct cognates found above 50% threshold for current stanza words.',
-                          style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       )
                     : ListView.separated(
@@ -285,11 +314,15 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
                             contentPadding: EdgeInsets.zero,
                             title: Text(
                               '${r.sourceWord} (${r.source.code}) ➔ ${r.targetWord} (${r.target.code})',
-                              style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
+                              style: AppTypography.bodySmall.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             subtitle: Text(
                               'Score: ${r.score}% • Route: ${r.route.isIntraBranch ? "Intra-branch identity" : "Cross-branch pairwise shift"}',
-                              style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           );
                         },
@@ -409,7 +442,9 @@ class _LyricsReviewHeader extends StatelessWidget {
               icon: Icon(
                 PhosphorIcons.bookOpen(PhosphorIconsStyle.regular),
                 size: 18,
-                color: isStoryMode ? AppColors.brandPrimary : AppColors.textSecondary,
+                color: isStoryMode
+                    ? AppColors.brandPrimary
+                    : AppColors.textSecondary,
               ),
               onPressed: onToggleStoryMode,
             ),
@@ -871,6 +906,12 @@ void _approveDraft(BuildContext context, WidgetRef ref) {
   // Fresh cockpit session next time — no stale focus target (Mission 1).
   ref.read(_activeStanzaIdProvider.notifier).state = null;
 
+  final musicalKey =
+      formState.referenceAudioPath?.startsWith('sketchpad://') == true
+          ? ref.read(melodySketchpadProvider).attachedPattern?.musicalKey ??
+              formState.toSongMetadataDna().musical.key
+          : formState.toSongMetadataDna().musical.key;
+
   unawaited(
     ref
         .read(generationProgressProvider.notifier)
@@ -880,6 +921,8 @@ void _approveDraft(BuildContext context, WidgetRef ref) {
           language: formState.language,
           lyrics: lyrics,
           isInstrumental: formState.isInstrumental,
+          tempoBpm: formState.tempo.defaultBpm,
+          musicalKey: musicalKey,
         ),
   );
 

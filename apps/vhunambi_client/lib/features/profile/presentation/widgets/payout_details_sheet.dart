@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../social/presentation/providers/creator_wallet_provider.dart';
+import 'package:vhunambi_client/core/theme/app_colors.dart';
+import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/features/social/presentation/providers/creator_wallet_provider.dart';
 
 /// Sovereign creator royalty payout modal collecting and validating South African banking KYC (Phase 41 REQ-PAYOUT-UI-01).
 class PayoutDetailsSheet extends ConsumerStatefulWidget {
@@ -26,6 +26,7 @@ class PayoutDetailsSheet extends ConsumerStatefulWidget {
 class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
   final _formKey = GlobalKey<FormState>();
   late String _selectedBank;
+  PayoutGatewayRail _selectedRail = PayoutGatewayRail.capitecPay;
   late final TextEditingController _holderController;
   late final TextEditingController _accountController;
   late final TextEditingController _branchController;
@@ -36,10 +37,11 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
   void initState() {
     super.initState();
     _selectedBank = 'Capitec Bank';
+    _selectedRail = PayoutGatewayRail.capitecPay;
     _holderController = TextEditingController(text: 'Ndugelo Musician');
     _accountController = TextEditingController(text: '1092837465');
     _branchController = TextEditingController(
-      text: kSouthAfricanUniversalBranchCodes[_selectedBank] ?? '470010',
+      text: SaBankRegistry.universalBranchCodeFor(_selectedBank),
     );
 
     final currentEarned = ref.read(creatorWalletProvider).creatorEarnedZar;
@@ -60,8 +62,10 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
   void _onBankChanged(String newBank) {
     setState(() {
       _selectedBank = newBank;
-      _branchController.text =
-          kSouthAfricanUniversalBranchCodes[newBank] ?? '470010';
+      _branchController.text = SaBankRegistry.universalBranchCodeFor(newBank);
+      if (!SaBankRegistry.supportsRail(newBank, _selectedRail)) {
+        _selectedRail = PayoutGatewayRail.ozow;
+      }
     });
   }
 
@@ -98,7 +102,8 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
       accountHolder: _holderController.text.trim(),
       accountNumber: _accountController.text.trim(),
       branchCode: _branchController.text.trim(),
-      payoutMethod: 'Instant EFT ($_selectedBank)',
+      payoutMethod: '${_selectedRail.displayName} ($_selectedBank)',
+      paymentRail: _selectedRail,
     );
 
     final success = await ref
@@ -114,7 +119,7 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Payout of R${amount.toStringAsFixed(2)} to $_selectedBank initiated!',
+            'Payout of R${amount.toStringAsFixed(2)} to $_selectedBank via ${_selectedRail.shortLabel} initiated!',
           ),
           backgroundColor: AppColors.brandPrimary,
         ),
@@ -140,7 +145,7 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
           child: Form(
             key: _formKey,
             child: Column(
@@ -158,7 +163,7 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
                 // Header
                 Row(
@@ -198,15 +203,20 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
                 // Balance summary pill
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceSecondaryOf(context),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderSubtleOf(context)),
+                    border: Border.all(
+                      color: AppColors.borderSubtleOf(context),
+                    ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -227,7 +237,7 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
                 // Bank Selection
                 Text(
@@ -237,23 +247,30 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
                     color: AppColors.textPrimaryOf(context),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 DropdownButtonFormField<String>(
+                  key: const Key('payout_bank_dropdown'),
                   initialValue: _selectedBank,
                   decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     filled: true,
                     fillColor: AppColors.surfaceSecondaryOf(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppColors.borderSubtleOf(context)),
+                      borderSide: BorderSide(
+                        color: AppColors.borderSubtleOf(context),
+                      ),
                     ),
                   ),
-                  items: kSouthAfricanUniversalBranchCodes.keys.map((bank) {
+                  items: SaBankRegistry.banks.map((bank) {
                     return DropdownMenuItem<String>(
-                      value: bank,
+                      value: bank.canonicalName,
                       child: Text(
-                        bank,
+                        bank.canonicalName,
                         style: AppTypography.bodyMedium.copyWith(
                           color: AppColors.textPrimaryOf(context),
                         ),
@@ -264,7 +281,81 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
                     if (val != null) _onBankChanged(val);
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
+
+                // Settlement Rail Selector (Phase 59)
+                Text(
+                  'Settlement Rail (${_selectedRail.estimatedSettlement})',
+                  style: AppTypography.caption.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimaryOf(context),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: PayoutGatewayRail.values.map((rail) {
+                    final supported = SaBankRegistry.supportsRail(
+                      _selectedBank,
+                      rail,
+                    );
+                    final isSelected = _selectedRail == rail;
+                    return InkWell(
+                      key: Key('payout_rail_${rail.wireId}'),
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: supported
+                          ? () => setState(() => _selectedRail = rail)
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.brandPrimary
+                              : AppColors.surfaceSecondaryOf(context),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.brandPrimary
+                                : AppColors.borderSubtleOf(context),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            PhosphorIcon(
+                              rail.isInstant
+                                  ? PhosphorIconsRegular.lightning
+                                  : PhosphorIconsRegular.clock,
+                              size: 13,
+                              color: isSelected
+                                  ? AppColors.brandContrast
+                                  : (supported
+                                        ? AppColors.brandPrimary
+                                        : AppColors.textTertiary),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              rail.shortLabel,
+                              style: AppTypography.caption.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? AppColors.brandContrast
+                                    : (supported
+                                          ? AppColors.textPrimaryOf(context)
+                                          : AppColors.textTertiary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 8),
 
                 // Account Holder Input
                 Text(
@@ -274,19 +365,25 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
                     color: AppColors.textPrimaryOf(context),
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 TextFormField(
                   key: const Key('payout_account_holder_input'),
                   controller: _holderController,
                   style: TextStyle(color: AppColors.textPrimaryOf(context)),
                   decoration: InputDecoration(
+                    isDense: true,
                     hintText: 'e.g. Ndugelo Musician',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     filled: true,
                     fillColor: AppColors.surfaceSecondaryOf(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppColors.borderSubtleOf(context)),
+                      borderSide: BorderSide(
+                        color: AppColors.borderSubtleOf(context),
+                      ),
                     ),
                   ),
                   validator: (val) {
@@ -296,7 +393,7 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
                 // Account Number & Branch Code row
                 Row(
@@ -314,25 +411,33 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
                               color: AppColors.textPrimaryOf(context),
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           TextFormField(
                             key: const Key('payout_account_number_input'),
                             controller: _accountController,
                             keyboardType: TextInputType.number,
-                            style: TextStyle(color: AppColors.textPrimaryOf(context)),
+                            style: TextStyle(
+                              color: AppColors.textPrimaryOf(context),
+                            ),
                             decoration: InputDecoration(
-                              hintText: '9–11 Digits',
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              isDense: true,
+                              hintText: '9-11 Digits',
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
                               filled: true,
                               fillColor: AppColors.surfaceSecondaryOf(context),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: AppColors.borderSubtleOf(context)),
+                                borderSide: BorderSide(
+                                  color: AppColors.borderSubtleOf(context),
+                                ),
                               ),
                             ),
                             validator: (val) {
                               if (val == null || val.trim().length < 8) {
-                                return 'Enter 8–11 digits';
+                                return 'Enter 8-11 digits';
                               }
                               return null;
                             },
@@ -353,19 +458,29 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
                               color: AppColors.textPrimaryOf(context),
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           TextFormField(
                             key: const Key('payout_branch_code_input'),
                             controller: _branchController,
                             readOnly: true,
-                            style: TextStyle(color: AppColors.textSecondaryOf(context)),
+                            style: TextStyle(
+                              color: AppColors.textSecondaryOf(context),
+                            ),
                             decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
                               filled: true,
-                              fillColor: AppColors.surfaceSecondaryOf(context).withValues(alpha: 0.5),
+                              fillColor: AppColors.surfaceSecondaryOf(
+                                context,
+                              ).withValues(alpha: 0.5),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: AppColors.borderSubtleOf(context)),
+                                borderSide: BorderSide(
+                                  color: AppColors.borderSubtleOf(context),
+                                ),
                               ),
                             ),
                           ),
@@ -374,7 +489,7 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
                 // Withdrawal Amount
                 Text(
@@ -384,28 +499,37 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
                     color: AppColors.textPrimaryOf(context),
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 TextFormField(
+                  key: const Key('payout_amount_input'),
                   controller: _amountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   style: TextStyle(color: AppColors.textPrimaryOf(context)),
                   decoration: InputDecoration(
+                    isDense: true,
                     prefixText: 'R ',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     filled: true,
                     fillColor: AppColors.surfaceSecondaryOf(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppColors.borderSubtleOf(context)),
+                      borderSide: BorderSide(
+                        color: AppColors.borderSubtleOf(context),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
 
                 // Submit Confirm Button
                 SizedBox(
                   width: double.infinity,
-                  height: 48,
+                  height: 44,
                   child: ElevatedButton(
                     key: const Key('payout_confirm_btn'),
                     onPressed: _isSubmitting ? null : _handleConfirm,
@@ -443,4 +567,3 @@ class _PayoutDetailsSheetState extends ConsumerState<PayoutDetailsSheet> {
     );
   }
 }
-

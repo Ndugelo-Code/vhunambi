@@ -26,10 +26,7 @@ import '../providers/stem_remix_provider.dart';
 class OpenVerseRemixCockpitSheet extends ConsumerStatefulWidget {
   final PublishedClip clip;
 
-  const OpenVerseRemixCockpitSheet({
-    super.key,
-    required this.clip,
-  });
+  const OpenVerseRemixCockpitSheet({super.key, required this.clip});
 
   static Future<void> show(
     BuildContext context, {
@@ -67,20 +64,32 @@ class _OpenVerseRemixCockpitSheetState
   String _selectedGenreKit = 'Amapiano';
   double _euclideanDensity = 8.0;
 
+  StateController<int>? _modalSheetCounter;
+  bool _didIncrementModalCount = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ref.read(modalSheetOpenCountProvider.notifier).state++;
-      }
+      if (!mounted) return;
+      final counter = ref.read(modalSheetOpenCountProvider.notifier);
+      _modalSheetCounter = counter;
+      _didIncrementModalCount = true;
+      counter.state++;
     });
   }
 
   @override
   void dispose() {
-    ref.read(modalSheetOpenCountProvider.notifier).state =
-        (ref.read(modalSheetOpenCountProvider.notifier).state - 1).clamp(0, 99);
+    final counter = _modalSheetCounter;
+    if (_didIncrementModalCount && counter != null) {
+      _didIncrementModalCount = false;
+      Future<void>.microtask(() {
+        if (counter.mounted && counter.state > 0) {
+          counter.state = (counter.state - 1).clamp(0, 99);
+        }
+      });
+    }
     _countInTimer?.cancel();
     _recordTimer?.cancel();
     super.dispose();
@@ -150,14 +159,17 @@ class _OpenVerseRemixCockpitSheetState
 
     try {
       final bounceService = StemMixBounceService(writer: writeWavToFile);
-      final dummyVocal = Float32List(44100 * 3); // 3 seconds of synthesized take
+      final dummyVocal = Float32List(
+        44100 * 3,
+      ); // 3 seconds of synthesized take
       for (var i = 0; i < dummyVocal.length; i++) {
         dummyVocal[i] = 0.45;
       }
 
       await bounceService.bounceMixToFile(
         mixerState: ref.read(stemMixerProvider),
-        targetPath: '${Directory.systemTemp.path}/remix_open_verse_${DateTime.now().millisecondsSinceEpoch}.wav',
+        targetPath:
+            '${Directory.systemTemp.path}/remix_open_verse_${DateTime.now().millisecondsSinceEpoch}.wav',
         duration: const Duration(seconds: 4),
         vocalAudio: dummyVocal,
         synthesizeGrooveIfEmpty: true,
@@ -194,7 +206,8 @@ class _OpenVerseRemixCockpitSheetState
       final bounceService = StemMixBounceService(writer: writeWavToFile);
       await bounceService.bounceMixToFile(
         mixerState: ref.read(stemMixerProvider),
-        targetPath: '${Directory.systemTemp.path}/beat_flip_${DateTime.now().millisecondsSinceEpoch}.wav',
+        targetPath:
+            '${Directory.systemTemp.path}/beat_flip_${DateTime.now().millisecondsSinceEpoch}.wav',
         duration: const Duration(seconds: 4),
         synthesizeGrooveIfEmpty: true,
       );
@@ -224,10 +237,9 @@ class _OpenVerseRemixCockpitSheetState
 
   void _handoffToStudio() {
     HapticFeedback.mediumImpact();
-    ref.read(stemRemixProvider.notifier).initiateRemix(
-          widget.clip,
-          mode: RemixCreationMode.aiStudioRemix,
-        );
+    ref
+        .read(stemRemixProvider.notifier)
+        .initiateRemix(widget.clip, mode: RemixCreationMode.aiStudioRemix);
 
     // Navigate to Studio tab (index 2)
     ref.read(appNavigationTabProvider.notifier).state = 2;
@@ -237,7 +249,9 @@ class _OpenVerseRemixCockpitSheetState
   @override
   Widget build(BuildContext context) {
     final clip = widget.clip;
-    final musicalKey = clip.dna.musical.key.isNotEmpty ? clip.dna.musical.key : 'F#m';
+    final musicalKey = clip.dna.musical.key.isNotEmpty
+        ? clip.dna.musical.key
+        : 'F#m';
     final bpm = clip.dna.musical.bpm > 0 ? clip.dna.musical.bpm : 112;
 
     return Container(
@@ -316,7 +330,10 @@ class _OpenVerseRemixCockpitSheetState
               const SizedBox(width: AppSpacing.xs),
               Container(
                 key: const Key('co_creation_split_pill'),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.brandPrimary.withValues(alpha: 0.12),
                   borderRadius: AppRadius.pillBorder,
@@ -387,8 +404,13 @@ class _OpenVerseRemixCockpitSheetState
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: switch (_activeMode) {
-              RemixCreationMode.openVerseVocal => _buildOpenVerseMode(musicalKey),
-              RemixCreationMode.beatStemFlip => _buildBeatFlipMode(bpm, musicalKey),
+              RemixCreationMode.openVerseVocal => _buildOpenVerseMode(
+                musicalKey,
+              ),
+              RemixCreationMode.beatStemFlip => _buildBeatFlipMode(
+                bpm,
+                musicalKey,
+              ),
               RemixCreationMode.aiStudioRemix => _buildStudioHandoffMode(clip),
             },
           ),
@@ -497,7 +519,9 @@ class _OpenVerseRemixCockpitSheetState
                 width: 3.5,
                 height: h,
                 decoration: BoxDecoration(
-                  color: isPlayed ? AppColors.brandPrimary : AppColors.borderSubtle,
+                  color: isPlayed
+                      ? AppColors.brandPrimary
+                      : AppColors.borderSubtle,
                   borderRadius: BorderRadius.circular(2),
                 ),
               );
@@ -521,7 +545,9 @@ class _OpenVerseRemixCockpitSheetState
                 ),
                 Text(
                   '1-Bar Count-In... Get Ready!',
-                  style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -580,10 +606,16 @@ class _OpenVerseRemixCockpitSheetState
                     key: const Key('remix_record_verse_btn'),
                     onPressed: _startCountIn,
                     icon: PhosphorIcon(
-                      _hasRecordedVerse ? PhosphorIconsBold.arrowCounterClockwise : PhosphorIconsBold.microphone,
+                      _hasRecordedVerse
+                          ? PhosphorIconsBold.arrowCounterClockwise
+                          : PhosphorIconsBold.microphone,
                       size: 18,
                     ),
-                    label: Text(_hasRecordedVerse ? 'Re-record Take' : 'Drop Verse (Count-in)'),
+                    label: Text(
+                      _hasRecordedVerse
+                          ? 'Re-record Take'
+                          : 'Drop Verse (Count-in)',
+                    ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textPrimary,
                       side: BorderSide(color: AppColors.borderSubtle),
@@ -600,10 +632,14 @@ class _OpenVerseRemixCockpitSheetState
                     key: const Key('remix_audition_mix_btn'),
                     onPressed: _toggleAudition,
                     icon: PhosphorIcon(
-                      _isAuditioning ? PhosphorIconsBold.stop : PhosphorIconsBold.play,
+                      _isAuditioning
+                          ? PhosphorIconsBold.stop
+                          : PhosphorIconsBold.play,
                       size: 18,
                     ),
-                    label: Text(_isAuditioning ? 'Stop Audition' : 'Audition Mix'),
+                    label: Text(
+                      _isAuditioning ? 'Stop Audition' : 'Audition Mix',
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.surfaceSecondary,
                       foregroundColor: AppColors.textPrimary,
@@ -626,10 +662,20 @@ class _OpenVerseRemixCockpitSheetState
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
                       )
-                    : const PhosphorIcon(PhosphorIconsBold.paperPlaneTilt, size: 18),
-                label: Text(_isBouncing ? 'Bouncing 44.1 kHz PCM...' : 'Publish Open-Verse Reel'),
+                    : const PhosphorIcon(
+                        PhosphorIconsBold.paperPlaneTilt,
+                        size: 18,
+                      ),
+                label: Text(
+                  _isBouncing
+                      ? 'Bouncing 44.1 kHz PCM...'
+                      : 'Publish Open-Verse Reel',
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandPrimary,
                   foregroundColor: Colors.black,
@@ -644,7 +690,14 @@ class _OpenVerseRemixCockpitSheetState
   }
 
   Widget _buildBeatFlipMode(int bpm, String musicalKey) {
-    const genreKits = ['Amapiano', 'Gqom', 'Hip-Hop 808', 'Afrobeats', 'Deep House', 'Maskandi'];
+    const genreKits = [
+      'Amapiano',
+      'Gqom',
+      'Hip-Hop 808',
+      'Afrobeats',
+      'Deep House',
+      'Maskandi',
+    ];
 
     return Column(
       key: const ValueKey('mode_flip_body'),
@@ -652,7 +705,9 @@ class _OpenVerseRemixCockpitSheetState
       children: [
         Text(
           'Select Regional Beat Macro (Locked: $bpm BPM · $musicalKey):',
-          style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+          style: AppTypography.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
 
@@ -683,11 +738,17 @@ class _OpenVerseRemixCockpitSheetState
         // Euclidean Rhythm Slider
         Row(
           children: [
-            PhosphorIcon(PhosphorIconsRegular.waveform, size: 16, color: AppColors.textSecondary),
+            PhosphorIcon(
+              PhosphorIconsRegular.waveform,
+              size: 16,
+              color: AppColors.textSecondary,
+            ),
             const SizedBox(width: 8),
             Text(
               'Rhythm Density: ${_euclideanDensity.round()} steps',
-              style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.bold),
+              style: AppTypography.bodySmall.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -713,12 +774,17 @@ class _OpenVerseRemixCockpitSheetState
                     HapticFeedback.selectionClick();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Launched 5-channel sketchpad locked to $musicalKey!'),
+                        content: Text(
+                          'Launched 5-channel sketchpad locked to $musicalKey!',
+                        ),
                         backgroundColor: AppColors.brandPrimary,
                       ),
                     );
                   },
-                  icon: const PhosphorIcon(PhosphorIconsBold.pianoKeys, size: 18),
+                  icon: const PhosphorIcon(
+                    PhosphorIconsBold.pianoKeys,
+                    size: 18,
+                  ),
                   label: const Text('Open Sketchpad'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textPrimary,
@@ -735,7 +801,10 @@ class _OpenVerseRemixCockpitSheetState
                 child: ElevatedButton.icon(
                   key: const Key('remix_publish_beat_btn'),
                   onPressed: _isBouncing ? null : _bounceAndPublishBeatFlip,
-                  icon: const PhosphorIcon(PhosphorIconsBold.checkCircle, size: 18),
+                  icon: const PhosphorIcon(
+                    PhosphorIconsBold.checkCircle,
+                    size: 18,
+                  ),
                   label: const Text('Bounce & Publish'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.brandPrimary,
@@ -776,7 +845,9 @@ class _OpenVerseRemixCockpitSheetState
                   const SizedBox(width: 8),
                   Text(
                     'Full Studio Generative Handoff',
-                    style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold),
+                    style: AppTypography.titleSmall.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -812,4 +883,3 @@ class _OpenVerseRemixCockpitSheetState
     );
   }
 }
-

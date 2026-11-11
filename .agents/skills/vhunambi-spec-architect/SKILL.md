@@ -113,3 +113,11 @@ Before signing off on any specification suite, read and verify all 6 laws in [re
 5. **Law 5 — 100% HUD & Requirement Widget Parity**: Every HUD deck or control mentioned in `blueprint.md` or `requirements.md` MUST have a complete widget implementation in `design.md` and a task in `tasks.md`.
 6. **Law 6 — Zero Raw Emojis (`STD-UIUX-001`)**: Zero raw unicode emojis in Dart code blocks, widget trees, or formal tables.
 
+---
+
+## 5. Stage 4 Handoff to `vhunambi-executioner`
+
+Once the 4-document specification suite passes Stage 3 Forensic Hardening, Stage 4 code execution is governed by the companion skill:
+- **[`vhunambi-executioner`](../vhunambi-executioner/SKILL.md)** (`/vhunambi-executioner`) — Enforces the 8 Non-Negotiable Stage 4 Execution Laws (4-Doc Cross-Read, Additive Surgical Editing vs. Destructive Replacement, Zero Lazy/Summary Code, Authentic Tokens, Anti-Hang `--timeout=60s` Widget Testing, and Milestone-by-Milestone Micro-Gating).
+
+

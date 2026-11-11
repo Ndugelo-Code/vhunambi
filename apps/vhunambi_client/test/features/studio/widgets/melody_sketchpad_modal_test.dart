@@ -47,7 +47,10 @@ void main() {
         expect(find.byKey(const Key('mobile_scale_pad_0')), findsOneWidget);
 
         // Tap Euclidean Groove Generator
-        await tester.tap(find.byKey(const Key('sketchpad_euclidean_groove_btn')));
+        final euclideanBtn = find.byKey(const Key('sketchpad_euclidean_groove_btn'));
+        await tester.ensureVisible(euclideanBtn);
+        await tester.pumpAndSettle();
+        await tester.tap(euclideanBtn);
         await tester.pumpAndSettle();
 
         // Tap Attach as Song Reference & Master Layer

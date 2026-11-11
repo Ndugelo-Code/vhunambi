@@ -1,17 +1,22 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../collections/domain/models/collection_entity.dart';
-import '../../../collections/domain/services/royalty_distribution_service.dart';
-import '../../domain/models/creator_wallet.dart';
-import '../../domain/models/cultural_gift.dart';
-import '../../domain/repositories/i_social_repository.dart';
-import 'reels_comments_provider.dart';
-import 'social_repository_provider.dart';
-import '../../../notifications/presentation/providers/notifications_provider.dart';
-import '../../../notifications/domain/models/notification_entity.dart';
-import '../../../notifications/domain/models/notification_enums.dart';
+import 'dart:async';
 
-export '../../domain/models/creator_wallet.dart';
-export '../../domain/models/cultural_gift.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vhunambi_client/core/auth/auth_providers.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
+import 'package:vhunambi_client/features/collections/domain/models/collection_entity.dart';
+import 'package:vhunambi_client/features/collections/domain/services/royalty_distribution_service.dart';
+import 'package:vhunambi_client/features/notifications/domain/models/notification_entity.dart';
+import 'package:vhunambi_client/features/notifications/domain/models/notification_enums.dart';
+import 'package:vhunambi_client/features/notifications/presentation/providers/notifications_provider.dart';
+import 'package:vhunambi_client/features/social/domain/models/creator_wallet.dart';
+import 'package:vhunambi_client/features/social/domain/models/cultural_gift.dart';
+import 'package:vhunambi_client/features/social/domain/repositories/i_social_repository.dart';
+import 'package:vhunambi_client/features/social/presentation/providers/reels_comments_provider.dart';
+import 'package:vhunambi_client/features/social/presentation/providers/social_repository_provider.dart';
+
+export 'package:vhunambi_client/features/social/domain/models/creator_wallet.dart';
+export 'package:vhunambi_client/features/social/domain/models/cultural_gift.dart';
 
 /// Immutable state for creator cultural wallet & micro-gifting (REQ-WAL-01 … REQ-WAL-03).
 class CreatorWalletState {
@@ -21,9 +26,11 @@ class CreatorWalletState {
   final List<SupporterRank> topSupporters;
   final List<GiftTransaction> transactions;
   final String? payoutStatusMessage;
+  final PayoutReceipt? lastPayoutReceipt;
   final bool isLoading;
   final String? errorMessage;
   final CreatorWallet? wallet;
+  final CreatorBankingDetails? savedBankDetails;
 
   const CreatorWalletState({
     this.userCoinsBalance = 250,
@@ -32,9 +39,11 @@ class CreatorWalletState {
     this.topSupporters = const [],
     this.transactions = const [],
     this.payoutStatusMessage,
+    this.lastPayoutReceipt,
     this.isLoading = false,
     this.errorMessage,
     this.wallet,
+    this.savedBankDetails,
   });
 
   CreatorWalletState copyWith({
@@ -44,9 +53,11 @@ class CreatorWalletState {
     List<SupporterRank>? topSupporters,
     List<GiftTransaction>? transactions,
     String? payoutStatusMessage,
+    PayoutReceipt? lastPayoutReceipt,
     bool? isLoading,
     String? errorMessage,
     CreatorWallet? wallet,
+    CreatorBankingDetails? savedBankDetails,
   }) {
     return CreatorWalletState(
       userCoinsBalance: userCoinsBalance ?? this.userCoinsBalance,
@@ -55,9 +66,11 @@ class CreatorWalletState {
       topSupporters: topSupporters ?? this.topSupporters,
       transactions: transactions ?? this.transactions,
       payoutStatusMessage: payoutStatusMessage ?? this.payoutStatusMessage,
+      lastPayoutReceipt: lastPayoutReceipt ?? this.lastPayoutReceipt,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
       wallet: wallet ?? this.wallet,
+      savedBankDetails: savedBankDetails ?? this.savedBankDetails,
     );
   }
 }
@@ -71,9 +84,104 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
   CreatorWalletNotifier(
     this._ref, {
     this._repo,
-    this._creatorId = 'creator_makhadzi',
+    this._creatorId = 'creator_cern',
   }) : super(const CreatorWalletState()) {
     _seedInitial();
+    _hydrateFromVault();
+  }
+
+  String get activeCreatorId => _creatorId;
+
+  String get _activeSenderUsername {
+    try {
+      return _ref.read(authSessionProvider).rawUsername;
+    } catch (_) {
+      return 'cern';
+    }
+  }
+
+  void _hydrateFromVault() {
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.walletLedgerBoxKey,
+    )) {
+      return;
+    }
+
+    final snapshot = WalletLedgerRepository.loadWalletSnapshot();
+    if (snapshot != null) {
+      final rawTxs = snapshot['transactions'];
+      final hydratedTxs = <GiftTransaction>[];
+      if (rawTxs is List) {
+        for (final entry in rawTxs) {
+          if (entry is Map) {
+            try {
+              hydratedTxs.add(
+                GiftTransaction.fromJson(_deepNormalizeStringMap(entry)),
+              );
+            } catch (_) {}
+          }
+        }
+      }
+
+      state = state.copyWith(
+        userCoinsBalance:
+            (snapshot['userCoinsBalance'] as num?)?.toInt() ??
+            state.userCoinsBalance,
+        creatorEarnedZar:
+            (snapshot['creatorEarnedZar'] as num?)?.toDouble() ??
+            state.creatorEarnedZar,
+        creatorReceivedCoins:
+            (snapshot['creatorReceivedCoins'] as num?)?.toInt() ??
+            state.creatorReceivedCoins,
+        transactions: hydratedTxs.isNotEmpty ? hydratedTxs : state.transactions,
+      );
+    }
+
+    final bankMap = WalletLedgerRepository.loadBankDetails();
+    if (bankMap != null && bankMap.isNotEmpty) {
+      state = state.copyWith(
+        savedBankDetails: CreatorBankingDetails.fromJson(
+          Map<String, dynamic>.from(bankMap),
+        ),
+      );
+    }
+  }
+
+  static Map<String, dynamic> _deepNormalizeStringMap(
+    Map<dynamic, dynamic> raw,
+  ) {
+    final normalized = <String, dynamic>{};
+    for (final entry in raw.entries) {
+      final val = entry.value;
+      normalized[entry.key.toString()] = val is Map
+          ? _deepNormalizeStringMap(val)
+          : val;
+    }
+    return normalized;
+  }
+
+  void _persistWallet() {
+    unawaited(
+      WalletLedgerRepository.saveWalletSnapshot(
+        userCoinsBalance: state.userCoinsBalance,
+        creatorEarnedZar: state.creatorEarnedZar,
+        creatorReceivedCoins: state.creatorReceivedCoins,
+        transactions: state.transactions.map((tx) => tx.toJson()).toList(),
+      ),
+    );
+  }
+
+  /// Persists South African banking details into encrypted Sovereign Hive storage.
+  Future<void> savePayoutBankDetails(CreatorBankingDetails details) async {
+    state = state.copyWith(savedBankDetails: details);
+    await WalletLedgerRepository.saveBankDetails(
+      bankName: details.bankName,
+      accountHolder: details.accountHolder,
+      accountNumber: details.accountNumber,
+      branchCode: details.branchCode,
+      payoutMethod: details.payoutMethod,
+      paymentRail: details.paymentRail.wireId,
+    );
   }
 
   void _seedInitial() {
@@ -124,6 +232,7 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
       final remoteWallet = await _repo.getCreatorWallet(_creatorId);
       state = state.copyWith(
         wallet: remoteWallet,
+        userCoinsBalance: remoteWallet.balanceCoins ?? state.userCoinsBalance,
         creatorEarnedZar: remoteWallet.balanceZar,
         creatorReceivedCoins: remoteWallet.totalCoinsReceived,
         topSupporters: remoteWallet.topSupporters.isNotEmpty
@@ -133,13 +242,130 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
             ? remoteWallet.recentTransactions
             : state.transactions,
       );
+      _persistWallet();
     } catch (_) {}
+  }
+
+  /// Initiates a PayFast ZAR checkout session and optionally executes
+  /// sandbox ITN settlement to synchronize `userCoinsBalance` (`Phase 63`).
+  Future<PayFastStatusSnapshot?> purchaseCoinPackWithPayFast({
+    required String packId,
+    bool autoSettleSandbox = false,
+  }) async {
+    if (_repo == null) return null;
+    try {
+      final session = await _repo.initiatePayFastCheckout(
+        creatorId: _creatorId,
+        packId: packId,
+      );
+      if (autoSettleSandbox) {
+        final snapshot = await _repo.sandboxSettlePayFastCheckout(
+          session.checkoutId,
+        );
+        if (mounted && snapshot.walletBalanceCoins != null) {
+          state = state.copyWith(userCoinsBalance: snapshot.walletBalanceCoins);
+          _persistWallet();
+        }
+        return snapshot;
+      }
+      return PayFastStatusSnapshot(
+        checkoutId: session.checkoutId,
+        creatorId: session.creatorId,
+        status: session.status,
+        settled: false,
+        coinsCredited: 0,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Polls a pending PayFast checkout session and reconciles `userCoinsBalance`.
+  Future<PayFastStatusSnapshot?> syncPayFastCheckout(String checkoutId) async {
+    if (_repo == null) return null;
+    try {
+      final snapshot = await _repo.getPayFastCheckoutStatus(checkoutId);
+      if (mounted && snapshot.settled && snapshot.walletBalanceCoins != null) {
+        state = state.copyWith(userCoinsBalance: snapshot.walletBalanceCoins);
+        _persistWallet();
+      }
+      return snapshot;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Best-effort checkout record dispatch when UI applies instant optimistic top-up.
+  void dispatchPayFastCheckoutNotice(String packId) {
+    final repo = _repo;
+    if (repo == null) return;
+    unawaited(
+      repo
+          .initiatePayFastCheckout(creatorId: _creatorId, packId: packId)
+          .catchError(
+            (_) => const PayFastCheckoutSession(
+              checkoutId: '',
+              creatorId: 'creator_cern',
+              packId: '',
+              amountZar: 0,
+              coinsToCredit: 0,
+              paymentUrl: '',
+            ),
+          ),
+    );
   }
 
   /// Tops up the current user's coin balance.
   void topUpCoins(int amount) {
     if (amount <= 0) return;
     state = state.copyWith(userCoinsBalance: state.userCoinsBalance + amount);
+    _persistWallet();
+  }
+
+  /// Atomically debits [coins] from the current user's wallet for a Marketplace purchase.
+  /// Returns `false` cleanly without side effects if `userCoinsBalance < coins`.
+  bool debitForBeatPurchase({
+    required int coins,
+    required String beatTitle,
+    required String tierLabel,
+  }) {
+    if (coins <= 0 || state.userCoinsBalance < coins) {
+      return false;
+    }
+    final zarEquivalent = double.parse((coins * 0.30).toStringAsFixed(2));
+    final debitTx = GiftTransaction(
+      id: 'tx_debit_${DateTime.now().millisecondsSinceEpoch}',
+      clipId: 'marketplace_purchase',
+      senderUsername: _activeSenderUsername,
+      recipientCreatorId: 'vhunambi_marketplace',
+      gift: CulturalGift(
+        id: 'beat_license_debit',
+        name: '$tierLabel: $beatTitle',
+        emoji: '',
+        coinPrice: coins,
+        zarPrice: zarEquivalent,
+        culturalMeaning: 'Marketplace commercial license acquisition',
+      ),
+      message: 'Licensed "$beatTitle" ($tierLabel) for $coins Coins',
+      timestamp: DateTime.now(),
+    );
+
+    state = state.copyWith(
+      userCoinsBalance: state.userCoinsBalance - coins,
+      transactions: [debitTx, ...state.transactions],
+    );
+    _persistWallet();
+    return true;
+  }
+
+  /// Compensating refund executed when asset delivery fails mid-checkout.
+  void refundCoins({required int coins, required String reason}) {
+    if (coins <= 0) return;
+    state = state.copyWith(
+      userCoinsBalance: state.userCoinsBalance + coins,
+      payoutStatusMessage: 'Refunded $coins Coins: $reason',
+    );
+    _persistWallet();
   }
 
   /// Dispatches a track tip (credits/coins), splitting proceeds proportionally
@@ -196,7 +422,7 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
         GiftTransaction(
           id: 'tx_tip_${DateTime.now().millisecondsSinceEpoch}_${dist.participant.name}',
           clipId: trackId,
-          senderUsername: 'me',
+          senderUsername: _activeSenderUsername,
           recipientCreatorId: dist.participant.creatorId ?? creatorId,
           gift: CulturalGift(
             id: 'tip_${dist.participant.name}',
@@ -221,17 +447,20 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
       creatorReceivedCoins: state.creatorReceivedCoins + grossCoins,
       transactions: newTransactions,
     );
+    _persistWallet();
 
-    _ref.read(notificationsProvider.notifier).addNotification(
-      NotificationEntity(
-        id: 'notif_tip_${DateTime.now().millisecondsSinceEpoch}',
-        title: 'Tip Sent!',
-        message: 'Tipped $credits credits on "$trackTitle".',
-        category: NotificationCategory.social,
-        priority: NotificationPriority.normal,
-        createdAt: DateTime.now(),
-      ),
-    );
+    _ref
+        .read(notificationsProvider.notifier)
+        .addNotification(
+          NotificationEntity(
+            id: 'notif_tip_${DateTime.now().millisecondsSinceEpoch}',
+            title: 'Tip Sent!',
+            message: 'Tipped $credits credits on "$trackTitle".',
+            category: NotificationCategory.social,
+            priority: NotificationPriority.normal,
+            createdAt: DateTime.now(),
+          ),
+        );
     return true;
   }
 
@@ -278,6 +507,7 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
       creatorReceivedCoins: state.creatorReceivedCoins + grossCoins,
       transactions: newTransactions,
     );
+    _persistWallet();
 
     return result;
   }
@@ -311,6 +541,7 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
       creatorReceivedCoins: state.creatorReceivedCoins + gift.coinPrice,
       transactions: [tx, ...state.transactions],
     );
+    _persistWallet();
 
     // Auto-post cultural celebration comment into reel thread (REQ-GFT-03)
     final commentText = (message != null && message.trim().isNotEmpty)
@@ -339,7 +570,6 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
     return true;
   }
 
-
   /// Records direct 85% creator marketplace royalty earnings from beat / vocal / pack licenses (REQ-MARKET-03).
   void recordMarketplaceRoyalty({
     required String assetTitle,
@@ -361,7 +591,8 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
             emoji: '💎',
             coinPrice: amountCoins,
             zarPrice: netZar,
-            culturalMeaning: 'Fair creator split (85%) from marketplace licensing',
+            culturalMeaning:
+                'Fair creator split (85%) from marketplace licensing',
           ),
           message: 'Marketplace license sale for "$assetTitle"',
           timestamp: DateTime.now(),
@@ -369,6 +600,7 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
         ...state.transactions,
       ],
     );
+    _persistWallet();
   }
 
   /// Requests a payout / royalty cashout (REQ-WAL-02).
@@ -385,6 +617,7 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
       payoutStatusMessage:
           'Payout of R${amountZar.toStringAsFixed(2)} via $payoutMethod initiated!',
     );
+    _persistWallet();
 
     _repo?.requestPayout(
       creatorId: _creatorId,
@@ -396,7 +629,7 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
     return true;
   }
 
-  /// Requests a verified banking payout with full account and branch details (Phase 41 REQ-PAYOUT-DISPATCH-01).
+  /// Requests a verified banking payout with full account and branch details (Phase 41 + Phase 59 SA Gateway).
   Future<bool> requestBankingPayout({
     required double amountZar,
     required CreatorBankingDetails bankingDetails,
@@ -405,32 +638,66 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
       return false;
     }
 
-    final statusMsg =
-        'Payout of R${amountZar.toStringAsFixed(2)} to ${bankingDetails.bankName} (${bankingDetails.maskedAccount}) initiated!';
+    if (!SaBankRegistry.supportsRail(
+      bankingDetails.bankName,
+      bankingDetails.paymentRail,
+    )) {
+      state = state.copyWith(
+        errorMessage:
+            '${bankingDetails.paymentRail.displayName} is not supported for ${bankingDetails.bankName}.',
+      );
+      return false;
+    }
 
-    state = state.copyWith(
-      creatorEarnedZar: state.creatorEarnedZar - amountZar,
-      payoutStatusMessage: statusMsg,
-    );
-
-    _repo?.requestPayout(
+    final receipt = await _repo?.requestPayout(
       creatorId: _creatorId,
       amountZar: amountZar,
       payoutMethod: bankingDetails.payoutMethod,
       accountDetails:
           '${bankingDetails.bankName} - ${bankingDetails.accountNumber} (${bankingDetails.accountHolder}) [Branch: ${bankingDetails.branchCode}]',
+      bankName: bankingDetails.bankName,
+      accountHolder: bankingDetails.accountHolder,
+      accountNumber: bankingDetails.accountNumber,
+      branchCode: bankingDetails.branchCode,
+      paymentRail: bankingDetails.paymentRail,
     );
 
-    _ref.read(notificationsProvider.notifier).addNotification(
-      NotificationEntity(
-        id: 'notif_payout_${DateTime.now().millisecondsSinceEpoch}',
-        title: 'Royalty Payout Initiated',
-        message: statusMsg,
-        category: NotificationCategory.system,
-        priority: NotificationPriority.high,
-        createdAt: DateTime.now(),
-      ),
+    if (receipt != null && !receipt.success) {
+      state = state.copyWith(
+        errorMessage: receipt.error ?? 'Royalty payout rejected by gateway.',
+        lastPayoutReceipt: receipt,
+      );
+      return false;
+    }
+
+    final resolvedBalance = (receipt != null && receipt.gatewayRef != null)
+        ? receipt.remainingBalanceZar
+        : state.creatorEarnedZar - amountZar;
+    final railLabel = bankingDetails.paymentRail.shortLabel;
+    final statusMsg =
+        'Payout of R${amountZar.toStringAsFixed(2)} to ${bankingDetails.bankName} (${bankingDetails.maskedAccount}) via $railLabel initiated!';
+
+    state = state.copyWith(
+      creatorEarnedZar: resolvedBalance,
+      payoutStatusMessage: statusMsg,
+      lastPayoutReceipt: receipt,
+      savedBankDetails: bankingDetails,
     );
+    await savePayoutBankDetails(bankingDetails);
+    _persistWallet();
+
+    _ref
+        .read(notificationsProvider.notifier)
+        .addNotification(
+          NotificationEntity(
+            id: 'notif_payout_${DateTime.now().millisecondsSinceEpoch}',
+            title: 'Royalty Payout Initiated',
+            message: statusMsg,
+            category: NotificationCategory.system,
+            priority: NotificationPriority.high,
+            createdAt: DateTime.now(),
+          ),
+        );
 
     return true;
   }
@@ -439,5 +706,6 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
 final creatorWalletProvider =
     StateNotifierProvider<CreatorWalletNotifier, CreatorWalletState>((ref) {
       final repo = ref.watch(socialRepositoryProvider);
-      return CreatorWalletNotifier(ref, repo: repo);
+      final creatorId = ref.watch(currentCreatorIdProvider);
+      return CreatorWalletNotifier(ref, repo: repo, creatorId: creatorId);
     });

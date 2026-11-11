@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/navigation/app_navigator.dart';
 import 'core/navigation/navigation_providers.dart';
+import 'core/storage/sovereign_hive_bootstrap_service.dart';
+import 'core/sync/edge_sync_coordinator.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
@@ -31,6 +33,9 @@ import 'features/studio/presentation/views/studio_view.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Bootstrap the 26-Box Sovereign Hive Brain before initializing any Riverpod providers.
+  await SovereignHiveBootstrapService.ensureInitialized();
+
   // Initialize SharedPreferences for design system state persistence.
   final prefs = await SharedPreferences.getInstance();
 
@@ -47,13 +52,36 @@ Future<void> main() async {
   );
 }
 
-class VhunambiApp extends ConsumerWidget {
+class VhunambiApp extends ConsumerStatefulWidget {
   final Widget? initialHome;
 
   const VhunambiApp({super.key, this.initialHome});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VhunambiApp> createState() => _VhunambiAppState();
+}
+
+class _VhunambiAppState extends ConsumerState<VhunambiApp> {
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () {
+        ref.read(edgeSyncCoordinatorProvider.notifier).onAppResumed();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
@@ -78,7 +106,7 @@ class VhunambiApp extends ConsumerWidget {
           child: Stack(children: [?child, const MiniPlayerHost()]),
         );
       },
-      home: initialHome ?? const SplashView(),
+      home: widget.initialHome ?? const SplashView(),
     );
   }
 }

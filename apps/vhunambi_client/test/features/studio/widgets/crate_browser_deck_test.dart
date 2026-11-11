@@ -22,7 +22,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Heritage Crate Digging 💿'), findsOneWidget);
+    expect(find.text('Heritage Crate Digging'), findsOneWidget);
     expect(find.byKey(const Key('crate_search_field')), findsOneWidget);
     for (final cat in HeritageCrateCategory.values) {
       expect(find.byKey(ValueKey('crate_cat_${cat.name}')), findsOneWidget);

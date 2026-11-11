@@ -105,12 +105,18 @@ export interface CulturalGiftDto {
   culturalMeaning: string;
 }
 
-/** Micro-tipping transaction DTO (mirrors `GiftTransaction.dart`). */
+/** Micro-tipping transaction DTO (mirrors `GiftTransaction.dart` + Phase 62 wallet ledger). */
 export interface GiftTransactionDto {
   id: string;
   clipId: string;
+  senderId?: string;
   senderUsername: string;
+  recipientId?: string;
   recipientCreatorId: string;
+  amountCoins?: number;
+  amountZar?: number;
+  splitPercentage?: number;
+  type?: 'direct_tip' | 'remix_royalty' | 'beat_royalty' | 'payout' | 'topup';
   gift: CulturalGiftDto;
   message?: string;
   timestamp: string;
@@ -118,7 +124,9 @@ export interface GiftTransactionDto {
 
 /** Request body for sending a cultural gift (`POST /api/social/clips/:id/tip`). */
 export interface TipRequest {
-  giftId: string;
+  giftId?: string;
+  senderId?: string;
+  amountCoins?: number;
   coins?: number;
   senderUsername?: string;
   message?: string;
@@ -138,9 +146,12 @@ export interface SupporterRankDto {
 export interface CreatorWalletDto {
   creatorId: string;
   balanceZar: number;
+  balanceCoins?: number;
+  pendingRoyaltiesZar?: number;
   totalCoinsReceived: number;
   topSupporters: SupporterRankDto[];
   recentTransactions: GiftTransactionDto[];
+  transactions?: GiftTransactionDto[];
 }
 
 /** Request body for creator payout (`POST /api/creators/:id/wallet/payout`). */

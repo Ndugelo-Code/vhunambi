@@ -10,6 +10,17 @@ export const SketchpadInstrumentSchema = z.enum([
   'maskandi_guitar',
   'venda_mbira',
   'marimba_wood',
+  'concert_grand_piano',
+  'classic_piano',
+  'nylon_guitar',
+  'electric_guitar',
+  'bamboo_flute',
+  'soprano_sax',
+  'solo_violin',
+  'hiphop_808_sub',
+  'gqom_dark_sub',
+  'neo_soul_pad',
+  'mbaqanga_organ',
 ]);
 export type SketchpadInstrument = z.infer<typeof SketchpadInstrumentSchema>;
 

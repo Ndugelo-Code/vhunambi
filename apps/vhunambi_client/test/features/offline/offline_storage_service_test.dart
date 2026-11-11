@@ -176,13 +176,18 @@ void main() {
       expect(second.existsSync(), isFalse);
     });
 
-    test('isTrackCachedLocally resolves from vault metadata presence', () async {
+    test('isTrackCachedLocally requires both vault metadata and file on disk',
+        () async {
       expect(await _service.isTrackCachedLocally('lib_off_040'), isFalse);
 
-      // A record whose destination has not been materialised on disk is still
-      // reported as cached: the metadata row is the source of truth while the
-      // service runs on its in-memory / headless fallback store.
+      // Metadata alone without a materialized .vmf/audio file must report false
+      // per Phase 08 physical cache verification (SovereignOfflineStorageService).
       await _persist(_service, id: 'lib_off_040');
+      expect(await _service.isTrackCachedLocally('lib_off_040'), isFalse);
+
+      final cachedFile = File('${_vaultDir.path}/lib_off_040.mp3')
+        ..writeAsBytesSync(List<int>.filled(512, 0x2A));
+      expect(cachedFile.existsSync(), isTrue);
       expect(await _service.isTrackCachedLocally('lib_off_040'), isTrue);
     });
 

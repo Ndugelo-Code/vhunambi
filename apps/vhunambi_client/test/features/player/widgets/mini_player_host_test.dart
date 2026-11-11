@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
+import 'package:vhunambi_client/features/onboarding/domain/models/onboarding_models.dart';
+import 'package:vhunambi_client/features/onboarding/presentation/providers/onboarding_providers.dart';
+import 'package:vhunambi_client/features/onboarding/presentation/views/splash_view.dart';
 import 'package:vhunambi_client/features/player/data/services/vhunambi_audio_handler.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/audio_bridge_providers.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/mini_player_controller.dart';
@@ -11,6 +14,12 @@ import 'package:vhunambi_client/features/player/presentation/widgets/mini_player
 import 'package:vhunambi_client/features/player/presentation/widgets/mobile_mini_player.dart';
 import 'package:vhunambi_client/features/player/presentation/widgets/pill_form.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
+
+class _CompletedOnboardingNotifier extends OnboardingNotifier {
+  _CompletedOnboardingNotifier() {
+    state = const OnboardingState(hasCompletedOnboarding: true);
+  }
+}
 
 void main() {
   setUp(() async {
@@ -32,6 +41,10 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         audioHandlerProvider.overrideWithValue(handler),
+        isSplashActiveProvider.overrideWith((ref) => false),
+        onboardingStateProvider.overrideWith(
+          (ref) => _CompletedOnboardingNotifier(),
+        ),
       ],
     );
 
@@ -75,6 +88,10 @@ void main() {
       overrides: [
         audioHandlerProvider.overrideWithValue(handler),
         miniPlayerControllerProvider.overrideWith((ref) => controller),
+        isSplashActiveProvider.overrideWith((ref) => false),
+        onboardingStateProvider.overrideWith(
+          (ref) => _CompletedOnboardingNotifier(),
+        ),
       ],
     );
 
@@ -124,6 +141,10 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         audioHandlerProvider.overrideWithValue(handler),
+        isSplashActiveProvider.overrideWith((ref) => false),
+        onboardingStateProvider.overrideWith(
+          (ref) => _CompletedOnboardingNotifier(),
+        ),
       ],
     );
 

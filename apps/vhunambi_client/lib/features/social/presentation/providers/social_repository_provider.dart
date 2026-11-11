@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vhunambi_client/core/auth/auth_providers.dart';
 import '../../data/repositories/http_social_repository.dart';
 import '../../domain/repositories/i_social_repository.dart';
 
 /// Provides the active [ISocialRepository] instance (production HTTP with offline fallback).
 final socialRepositoryProvider = Provider<ISocialRepository>((ref) {
-  return HttpSocialRepository();
+  return HttpSocialRepository(
+    authInterceptor: ref.watch(authDioInterceptorProvider),
+  );
 });
 

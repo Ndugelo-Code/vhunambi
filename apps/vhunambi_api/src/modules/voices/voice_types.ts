@@ -56,6 +56,7 @@ export const PhoneticCalibrationScriptSchema = z.object({
 export type PhoneticCalibrationScript = z.infer<typeof PhoneticCalibrationScriptSchema>;
 
 export const CreateVoiceCloneRequestSchema = z.object({
+  creatorId: z.string().optional(),
   creatorName: z.string().min(1).default('Sovereign Creator'),
   nativeLanguage: z.string().default('Tshivenḓa'),
   calibrationLines: z.array(z.string()).min(1).max(5),
@@ -67,6 +68,7 @@ export type CreateVoiceCloneRequest = z.infer<typeof CreateVoiceCloneRequestSche
 
 export const CreatorVoiceCloneProfileSchema = z.object({
   id: z.string(),
+  creatorId: z.string().optional(),
   creatorName: z.string(),
   nativeLanguage: z.string(),
   timbreEmbeddingPreview: z.array(z.number()).length(8),
@@ -93,6 +95,7 @@ export type SoundIdealizerRecipe = z.infer<typeof SoundIdealizerRecipeSchema>;
 
 export const RegisterSoundSignatureSchema = z.object({
   id: z.string().min(1),
+  creatorId: z.string().optional(),
   displayCode: z.string().min(1),
   source: z.enum(['live', 'imported']),
   durationSec: z.number().min(1).max(180),
@@ -100,6 +103,7 @@ export const RegisterSoundSignatureSchema = z.object({
   descriptor16: z.array(z.number()).length(16),
   formants4: z.array(z.number()).length(4),
   consentAtIso: z.string().optional(),
+  consentConfirmed: z.boolean().optional(),
 });
 export type RegisterSoundSignatureRequest = z.infer<typeof RegisterSoundSignatureSchema>;
 

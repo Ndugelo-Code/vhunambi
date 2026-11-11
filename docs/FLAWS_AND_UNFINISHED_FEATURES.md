@@ -33,6 +33,7 @@
 8. [Category G: Backend API Route Gaps (`apps/vhunambi_api`)](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md#8-category-g-backend-api-route-gaps-appsvhunambi_api)
 9. [Prioritized Remediation Roadmap (Sprints M4–M8)](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md#9-prioritized-remediation-roadmap)
 10. [User Device Testing Notes & Field Findings (Reserved Section)](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md#10-user-device-testing-notes--field-findings)
+11. [Post-Phase-63 Live Cloud Deployment & Physical Device Gap Audit (`2026-11-12`)](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md#11-post-phase-63-live-cloud-deployment--physical-device-gap-audit-2026-11-12)
 
 ---
 

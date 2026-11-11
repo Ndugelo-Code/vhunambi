@@ -1,4 +1,11 @@
 import { Hono } from 'hono';
+import { vhunambiDb } from '../db/vhunambi_db.js';
+import {
+  assertTenantCreatorAccess,
+  isStrictAuthEnforced,
+  resolveEffectiveCreatorId,
+  sovereignAuthMiddleware,
+} from '../middleware/auth_middleware.js';
 import {
   deleteMarketplaceBeat,
   getBeatById,
@@ -15,6 +22,8 @@ import {
 } from '../modules/marketplace/marketplace_types.js';
 
 export const marketplaceRoutes = new Hono();
+
+marketplaceRoutes.use('*', sovereignAuthMiddleware);
 
 /**
  * GET /api/marketplace/beats
@@ -57,7 +66,19 @@ marketplaceRoutes.post('/beats', async (c) => {
     if (!body.title || !body.genre || !body.bpm || !body.previewAudioUrl) {
       return c.json({ error: 'Missing required beat listing fields' }, 400);
     }
-    const listing = upsertMarketplaceBeat(body);
+    const forbidden = assertTenantCreatorAccess(c, body.producerId);
+    if (forbidden) return forbidden;
+
+    const effectiveProducerId = resolveEffectiveCreatorId(
+      c,
+      body.producerId,
+      'creator_cern',
+    );
+    const listing = upsertMarketplaceBeat({
+      ...body,
+      producerId: effectiveProducerId,
+      producerHandle: body.producerHandle || c.get('authUser')?.handle || '@user_beats',
+    });
     return c.json(listing, 201);
   } catch (e: unknown) {
     return c.json({ error: 'Invalid JSON payload' }, 400);
@@ -69,34 +90,96 @@ marketplaceRoutes.post('/beats', async (c) => {
  * Unpublishes / removes a beat from the public marketplace.
  */
 marketplaceRoutes.delete('/beats/:id', (c) => {
-  const deleted = deleteMarketplaceBeat(c.req.param('id'));
+  const beatId = c.req.param('id');
+  const existing = getBeatById(beatId);
+  if (!existing) {
+    return c.json({ error: 'Beat not found' }, 404);
+  }
+  const authUser = c.get('authUser');
+  if (authUser && authUser.role !== 'admin') {
+    const forbidden = assertTenantCreatorAccess(c, existing.producerId);
+    if (forbidden) return forbidden;
+  }
+  if (existing.isExclusiveSold) {
+    return c.json(
+      {
+        error: 'EXCLUSIVE_SOLD_LOCKED',
+        code: 'EXCLUSIVE_SOLD_LOCKED',
+        message: 'Cannot delete a beat after an exclusive buyout license has been issued.',
+      },
+      409,
+    );
+  }
+  const deleted = deleteMarketplaceBeat(beatId);
   if (!deleted) {
     return c.json({ error: 'Beat not found' }, 404);
   }
-  return c.json({ success: true, message: 'Beat unpublished from marketplace' });
+  return c.json({ success: true, deleted: true, beatId, message: 'Beat unpublished from marketplace' });
 });
 
 /**
  * POST /api/marketplace/beats/:id/license
  * Atomic license purchase: generates cryptographic certificate & credits seller wallet.
+ * Phase 61: Strictly enforces buyer tenant ownership and wallet balance for authenticated / strict requests.
  */
 marketplaceRoutes.post('/beats/:id/license', async (c) => {
   try {
     const beatId = c.req.param('id');
     const body = await c.req.json<LicenseBeatRequest>();
-    if (!body.buyerId || !body.tier) {
+    const forbidden = assertTenantCreatorAccess(c, body.buyerId);
+    if (forbidden) return forbidden;
+
+    const effectiveBuyerId = resolveEffectiveCreatorId(
+      c,
+      body.buyerId,
+      '',
+    );
+    if (!effectiveBuyerId || !body.tier) {
       return c.json({ error: 'buyerId and tier are required' }, 400);
     }
 
-    const result = licenseBeat(beatId, body);
-    if (!result) {
-      return c.json({ error: 'Beat not found or licensing failed' }, 404);
+    const mustEnforceWallet =
+      Boolean(c.get('authUser')) ||
+      isStrictAuthEnforced(c) ||
+      body.enforceWalletBalance === true;
+
+    const result = licenseBeat(beatId, {
+      ...body,
+      buyerId: effectiveBuyerId,
+      buyerHandle: body.buyerHandle || c.get('authUser')?.handle || '@creator',
+      enforceWalletBalance: mustEnforceWallet ? true : body.enforceWalletBalance,
+    });
+    if (!result.ok) {
+      if (result.errorCode === 'EXCLUSIVE_CONFLICT') {
+        return c.json({ error: result.error, code: result.errorCode }, 409);
+      }
+      if (result.errorCode === 'INSUFFICIENT_FUNDS') {
+        return c.json({ error: result.error, code: result.errorCode }, 402);
+      }
+      return c.json({ error: result.error, code: result.errorCode }, 404);
     }
 
-    return c.json(result, 201);
+    return c.json({ certificate: result.certificate, beat: result.beat }, 201);
   } catch (e: unknown) {
     return c.json({ error: 'Invalid licensing request' }, 400);
   }
+});
+
+/**
+ * GET /api/marketplace/licenses/verify/:certificateId
+ * Verifies cryptographic SHA-256 certificate digest integrity against SQLite registry.
+ */
+marketplaceRoutes.get('/licenses/verify/:certificateId', (c) => {
+  const verification = vhunambiDb.verifyBeatLicense(
+    c.req.param('certificateId'),
+  );
+  if (!verification.found) {
+    return c.json(
+      { found: false, valid: false, error: 'Certificate not found' },
+      404,
+    );
+  }
+  return c.json(verification);
 });
 
 /**
@@ -105,6 +188,9 @@ marketplaceRoutes.post('/beats/:id/license', async (c) => {
  */
 marketplaceRoutes.get('/licenses/:buyerId', (c) => {
   const buyerId = c.req.param('buyerId');
+  const forbidden = assertTenantCreatorAccess(c, buyerId);
+  if (forbidden) return forbidden;
+
   const certificates = getLicensesByBuyer(buyerId);
   return c.json({ buyerId, certificates });
 });

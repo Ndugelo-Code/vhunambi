@@ -28,10 +28,14 @@ class NotificationsView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rawNotifications = ref.watch(notificationsProvider);
-    if (rawNotifications.isEmpty) {
+    final notifier = ref.read(notificationsProvider.notifier);
+    if (rawNotifications.isEmpty && notifier.shouldAutoSeedDemoAlerts) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (ref.read(notificationsProvider).isEmpty) {
-          ref.read(notificationsProvider.notifier).seedDemoAlerts();
+        if (!context.mounted) return;
+        final currentNotifier = ref.read(notificationsProvider.notifier);
+        if (ref.read(notificationsProvider).isEmpty &&
+            currentNotifier.shouldAutoSeedDemoAlerts) {
+          currentNotifier.seedDemoAlerts();
         }
       });
     }

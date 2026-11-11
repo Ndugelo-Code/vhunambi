@@ -160,9 +160,10 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
                         child: _buildTopUpPack(
                           context,
                           ref,
-                          keyName: 'coin_topup_pack_100',
-                          coins: 100,
-                          priceZar: 45,
+                          keyName: 'coin_topup_pack_500',
+                          packId: 'pack_starter_500',
+                          coins: 500,
+                          priceZar: 55,
                           badge: null,
                         ),
                       ),
@@ -171,9 +172,10 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
                         child: _buildTopUpPack(
                           context,
                           ref,
-                          keyName: 'coin_topup_pack_300',
-                          coins: 300,
-                          priceZar: 120,
+                          keyName: 'coin_topup_pack_1500',
+                          packId: 'pack_producer_1500',
+                          coins: 1500,
+                          priceZar: 150,
                           badge: '+15%',
                         ),
                       ),
@@ -182,9 +184,10 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
                         child: _buildTopUpPack(
                           context,
                           ref,
-                          keyName: 'coin_topup_pack_1000',
-                          coins: 1000,
-                          priceZar: 350,
+                          keyName: 'coin_topup_pack_5000',
+                          packId: 'pack_mogul_5000',
+                          coins: 5000,
+                          priceZar: 450,
                           badge: 'POPULAR',
                         ),
                       ),
@@ -244,6 +247,7 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref, {
     required String keyName,
+    required String packId,
     required int coins,
     required int priceZar,
     String? badge,
@@ -251,12 +255,14 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
     return InkWell(
       key: Key(keyName),
       onTap: () {
-        ref.read(creatorWalletProvider.notifier).topUpCoins(coins);
+        final walletNotifier = ref.read(creatorWalletProvider.notifier);
+        walletNotifier.topUpCoins(coins);
+        walletNotifier.dispatchPayFastCheckoutNotice(packId);
         ref.read(notificationsProvider.notifier).addNotification(
           NotificationEntity(
             id: 'notif_topup_${DateTime.now().millisecondsSinceEpoch}',
             title: 'Coins Credited!',
-            message: 'Successfully topped up $coins Coins via Ozow / Capitec Pay (R$priceZar).',
+            message: 'Successfully topped up $coins Coins via PayFast ZAR / Instant EFT (R$priceZar).',
             category: NotificationCategory.system,
             priority: NotificationPriority.high,
             createdAt: DateTime.now(),
@@ -300,13 +306,25 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
                   ),
                 ),
               ),
-            Text(
-              '$coins 🪙',
-              style: AppTypography.caption.copyWith(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                color: AppColors.textPrimaryOf(context),
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const PhosphorIcon(
+                  PhosphorIconsBold.coins,
+                  size: 13,
+                  color: AppColors.brandPrimary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '$coins',
+                  style: AppTypography.caption.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: AppColors.textPrimaryOf(context),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 2),
             Text(

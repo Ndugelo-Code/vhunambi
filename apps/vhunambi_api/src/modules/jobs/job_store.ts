@@ -1,41 +1,58 @@
 import { GenerationJob, JobStatus, PipelineStep } from './job_types.js';
 import { MasterMediaObjectManifest } from '../dna/dna_types.js';
+import { vhunambiDb } from '../../db/vhunambi_db.js';
 
-const jobs = new Map<string, GenerationJob>();
-
-export function createJob(params: {
-  generationId: string;
-  trackTitle: string;
-  genre: string;
-  language: string;
-  providerTaskId?: string;
-}): GenerationJob {
+export function createJob(
+  params: {
+    generationId: string;
+    trackTitle: string;
+    genre: string;
+    language: string;
+    providerTaskId?: string;
+    creatorId?: string;
+    status?: JobStatus;
+    step?: PipelineStep;
+    progressPct?: number;
+  } & Partial<GenerationJob>,
+  creatorIdOverride?: string,
+): GenerationJob {
+  const now = new Date();
   const job: GenerationJob = {
+    ...params,
     generationId: params.generationId,
     trackTitle: params.trackTitle,
     genre: params.genre,
     language: params.language,
     providerTaskId: params.providerTaskId,
-    status: 'queued',
-    step: 'queued',
-    progressPct: 10,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    status: params.status ?? 'queued',
+    step: params.step ?? 'queued',
+    progressPct: params.progressPct ?? 10,
+    createdAt: params.createdAt ?? now,
+    updatedAt: params.updatedAt ?? now,
   };
 
-  jobs.set(params.generationId, job);
+  const resolvedCreator = creatorIdOverride ?? params.creatorId ?? 'creator_cern';
+  vhunambiDb.upsertGenerationJob(job, resolvedCreator);
   return job;
 }
 
 export function setJobProviderTaskId(generationId: string, providerTaskId: string): void {
-  const job = jobs.get(generationId);
-  if (!job) return;
-  job.providerTaskId = providerTaskId;
-  job.updatedAt = new Date();
+  vhunambiDb.updateGenerationJob(generationId, { providerTaskId });
 }
 
 export function getJob(generationId: string): GenerationJob | undefined {
-  return jobs.get(generationId);
+  return vhunambiDb.getGenerationJob(generationId) ?? undefined;
+}
+
+export function updateJobStatus(
+  generationId: string,
+  updates: Partial<GenerationJob>,
+): GenerationJob | undefined {
+  return vhunambiDb.updateGenerationJob(generationId, updates) ?? undefined;
+}
+
+export function listJobs(creatorId?: string): GenerationJob[] {
+  return vhunambiDb.listGenerationJobs(creatorId);
 }
 
 /**
@@ -43,11 +60,7 @@ export function getJob(generationId: string): GenerationJob | undefined {
  * check's `activeJobs` metric (Mission 4).
  */
 export function countActiveJobs(): number {
-  let active = 0;
-  for (const job of jobs.values()) {
-    if (job.status === 'queued' || job.status === 'running') active++;
-  }
-  return active;
+  return vhunambiDb.countActiveGenerationJobs();
 }
 
 export function updateJobProgress(
@@ -58,13 +71,7 @@ export function updateJobProgress(
     progressPct: number;
   },
 ): void {
-  const job = jobs.get(generationId);
-  if (!job) return;
-
-  job.status = updates.status;
-  job.step = updates.step;
-  job.progressPct = updates.progressPct;
-  job.updatedAt = new Date();
+  vhunambiDb.updateGenerationJob(generationId, updates);
 }
 
 export function completeJob(
@@ -78,27 +85,23 @@ export function completeJob(
     manifest?: MasterMediaObjectManifest;
   },
 ): void {
-  const job = jobs.get(generationId);
-  if (!job) return;
-
-  job.status = 'succeeded';
-  job.step = 'ready';
-  job.progressPct = 100;
-  job.masterMp3Url = result.masterMp3Url;
-  job.stemsZipUrl = result.stemsZipUrl;
-  job.stemUrls = result.stemUrls;
-  job.manifestUrl = result.manifestUrl;
-  job.manifest = result.manifest;
-  job.durationSec = result.durationSec || 180;
-  job.updatedAt = new Date();
+  vhunambiDb.updateGenerationJob(generationId, {
+    status: 'succeeded',
+    step: 'ready',
+    progressPct: 100,
+    masterMp3Url: result.masterMp3Url,
+    stemsZipUrl: result.stemsZipUrl,
+    stemUrls: result.stemUrls,
+    manifestUrl: result.manifestUrl,
+    manifest: result.manifest,
+    durationSec: result.durationSec || 180,
+  });
 }
 
 export function failJob(generationId: string, errorMessage: string): void {
-  const job = jobs.get(generationId);
-  if (!job) return;
-
-  job.status = 'failed';
-  job.step = 'failed';
-  job.errorMessage = errorMessage;
-  job.updatedAt = new Date();
+  vhunambiDb.updateGenerationJob(generationId, {
+    status: 'failed',
+    step: 'failed',
+    errorMessage,
+  });
 }

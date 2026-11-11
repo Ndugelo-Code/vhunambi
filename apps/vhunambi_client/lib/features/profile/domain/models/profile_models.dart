@@ -290,8 +290,10 @@ class ArtistProfileEntity {
       tipHistory.where((tip) => !tip.isReceived).toList();
 
   ArtistProfileEntity copyWith({
+    String? id,
     String? username,
     String? displayName,
+    String? monogram,
     String? bio,
     String? avatarUrl,
     bool clearAvatar = false,
@@ -316,14 +318,15 @@ class ArtistProfileEntity {
     bool clearPinnedTrack = false,
   }) {
     return ArtistProfileEntity(
-      id: id,
+      id: id ?? this.id,
       username: username ?? this.username,
       displayName: displayName ?? this.displayName,
-      monogram: displayName != null && displayName.isNotEmpty
-          ? (displayName.length >= 2
-                ? displayName.substring(0, 2).toUpperCase()
-                : displayName.toUpperCase())
-          : monogram,
+      monogram: monogram ??
+          (displayName != null && displayName.isNotEmpty
+              ? (displayName.length >= 2
+                    ? displayName.substring(0, 2).toUpperCase()
+                    : displayName.toUpperCase())
+              : this.monogram),
       avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
       bio: bio ?? this.bio,
       isVerified: isVerified,

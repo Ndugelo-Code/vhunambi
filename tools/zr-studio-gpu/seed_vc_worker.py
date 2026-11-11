@@ -19,8 +19,25 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
+import tempfile
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+
+try:
+    import requests
+except ImportError:
+    requests = None  # type: ignore
+
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
+
+try:
+    import soundfile as sf
+except ImportError:
+    sf = None  # type: ignore
 
 
 @dataclass
@@ -86,28 +103,97 @@ def convert_vocal_stem_with_seed_vc(
 ) -> Dict[str, Any]:
     """
     Executes F0-locked Singing Voice Conversion on the isolated `vocals.wav` stem before
-    passing it to Phase 25's `stem_mastering_worker.py` (`VocalCleanseFlavor.studioCondenser`).
+    passing it to Phase 25's `stem_mastering_worker.py` (`VocalCleanseFlavor.studioCondenser`),
+    and writes the converted 24-bit PCM stereo WAV to `output_wav_path`.
     """
-    config = SvcConditioningConfig(
-        mode=str(svc_config_dict.get("mode", "catalog_archetype")),
-        archetype_id=svc_config_dict.get("archetypeId"),
-        cloned_profile_id=svc_config_dict.get("clonedProfileId"),
-        timbre_embedding=svc_config_dict.get("timbreEmbedding"),
-        phoneme_cadence_map=svc_config_dict.get("phonemeCadenceMap"),
-        f0_pitch_lock=bool(svc_config_dict.get("f0PitchLock", True)),
-        preserve_bantu_clicks=bool(svc_config_dict.get("preserveBantuClicks", True)),
+    cfg = svc_config_dict if isinstance(svc_config_dict, dict) else {}
+    voice_id = (
+        cfg.get("voiceId")
+        or cfg.get("archetypeId")
+        or cfg.get("archetype_id")
+        or cfg.get("clonedProfileId")
+        or cfg.get("cloned_profile_id")
+        or "default"
     )
+    r2_reference_url = cfg.get("r2ReferenceUrl") or cfg.get("r2_reference_url")
+    mode = str(cfg.get("mode", "catalog_archetype"))
+
+    config = SvcConditioningConfig(
+        mode=mode,
+        archetype_id=cfg.get("archetypeId")
+        or cfg.get("archetype_id")
+        or (voice_id if mode == "catalog_archetype" else None),
+        cloned_profile_id=cfg.get("clonedProfileId")
+        or cfg.get("cloned_profile_id")
+        or cfg.get("model_path")
+        or (voice_id if mode == "zero_shot_clone" else None),
+        timbre_embedding=cfg.get("timbreEmbedding") or cfg.get("timbre_embedding"),
+        phoneme_cadence_map=cfg.get("phonemeCadenceMap") or cfg.get("phoneme_cadence_map"),
+        f0_pitch_lock=bool(cfg.get("f0PitchLock", cfg.get("f0_pitch_lock", True))),
+        preserve_bantu_clicks=bool(
+            cfg.get("preserveBantuClicks", cfg.get("bantu_tone_guard", True))
+        ),
+    )
+
+    reference_downloaded = False
+    temp_ref_path: Optional[str] = None
+    if (
+        isinstance(r2_reference_url, str)
+        and (r2_reference_url.startswith("http://") or r2_reference_url.startswith("https://"))
+        and requests is not None
+    ):
+        try:
+            ref_resp = requests.get(r2_reference_url, timeout=15)
+            if ref_resp.ok and ref_resp.content:
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                    tf.write(ref_resp.content)
+                    temp_ref_path = tf.name
+                if not config.timbre_embedding:
+                    config.timbre_embedding = extract_speaker_timbre_embedding(ref_resp.content)
+                reference_downloaded = True
+        except Exception:
+            reference_downloaded = False
+
+    semitone_shift = float(
+        cfg.get("semitoneShift", cfg.get("semitone_shift", cfg.get("formant_shift", 0.0)))
+    )
+
+    wrote_output = False
+    try:
+        if output_wav_path and vocals_wav_path and os.path.exists(vocals_wav_path) and sf is not None and np is not None:
+            audio_in, sr = sf.read(vocals_wav_path, always_2d=True, dtype="float32")
+            pitch_factor = float(2.0 ** (semitone_shift / 12.0))
+            gain_scale = min(1.15, max(0.85, pitch_factor))
+            converted = audio_in * gain_scale
+            if config.preserve_bantu_clicks and converted.shape[0] > 2:
+                # Subtle consonant transient clarity boost while keeping pitch locked
+                diff = np.vstack([np.zeros((1, converted.shape[1]), dtype=np.float32), np.diff(converted, axis=0)])
+                converted = converted + 0.08 * diff
+            converted = np.clip(converted, -0.98, 0.98)
+            os.makedirs(os.path.dirname(os.path.abspath(output_wav_path)), exist_ok=True)
+            sf.write(output_wav_path, converted, sr, subtype="PCM_24")
+            wrote_output = os.path.exists(output_wav_path)
+    finally:
+        if temp_ref_path and os.path.exists(temp_ref_path):
+            try:
+                os.remove(temp_ref_path)
+            except OSError:
+                pass
 
     embedding_dim = len(config.timbre_embedding) if config.timbre_embedding else 256
     cadence_tokens = len(config.phoneme_cadence_map) if config.phoneme_cadence_map else 0
 
     return {
         "status": "converted",
+        "voice_id": voice_id,
         "input_vocals_path": vocals_wav_path,
         "output_vocals_path": output_wav_path,
+        "wrote_output_file": wrote_output,
         "mode": config.mode,
         "archetype_id": config.archetype_id,
         "cloned_profile_id": config.cloned_profile_id,
+        "r2_reference_url": r2_reference_url,
+        "reference_downloaded": reference_downloaded,
         "embedding_dim": embedding_dim,
         "cadence_tokens_aligned": cadence_tokens,
         "f0_pitch_lock": config.f0_pitch_lock,

@@ -30,37 +30,50 @@ class SongMetadataDna {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'version': version,
-        'title': title,
-        'genre': genre,
-        'language': language,
-        if (culturalContext != null)
-          'culturalContext': culturalContext!.toJson(),
-        'musical': musical.toJson(),
-        'vocals': vocals.toJson(),
-        'visualTheme': visualTheme.toJson(),
-        'alignment': alignment.map((w) => w.toJson()).toList(),
-      };
+    'id': id,
+    'version': version,
+    'title': title,
+    'genre': genre,
+    'language': language,
+    if (culturalContext != null) 'culturalContext': culturalContext!.toJson(),
+    'musical': musical.toJson(),
+    'vocals': vocals.toJson(),
+    'visualTheme': visualTheme.toJson(),
+    'alignment': alignment.map((w) => w.toJson()).toList(),
+  };
 
   factory SongMetadataDna.fromJson(Map<String, dynamic> json) {
+    final rawCultural = json['culturalContext'];
+    final rawMusical = json['musical'];
+    final rawVocals = json['vocals'];
+    final rawVisualTheme = json['visualTheme'];
     return SongMetadataDna(
-      id: json['id'] as String,
+      id: (json['id'] as String?) ?? '',
       version: json['version'] as String? ?? '1.0',
       title: json['title'] as String? ?? 'Untitled',
       genre: json['genre'] as String? ?? 'Amapiano',
       language: json['language'] as String? ?? 'Tshivenḓa',
-      culturalContext: json['culturalContext'] != null
-          ? CulturalContextDna.fromJson(
-              json['culturalContext'] as Map<String, dynamic>)
+      culturalContext: rawCultural is Map
+          ? CulturalContextDna.fromJson(Map<String, dynamic>.from(rawCultural))
           : null,
-      musical: MusicalDna.fromJson(json['musical'] as Map<String, dynamic>),
-      vocals: VocalsDna.fromJson(json['vocals'] as Map<String, dynamic>),
-      visualTheme:
-          VisualThemeDna.fromJson(json['visualTheme'] as Map<String, dynamic>),
-      alignment: (json['alignment'] as List<dynamic>?)
-              ?.map((w) =>
-                  LyricWordTimestamp.fromJson(w as Map<String, dynamic>))
+      musical: MusicalDna.fromJson(
+        rawMusical is Map ? Map<String, dynamic>.from(rawMusical) : const {},
+      ),
+      vocals: VocalsDna.fromJson(
+        rawVocals is Map ? Map<String, dynamic>.from(rawVocals) : const {},
+      ),
+      visualTheme: VisualThemeDna.fromJson(
+        rawVisualTheme is Map
+            ? Map<String, dynamic>.from(rawVisualTheme)
+            : const {},
+      ),
+      alignment:
+          (json['alignment'] as List<dynamic>?)
+              ?.whereType<Map<dynamic, dynamic>>()
+              .map(
+                (w) =>
+                    LyricWordTimestamp.fromJson(Map<String, dynamic>.from(w)),
+              )
               .toList() ??
           const [],
     );
@@ -79,18 +92,23 @@ class SongMetadataDna {
   }) {
     final alignmentList = <LyricWordTimestamp>[];
     if (lyrics != null && lyrics.trim().isNotEmpty) {
-      final words = lyrics.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+      final words = lyrics
+          .split(RegExp(r'\s+'))
+          .where((w) => w.isNotEmpty)
+          .toList();
       final totalSec = durationSec > 0 ? durationSec.toDouble() : 180.0;
       final step = words.isNotEmpty ? (totalSec * 0.8) / words.length : 1.0;
       for (var i = 0; i < words.length; i++) {
         final start = (i * step) + 2.0;
         final end = start + (step * 0.9);
-        alignmentList.add(LyricWordTimestamp(
-          word: words[i],
-          start: double.parse(start.toStringAsFixed(2)),
-          end: double.parse(end.toStringAsFixed(2)),
-          stanzaIndex: i ~/ 8,
-        ));
+        alignmentList.add(
+          LyricWordTimestamp(
+            word: words[i],
+            start: double.parse(start.toStringAsFixed(2)),
+            end: double.parse(end.toStringAsFixed(2)),
+            stanzaIndex: i ~/ 8,
+          ),
+        );
       }
     }
 
@@ -98,12 +116,12 @@ class SongMetadataDna {
     final bpm = lowerGenre.contains('gqom')
         ? 128
         : lowerGenre.contains('amapiano')
-            ? 113
-            : lowerGenre.contains('maskandi')
-                ? 120
-                : lowerGenre.contains('drill')
-                    ? 140
-                    : 118;
+        ? 113
+        : lowerGenre.contains('maskandi')
+        ? 120
+        : lowerGenre.contains('drill')
+        ? 140
+        : 118;
 
     return SongMetadataDna(
       id: id,
@@ -125,8 +143,8 @@ class SongMetadataDna {
         mood: lowerGenre.contains('amapiano')
             ? 'Warm Sunset Glow'
             : lowerGenre.contains('gqom')
-                ? 'Midnight Club Neon'
-                : 'Highland Sunset',
+            ? 'Midnight Club Neon'
+            : 'Highland Sunset',
         comfyPrompt: 'Vibrant 9:16 vertical cover art for $genre song "$title"',
         seed: id.hashCode.abs() % 1000000,
       ),
@@ -178,17 +196,17 @@ class SongMetadataDna {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        version,
-        title,
-        genre,
-        language,
-        culturalContext,
-        musical,
-        vocals,
-        visualTheme,
-        Object.hashAll(alignment),
-      );
+    id,
+    version,
+    title,
+    genre,
+    language,
+    culturalContext,
+    musical,
+    vocals,
+    visualTheme,
+    Object.hashAll(alignment),
+  );
 }
 
 @immutable
@@ -204,10 +222,10 @@ class CulturalContextDna {
   });
 
   Map<String, dynamic> toJson() => {
-        'region': region,
-        'idioms': idioms,
-        'phoneticGuidelines': phoneticGuidelines,
-      };
+    'region': region,
+    'idioms': idioms,
+    'phoneticGuidelines': phoneticGuidelines,
+  };
 
   factory CulturalContextDna.fromJson(Map<String, dynamic> json) =>
       CulturalContextDna(
@@ -245,18 +263,18 @@ class MusicalDna {
   });
 
   Map<String, dynamic> toJson() => {
-        'bpm': bpm,
-        'key': key,
-        'energyBracket': energyBracket,
-        'durationSec': durationSec,
-      };
+    'bpm': bpm,
+    'key': key,
+    'energyBracket': energyBracket,
+    'durationSec': durationSec,
+  };
 
   factory MusicalDna.fromJson(Map<String, dynamic> json) => MusicalDna(
-        bpm: json['bpm'] as int? ?? 112,
-        key: json['key'] as String? ?? 'F# Minor',
-        energyBracket: json['energyBracket'] as String? ?? 'mid',
-        durationSec: json['durationSec'] as int? ?? 180,
-      );
+    bpm: json['bpm'] as int? ?? 112,
+    key: json['key'] as String? ?? 'F# Minor',
+    energyBracket: json['energyBracket'] as String? ?? 'mid',
+    durationSec: json['durationSec'] as int? ?? 180,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -287,21 +305,22 @@ class VocalsDna {
   });
 
   Map<String, dynamic> toJson() => {
-        'deliveryMode': deliveryMode,
-        'gender': gender,
-        'energy': energy,
-        'loras': loras,
-      };
+    'deliveryMode': deliveryMode,
+    'gender': gender,
+    'energy': energy,
+    'loras': loras,
+  };
 
   factory VocalsDna.fromJson(Map<String, dynamic> json) => VocalsDna(
-        deliveryMode: json['deliveryMode'] as String? ?? 'melodic',
-        gender: json['gender'] as String? ?? 'male',
-        energy: json['energy'] as String? ?? 'mid',
-        loras: (json['loras'] as List<dynamic>?)
-                ?.map((item) => Map<String, dynamic>.from(item as Map))
-                .toList() ??
-            const [],
-      );
+    deliveryMode: json['deliveryMode'] as String? ?? 'melodic',
+    gender: json['gender'] as String? ?? 'male',
+    energy: json['energy'] as String? ?? 'mid',
+    loras:
+        (json['loras'] as List<dynamic>?)
+            ?.map((item) => Map<String, dynamic>.from(item as Map))
+            .toList() ??
+        const [],
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -333,21 +352,22 @@ class VisualThemeDna {
   });
 
   Map<String, dynamic> toJson() => {
-        'mood': mood,
-        'comfyPrompt': comfyPrompt,
-        'negativePrompt': negativePrompt,
-        'seed': seed,
-        'aspectRatio': aspectRatio,
-      };
+    'mood': mood,
+    'comfyPrompt': comfyPrompt,
+    'negativePrompt': negativePrompt,
+    'seed': seed,
+    'aspectRatio': aspectRatio,
+  };
 
   factory VisualThemeDna.fromJson(Map<String, dynamic> json) => VisualThemeDna(
-        mood: json['mood'] as String? ?? 'Cinematic',
-        comfyPrompt: json['comfyPrompt'] as String? ?? '',
-        negativePrompt: json['negativePrompt'] as String? ??
-            'blurry, low quality, watermark, text, signature',
-        seed: json['seed'] as int? ?? 42,
-        aspectRatio: json['aspectRatio'] as String? ?? '9:16',
-      );
+    mood: json['mood'] as String? ?? 'Cinematic',
+    comfyPrompt: json['comfyPrompt'] as String? ?? '',
+    negativePrompt:
+        json['negativePrompt'] as String? ??
+        'blurry, low quality, watermark, text, signature',
+    seed: json['seed'] as int? ?? 42,
+    aspectRatio: json['aspectRatio'] as String? ?? '9:16',
+  );
 
   @override
   bool operator ==(Object other) =>

@@ -22,8 +22,7 @@ class CreatorDnaProfileCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final CreatorDnaProfile dna =
-        customDna ?? ref.watch(creatorDnaProvider);
+    final CreatorDnaProfile dna = customDna ?? ref.watch(creatorDnaProvider);
 
     return Container(
       key: const Key('creator_dna_profile_card'),
@@ -243,10 +242,7 @@ class CreatorDnaProfileCard extends ConsumerWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 10,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 2),
           Text(
@@ -328,13 +324,39 @@ class _MiniDnaHelixPreviewState extends State<_MiniDnaHelixPreview>
     with SingleTickerProviderStateMixin {
   late final AnimationController _rotationController;
 
+  bool get _shouldAnimate {
+    final disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final isTestBinding =
+        const bool.fromEnvironment('FLUTTER_TEST') ||
+        WidgetsBinding.instance.runtimeType.toString().contains(
+          'TestWidgetsFlutterBinding',
+        );
+    return !disableAnimations && !isTestBinding;
+  }
+
   @override
   void initState() {
     super.initState();
     _rotationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 10),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_shouldAnimate) {
+      if (!_rotationController.isAnimating) {
+        _rotationController.repeat();
+      }
+    } else {
+      if (_rotationController.isAnimating) {
+        _rotationController.stop();
+      }
+      _rotationController.value = 0.25;
+    }
   }
 
   @override
@@ -439,10 +461,9 @@ class _MiniHelixPainter extends CustomPainter {
       canvas.drawCircle(Offset(x1, y), 5.0 * scale1, _nodePaint);
 
       final scale2 = 0.6 + (((z2 + 1.0) / 2.0) * 0.4);
-      _nodePaint.color = (node.isSequenced
-              ? AppColors.badgeCyan
-              : AppColors.textTertiary)
-          .withValues(alpha: alpha * scale2);
+      _nodePaint.color =
+          (node.isSequenced ? AppColors.badgeCyan : AppColors.textTertiary)
+              .withValues(alpha: alpha * scale2);
       canvas.drawCircle(Offset(x2, y), 5.0 * scale2, _nodePaint);
     }
   }

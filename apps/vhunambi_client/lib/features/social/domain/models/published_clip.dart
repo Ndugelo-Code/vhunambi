@@ -163,42 +163,44 @@ class PublishedClip {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'trackId': trackId,
-        'creatorId': creatorId,
-        'creatorUsername': creatorUsername,
-        'creatorDisplayName': creatorDisplayName,
-        'creatorAvatarUrl': creatorAvatarUrl,
-        'isCreatorVerified': isCreatorVerified,
-        'title': title,
-        'caption': caption,
-        'tags': tags,
-        'genre': genre,
-        'audioUrl': audioUrl,
-        'coverUrl': coverUrl,
-        'dna': dna.toJson(),
-        'playCount': playCount,
-        'likeCount': likeCount,
-        'commentCount': commentCount,
-        'remixCount': remixCount,
-        'isLikedByMe': isLikedByMe,
-        'isSavedByMe': isSavedByMe,
-        'userReactionCount': userReactionCount,
-        if (remixedFromClipId != null) 'remixedFromClipId': remixedFromClipId,
-        if (remixAttribution != null) 'remixAttribution': remixAttribution,
-        if (remixMode != null) 'remixMode': remixMode!.wireValue,
-        if (parentClipId != null) 'parentClipId': parentClipId,
-        if (parentTrackTitle != null) 'parentTrackTitle': parentTrackTitle,
-        if (parentCreatorId != null) 'parentCreatorId': parentCreatorId,
-        if (parentCreatorHandle != null) 'parentCreatorHandle': parentCreatorHandle,
-        'remixGenerationDepth': remixGenerationDepth,
-        'remixChildrenCount': remixChildrenCount,
-        'coCreationSplits': coCreationSplits.map((s) => s.toJson()).toList(),
-        'publishedAt': publishedAt.toIso8601String(),
-      };
+    'id': id,
+    'trackId': trackId,
+    'creatorId': creatorId,
+    'creatorUsername': creatorUsername,
+    'creatorDisplayName': creatorDisplayName,
+    'creatorAvatarUrl': creatorAvatarUrl,
+    'isCreatorVerified': isCreatorVerified,
+    'title': title,
+    'caption': caption,
+    'tags': tags,
+    'genre': genre,
+    'audioUrl': audioUrl,
+    'coverUrl': coverUrl,
+    'dna': dna.toJson(),
+    'playCount': playCount,
+    'likeCount': likeCount,
+    'commentCount': commentCount,
+    'remixCount': remixCount,
+    'isLikedByMe': isLikedByMe,
+    'isSavedByMe': isSavedByMe,
+    'userReactionCount': userReactionCount,
+    if (remixedFromClipId != null) 'remixedFromClipId': remixedFromClipId,
+    if (remixAttribution != null) 'remixAttribution': remixAttribution,
+    if (remixMode != null) 'remixMode': remixMode!.wireValue,
+    if (parentClipId != null) 'parentClipId': parentClipId,
+    if (parentTrackTitle != null) 'parentTrackTitle': parentTrackTitle,
+    if (parentCreatorId != null) 'parentCreatorId': parentCreatorId,
+    if (parentCreatorHandle != null) 'parentCreatorHandle': parentCreatorHandle,
+    'remixGenerationDepth': remixGenerationDepth,
+    'remixChildrenCount': remixChildrenCount,
+    'coCreationSplits': coCreationSplits.map((s) => s.toJson()).toList(),
+    'publishedAt': publishedAt.toIso8601String(),
+  };
 
   factory PublishedClip.fromJson(Map<String, dynamic> json) {
-    final parentId = (json['parentClipId'] as String?) ?? (json['remixedFromClipId'] as String?);
+    final parentId =
+        (json['parentClipId'] as String?) ??
+        (json['remixedFromClipId'] as String?);
     return PublishedClip(
       id: json['id'] as String,
       trackId: json['trackId'] as String? ?? '',
@@ -210,13 +212,16 @@ class PublishedClip {
       title: json['title'] as String? ?? 'Untitled',
       caption: json['caption'] as String? ?? '',
       tags:
-          (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-              const [],
+          (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+          const [],
       genre: json['genre'] as String? ?? 'Amapiano',
       audioUrl: json['audioUrl'] as String? ?? '',
       coverUrl: json['coverUrl'] as String? ?? '',
       dna: SongMetadataDna.fromJson(
-          json['dna'] as Map<String, dynamic>? ?? const {}),
+        json['dna'] is Map
+            ? Map<String, dynamic>.from(json['dna'] as Map)
+            : const {},
+      ),
       playCount: (json['playCount'] as num?)?.toInt() ?? 0,
       likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
       commentCount: (json['commentCount'] as num?)?.toInt() ?? 0,
@@ -233,20 +238,24 @@ class PublishedClip {
       parentTrackTitle: json['parentTrackTitle'] as String?,
       parentCreatorId: json['parentCreatorId'] as String?,
       parentCreatorHandle: json['parentCreatorHandle'] as String?,
-      remixGenerationDepth: (json['remixGenerationDepth'] as num?)?.toInt() ??
+      remixGenerationDepth:
+          (json['remixGenerationDepth'] as num?)?.toInt() ??
           (parentId != null ? 1 : 0),
       remixChildrenCount: (json['remixChildrenCount'] as num?)?.toInt() ?? 0,
       coCreationSplits: (json['coCreationSplits'] as List<dynamic>? ?? const [])
-          .map((s) => SplitParticipant.fromJson(Map<String, dynamic>.from(s as Map)))
+          .map(
+            (s) =>
+                SplitParticipant.fromJson(Map<String, dynamic>.from(s as Map)),
+          )
           .toList(),
-      publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? '') ??
+      publishedAt:
+          DateTime.tryParse(json['publishedAt'] as String? ?? '') ??
           DateTime.now(),
     );
   }
 
   /// Deep link to this clip on the public web (REQ-SOC-17).
-  String get shareUrl =>
-      'https://vhunambi.com/@$creatorUsername/reels/$id';
+  String get shareUrl => 'https://vhunambi.com/@$creatorUsername/reels/$id';
 
   /// Synchronized lyric word timestamps for 60 FPS `KineticPreviewCanvas` playback.
   ///
@@ -293,8 +302,9 @@ class PublishedClip {
       final start = double.parse((i * stepSec).toStringAsFixed(2));
       final end = double.parse(((i + 1) * stepSec - 0.04).toStringAsFixed(2));
       final word = tokens[i];
-      final cleanLower =
-          word.replaceAll(RegExp(r'[^a-zA-Zḓṋḽṱ]'), '').toLowerCase();
+      final cleanLower = word
+          .replaceAll(RegExp(r'[^a-zA-Zḓṋḽṱ]'), '')
+          .toLowerCase();
       return LyricWordTimestamp(
         word: word,
         start: start,
@@ -357,14 +367,14 @@ class PublishedClip {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        trackId,
-        creatorId,
-        title,
-        genre,
-        playCount,
-        likeCount,
-        isLikedByMe,
-        isSavedByMe,
-      );
+    id,
+    trackId,
+    creatorId,
+    title,
+    genre,
+    playCount,
+    likeCount,
+    isLikedByMe,
+    isSavedByMe,
+  );
 }

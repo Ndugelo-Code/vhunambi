@@ -1,32 +1,69 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/app_constants.dart';
-import '../../../player/presentation/providers/player_provider.dart';
-import '../../domain/models/library_models.dart';
+import 'package:vhunambi_client/core/auth/auth_providers.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
+import 'package:vhunambi_client/core/sync/sync_outbox_service.dart';
+import 'package:vhunambi_client/features/library/data/repositories/http_library_sync_repository.dart';
+import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
+import 'package:vhunambi_client/features/offline/presentation/providers/offline_providers.dart';
+import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
+
+/// Cloud sync status indicator for the Library Vault (Phase 59).
+enum LibraryCloudSyncStatus { idle, syncing, synced, offline, error }
+
+/// Injectable repository backing Library Vault local Hive persistence & cloud delta sync.
+final librarySyncRepositoryProvider = Provider<HttpLibrarySyncRepository>((
+  ref,
+) {
+  return HttpLibrarySyncRepository(
+    authInterceptor: ref.watch(authDioInterceptorProvider),
+  );
+});
+
+/// Reactive Library Vault cloud sync status pill state.
+final libraryCloudSyncStatusProvider = StateProvider<LibraryCloudSyncStatus>(
+  (ref) => LibraryCloudSyncStatus.idle,
+);
 
 /// Active vault category tab (REQ-LIB-02, Blueprint 04 §2).
-final libraryCategoryProvider =
-    StateProvider<LibraryCategory>((ref) => LibraryCategory.songs);
+final libraryCategoryProvider = StateProvider<LibraryCategory>(
+  (ref) => LibraryCategory.songs,
+);
 
 /// Real-time vault search text (REQ-LIB-04).
 final librarySearchQueryProvider = StateProvider<String>((ref) => '');
 
 /// Dense list vs. square grid rendering mode (REQ-LIB-04).
-final libraryViewModeProvider =
-    StateProvider<LibraryViewMode>((ref) => LibraryViewMode.list);
+final libraryViewModeProvider = StateProvider<LibraryViewMode>(
+  (ref) => LibraryViewMode.list,
+);
 
 /// Vault ordering, driven by the header overflow control (`⋮`).
-final librarySortProvider =
-    StateProvider<LibrarySortOrder>((ref) => LibrarySortOrder.newestFirst);
+final librarySortProvider = StateProvider<LibrarySortOrder>(
+  (ref) => LibrarySortOrder.newestFirst,
+);
 
 /// Local vs. cloud presence filter driven by the search strip filter control.
-final librarySyncFilterProvider =
-    StateProvider<LibrarySyncFilter>((ref) => LibrarySyncFilter.any);
+final librarySyncFilterProvider = StateProvider<LibrarySyncFilter>(
+  (ref) => LibrarySyncFilter.any,
+);
 
-/// The user vault asset collection, soft-deleted records included (REQ-LIB-08).
+/// The user vault asset collection, soft-deleted records included (REQ-LIB-08 + Phase 59 cloud sync).
 final libraryTracksProvider =
     StateNotifierProvider<LibraryTracksNotifier, List<LibraryTrack>>((ref) {
-  return LibraryTracksNotifier();
-});
+      final creatorId = ref.watch(currentCreatorIdProvider);
+      final repo = ref.watch(librarySyncRepositoryProvider);
+      final outbox = ref.watch(syncOutboxServiceProvider);
+      final notifier = LibraryTracksNotifier(
+        syncRepository: repo,
+        outbox: outbox,
+        ref: ref,
+        creatorId: creatorId,
+      );
+      Future<void>.microtask(notifier.hydrateFromLocalBox);
+      return notifier;
+    });
 
 /// Category + search + sync-filter scoped and sorted vault projection.
 final filteredLibraryTracksProvider = Provider<List<LibraryTrack>>((ref) {
@@ -40,8 +77,9 @@ final filteredLibraryTracksProvider = Provider<List<LibraryTrack>>((ref) {
 });
 
 /// Record count per vault category (drives the Trash rail badge).
-final libraryCategoryCountsProvider =
-    Provider<Map<LibraryCategory, int>>((ref) {
+final libraryCategoryCountsProvider = Provider<Map<LibraryCategory, int>>((
+  ref,
+) {
   final tracks = ref.watch(libraryTracksProvider);
   return {
     for (final category in LibraryCategory.values)
@@ -51,11 +89,12 @@ final libraryCategoryCountsProvider =
 
 /// Every hearted vault record, newest first (favourites rail / quick filter).
 final favoriteTracksProvider = Provider<List<LibraryTrack>>((ref) {
-  final favorites = ref
-      .watch(libraryTracksProvider)
-      .where((track) => track.isFavorite && !track.isDeleted)
-      .toList()
-    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  final favorites =
+      ref
+          .watch(libraryTracksProvider)
+          .where((track) => track.isFavorite && !track.isDeleted)
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   return List.unmodifiable(favorites);
 });
 
@@ -63,8 +102,8 @@ final favoriteTracksProvider = Provider<List<LibraryTrack>>((ref) {
 /// unique entries (Mission 11).
 final recentlyPlayedIdsProvider =
     StateNotifierProvider<RecentlyPlayedNotifier, List<String>>((ref) {
-  return RecentlyPlayedNotifier();
-});
+      return RecentlyPlayedNotifier();
+    });
 
 /// Resolves [recentlyPlayedIdsProvider] into live vault records, dropping ids
 /// that no longer exist or have been soft-deleted.
@@ -93,83 +132,245 @@ const int _recentlyPlayedLimit = 20;
 /// [register] de-duplicates, moves the id to the front and trims to
 /// [_recentlyPlayedLimit] entries.
 class RecentlyPlayedNotifier extends StateNotifier<List<String>> {
-  RecentlyPlayedNotifier() : super(const <String>[]);
+  RecentlyPlayedNotifier() : super(_hydrateInitial());
+
+  static List<String> _hydrateInitial() {
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.playbackSessionBoxKey,
+    )) {
+      return const <String>[];
+    }
+    return PlaybackSessionRepository.loadRecentlyPlayedIds() ??
+        const <String>[];
+  }
 
   /// Records a play of [trackId]: de-dupe, prepend, cap the history length.
   void register(String trackId) {
     if (trackId.isEmpty) return;
-    final next = <String>[
-      trackId,
-      ...state.where((id) => id != trackId),
-    ];
+    final next = <String>[trackId, ...state.where((id) => id != trackId)];
     state = next.length > _recentlyPlayedLimit
         ? next.sublist(0, _recentlyPlayedLimit)
         : next;
+    unawaited(PlaybackSessionRepository.saveRecentlyPlayedIds(state));
   }
 
   /// Clears the entire recently-played history.
-  void clear() => state = const <String>[];
+  void clear() {
+    state = const <String>[];
+    unawaited(PlaybackSessionRepository.saveRecentlyPlayedIds(state));
+  }
 }
 
 class LibraryTracksNotifier extends StateNotifier<List<LibraryTrack>> {
-  LibraryTracksNotifier() : super(_seedTracks());
+  final HttpLibrarySyncRepository? _syncRepository;
+  final SyncOutboxService? _outbox;
+  final Ref? _ref;
+  final String _creatorId;
+  int _outboxSeq = 0;
+  final Set<String> _localMutatedIds = <String>{};
+
+  LibraryTracksNotifier({
+    this._syncRepository,
+    this._outbox,
+    this._ref,
+    this._creatorId = 'creator_cern',
+  }) : super(_seedTracks());
+
+  String get activeCreatorId => _creatorId;
+
+  void _persistAndQueue(LibraryTrack track, {String action = 'update'}) {
+    _syncRepository?.saveTrackLocal(track);
+    _outbox?.enqueue(
+      SyncMutationRecord(
+        idempotencyKey:
+            'mut_lib_${track.id}_${track.effectiveUpdatedAtMs}_${action}_${_outboxSeq++}',
+        entityType: 'library_track',
+        action: action,
+        payload: <String, dynamic>{...track.toJson(), 'creatorId': _creatorId},
+        createdAt: DateTime.now(),
+      ),
+    );
+  }
+
+  /// Hydrates locally persisted tracks from Hive without erasing initial seeds.
+  Future<void> hydrateFromLocalBox() async {
+    final repo = _syncRepository;
+    if (repo == null) return;
+    final stored = await repo.loadLocalTracks();
+    if (!mounted || stored.isEmpty) return;
+    final safeStored = stored
+        .where((t) => !_localMutatedIds.contains(t.id))
+        .toList(growable: false);
+    if (safeStored.isEmpty) return;
+    state = HttpLibrarySyncRepository.mergeTracksLww(state, safeStored);
+  }
+
+  /// Replaces/merges remote or delta-hydrated tracks into the live vault.
+  void applyMergedTracks(List<LibraryTrack> merged) {
+    if (!mounted) return;
+    state = List<LibraryTrack>.unmodifiable(merged);
+  }
+
+  /// Runs full bidirectional cloud delta sync (`POST /api/library/sync` + LWW merge).
+  Future<bool> syncWithCloud() async {
+    final repo = _syncRepository;
+    if (repo == null) return false;
+    _ref?.read(libraryCloudSyncStatusProvider.notifier).state =
+        LibraryCloudSyncStatus.syncing;
+
+    final result = await repo.syncDelta(
+      creatorId: _creatorId,
+      localTracks: state,
+    );
+    if (!mounted) return result.syncedFromCloud;
+
+    if (result.mergedTracks.isNotEmpty) {
+      state = List<LibraryTrack>.unmodifiable(result.mergedTracks);
+    }
+
+    _ref
+        ?.read(libraryCloudSyncStatusProvider.notifier)
+        .state = result.syncedFromCloud
+        ? LibraryCloudSyncStatus.synced
+        : (result.errorMessage != null
+              ? LibraryCloudSyncStatus.offline
+              : LibraryCloudSyncStatus.idle);
+    return result.syncedFromCloud;
+  }
 
   /// Inserts a freshly generated asset at the top of the vault.
   void addTrack(LibraryTrack track) {
-    state = [track, ...state];
+    _localMutatedIds.add(track.id);
+    final remaining = state.where((t) => t.id != track.id).toList();
+    state = [track, ...remaining];
+    _persistAndQueue(track, action: 'create');
+  }
+
+  /// Inserts or cleanly upgrades an existing licensed beat/track in the vault (Phase 58).
+  void upsertLicensedTrack(LibraryTrack track, {bool enqueueOutbox = true}) {
+    _localMutatedIds.add(track.id);
+    final remaining = state.where((t) => t.id != track.id).toList();
+    state = [track, ...remaining];
+    if (enqueueOutbox) {
+      _persistAndQueue(track, action: 'create');
+    } else {
+      _syncRepository?.saveTrackLocal(track);
+    }
   }
 
   /// Soft-deletes the record: `isDeleted: true` + purge timestamp (REQ-LIB-07).
   void deleteTrack(String id) {
+    _localMutatedIds.add(id);
+    final now = DateTime.now();
+    LibraryTrack? updated;
     state = [
       for (final track in state)
         if (track.id == id)
-          track.copyWith(isDeleted: true, deletedAt: DateTime.now())
+          updated = track.copyWith(
+            isDeleted: true,
+            deletedAt: now,
+            updatedAtMs: now.millisecondsSinceEpoch,
+          )
         else
           track,
     ];
+    if (updated != null) {
+      _persistAndQueue(updated, action: 'delete');
+    }
   }
 
   /// Restores a soft-deleted record back into its original category.
   void restoreTrack(String id) {
+    _localMutatedIds.add(id);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    LibraryTrack? updated;
     state = [
       for (final track in state)
         if (track.id == id)
-          track.copyWith(isDeleted: false, clearDeletedAt: true)
+          updated = track.copyWith(
+            isDeleted: false,
+            clearDeletedAt: true,
+            updatedAtMs: nowMs,
+          )
         else
           track,
     ];
+    if (updated != null) {
+      _persistAndQueue(updated, action: 'update');
+    }
   }
 
-  /// Permanently wipes the record (30-day Trash grace period is enforced by the cloud).
+  /// Permanently wipes the record (30-day Trash grace period is enforced by the cloud)
+  /// along with any cached offline `.vmf` file and vault metadata.
   void purgeTrackPermanently(String id) {
+    _localMutatedIds.add(id);
     state = state.where((track) => track.id != id).toList(growable: false);
+    _syncRepository?.deleteFromCloud(id, creatorId: _creatorId);
+    try {
+      final offlineStorage = _ref?.read(offlineStorageServiceProvider);
+      if (offlineStorage != null) {
+        unawaited(offlineStorage.removeTrackMetadata(id));
+      }
+    } catch (_) {}
+    _outbox?.enqueue(
+      SyncMutationRecord(
+        idempotencyKey:
+            'mut_lib_purge_${id}_${DateTime.now().millisecondsSinceEpoch}',
+        entityType: 'library_track',
+        action: 'delete',
+        payload: <String, dynamic>{
+          'id': id,
+          'creatorId': _creatorId,
+          'hardDelete': true,
+        },
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 
   /// Bumps the lifetime play count by one (jukebox stat badge / Most Played sort).
   void incrementPlayCount(String id) {
+    _localMutatedIds.add(id);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    LibraryTrack? updated;
     state = [
       for (final track in state)
         if (track.id == id)
-          track.copyWith(playCount: track.playCount + 1)
+          updated = track.copyWith(
+            playCount: track.playCount + 1,
+            updatedAtMs: nowMs,
+          )
         else
           track,
     ];
+    if (updated != null) {
+      _persistAndQueue(updated, action: 'update');
+    }
   }
 
   /// Flips the quick heart / favourite flag for a vault record.
   void toggleFavorite(String id) {
+    _localMutatedIds.add(id);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    LibraryTrack? updated;
     state = [
       for (final track in state)
         if (track.id == id)
-          track.copyWith(isFavorite: !track.isFavorite)
+          updated = track.copyWith(
+            isFavorite: !track.isFavorite,
+            updatedAtMs: nowMs,
+          )
         else
           track,
     ];
+    if (updated != null) {
+      _persistAndQueue(updated, action: 'update');
+    }
   }
 
   /// Updates the offline cache integrity state of a record.
   void setSyncStatus(String id, TrackSyncStatus status) {
+    _localMutatedIds.add(id);
     state = [
       for (final track in state)
         if (track.id == id) track.copyWith(syncStatus: status) else track,
@@ -193,33 +394,42 @@ class LibraryTracksNotifier extends StateNotifier<List<LibraryTrack>> {
 
   /// Marks the record as cached locally once the vault audio file is written.
   void setTrackOfflinePath(String id, String path) {
+    _localMutatedIds.add(id);
+    LibraryTrack? updated;
     state = [
       for (final track in state)
         if (track.id == id)
-          track.copyWith(
+          updated = track.copyWith(
             localAudioFilePath: path,
             syncStatus: TrackSyncStatus.cachedLocally,
           )
         else
           track,
     ];
+    if (updated != null) {
+      _syncRepository?.saveTrackLocal(updated);
+    }
   }
 
   /// Evicts the local audio copy and returns the record to cloud-only streaming.
   void clearTrackOfflinePath(String id) {
+    _localMutatedIds.add(id);
+    LibraryTrack? updated;
     state = [
       for (final track in state)
         if (track.id == id)
-          track.copyWith(
+          updated = track.copyWith(
             clearLocalAudioFilePath: true,
             syncStatus: TrackSyncStatus.cloudOnly,
           )
         else
           track,
     ];
+    if (updated != null) {
+      _syncRepository?.saveTrackLocal(updated);
+    }
   }
 }
-
 
 /// Pure vault projection used by [filteredLibraryTracksProvider]:
 /// category scope → local/cloud filter → free-text search → ordering.
@@ -247,8 +457,9 @@ List<LibraryTrack> filterLibraryTracks({
     (a, b) => switch (sortOrder) {
       LibrarySortOrder.newestFirst => b.createdAt.compareTo(a.createdAt),
       LibrarySortOrder.oldestFirst => a.createdAt.compareTo(b.createdAt),
-      LibrarySortOrder.titleAscending =>
-        a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      LibrarySortOrder.titleAscending => a.title.toLowerCase().compareTo(
+        b.title.toLowerCase(),
+      ),
       LibrarySortOrder.mostPlayed => b.playCount.compareTo(a.playCount),
     },
   );
@@ -261,11 +472,12 @@ bool _matchesCategory(LibraryTrack track, LibraryCategory category) {
     LibraryCategory.songs => !track.isDeleted && !track.isInstrumental,
     LibraryCategory.beats => !track.isDeleted && track.isInstrumental,
     LibraryCategory.trash => track.isDeleted,
-    LibraryCategory.licensing => !track.isDeleted &&
-        (track.id.startsWith('market_') || (track.licenseType.trim().isNotEmpty && track.licenseType != 'Commercial')),
-    LibraryCategory.playlists ||
-    LibraryCategory.collections =>
-      false,
+    LibraryCategory.licensing =>
+      !track.isDeleted &&
+          (track.id.startsWith('market_') ||
+              (track.licenseType.trim().isNotEmpty &&
+                  track.licenseType != 'Commercial')),
+    LibraryCategory.playlists || LibraryCategory.collections => false,
   };
 }
 

@@ -1,12 +1,17 @@
-import '../../../../core/sync/sync_outbox_service.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../shared/models/track.dart';
-import '../../../player/presentation/providers/player_provider.dart';
-import '../../domain/models/explore_models.dart';
-import '../../domain/models/social_music_post.dart';
-import '../../domain/services/discovery_hierarchy_ranker.dart';
-import '../../../social/domain/models/published_clip.dart';
-import '../../../social/presentation/providers/trending_reels_provider.dart';
+import 'package:vhunambi_client/core/auth/auth_providers.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
+import 'package:vhunambi_client/core/sync/sync_outbox_service.dart';
+import 'package:vhunambi_client/features/explore/data/repositories/http_explore_repository.dart';
+import 'package:vhunambi_client/features/explore/domain/models/explore_models.dart';
+import 'package:vhunambi_client/features/explore/domain/models/social_music_post.dart';
+import 'package:vhunambi_client/features/explore/domain/services/discovery_hierarchy_ranker.dart';
+import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
+import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
+import 'package:vhunambi_client/features/social/presentation/providers/trending_reels_provider.dart';
+import 'package:vhunambi_client/shared/models/track.dart';
 
 /// Catalog page size driving the `Load more` pagination cursor (REQ-EXP-08).
 const int exploreCatalogPageSize = 6;
@@ -15,11 +20,13 @@ const int exploreCatalogPageSize = 6;
 
 /// Active 3-Stage Discovery Hierarchy Tier filter (Phase 39 REQ-DISC-TIER-01).
 /// `null` means unconstrained (all tiers).
-final selectedDiscoveryTierProvider =
-    StateProvider<DiscoveryStageTier?>((ref) => null);
+final selectedDiscoveryTierProvider = StateProvider<DiscoveryStageTier?>(
+  (ref) => null,
+);
 
-final exploreTabProvider =
-    StateProvider<ExploreTab>((ref) => ExploreTab.discover);
+final exploreTabProvider = StateProvider<ExploreTab>(
+  (ref) => ExploreTab.discover,
+);
 
 /// Real-time Explore search text (REQ-EXP-01).
 final exploreSearchQueryProvider = StateProvider<String>((ref) => '');
@@ -34,8 +41,9 @@ final exploreMoodFilterProvider = StateProvider<String?>((ref) => null);
 final exploreLanguageFilterProvider = StateProvider<String>((ref) => 'All');
 
 /// Catalog ordering (REQ-EXP-08).
-final exploreSortByProvider =
-    StateProvider<ExploreSortBy>((ref) => ExploreSortBy.newest);
+final exploreSortByProvider = StateProvider<ExploreSortBy>(
+  (ref) => ExploreSortBy.newest,
+);
 
 /// Featured Creator deck records (REQ-EXP-06).
 final exploreCreatorsProvider = Provider<List<CreatorProfile>>((ref) {
@@ -94,15 +102,56 @@ final exploreCreatorsProvider = Provider<List<CreatorProfile>>((ref) {
   ];
 });
 
-/// The discovery catalog (REQ-EXP-09).
-final exploreTracksProvider =
-    StateNotifierProvider<ExploreTracksNotifier, List<Track>>((ref) {
-  return ExploreTracksNotifier();
+/// HTTP repository backing dynamic Explore discovery feeds & genre radio (Phase 59).
+final exploreRepositoryProvider = Provider<HttpExploreRepository>((ref) {
+  return HttpExploreRepository(
+    baseUrl: AppConstants.apiRestBaseUrl,
+    authInterceptor: ref.watch(authDioInterceptorProvider),
+  );
 });
 
+/// Dynamic Genre Radio harmonic rotation with seamless offline catalog fallback (Phase 59).
+final exploreGenreRadioProvider =
+    FutureProvider.family<ExploreRadioStation, String>((ref, genre) async {
+      final repo = ref.watch(exploreRepositoryProvider);
+      final remote = await repo.fetchGenreRadio(genre);
+      if (remote != null && remote.rotation.isNotEmpty) {
+        return remote;
+      }
+
+      final catalog = ref.watch(exploreTracksProvider);
+      final normalized = genre.trim().toLowerCase();
+      final matches = normalized.isEmpty || normalized == 'all'
+          ? catalog
+          : catalog
+                .where((t) => t.genre.toLowerCase() == normalized)
+                .toList(growable: false);
+      final pool = matches.isNotEmpty ? matches : catalog;
+      return ExploreRadioStation(
+        genre: genre.isEmpty ? 'All' : genre,
+        stationTitle: genre.isEmpty || normalized == 'all'
+            ? 'Vhunambi Sovereign Pan-African Radio'
+            : '$genre Sovereign Radio',
+        description: 'Curated $genre rotation with offline Vault resilience.',
+        rotation: pool,
+      );
+    });
+
+/// The discovery catalog (REQ-EXP-09 + Phase 59 cloud hydration).
+final exploreTracksProvider =
+    StateNotifierProvider<ExploreTracksNotifier, List<Track>>((ref) {
+      ref.watch(currentCreatorIdProvider);
+      final repo = ref.watch(exploreRepositoryProvider);
+      final outbox = ref.watch(syncOutboxServiceProvider);
+      final notifier = ExploreTracksNotifier(repository: repo, outbox: outbox);
+      Future<void>.microtask(notifier.refreshFromCloud);
+      return notifier;
+    });
+
 /// Pagination cursor for the `All Songs` catalog browser.
-final exploreVisibleCountProvider =
-    StateProvider<int>((ref) => exploreCatalogPageSize);
+final exploreVisibleCountProvider = StateProvider<int>(
+  (ref) => exploreCatalogPageSize,
+);
 
 /// Filtered + sorted catalog projection across all filter dimensions.
 final filteredExploreTracksProvider = Provider<List<Track>>((ref) {
@@ -148,11 +197,134 @@ final risingTracksProvider = Provider<List<Track>>((ref) {
 });
 
 class ExploreTracksNotifier extends StateNotifier<List<Track>> {
-  ExploreTracksNotifier() : super(_seedTracks());
+  final HttpExploreRepository? _repository;
+  final SyncOutboxService? _outbox;
+  Set<String> _likedTrackIds = <String>{};
+
+  ExploreTracksNotifier({this._repository, this._outbox})
+    : super(_initialTracks()) {
+    if (SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.tracksBoxKey,
+    )) {
+      _likedTrackIds = Set<String>.from(
+        ExploreCacheRepository.loadLikedTrackIds() ?? const <String>{},
+      );
+    }
+  }
+
+  static List<Track> _initialTracks() {
+    if (SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.tracksBoxKey,
+    )) {
+      final cached = ExploreCacheRepository.loadCachedTracks();
+      if (cached != null && cached.isNotEmpty) {
+        return List<Track>.unmodifiable(cached.map(Track.fromJson));
+      }
+    }
+    return _seedTracks();
+  }
+
+  Set<String> get likedTrackIds => Set<String>.unmodifiable(_likedTrackIds);
+
+  bool isTrackLiked(String trackId) => _likedTrackIds.contains(trackId);
+
+  /// Toggles like status on an Explore track and persists both track cache and liked IDs.
+  void toggleTrackLike(String trackId) {
+    final alreadyLiked = _likedTrackIds.contains(trackId);
+    if (alreadyLiked) {
+      _likedTrackIds.remove(trackId);
+    } else {
+      _likedTrackIds.add(trackId);
+    }
+    state = [
+      for (final track in state)
+        if (track.id == trackId)
+          track.copyWith(
+            likeCount: alreadyLiked
+                ? (track.likeCount - 1).clamp(0, 9999999)
+                : track.likeCount + 1,
+          )
+        else
+          track,
+    ];
+    unawaited(ExploreCacheRepository.saveLikedTrackIds(_likedTrackIds));
+    unawaited(
+      ExploreCacheRepository.saveCachedTracks(
+        state.map((t) => t.toJson()).toList(),
+      ),
+    );
+  }
 
   /// Prepends a newly published track to the catalog.
   void addTrack(Track track) {
     state = [track, ...state];
+    unawaited(
+      ExploreCacheRepository.saveCachedTracks(
+        state.map((t) => t.toJson()).toList(),
+      ),
+    );
+  }
+
+  /// Hydrates dynamic African catalog tracks from `GET /api/explore/tracks`
+  /// with non-destructive offline seed fallback when disconnected.
+  Future<bool> refreshFromCloud({
+    String? genre,
+    String? stage,
+    String sort = 'trending',
+    bool mergeWithSeeds = true,
+  }) async {
+    final repo = _repository;
+    if (repo == null) return false;
+    final remoteTracks = await repo.fetchExploreTracks(
+      genre: genre,
+      stage: stage,
+      sort: sort,
+    );
+    if (!mounted || remoteTracks.isEmpty) return false;
+
+    if (!mergeWithSeeds) {
+      state = List<Track>.unmodifiable(remoteTracks);
+    } else {
+      final remoteIds = remoteTracks.map((t) => t.id).toSet();
+      final retainedLocal = state
+          .where((t) => !remoteIds.contains(t.id))
+          .toList(growable: false);
+      state = List<Track>.unmodifiable([...remoteTracks, ...retainedLocal]);
+    }
+    unawaited(
+      ExploreCacheRepository.saveCachedTracks(
+        state.map((t) => t.toJson()).toList(),
+      ),
+    );
+    return true;
+  }
+
+  /// Optimistically adds [track], queues outbox mutation, and publishes to cloud.
+  Future<Track> publishTrackToCloud(Track track) async {
+    addTrack(track);
+    await _outbox?.enqueue(
+      SyncMutationRecord(
+        idempotencyKey: 'mut_track_${track.id}',
+        entityType: 'track',
+        action: 'create',
+        payload: track.toJson(),
+        createdAt: DateTime.now(),
+      ),
+    );
+    final published = await _repository?.publishTrack(track);
+    if (published != null && mounted) {
+      state = [
+        for (final t in state)
+          if (t.id == track.id) published else t,
+      ];
+      unawaited(
+        ExploreCacheRepository.saveCachedTracks(
+          state.map((t) => t.toJson()).toList(),
+        ),
+      );
+      return published;
+    }
+    return track;
   }
 }
 
@@ -165,8 +337,9 @@ void resetExploreCatalogCursor(WidgetRef ref) {
 void loadMoreExploreTracks(WidgetRef ref) {
   final total = ref.read(filteredExploreTracksProvider).length;
   final next = ref.read(exploreVisibleCountProvider) + exploreCatalogPageSize;
-  ref.read(exploreVisibleCountProvider.notifier).state =
-      next > total ? total : next;
+  ref.read(exploreVisibleCountProvider.notifier).state = next > total
+      ? total
+      : next;
 }
 
 /// Clears every catalog filter dimension and the search query (REQ-EXP-08).
@@ -384,8 +557,9 @@ void resetExploreTitleFade(WidgetRef ref) {
 }
 
 /// Active reel feed filter tab inside [KineticReelsModal] (REQ-EXP-REEL-TABS-01).
-final activeReelTabProvider =
-    StateProvider<ReelFeedTab>((ref) => ReelFeedTab.trending);
+final activeReelTabProvider = StateProvider<ReelFeedTab>(
+  (ref) => ReelFeedTab.trending,
+);
 
 /// Returns the reels stream sorted/filtered by [activeReelTabProvider] (REQ-EXP-REEL-TABS-02).
 final filteredReelsByTabProvider = Provider<List<PublishedClip>>((ref) {
@@ -394,24 +568,37 @@ final filteredReelsByTabProvider = Provider<List<PublishedClip>>((ref) {
   final following = ref.watch(followingCreatorIdsProvider);
 
   return switch (tab) {
-    ReelFeedTab.trending => [...allClips]
-      ..sort((a, b) => b.likeCount.compareTo(a.likeCount)),
+    ReelFeedTab.trending => [
+      ...allClips,
+    ]..sort((a, b) => b.likeCount.compareTo(a.likeCount)),
     ReelFeedTab.forYou => allClips,
     ReelFeedTab.following =>
       allClips.where((c) => following.contains(c.creatorId)).toList(),
-    ReelFeedTab.newest => [...allClips]
-      ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt)),
+    ReelFeedTab.newest => [
+      ...allClips,
+    ]..sort((a, b) => b.publishedAt.compareTo(a.publishedAt)),
   };
 });
 
 /// Set of creator IDs that the current user is following.
 final followingCreatorIdsProvider =
     StateNotifierProvider<FollowingCreatorsNotifier, Set<String>>((ref) {
-  return FollowingCreatorsNotifier();
-});
+      ref.watch(currentCreatorIdProvider);
+      return FollowingCreatorsNotifier();
+    });
 
 class FollowingCreatorsNotifier extends StateNotifier<Set<String>> {
-  FollowingCreatorsNotifier() : super({'creator_makhadzi'});
+  FollowingCreatorsNotifier() : super(_initialFollowing());
+
+  static Set<String> _initialFollowing() {
+    if (SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.tracksBoxKey,
+    )) {
+      final saved = ExploreCacheRepository.loadFollowingIds();
+      if (saved != null) return Set<String>.from(saved);
+    }
+    return {'creator_makhadzi'};
+  }
 
   void toggleFollow(String creatorId) {
     if (state.contains(creatorId)) {
@@ -419,26 +606,190 @@ class FollowingCreatorsNotifier extends StateNotifier<Set<String>> {
     } else {
       state = {...state, creatorId};
     }
+    unawaited(ExploreCacheRepository.saveFollowingIds(state));
   }
 
   bool isFollowing(String creatorId) => state.contains(creatorId);
 }
 
-/// Social music posts feed provider (REQ-EXP-FEED-01).
-final socialFeedPostsProvider =
-    StateNotifierProvider<SocialFeedPostsNotifier, List<SocialMusicPost>>(
-        (ref) {
-  final outbox = ref.watch(syncOutboxServiceProvider);
-  return SocialFeedPostsNotifier(outbox: outbox);
+/// Community A&R Co-Sign vote counts indexed by post ID (REQ-P60-DOM-05).
+final coSignVotesProvider = Provider<Map<String, int>>((ref) {
+  final posts = ref.watch(socialFeedPostsProvider);
+  return {for (final post in posts) post.id: post.cosignCount};
 });
+
+/// Social music posts feed provider (REQ-EXP-FEED-01 + Phase 59 cloud sync).
+final socialFeedPostsProvider =
+    StateNotifierProvider<SocialFeedPostsNotifier, List<SocialMusicPost>>((
+      ref,
+    ) {
+      ref.watch(currentCreatorIdProvider);
+      final outbox = ref.watch(syncOutboxServiceProvider);
+      final repo = ref.watch(exploreRepositoryProvider);
+      return SocialFeedPostsNotifier(outbox: outbox, repository: repo);
+    });
 
 class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
   final SyncOutboxService? outbox;
+  final HttpExploreRepository? repository;
 
-  SocialFeedPostsNotifier({this.outbox})
-      : super(seedSocialPosts());
+  SocialFeedPostsNotifier({this.outbox, this.repository})
+    : super(_initialPosts());
+
+  static List<SocialMusicPost> _initialPosts() {
+    final seeds = seedSocialPosts();
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.tracksBoxKey,
+    )) {
+      return seeds;
+    }
+
+    final merged = <SocialMusicPost>[];
+    final seenIds = <String>{};
+
+    final customRaw = ExploreCacheRepository.loadCustomPosts();
+    if (customRaw != null && customRaw.isNotEmpty) {
+      for (final raw in customRaw) {
+        try {
+          final post = SocialMusicPost.fromJson(raw);
+          if (seenIds.add(post.id)) {
+            merged.add(post);
+          }
+        } catch (_) {}
+      }
+    }
+
+    for (final seed in seeds) {
+      if (seenIds.add(seed.id)) {
+        merged.add(seed);
+      }
+    }
+
+    final likedPostIds = ExploreCacheRepository.loadLikedPostIds();
+    final coSignStates = ExploreCacheRepository.loadCoSignStates();
+    final coSignVotes = ExploreCacheRepository.loadCoSignVotes();
+
+    if (likedPostIds == null && coSignStates == null && coSignVotes == null) {
+      return List<SocialMusicPost>.unmodifiable(merged);
+    }
+
+    return List<SocialMusicPost>.unmodifiable([
+      for (final post in merged)
+        () {
+          var next = post;
+          if (likedPostIds != null) {
+            final shouldBeLiked = likedPostIds.contains(post.id);
+            if (shouldBeLiked != post.isLikedByMe) {
+              next = next.copyWith(
+                isLikedByMe: shouldBeLiked,
+                likeCount: shouldBeLiked
+                    ? post.likeCount + 1
+                    : (post.likeCount - 1).clamp(0, 9999999),
+              );
+            }
+          }
+          final csState = coSignStates?[post.id];
+          if (csState != null) {
+            next = next.copyWith(
+              cosignCount:
+                  (csState['cosignCount'] as num?)?.toInt() ?? next.cosignCount,
+              isCosigned: (csState['isCosigned'] as bool?) ?? next.isCosigned,
+            );
+          } else if (coSignVotes != null && coSignVotes.containsKey(post.id)) {
+            next = next.copyWith(cosignCount: coSignVotes[post.id]!);
+          }
+          return next;
+        }(),
+    ]);
+  }
+
+  void _persistPostsSnapshot() {
+    unawaited(
+      ExploreCacheRepository.saveCustomPosts([
+        for (final post in state) post.toJson(),
+      ]),
+    );
+  }
+
+  void _persistLikesSnapshot() {
+    final likedIds = {
+      for (final post in state)
+        if (post.isLikedByMe) post.id,
+    };
+    unawaited(ExploreCacheRepository.saveLikedPostIds(likedIds));
+    _persistPostsSnapshot();
+  }
+
+  void _persistCoSignSnapshot() {
+    final states = <String, Map<String, dynamic>>{
+      for (final post in state)
+        if (post.isCosigned || post.cosignCount > 0)
+          post.id: <String, dynamic>{
+            'cosignCount': post.cosignCount,
+            'isCosigned': post.isCosigned,
+          },
+    };
+    unawaited(ExploreCacheRepository.saveCoSignStates(states));
+    _persistPostsSnapshot();
+  }
 
   SyncOutboxService? get _outbox => outbox;
+
+  /// Hydrates cloud posts from `GET /api/explore` without disturbing offline seeds on failure.
+  Future<bool> refreshFromCloud({String? genre, String? stage}) async {
+    final repo = repository;
+    if (repo == null) return false;
+    final bundle = await repo.fetchExploreBundle(genre: genre, stage: stage);
+    if (!mounted || !bundle.isFromCloud || bundle.posts.isEmpty) return false;
+
+    final existingById = {for (final p in state) p.id: p};
+    final hydrated = <SocialMusicPost>[];
+    for (final raw in bundle.posts) {
+      final id = (raw['id'] ?? '').toString();
+      if (id.isEmpty) continue;
+      final existing = existingById[id];
+      if (existing != null) {
+        hydrated.add(
+          existing.copyWith(
+            cosignCount:
+                (raw['cosignCount'] as num?)?.toInt() ?? existing.cosignCount,
+            repostCount:
+                (raw['repostCount'] as num?)?.toInt() ?? existing.repostCount,
+          ),
+        );
+      } else {
+        hydrated.add(
+          SocialMusicPost(
+            id: id,
+            creatorId: (raw['creatorId'] ?? 'creator_cern').toString(),
+            creatorName: (raw['creatorName'] ?? 'Creator').toString(),
+            creatorHandle: (raw['creatorHandle'] ?? '@creator').toString(),
+            publishedAt:
+                DateTime.tryParse((raw['createdAt'] ?? '').toString()) ??
+                DateTime.now(),
+            caption: (raw['caption'] ?? '').toString(),
+            track: Track.fromJson(<String, dynamic>{
+              'id': raw['attachmentId'] ?? id,
+              'title': raw['trackTitle'] ?? raw['caption'] ?? 'Cloud Post',
+              'creatorName': raw['creatorName'] ?? 'Creator',
+              'genre': raw['genre'] ?? 'Amapiano',
+            }),
+            cosignCount: (raw['cosignCount'] as num?)?.toInt() ?? 0,
+            repostCount: (raw['repostCount'] as num?)?.toInt() ?? 0,
+          ),
+        );
+      }
+    }
+
+    if (hydrated.isEmpty) return false;
+    final hydratedIds = hydrated.map((p) => p.id).toSet();
+    final remaining = state
+        .where((p) => !hydratedIds.contains(p.id))
+        .toList(growable: false);
+    state = List<SocialMusicPost>.unmodifiable([...hydrated, ...remaining]);
+    _persistPostsSnapshot();
+    return true;
+  }
 
   void toggleLike(String postId) {
     state = [
@@ -446,30 +797,38 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
         if (post.id == postId)
           post.copyWith(
             isLikedByMe: !post.isLikedByMe,
-            likeCount:
-                post.isLikedByMe ? post.likeCount - 1 : post.likeCount + 1,
+            likeCount: post.isLikedByMe
+                ? post.likeCount - 1
+                : post.likeCount + 1,
           )
         else
           post,
     ];
-    _outbox?.enqueue(SyncMutationRecord(
-      idempotencyKey: 'mut_like_${postId}_${DateTime.now().millisecondsSinceEpoch}',
-      entityType: 'post',
-      action: 'like',
-      payload: {'postId': postId},
-      createdAt: DateTime.now(),
-    ));
+    _persistLikesSnapshot();
+    _outbox?.enqueue(
+      SyncMutationRecord(
+        idempotencyKey:
+            'mut_like_${postId}_${DateTime.now().millisecondsSinceEpoch}',
+        entityType: 'post',
+        action: 'like',
+        payload: {'postId': postId},
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 
   void addPost(SocialMusicPost post) {
     state = [post, ...state];
-    _outbox?.enqueue(SyncMutationRecord(
-      idempotencyKey: 'mut_post_${post.id}',
-      entityType: 'post',
-      action: 'create',
-      payload: post.toJson(),
-      createdAt: DateTime.now(),
-    ));
+    _persistPostsSnapshot();
+    _outbox?.enqueue(
+      SyncMutationRecord(
+        idempotencyKey: 'mut_post_${post.id}',
+        entityType: 'post',
+        action: 'create',
+        payload: post.toJson(),
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 
   void repostPost({
@@ -484,16 +843,19 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
         else
           post,
     ];
-    _outbox?.enqueue(SyncMutationRecord(
-      idempotencyKey: 'mut_repost_${repostPost.id}',
-      entityType: 'post',
-      action: 'repost',
-      payload: {
-        'originalPostId': originalPostId,
-        'repost': repostPost.toJson(),
-      },
-      createdAt: DateTime.now(),
-    ));
+    _persistPostsSnapshot();
+    _outbox?.enqueue(
+      SyncMutationRecord(
+        idempotencyKey: 'mut_repost_${repostPost.id}',
+        entityType: 'post',
+        action: 'repost',
+        payload: {
+          'originalPostId': originalPostId,
+          'repost': repostPost.toJson(),
+        },
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 
   /// Toggles community A&R co-sign on a post and triggers live graduation (REQ-COSIGN-GRAD-02, REQ-P46-SYNC-01).
@@ -510,45 +872,62 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
         else
           post,
     ];
-    _outbox?.enqueue(SyncMutationRecord(
-      idempotencyKey: 'mut_cosign_${postId}_${DateTime.now().millisecondsSinceEpoch}',
-      entityType: 'cosign',
-      action: 'cosign',
-      payload: {'postId': postId},
-      createdAt: DateTime.now(),
-    ));
+    _persistCoSignSnapshot();
+    _outbox?.enqueue(
+      SyncMutationRecord(
+        idempotencyKey:
+            'mut_cosign_${postId}_${DateTime.now().millisecondsSinceEpoch}',
+        entityType: 'cosign',
+        action: 'cosign',
+        payload: {'postId': postId},
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 }
 
 /// Persisted recent searches provider (REQ-EXP-SEARCH-02).
 final recentSearchesProvider =
     StateNotifierProvider<RecentSearchesNotifier, List<String>>((ref) {
-  return RecentSearchesNotifier();
-});
+      ref.watch(currentCreatorIdProvider);
+      return RecentSearchesNotifier();
+    });
 
 class RecentSearchesNotifier extends StateNotifier<List<String>> {
-  RecentSearchesNotifier()
-      : super(const [
-          'Kabza de Small log drum',
-          'Amapiano 2026 drops',
-          'Makhadzi live vocals',
-          'Gqom bass kick',
-        ]);
+  RecentSearchesNotifier() : super(_initialSearches());
+
+  static List<String> _initialSearches() {
+    if (SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.tracksBoxKey,
+    )) {
+      final saved = ExploreCacheRepository.loadRecentSearches();
+      if (saved != null) return List<String>.unmodifiable(saved);
+    }
+    return const [
+      'Kabza de Small log drum',
+      'Amapiano 2026 drops',
+      'Makhadzi live vocals',
+      'Gqom bass kick',
+    ];
+  }
 
   void addQuery(String query) {
     final clean = query.trim();
     if (clean.isEmpty) return;
     state = [
       clean,
-      ...state.where((q) => q.toLowerCase() != clean.toLowerCase())
+      ...state.where((q) => q.toLowerCase() != clean.toLowerCase()),
     ].take(10).toList();
+    unawaited(ExploreCacheRepository.saveRecentSearches(state));
   }
 
   void removeQuery(String query) {
     state = state.where((q) => q != query).toList();
+    unawaited(ExploreCacheRepository.saveRecentSearches(state));
   }
 
   void clearAll() {
     state = const [];
+    unawaited(ExploreCacheRepository.saveRecentSearches(state));
   }
 }

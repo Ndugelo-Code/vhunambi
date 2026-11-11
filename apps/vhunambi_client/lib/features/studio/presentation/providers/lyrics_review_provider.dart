@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vhunambi_client/core/auth/auth_providers.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
 
 import '../../data/services/fake_lyrics_generation_service.dart';
 import '../../data/services/http_lyrics_generation_service.dart';
@@ -10,7 +12,10 @@ import '../../domain/services/i_lyrics_generation_service.dart';
 /// Production implementation talks to Vhunambi API with automatic offline
 /// fallback to [FakeLyricsGenerationService].
 final lyricsGenerationServiceProvider = Provider<ILyricsGenerationService>(
-  (ref) => HttpLyricsGenerationService(),
+  (ref) => HttpLyricsGenerationService(
+    baseUrl: AppConstants.apiBaseUrl,
+    authInterceptor: ref.watch(authDioInterceptorProvider),
+  ),
 );
 
 /// `null` = no lyrics review in flight (the cockpit is closed).

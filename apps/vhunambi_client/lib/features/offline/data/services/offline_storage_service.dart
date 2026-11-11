@@ -47,14 +47,19 @@ class OfflineStorageService implements IOfflineStorageService {
     if (_vaultBox != null && _vaultBox!.isOpen) return _vaultBox;
     if (kIsWeb) return null;
     try {
-      if (customVaultDirectory != null && !Directory(customVaultDirectory!).existsSync()) {
+      if (Hive.isBoxOpen(AppConstants.vaultBoxKey)) {
+        _vaultBox = Hive.box(AppConstants.vaultBoxKey);
+        return _vaultBox;
+      }
+      if (const bool.fromEnvironment('FLUTTER_TEST') ||
+          Platform.environment.containsKey('FLUTTER_TEST')) {
         return null;
       }
-      if (!Hive.isBoxOpen(AppConstants.vaultBoxKey)) {
-        _vaultBox = await Hive.openBox(AppConstants.vaultBoxKey);
-      } else {
-        _vaultBox = Hive.box(AppConstants.vaultBoxKey);
+      if (customVaultDirectory != null &&
+          !Directory(customVaultDirectory!).existsSync()) {
+        return null;
       }
+      _vaultBox = await Hive.openBox(AppConstants.vaultBoxKey);
       return _vaultBox;
     } catch (e) {
       debugPrint('OfflineStorageService running with in-memory vault store: $e');
@@ -66,14 +71,19 @@ class OfflineStorageService implements IOfflineStorageService {
     if (_prefsBox != null && _prefsBox!.isOpen) return _prefsBox;
     if (kIsWeb) return null;
     try {
-      if (customVaultDirectory != null && !Directory(customVaultDirectory!).existsSync()) {
+      if (Hive.isBoxOpen(AppConstants.preferencesBoxKey)) {
+        _prefsBox = Hive.box(AppConstants.preferencesBoxKey);
+        return _prefsBox;
+      }
+      if (const bool.fromEnvironment('FLUTTER_TEST') ||
+          Platform.environment.containsKey('FLUTTER_TEST')) {
         return null;
       }
-      if (!Hive.isBoxOpen(AppConstants.preferencesBoxKey)) {
-        _prefsBox = await Hive.openBox(AppConstants.preferencesBoxKey);
-      } else {
-        _prefsBox = Hive.box(AppConstants.preferencesBoxKey);
+      if (customVaultDirectory != null &&
+          !Directory(customVaultDirectory!).existsSync()) {
+        return null;
       }
+      _prefsBox = await Hive.openBox(AppConstants.preferencesBoxKey);
       return _prefsBox;
     } catch (e) {
       debugPrint('OfflineStorageService running with in-memory prefs store: $e');

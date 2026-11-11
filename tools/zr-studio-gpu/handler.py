@@ -72,8 +72,20 @@ def send_webhook(webhook_url: str, payload: dict) -> None:
 def runpod_handler(job: dict) -> dict:
     job_input = job.get("input", {})
     job_id = job_input.get("job_id", f"job_{job.get('id', 'default')}")
-    song_spec = job_input.get("song_spec", {})
+    song_spec = dict(job_input.get("song_spec", {}) or {})
     webhook_url = job_input.get("webhook_url", "")
+
+    melody_conditioning = job_input.get("melody_conditioning") or {}
+    reference_audio_url = (
+        job_input.get("reference_audio_url")
+        or (melody_conditioning.get("r2ReferenceUrl") if isinstance(melody_conditioning, dict) else None)
+        or (melody_conditioning.get("r2_reference_url") if isinstance(melody_conditioning, dict) else None)
+        or ""
+    )
+    if melody_conditioning:
+        song_spec["melody_conditioning"] = melody_conditioning
+    if reference_audio_url:
+        song_spec["reference_audio_url"] = reference_audio_url
 
     bpm = float(song_spec.get("tempo", 112.0))
     duration_sec = int(song_spec.get("duration", 30))
@@ -175,13 +187,40 @@ def runpod_handler(job: dict) -> dict:
         })
 
         # ---------------------------------------------------------------------
-        # STAGE 4: Phase 25 Commercial 4-Stem Studio Mastering & True-Peak Limiter
+        # STAGE 4: MMO v2.0 Measured 60Hz Telemetry & Transient Extraction
+        # (Extracted before stem mastering so kick transients drive sidechain ducking)
         # ---------------------------------------------------------------------
         send_webhook(webhook_url, {
             "job_id": job_id,
             "status": "processing",
-            "progress": 65,
-            "message": "Applying Phase 25 4-stem studio mastering and true-peak limiting (Stage 4/5)",
+            "progress": 60,
+            "message": "Extracting 60Hz telemetry curves and kick transient events (Stage 4/5)",
+        })
+
+        t0_mmo = time.time()
+        pre_master_sig, sr_telemetry = librosa.load(master_wav_path, sr=22050, mono=True)
+        stems_dict = {}
+        for role, p in stem_paths.items():
+            sig, _ = librosa.load(p, sr=sr_telemetry, mono=True)
+            stems_dict[role] = sig
+
+        measured_data = extract_measured_telemetry(
+            master_wav=pre_master_sig,
+            stems_dict=stems_dict,
+            sr=sr_telemetry,
+            bpm=bpm,
+        )
+        transient_events = measured_data.get("modulationBus", {}).get("transientEvents", [])
+        mmo_extract_ms = int((time.time() - t0_mmo) * 1000)
+
+        # ---------------------------------------------------------------------
+        # STAGE 5: Phase 25 Commercial 4-Stem Studio Mastering & True-Peak Limiter
+        # ---------------------------------------------------------------------
+        send_webhook(webhook_url, {
+            "job_id": job_id,
+            "status": "processing",
+            "progress": 78,
+            "message": "Applying Phase 25 4-stem studio mastering and true-peak limiting (Stage 5/5)",
         })
 
         t0 = time.time()
@@ -206,53 +245,45 @@ def runpod_handler(job: dict) -> dict:
             "target_lufs": -9.5,
             "true_peak_db": -0.8,
             "log_drum_sub_boost": 1.25,
-            "sidechain_ducking": 0.75,
+            "sidechain_ducking": -2.5,
         }
 
         stems_for_mastering = {}
+        sr_mastering = 44100
         for role, p in stem_paths.items():
-            data, _ = sf.read(p, dtype="float32")
+            data, read_sr = sf.read(p, dtype="float32")
+            sr_mastering = int(read_sr or sr_mastering)
             stems_for_mastering[role] = data.T if data.ndim > 1 else data
 
-        sr_mastering = 44100
-        mastered_master = master_stems_to_commercial_target(
+        mastered_master, processed_stems, mastering_metrics = master_stems_to_commercial_target(
             stems=stems_for_mastering,
             sr=sr_mastering,
             recipe=mastering_recipe,
+            transient_events=transient_events,
         )
-        sf.write(master_wav_path, mastered_master.T if mastered_master.ndim > 1 else mastered_master, sr_mastering)
+        sf.write(
+            master_wav_path,
+            mastered_master.T if mastered_master.ndim > 1 else mastered_master,
+            sr_mastering,
+            subtype="PCM_24",
+        )
+        for role, stem_arr in processed_stems.items():
+            if role in stem_paths and os.path.exists(stem_paths[role]):
+                sf.write(
+                    stem_paths[role],
+                    stem_arr.T if stem_arr.ndim > 1 else stem_arr,
+                    sr_mastering,
+                    subtype="PCM_24",
+                )
 
         stage_metrics.append({
             "name": "stem_mastering_dsp",
             "executed": True,
             "duration_ms": int((time.time() - t0) * 1000),
+            "metrics": mastering_metrics,
             "input_sha256": in_sha_stage2,
             "output_sha256": calculate_sha256(master_wav_path),
         })
-
-        # ---------------------------------------------------------------------
-        # STAGE 5: MMO v2.0 Measured 60Hz Telemetry Extraction
-        # ---------------------------------------------------------------------
-        send_webhook(webhook_url, {
-            "job_id": job_id,
-            "status": "processing",
-            "progress": 80,
-            "message": "Extracting measured 60Hz telemetry curves and transient events (Stage 5/5)",
-        })
-
-        t0 = time.time()
-        master_sig, sr = librosa.load(master_wav_path, sr=22050, mono=True)
-        stems_dict = {}
-        for role, p in stem_paths.items():
-            sig, _ = librosa.load(p, sr=sr, mono=True)
-            stems_dict[role] = sig
-
-        measured_data = extract_measured_telemetry(
-            master_wav=master_sig,
-            stems_dict=stems_dict,
-            sr=sr,
-            bpm=bpm,
-        )
 
         manifest_payload = {
             "id": job_id.replace("vhunambi_", ""),
@@ -261,14 +292,16 @@ def runpod_handler(job: dict) -> dict:
             "language": language,
             "schemaVersion": "2.0",
             "provenance": "measured",
+            "masteringMetrics": mastering_metrics,
             "modulationBus": measured_data["modulationBus"],
             "mpcKitPads": measured_data["mpcKitPads"],
+            **({"melodyConditioning": melody_conditioning} if melody_conditioning else {}),
         }
 
         stage_metrics.append({
             "name": "mmo_telemetry_extraction",
             "executed": True,
-            "duration_ms": int((time.time() - t0) * 1000),
+            "duration_ms": mmo_extract_ms,
             "input_sha256": calculate_sha256(master_wav_path),
             "output_sha256": "",
         })

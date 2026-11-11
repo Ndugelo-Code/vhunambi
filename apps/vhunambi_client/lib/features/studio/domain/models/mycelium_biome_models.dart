@@ -205,6 +205,14 @@ class Vector3D {
 
   @override
   String toString() => 'Vector3D(${x.toStringAsFixed(1)}, ${y.toStringAsFixed(1)}, ${z.toStringAsFixed(1)})';
+
+  Map<String, double> toJson() => {'x': x, 'y': y, 'z': z};
+
+  factory Vector3D.fromJson(Map<String, dynamic> json) => Vector3D(
+    (json['x'] as num?)?.toDouble() ?? 0.0,
+    (json['y'] as num?)?.toDouble() ?? 0.0,
+    (json['z'] as num?)?.toDouble() ?? 0.0,
+  );
 }
 
 /// Evaluates the continuous 3D Y-Up terrain elevation Y = h(X, Z) >= 0.
@@ -291,6 +299,40 @@ class MyceliumChildNode {
       localOffset: localOffset,
       isStemLocked: isStemLocked ?? this.isStemLocked,
       studioMutatorKey: studioMutatorKey,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'id': id,
+    'parentDomain': parentDomain.name,
+    'title': title,
+    'subtitle': subtitle,
+    'iconIdentifier': iconIdentifier,
+    'intensityWeight': intensityWeight,
+    'localOffset': localOffset.toJson(),
+    'isStemLocked': isStemLocked,
+    if (studioMutatorKey != null) 'studioMutatorKey': studioMutatorKey,
+  };
+
+  factory MyceliumChildNode.fromJson(Map<String, dynamic> json) {
+    final domainName = json['parentDomain']?.toString();
+    final offsetRaw = json['localOffset'];
+    return MyceliumChildNode(
+      id: json['id']?.toString() ?? 'node_leaf_custom',
+      parentDomain: MyceliumClusterDomain.values.firstWhere(
+        (d) => d.name == domainName,
+        orElse: () => MyceliumClusterDomain.harmonyNetwork,
+      ),
+      title: json['title']?.toString() ?? 'Instrument Leaf',
+      subtitle: json['subtitle']?.toString() ?? 'Dynamic Instrument Leaf',
+      iconIdentifier: json['iconIdentifier']?.toString() ?? 'musicNotes',
+      intensityWeight:
+          ((json['intensityWeight'] as num?)?.toDouble() ?? 0.85).clamp(0.0, 1.0),
+      localOffset: offsetRaw is Map
+          ? Vector3D.fromJson(Map<String, dynamic>.from(offsetRaw))
+          : const Vector3D(34.0, 14.0, 0.0),
+      isStemLocked: json['isStemLocked'] as bool? ?? false,
+      studioMutatorKey: json['studioMutatorKey']?.toString(),
     );
   }
 }

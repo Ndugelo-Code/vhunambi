@@ -14,6 +14,13 @@ extension TempoBracketLabel on TempoBracket {
         TempoBracket.fast => 'Fast (118-124 BPM)',
         TempoBracket.veryFast => 'Very Fast (128+ BPM)',
       };
+
+  int get defaultBpm => switch (this) {
+        TempoBracket.slow => 85,
+        TempoBracket.medium => 112,
+        TempoBracket.fast => 124,
+        TempoBracket.veryFast => 135,
+      };
 }
 
 enum VocalVoices { solo, duet, choir }

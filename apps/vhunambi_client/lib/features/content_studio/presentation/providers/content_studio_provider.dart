@@ -1,16 +1,26 @@
+import 'dart:async';
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/auth/auth_providers.dart';
+import '../../../../core/auth/sovereign_auth_session.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/storage/sovereign_domain_repositories.dart';
 import '../../domain/models/song_metadata_dna.dart';
 import '../../domain/models/content_studio_preset.dart';
 import '../../domain/models/lyric_word_timestamp.dart';
 import '../../domain/services/i_video_export_service.dart';
-import '../../data/services/local_video_export_service.dart';
+import '../../data/services/cloud_video_export_service.dart';
 import '../../../social/domain/models/published_clip.dart';
 import '../../../social/domain/repositories/i_social_repository.dart';
 import '../../../social/presentation/providers/social_feed_provider.dart';
 import '../../../social/presentation/providers/social_repository_provider.dart';
 
 final videoExportServiceProvider = Provider<IVideoExportService>((ref) {
-  return LocalVideoExportService();
+  return CloudVideoExportService(
+    authInterceptor: ref.watch(authDioInterceptorProvider),
+  );
 });
 
 class ContentStudioState {
@@ -100,11 +110,119 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
   /// Injected social repository for backend persistence and remix propagation (Phase C & D).
   final ISocialRepository? _socialRepo;
 
+  /// Active sovereign auth session reader for multi-tenant attribution (`Phase 61`).
+  final SovereignAuthSession Function()? _readAuthSession;
+
   ContentStudioNotifier(
     this._exportService, [
     this._socialFeed,
     this._socialRepo,
-  ]) : super(const ContentStudioState());
+    this._readAuthSession,
+  ]) : super(_initialState());
+
+  static ContentStudioState _initialState() {
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.studioSessionBoxKey,
+    )) {
+      return const ContentStudioState();
+    }
+    final raw = SovereignPrefsRepository.loadContentStudioDraft('active');
+    if (raw == null || raw.isEmpty) return const ContentStudioState();
+    try {
+      final rawDna = raw['dna'];
+      final dna = rawDna is Map
+          ? SongMetadataDna.fromJson(Map<String, dynamic>.from(rawDna))
+          : null;
+      final rawWords = raw['words'] as List<dynamic>?;
+      final words = rawWords != null
+          ? rawWords
+                .whereType<Map>()
+                .map(
+                  (e) =>
+                      LyricWordTimestamp.fromJson(Map<String, dynamic>.from(e)),
+                )
+                .toList()
+          : const <LyricWordTimestamp>[];
+      final presetName = raw['typographyPreset']?.toString();
+      final typographyPreset = LyricTypographyPreset.values.firstWhere(
+        (p) => p.name == presetName,
+        orElse: () => LyricTypographyPreset.kineticBounce,
+      );
+      final durName = raw['durationPreset']?.toString();
+      final durationPreset = DurationPreset.values.firstWhere(
+        (p) => p.name == durName,
+        orElse: () => DurationPreset.reel30s,
+      );
+      final rawEffects = raw['effects'];
+      final effects = rawEffects is Map
+          ? AtmosphericEffects.fromJson(Map<String, dynamic>.from(rawEffects))
+          : const AtmosphericEffects();
+
+      return ContentStudioState(
+        dna: dna,
+        audioUrl: raw['audioUrl'] as String?,
+        coverArtUrl: raw['coverArtUrl'] as String?,
+        words: words,
+        typographyPreset: typographyPreset,
+        durationPreset: durationPreset,
+        startSeconds: (raw['startSeconds'] as num?)?.toDouble() ?? 0.0,
+        endSeconds: (raw['endSeconds'] as num?)?.toDouble() ?? 30.0,
+        effects: effects,
+        publishedShareUrl: raw['publishedShareUrl'] as String?,
+      );
+    } catch (_) {
+      return const ContentStudioState();
+    }
+  }
+
+  void _persistDraft() {
+    final payload = <String, dynamic>{
+      if (state.dna != null) 'dna': state.dna!.toJson(),
+      if (state.audioUrl != null) 'audioUrl': state.audioUrl,
+      if (state.coverArtUrl != null) 'coverArtUrl': state.coverArtUrl,
+      'words': state.words.map((w) => w.toJson()).toList(),
+      'typographyPreset': state.typographyPreset.name,
+      'durationPreset': state.durationPreset.name,
+      'startSeconds': state.startSeconds,
+      'endSeconds': state.endSeconds,
+      'effects': state.effects.toJson(),
+      if (state.publishedShareUrl != null)
+        'publishedShareUrl': state.publishedShareUrl,
+    };
+    unawaited(
+      SovereignPrefsRepository.saveContentStudioDraft('active', payload),
+    );
+    final dnaId = state.dna?.id;
+    if (dnaId != null && dnaId.isNotEmpty) {
+      unawaited(
+        SovereignPrefsRepository.saveContentStudioDraft(dnaId, payload),
+      );
+    }
+  }
+
+  static bool _isTestEnv() {
+    if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
+    try {
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  static String _normalizeStudioMediaUrl(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return '';
+    if (trimmed.startsWith('/mock-storage/')) {
+      return AppConstants.normalizeCloudMediaUrl(trimmed);
+    }
+    if (!_isTestEnv() ||
+        AppConstants.configuredApiBaseUrl.trim().isNotEmpty ||
+        AppConstants.configuredMediaBaseUrl.trim().isNotEmpty) {
+      return AppConstants.normalizeCloudMediaUrl(trimmed);
+    }
+    return trimmed;
+  }
 
   void initializeWithDna({
     required SongMetadataDna dna,
@@ -160,8 +278,8 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
 
     state = state.copyWith(
       dna: dna,
-      audioUrl: audioUrl,
-      coverArtUrl: coverArtUrl,
+      audioUrl: _normalizeStudioMediaUrl(audioUrl),
+      coverArtUrl: _normalizeStudioMediaUrl(coverArtUrl),
       words: dna.alignment,
       typographyPreset: defaultPreset,
       effects: defaultEffects,
@@ -172,24 +290,32 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
       exportedFilePath: null,
       errorMessage: null,
     );
+    _persistDraft();
   }
 
   void setPreset(LyricTypographyPreset preset) {
     state = state.copyWith(typographyPreset: preset);
+    _persistDraft();
   }
 
   void setDurationPreset(DurationPreset preset) {
     final maxSec = state.dna?.musical.durationSec.toDouble() ?? 180.0;
     final target = preset.targetSeconds.toDouble();
-    final newEnd = (state.startSeconds + target) > maxSec ? maxSec : state.startSeconds + target;
+    final newEnd = (state.startSeconds + target) > maxSec
+        ? maxSec
+        : state.startSeconds + target;
     state = state.copyWith(durationPreset: preset, endSeconds: newEnd);
+    _persistDraft();
   }
 
   void setTrimBounds(double start, double end) {
     final clampedStart = start < 0.0 ? 0.0 : start;
     final maxSec = state.dna?.musical.durationSec.toDouble() ?? 180.0;
-    final clampedEnd = end > maxSec ? maxSec : (end <= clampedStart ? clampedStart + 1.0 : end);
+    final clampedEnd = end > maxSec
+        ? maxSec
+        : (end <= clampedStart ? clampedStart + 1.0 : end);
     state = state.copyWith(startSeconds: clampedStart, endSeconds: clampedEnd);
+    _persistDraft();
   }
 
   void toggleEffect({bool? filmGrain, bool? bassPulse, bool? kenBurnsMotion}) {
@@ -200,6 +326,7 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
         kenBurnsMotion: kenBurnsMotion,
       ),
     );
+    _persistDraft();
   }
 
   void updatePlaybackPosition(double sec) {
@@ -216,17 +343,26 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
   }
 
   void reRollCoverArt(String newCoverArtUrl) {
-    state = state.copyWith(coverArtUrl: newCoverArtUrl);
+    state = state.copyWith(
+      coverArtUrl: _normalizeStudioMediaUrl(newCoverArtUrl),
+    );
+    _persistDraft();
   }
 
   Future<void> exportVideo() async {
     if (state.isExporting) return;
     if (state.audioUrl == null || state.coverArtUrl == null) {
-      state = state.copyWith(errorMessage: 'Cannot export: Audio or Cover Art is missing.');
+      state = state.copyWith(
+        errorMessage: 'Cannot export: Audio or Cover Art is missing.',
+      );
       return;
     }
 
-    state = state.copyWith(isExporting: true, exportProgress: 0.0, errorMessage: null);
+    state = state.copyWith(
+      isExporting: true,
+      exportProgress: 0.0,
+      errorMessage: null,
+    );
 
     try {
       final path = await _exportService.exportLyricVideo(
@@ -241,7 +377,11 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
           state = state.copyWith(exportProgress: progress);
         },
       );
-      state = state.copyWith(isExporting: false, exportProgress: 1.0, exportedFilePath: path);
+      state = state.copyWith(
+        isExporting: false,
+        exportProgress: 1.0,
+        exportedFilePath: path,
+      );
     } catch (e) {
       state = state.copyWith(isExporting: false, errorMessage: e.toString());
     }
@@ -268,13 +408,18 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
       return null;
     }
 
+    final session = _readAuthSession?.call();
+    final creatorId = session?.canonicalCreatorId ?? 'creator_cern';
+    final creatorUsername = session?.rawUsername ?? 'cern';
+    final creatorDisplayName = session?.displayName ?? 'cern';
+
     final clipId = 'clip_pub_local_${DateTime.now().millisecondsSinceEpoch}';
     final clip = PublishedClip(
       id: clipId,
       trackId: 'track_${clipId.split('_').last}',
-      creatorId: 'creator_makhadzi',
-      creatorUsername: 'makhadzi',
-      creatorDisplayName: 'Makhadzi',
+      creatorId: creatorId,
+      creatorUsername: creatorUsername,
+      creatorDisplayName: creatorDisplayName,
       isCreatorVerified: true,
       title: dna.title,
       caption: caption,
@@ -309,19 +454,34 @@ class ContentStudioNotifier extends StateNotifier<ContentStudioState> {
       'remixAttribution': ?remixAttribution,
     });
 
-    state = state.copyWith(publishedShareUrl: clip.shareUrl, errorMessage: null);
+    state = state.copyWith(
+      publishedShareUrl: clip.shareUrl,
+      errorMessage: null,
+    );
+    _persistDraft();
     return clip;
   }
 
   void reset() {
+    final oldDnaId = state.dna?.id;
     state = const ContentStudioState();
+    unawaited(SovereignPrefsRepository.clearContentStudioDraft('active'));
+    if (oldDnaId != null && oldDnaId.isNotEmpty) {
+      unawaited(SovereignPrefsRepository.clearContentStudioDraft(oldDnaId));
+    }
   }
 }
 
 final contentStudioProvider =
     StateNotifierProvider<ContentStudioNotifier, ContentStudioState>((ref) {
-  final exportService = ref.watch(videoExportServiceProvider);
-  final socialFeed = ref.read(socialFeedProvider.notifier);
-  final socialRepo = ref.watch(socialRepositoryProvider);
-  return ContentStudioNotifier(exportService, socialFeed, socialRepo);
-});
+      ref.watch(currentCreatorIdProvider);
+      final exportService = ref.watch(videoExportServiceProvider);
+      final socialFeed = ref.read(socialFeedProvider.notifier);
+      final socialRepo = ref.watch(socialRepositoryProvider);
+      return ContentStudioNotifier(
+        exportService,
+        socialFeed,
+        socialRepo,
+        () => ref.read(authSessionProvider),
+      );
+    });

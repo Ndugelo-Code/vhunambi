@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/utils/creator_id_utils.dart';
 import '../../data/repositories/creator_dna_repository.dart';
 import '../../domain/entities/creator_dna_profile.dart';
@@ -164,6 +165,7 @@ final creatorDnaRepositoryProvider = Provider<CreatorDnaRepository>((ref) {
 
 /// Global state provider for Creator DNA profile.
 final creatorDnaProvider = StateNotifierProvider<CreatorDnaNotifier, CreatorDnaProfile>((ref) {
+  ref.watch(currentCreatorIdProvider);
   return CreatorDnaNotifier(ref.watch(creatorDnaRepositoryProvider));
 });
 

@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math';
 import 'package:audio_service/audio_service.dart' show MediaItem, PlaybackState;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import '../../../../shared/models/track.dart';
 import '../../../playlists/domain/models/playlist_entity.dart';
 import '../../data/services/vhunambi_audio_handler.dart';
@@ -11,7 +15,9 @@ import 'audio_bridge_providers.dart';
 import '../../../creator_dna/domain/models/behavior_event.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 
-final playerStateProvider = StateNotifierProvider<PlayerNotifier, PlayerState>((ref) {
+final playerStateProvider = StateNotifierProvider<PlayerNotifier, PlayerState>((
+  ref,
+) {
   final notifier = PlayerNotifier(
     audioHandler: ref.watch(audioHandlerProvider),
     // Wire DNA telemetry callback: fires on playback events without coupling
@@ -53,29 +59,116 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     IVhunambiAudioHandler? audioHandler,
     int Function(int)? randomInt,
     this.trackPlayTelemetry,
-  })  : _ownsHandler = audioHandler == null,
-        _randomInt = randomInt ?? Random().nextInt,
-        _audioHandler = audioHandler ?? TestVhunambiAudioHandler(),
-        super(
-          const PlayerState(
-            currentTrack: Track(
-              id: 'track_default_1',
-              title: 'Grateful in the Light',
-              creatorName: 'Sigwa & Inaf',
-              genre: 'Amapiano',
-              language: 'English',
-              duration: Duration(minutes: 3, seconds: 29),
-              likeCount: 1002,
-              playCount: 1200,
-              isNew: true,
-            ),
-            playbackStatus: PlaybackStatus.playing,
-            position: Duration(seconds: 13),
-            duration: Duration(minutes: 3, seconds: 29),
-          ),
-        ) {
+  }) : _ownsHandler = audioHandler == null,
+       _randomInt = randomInt ?? Random().nextInt,
+       _audioHandler = audioHandler ?? TestVhunambiAudioHandler(),
+       super(
+         const PlayerState(
+           currentTrack: Track(
+             id: 'track_default_1',
+             title: 'Grateful in the Light',
+             creatorName: 'Sigwa & Inaf',
+             genre: 'Amapiano',
+             language: 'English',
+             duration: Duration(minutes: 3, seconds: 29),
+             likeCount: 1002,
+             playCount: 1200,
+             isNew: true,
+           ),
+           playbackStatus: PlaybackStatus.playing,
+           position: Duration(seconds: 13),
+           duration: Duration(minutes: 3, seconds: 29),
+         ),
+       ) {
+    _hydratePersistedSession();
     _initHardwareSubscriptions();
-    _startPositionTicker();
+    if (state.isPlaying) {
+      _startPositionTicker();
+    }
+  }
+
+  void _hydratePersistedSession() {
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.playbackSessionBoxKey,
+    )) {
+      return;
+    }
+
+    final session = PlaybackSessionRepository.loadPlaybackSession();
+    if (session == null) return;
+
+    Track? restoredTrack;
+    final rawTrack = session['currentTrack'];
+    if (rawTrack is Map) {
+      try {
+        restoredTrack = Track.fromJson(Map<String, dynamic>.from(rawTrack));
+      } catch (_) {}
+    }
+
+    final restoredQueue = <Track>[];
+    final rawQueue = session['queue'];
+    if (rawQueue is List) {
+      for (final item in rawQueue) {
+        if (item is Map) {
+          try {
+            restoredQueue.add(Track.fromJson(Map<String, dynamic>.from(item)));
+          } catch (_) {}
+        }
+      }
+    }
+
+    final restoredPositionMs = (session['positionMs'] as num?)?.toInt() ?? 0;
+    final restoredDurationMs =
+        (session['durationMs'] as num?)?.toInt() ??
+        restoredTrack?.duration.inMilliseconds ??
+        0;
+    final restoredIndex =
+        (session['currentIndex'] as num?)?.toInt() ??
+        (restoredQueue.isNotEmpty ? 0 : -1);
+    final restoredShuffle = session['isShuffle'] as bool? ?? false;
+    final repeatName = session['repeatMode']?.toString();
+    final restoredRepeat = AudioRepeatMode.values.firstWhere(
+      (mode) => mode.name == repeatName,
+      orElse: () => AudioRepeatMode.off,
+    );
+    final restoredSpeed = (session['playbackSpeed'] as num?)?.toDouble() ?? 1.0;
+    final restoredVolume = ((session['volume'] as num?)?.toDouble() ?? 1.0)
+        .clamp(0.0, 1.0);
+
+    // Cold restarts ALWAYS resume in paused/idle mode so audio never auto-blasts.
+    state = state.copyWith(
+      clearTrack: restoredTrack == null,
+      currentTrack: restoredTrack,
+      playbackStatus: restoredTrack == null
+          ? PlaybackStatus.idle
+          : PlaybackStatus.paused,
+      position: Duration(milliseconds: restoredPositionMs.clamp(0, 1 << 30)),
+      duration: Duration(milliseconds: restoredDurationMs.clamp(0, 1 << 30)),
+      queue: restoredQueue,
+      currentIndex: restoredQueue.isEmpty
+          ? -1
+          : restoredIndex.clamp(0, restoredQueue.length - 1),
+      isShuffle: restoredShuffle,
+      repeatMode: restoredRepeat,
+      playbackSpeed: restoredSpeed,
+      volume: restoredVolume,
+    );
+  }
+
+  void _persistPlaybackSession() {
+    unawaited(
+      PlaybackSessionRepository.savePlaybackSession(<String, dynamic>{
+        'currentTrack': state.currentTrack?.toJson(),
+        'queue': state.queue.map((track) => track.toJson()).toList(),
+        'currentIndex': state.currentIndex,
+        'positionMs': state.position.inMilliseconds,
+        'durationMs': state.duration.inMilliseconds,
+        'isShuffle': state.isShuffle,
+        'repeatMode': state.repeatMode.name,
+        'playbackSpeed': state.playbackSpeed,
+        'volume': state.volume,
+      }),
+    );
   }
 
   /// The OS transport handler this notifier is synchronized with.
@@ -84,10 +177,12 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   /// Subscribes to OS transport events so lockscreen / bluetooth / SMTC
   /// commands update the Riverpod player state (REQ-AUD-10).
   void _initHardwareSubscriptions() {
-    _playbackStateSubscription =
-        _audioHandler.playbackState.listen(_onHardwarePlaybackState);
-    _mediaItemSubscription =
-        _audioHandler.mediaItem.listen(_onHardwareMediaItem);
+    _playbackStateSubscription = _audioHandler.playbackState.listen(
+      _onHardwarePlaybackState,
+    );
+    _mediaItemSubscription = _audioHandler.mediaItem.listen(
+      _onHardwareMediaItem,
+    );
   }
 
   void _onHardwarePlaybackState(PlaybackState playbackState) {
@@ -148,9 +243,23 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     }
   }
 
+  bool get _isFlutterTestRuntime {
+    if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
+    if (!kIsWeb) {
+      try {
+        if (Platform.environment.containsKey('FLUTTER_TEST')) return true;
+      } catch (_) {}
+    }
+    try {
+      return WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    } catch (_) {
+      return false;
+    }
+  }
+
   void _startPositionTicker() {
     _positionTimer?.cancel();
-    if (WidgetsBinding.instance.runtimeType.toString().contains('Test')) {
+    if (_isFlutterTestRuntime) {
       return;
     }
     _positionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -160,6 +269,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           handleTrackEnd();
         } else {
           state = state.copyWith(position: Duration(seconds: newSecs));
+          if (newSecs % 5 == 0) {
+            _persistPlaybackSession();
+          }
         }
       }
     });
@@ -206,6 +318,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       if (!state.isPlaying) {
         state = state.copyWith(playbackStatus: PlaybackStatus.playing);
       }
+      _persistPlaybackSession();
       return;
     }
 
@@ -214,6 +327,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         playbackStatus: PlaybackStatus.paused,
         position: Duration.zero,
       );
+      _persistPlaybackSession();
       unawaited(_dispatchSafely(_audioHandler.pause));
       return;
     }
@@ -222,7 +336,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   }
 
   void playTrack(Track track, {List<Track>? queue}) {
-    final effectiveQueue = queue ?? (state.queue.isEmpty ? [track] : state.queue);
+    final effectiveQueue =
+        queue ?? (state.queue.isEmpty ? [track] : state.queue);
     final index = effectiveQueue.indexWhere((t) => t.id == track.id);
 
     state = state.copyWith(
@@ -233,6 +348,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       queue: effectiveQueue,
       currentIndex: index >= 0 ? index : 0,
     );
+    _persistPlaybackSession();
     if (_positionTimer == null || !_positionTimer!.isActive) {
       _startPositionTicker();
     }
@@ -257,10 +373,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     }
 
     if (state.queue.isEmpty) {
-      state = state.copyWith(
-        queue: <Track>[current, track],
-        currentIndex: 0,
-      );
+      state = state.copyWith(queue: <Track>[current, track], currentIndex: 0);
+      _persistPlaybackSession();
       return;
     }
 
@@ -268,6 +382,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       queue: <Track>[...state.queue, track],
       currentIndex: state.currentIndex < 0 ? 0 : state.currentIndex,
     );
+    _persistPlaybackSession();
   }
 
   /// Inserts [track] immediately after the active track (REQ-PL-07).
@@ -279,10 +394,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     }
 
     if (state.queue.isEmpty) {
-      state = state.copyWith(
-        queue: <Track>[current, track],
-        currentIndex: 0,
-      );
+      state = state.copyWith(queue: <Track>[current, track], currentIndex: 0);
+      _persistPlaybackSession();
       return;
     }
 
@@ -290,6 +403,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       ..insert((state.currentIndex + 1).clamp(0, state.queue.length), track);
 
     state = state.copyWith(queue: newQueue);
+    _persistPlaybackSession();
   }
 
   /// Removes the queue entry at [index], keeping the active track consistent
@@ -309,6 +423,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     if (newQueue.isEmpty) newIndex = -1;
 
     state = state.copyWith(queue: newQueue, currentIndex: newIndex);
+    _persistPlaybackSession();
   }
 
   /// Re-orders the queue for the drag-and-drop drawer (REQ-PL-05).
@@ -329,13 +444,16 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     var updatedCurrent = state.currentIndex;
     if (state.currentIndex == oldIndex) {
       updatedCurrent = targetIndex;
-    } else if (oldIndex < state.currentIndex && targetIndex >= state.currentIndex) {
+    } else if (oldIndex < state.currentIndex &&
+        targetIndex >= state.currentIndex) {
       updatedCurrent--;
-    } else if (oldIndex > state.currentIndex && targetIndex <= state.currentIndex) {
+    } else if (oldIndex > state.currentIndex &&
+        targetIndex <= state.currentIndex) {
       updatedCurrent++;
     }
 
     state = state.copyWith(queue: newQueue, currentIndex: updatedCurrent);
+    _persistPlaybackSession();
   }
 
   /// Drops every upcoming track while the active track keeps playing
@@ -343,6 +461,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   void clearUpcomingQueue() {
     if (state.currentTrack == null) {
       state = state.copyWith(queue: const <Track>[], currentIndex: -1);
+      _persistPlaybackSession();
       return;
     }
 
@@ -350,6 +469,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       queue: <Track>[state.currentTrack!],
       currentIndex: 0,
     );
+    _persistPlaybackSession();
   }
 
   /// Replaces the queue with an entire playlist and starts track 0
@@ -364,9 +484,11 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     if (state.isPlaying) {
       _positionTimer?.cancel();
       state = state.copyWith(playbackStatus: PlaybackStatus.paused);
+      _persistPlaybackSession();
       unawaited(_dispatchSafely(_audioHandler.pause));
     } else {
       state = state.copyWith(playbackStatus: PlaybackStatus.playing);
+      _persistPlaybackSession();
       _startPositionTicker();
       unawaited(_dispatchSafely(_audioHandler.play));
     }
@@ -377,6 +499,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     if (!mounted) return;
     if (state.isPlaying) {
       state = state.copyWith(playbackStatus: PlaybackStatus.paused);
+      _persistPlaybackSession();
       unawaited(_dispatchSafely(_audioHandler.pause));
     }
   }
@@ -384,12 +507,14 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   void resume() {
     if (!mounted || !state.hasActiveTrack || state.isPlaying) return;
     state = state.copyWith(playbackStatus: PlaybackStatus.playing);
+    _persistPlaybackSession();
     _startPositionTicker();
     unawaited(_dispatchSafely(_audioHandler.play));
   }
 
   void seek(Duration position) {
     state = state.copyWith(position: position);
+    _persistPlaybackSession();
     unawaited(_dispatchSafely(() => _audioHandler.seek(position)));
   }
 
@@ -418,8 +543,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   int _nextShuffleIndex() {
     var candidate = _randomInt(state.queue.length);
     var attempts = 0;
-    while (candidate == state.currentIndex &&
-        attempts < state.queue.length) {
+    while (candidate == state.currentIndex && attempts < state.queue.length) {
       candidate = _randomInt(state.queue.length);
       attempts++;
     }
@@ -428,13 +552,15 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
   void skipPrevious() {
     if (state.queue.isEmpty) return;
-    final prevIndex = (state.currentIndex - 1 + state.queue.length) % state.queue.length;
+    final prevIndex =
+        (state.currentIndex - 1 + state.queue.length) % state.queue.length;
     final prevTrack = state.queue[prevIndex];
     playTrack(prevTrack, queue: state.queue);
   }
 
   void toggleShuffle() {
     state = state.copyWith(isShuffle: !state.isShuffle);
+    _persistPlaybackSession();
   }
 
   void cycleRepeatMode() {
@@ -444,19 +570,20 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       AudioRepeatMode.one => AudioRepeatMode.off,
     };
     state = state.copyWith(repeatMode: next);
-    unawaited(
-      _dispatchSafely(() => _audioHandler.setVhunambiRepeatMode(next)),
-    );
+    _persistPlaybackSession();
+    unawaited(_dispatchSafely(() => _audioHandler.setVhunambiRepeatMode(next)));
   }
 
   void setPlaybackSpeed(double speed) {
     state = state.copyWith(playbackSpeed: speed);
+    _persistPlaybackSession();
     unawaited(_dispatchSafely(() => _audioHandler.setSpeed(speed)));
   }
 
   void setVolume(double volume) {
     final clamped = volume.clamp(0.0, 1.0);
     state = state.copyWith(volume: clamped);
+    _persistPlaybackSession();
     unawaited(_dispatchSafely(() => _audioHandler.setVolume(clamped)));
   }
 
@@ -471,6 +598,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       playbackStatus: PlaybackStatus.idle,
       position: Duration.zero,
     );
+    _persistPlaybackSession();
     unawaited(_dispatchSafely(_audioHandler.stop));
   }
 

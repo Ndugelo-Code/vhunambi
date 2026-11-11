@@ -198,8 +198,8 @@ class VocalsMasteringConfig {
           (json['neuralDereverbStrength'] as num?)?.toDouble() ?? 0.65,
       compressionAmount:
           (json['compressionAmount'] as num?)?.toDouble() ?? 0.65,
-      eq: json['eq'] is Map<String, dynamic>
-          ? StemEqBands.fromJson(json['eq'] as Map<String, dynamic>)
+      eq: json['eq'] is Map
+          ? StemEqBands.fromJson(Map<String, dynamic>.from(json['eq'] as Map))
           : const StemEqBands(
               highpassHz: 95.0,
               lowGainDb: 0.5,
@@ -264,8 +264,8 @@ class BassMasteringConfig {
       subHarmonicMix: (json['subHarmonicMix'] as num?)?.toDouble() ?? 0.55,
       knockDriveDb: (json['knockDriveDb'] as num?)?.toDouble() ?? 4.5,
       sidechainDuckDb: (json['sidechainDuckDb'] as num?)?.toDouble() ?? -3.5,
-      eq: json['eq'] is Map<String, dynamic>
-          ? StemEqBands.fromJson(json['eq'] as Map<String, dynamic>)
+      eq: json['eq'] is Map
+          ? StemEqBands.fromJson(Map<String, dynamic>.from(json['eq'] as Map))
           : const StemEqBands(
               highpassHz: 30.0,
               lowGainDb: 3.5,
@@ -325,8 +325,8 @@ class DrumsMasteringConfig {
       transientAttackSnap:
           (json['transientAttackSnap'] as num?)?.toDouble() ?? 0.45,
       parallelCrushMix: (json['parallelCrushMix'] as num?)?.toDouble() ?? 0.3,
-      eq: json['eq'] is Map<String, dynamic>
-          ? StemEqBands.fromJson(json['eq'] as Map<String, dynamic>)
+      eq: json['eq'] is Map
+          ? StemEqBands.fromJson(Map<String, dynamic>.from(json['eq'] as Map))
           : const StemEqBands(
               highpassHz: 45.0,
               lowGainDb: 1.0,
@@ -386,8 +386,8 @@ class MelodicMasteringConfig {
       midVocalPocketCutDb:
           (json['midVocalPocketCutDb'] as num?)?.toDouble() ?? -2.5,
       stereoWidthBoost: (json['stereoWidthBoost'] as num?)?.toDouble() ?? 0.35,
-      eq: json['eq'] is Map<String, dynamic>
-          ? StemEqBands.fromJson(json['eq'] as Map<String, dynamic>)
+      eq: json['eq'] is Map
+          ? StemEqBands.fromJson(Map<String, dynamic>.from(json['eq'] as Map))
           : const StemEqBands(
               highpassHz: 110.0,
               lowGainDb: -1.5,
@@ -478,18 +478,21 @@ class StemMasteringRecipe {
       sketchpadLayerMix:
           (json['sketchpadLayerMix'] as num?)?.toDouble().clamp(0.0, 1.0) ??
               0.0,
-      vocals: json['vocals'] is Map<String, dynamic>
-          ? VocalsMasteringConfig.fromJson(json['vocals'] as Map<String, dynamic>)
+      vocals: json['vocals'] is Map
+          ? VocalsMasteringConfig.fromJson(
+              Map<String, dynamic>.from(json['vocals'] as Map))
           : const VocalsMasteringConfig(),
-      bass: json['bass'] is Map<String, dynamic>
-          ? BassMasteringConfig.fromJson(json['bass'] as Map<String, dynamic>)
+      bass: json['bass'] is Map
+          ? BassMasteringConfig.fromJson(
+              Map<String, dynamic>.from(json['bass'] as Map))
           : const BassMasteringConfig(),
-      drums: json['drums'] is Map<String, dynamic>
-          ? DrumsMasteringConfig.fromJson(json['drums'] as Map<String, dynamic>)
+      drums: json['drums'] is Map
+          ? DrumsMasteringConfig.fromJson(
+              Map<String, dynamic>.from(json['drums'] as Map))
           : const DrumsMasteringConfig(),
-      melodic: json['melodic'] is Map<String, dynamic>
+      melodic: json['melodic'] is Map
           ? MelodicMasteringConfig.fromJson(
-              json['melodic'] as Map<String, dynamic>)
+              Map<String, dynamic>.from(json['melodic'] as Map))
           : const MelodicMasteringConfig(),
     );
   }

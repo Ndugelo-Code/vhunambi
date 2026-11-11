@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -52,13 +53,7 @@ class ContentStudioDockView extends ConsumerStatefulWidget {
     required SongMetadataDna dna,
     required String audioUrl,
     required String coverArtUrl,
-  }) =>
-      show(
-        context,
-        dna: dna,
-        audioUrl: audioUrl,
-        coverArtUrl: coverArtUrl,
-      );
+  }) => show(context, dna: dna, audioUrl: audioUrl, coverArtUrl: coverArtUrl);
 
   @override
   ConsumerState<ContentStudioDockView> createState() =>
@@ -73,7 +68,9 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
       if (widget.initialDna != null &&
           widget.initialAudioUrl != null &&
           widget.initialCoverArtUrl != null) {
-        ref.read(contentStudioProvider.notifier).initializeWithDna(
+        ref
+            .read(contentStudioProvider.notifier)
+            .initializeWithDna(
               dna: widget.initialDna!,
               audioUrl: widget.initialAudioUrl!,
               coverArtUrl: widget.initialCoverArtUrl!,
@@ -163,7 +160,11 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
             child: ElevatedButton.icon(
               key: const Key('app_bar_export_button'),
               onPressed: () => _openExportSheet(context),
-              icon: const Icon(Icons.download_rounded, color: AppColors.brandContrast, size: 18),
+              icon: const Icon(
+                Icons.download_rounded,
+                color: AppColors.brandContrast,
+                size: 18,
+              ),
               label: Text(
                 'Export MP4',
                 style: AppTypography.bodyLarge.copyWith(
@@ -173,7 +174,9 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.brandPrimary,
-                shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBorder),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: AppRadius.inputBorder,
+                ),
               ),
             ),
           ),
@@ -226,7 +229,9 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                         backgroundColor: AppColors.brandPrimary,
                       ),
                       icon: Icon(
-                        state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        state.isPlaying
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
                         color: AppColors.brandContrast,
                       ),
                     ),
@@ -235,23 +240,35 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                       onPressed: () {
                         final newSeed = DateTime.now().millisecondsSinceEpoch;
                         notifier.reRollCoverArt(
-                          'https://r2.vhunambi.com/visuals/reroll_${newSeed}_9_16.png',
+                          AppConstants.normalizeCloudMediaUrl(
+                            'https://r2.vhunambi.com/visuals/reroll_${newSeed}_9_16.png',
+                          ),
                         );
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Dispatched fresh 9:16 artwork to ComfyUI!'),
+                            content: Text(
+                              'Dispatched fresh 9:16 artwork to ComfyUI!',
+                            ),
                             duration: Duration(seconds: 2),
                           ),
                         );
                       },
-                      icon: const Icon(Icons.refresh_rounded, size: 16, color: AppColors.brandPrimary),
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        size: 16,
+                        color: AppColors.brandPrimary,
+                      ),
                       label: Text(
                         'Re-roll Artwork',
-                        style: AppTypography.bodyLarge.copyWith(color: AppColors.brandPrimary),
+                        style: AppTypography.bodyLarge.copyWith(
+                          color: AppColors.brandPrimary,
+                        ),
                       ),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: AppColors.brandPrimary),
-                        shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBorder),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: AppRadius.inputBorder,
+                        ),
                       ),
                     ),
                   ],
@@ -273,7 +290,8 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                   selectedPreset: state.durationPreset,
                   startSeconds: state.startSeconds,
                   endSeconds: state.endSeconds,
-                  maxDurationSec: state.dna?.musical.durationSec.toDouble() ?? 180.0,
+                  maxDurationSec:
+                      state.dna?.musical.durationSec.toDouble() ?? 180.0,
                   playbackPositionSec: state.playbackPositionSec,
                   onPresetChanged: notifier.setDurationPreset,
                   onTrimBoundsChanged: notifier.setTrimBounds,
@@ -296,7 +314,10 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                 const SizedBox(height: 40),
                 ElevatedButton.icon(
                   onPressed: () => _openExportSheet(context),
-                  icon: const Icon(Icons.movie_creation_rounded, color: AppColors.brandContrast),
+                  icon: const Icon(
+                    Icons.movie_creation_rounded,
+                    color: AppColors.brandContrast,
+                  ),
                   label: Text(
                     'Render & Export 1080x1920 MP4',
                     style: AppTypography.bodyLarge.copyWith(
@@ -307,7 +328,9 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.brandPrimary,
                     minimumSize: const Size.fromHeight(52),
-                    shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: AppRadius.cardBorder,
+                    ),
                   ),
                 ),
               ],
@@ -349,9 +372,13 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
             children: [
               IconButton.filled(
                 onPressed: notifier.togglePlayPause,
-                style: IconButton.styleFrom(backgroundColor: AppColors.brandPrimary),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.brandPrimary,
+                ),
                 icon: Icon(
-                  state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  state.isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
                   color: AppColors.brandContrast,
                 ),
               ),
@@ -360,17 +387,27 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                 onPressed: () {
                   final newSeed = DateTime.now().millisecondsSinceEpoch;
                   notifier.reRollCoverArt(
-                    'https://r2.vhunambi.com/visuals/reroll_${newSeed}_9_16.png',
+                    AppConstants.normalizeCloudMediaUrl(
+                      'https://r2.vhunambi.com/visuals/reroll_${newSeed}_9_16.png',
+                    ),
                   );
                 },
-                icon: const Icon(Icons.refresh_rounded, size: 14, color: AppColors.brandPrimary),
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  size: 14,
+                  color: AppColors.brandPrimary,
+                ),
                 label: Text(
                   'Re-roll Art',
-                  style: AppTypography.caption.copyWith(color: AppColors.brandPrimary),
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.brandPrimary,
+                  ),
                 ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppColors.brandPrimary),
-                  shape: const RoundedRectangleBorder(borderRadius: AppRadius.thumbBorder),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: AppRadius.thumbBorder,
+                  ),
                 ),
               ),
             ],
@@ -403,7 +440,10 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                 OutlinedButton.icon(
                   key: const Key('dock_publish_to_profile_btn'),
                   onPressed: () => _openPublishModal(context),
-                  icon: const Icon(Icons.campaign_rounded, color: AppColors.brandPrimary),
+                  icon: const Icon(
+                    Icons.campaign_rounded,
+                    color: AppColors.brandPrimary,
+                  ),
                   label: Text(
                     'Publish to Profile',
                     style: AppTypography.bodyLarge.copyWith(
@@ -414,13 +454,18 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.brandPrimary),
                     minimumSize: const Size.fromHeight(48),
-                    shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBorder),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: AppRadius.inputBorder,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
                   onPressed: () => _openExportSheet(context),
-                  icon: const Icon(Icons.download_rounded, color: AppColors.brandContrast),
+                  icon: const Icon(
+                    Icons.download_rounded,
+                    color: AppColors.brandContrast,
+                  ),
                   label: Text(
                     'Export MP4',
                     style: AppTypography.bodyLarge.copyWith(
@@ -431,7 +476,9 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.brandPrimary,
                     minimumSize: const Size.fromHeight(48),
-                    shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBorder),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: AppRadius.inputBorder,
+                    ),
                   ),
                 ),
               ],

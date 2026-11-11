@@ -6,6 +6,9 @@ import 'package:vhunambi_client/core/navigation/app_navigator.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/explore/presentation/views/explore_view.dart';
 import 'package:vhunambi_client/features/mastering/presentation/providers/mastering_session_provider.dart';
+import 'package:vhunambi_client/features/onboarding/domain/models/onboarding_models.dart';
+import 'package:vhunambi_client/features/onboarding/presentation/providers/onboarding_providers.dart';
+import 'package:vhunambi_client/features/onboarding/presentation/views/splash_view.dart';
 import 'package:vhunambi_client/features/player/data/services/vhunambi_audio_handler.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/audio_bridge_providers.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/mini_player_controller.dart';
@@ -16,6 +19,12 @@ import 'package:vhunambi_client/features/player/presentation/widgets/mobile_mini
 import 'package:vhunambi_client/features/player/presentation/widgets/pill_form.dart';
 import 'package:vhunambi_client/features/studio/presentation/providers/studio_form_provider.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
+
+class _CompletedOnboardingNotifier extends OnboardingNotifier {
+  _CompletedOnboardingNotifier() {
+    state = const OnboardingState(hasCompletedOnboarding: true);
+  }
+}
 
 void main() {
   setUp(() async {
@@ -46,7 +55,13 @@ void main() {
         addTearDown(handler.dispose);
 
         final container = ProviderContainer(
-          overrides: [audioHandlerProvider.overrideWithValue(handler)],
+          overrides: [
+            audioHandlerProvider.overrideWithValue(handler),
+            isSplashActiveProvider.overrideWith((ref) => false),
+            onboardingStateProvider.overrideWith(
+              (ref) => _CompletedOnboardingNotifier(),
+            ),
+          ],
         );
         addTearDown(container.dispose);
 
@@ -135,6 +150,10 @@ void main() {
           overrides: [
             audioHandlerProvider.overrideWithValue(handler),
             miniPlayerControllerProvider.overrideWith((ref) => controller),
+            isSplashActiveProvider.overrideWith((ref) => false),
+            onboardingStateProvider.overrideWith(
+              (ref) => _CompletedOnboardingNotifier(),
+            ),
           ],
         );
         addTearDown(container.dispose);
@@ -194,6 +213,10 @@ void main() {
           overrides: [
             audioHandlerProvider.overrideWithValue(handler),
             miniPlayerControllerProvider.overrideWith((ref) => controller),
+            isSplashActiveProvider.overrideWith((ref) => false),
+            onboardingStateProvider.overrideWith(
+              (ref) => _CompletedOnboardingNotifier(),
+            ),
           ],
         );
         addTearDown(container.dispose);
@@ -233,7 +256,13 @@ void main() {
         addTearDown(handler.dispose);
 
         final container = ProviderContainer(
-          overrides: [audioHandlerProvider.overrideWithValue(handler)],
+          overrides: [
+            audioHandlerProvider.overrideWithValue(handler),
+            isSplashActiveProvider.overrideWith((ref) => false),
+            onboardingStateProvider.overrideWith(
+              (ref) => _CompletedOnboardingNotifier(),
+            ),
+          ],
         );
         addTearDown(container.dispose);
 
@@ -272,7 +301,13 @@ void main() {
         addTearDown(handler.dispose);
 
         final container = ProviderContainer(
-          overrides: [audioHandlerProvider.overrideWithValue(handler)],
+          overrides: [
+            audioHandlerProvider.overrideWithValue(handler),
+            isSplashActiveProvider.overrideWith((ref) => false),
+            onboardingStateProvider.overrideWith(
+              (ref) => _CompletedOnboardingNotifier(),
+            ),
+          ],
         );
         addTearDown(container.dispose);
 
@@ -308,7 +343,7 @@ void main() {
         );
 
         // 2. Remix in Studio Button
-        final remixBtn = find.byKey(const Key('cockpit_remix_studio_btn'));
+        final remixBtn = find.byKey(const Key('cockpit_remix_in_studio_btn'));
         expect(remixBtn, findsOneWidget);
 
         await tester.ensureVisible(remixBtn);
@@ -339,7 +374,13 @@ void main() {
         addTearDown(handler.dispose);
 
         final container = ProviderContainer(
-          overrides: [audioHandlerProvider.overrideWithValue(handler)],
+          overrides: [
+            audioHandlerProvider.overrideWithValue(handler),
+            isSplashActiveProvider.overrideWith((ref) => false),
+            onboardingStateProvider.overrideWith(
+              (ref) => _CompletedOnboardingNotifier(),
+            ),
+          ],
         );
         addTearDown(container.dispose);
 

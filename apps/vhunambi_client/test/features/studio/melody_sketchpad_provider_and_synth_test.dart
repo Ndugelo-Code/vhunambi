@@ -51,7 +51,10 @@ void main() {
           instrument: SketchpadInstrument.privateSchoolRhodes,
         );
 
-        expect(logDrumLabel, equals('F#2'));
+        expect(
+          logDrumLabel,
+          equals('F#1'),
+        ); // Phase 57 sub-bass anchor (MIDI 30)
         expect(amLogDrumFreq, closeTo(55.0, 0.1)); // True A1 sub-bass (55 Hz)
         expect(rhodesLabel, equals('F#3'));
       },

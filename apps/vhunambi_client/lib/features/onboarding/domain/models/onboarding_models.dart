@@ -127,11 +127,76 @@ class OnboardingState {
       onboardingCompleteness:
           onboardingCompleteness ?? this.onboardingCompleteness,
       birthYear: effectiveYear,
-      generationEra: generationEra ??
+      generationEra:
+          generationEra ??
           (birthYear != null
               ? SonicGenerationEra.fromBirthYear(effectiveYear)
               : this.generationEra),
       culturalHeritage: culturalHeritage ?? this.culturalHeritage,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'hasCompletedOnboarding': hasCompletedOnboarding,
+    'selectedGenres': selectedGenres,
+    'selectedLanguages': selectedLanguages,
+    'userRole': userRole,
+    'creativeRole': creativeRole.name,
+    'experienceLevel': experienceLevel.name,
+    'primaryLanguage': primaryLanguage,
+    'selectedMoods': selectedMoods,
+    'tempoPreference': tempoPreference,
+    'vocalEnergyPreference': vocalEnergyPreference,
+    'onboardingCompleteness': onboardingCompleteness,
+    'birthYear': birthYear,
+    'generationEra': generationEra.name,
+    'culturalHeritage': culturalHeritage,
+  };
+
+  factory OnboardingState.fromJson(Map<String, dynamic> json) {
+    final birthYear = (json['birthYear'] as num?)?.toInt() ?? 2002;
+    final rawGenres = json['selectedGenres'] as List<dynamic>?;
+    final rawLanguages = json['selectedLanguages'] as List<dynamic>?;
+    final rawMoods = json['selectedMoods'] as List<dynamic>?;
+    final roleName = json['creativeRole'] as String?;
+    final expName = json['experienceLevel'] as String?;
+    final eraName = json['generationEra'] as String?;
+
+    return OnboardingState(
+      hasCompletedOnboarding: json['hasCompletedOnboarding'] as bool? ?? false,
+      selectedGenres: rawGenres == null || rawGenres.isEmpty
+          ? const ['Amapiano', 'Afro House']
+          : rawGenres.map((e) => e.toString()).toList(),
+      selectedLanguages: rawLanguages == null || rawLanguages.isEmpty
+          ? const ['Tshivenḓa', 'isiZulu', 'English']
+          : rawLanguages.map((e) => e.toString()).toList(),
+      userRole: json['userRole'] as String? ?? 'Creator',
+      creativeRole: CreativeRole.values.firstWhere(
+        (r) => r.name == roleName,
+        orElse: () => CreativeRole.producer,
+      ),
+      experienceLevel: ExperienceLevel.values.firstWhere(
+        (e) => e.name == expName,
+        orElse: () => ExperienceLevel.newbie,
+      ),
+      primaryLanguage: json['primaryLanguage'] as String? ?? 'English',
+      selectedMoods: rawMoods == null || rawMoods.isEmpty
+          ? const ['Energetic', 'Chill']
+          : rawMoods.map((e) => e.toString()).toList(),
+      tempoPreference: json['tempoPreference'] as String? ?? 'medium',
+      vocalEnergyPreference:
+          json['vocalEnergyPreference'] as String? ?? 'balanced',
+      onboardingCompleteness:
+          (json['onboardingCompleteness'] as num?)?.toDouble() ?? 0.0,
+      birthYear: birthYear,
+      generationEra: eraName != null
+          ? SonicGenerationEra.values.firstWhere(
+              (era) => era.name == eraName,
+              orElse: () => SonicGenerationEra.fromBirthYear(birthYear),
+            )
+          : SonicGenerationEra.fromBirthYear(birthYear),
+      culturalHeritage:
+          json['culturalHeritage'] as String? ?? 'Tshivenḓa & Zulu Roots',
     );
   }
 
@@ -154,20 +219,19 @@ class OnboardingState {
 
   @override
   int get hashCode => Object.hash(
-        hasCompletedOnboarding,
-        Object.hashAll(selectedGenres),
-        Object.hashAll(selectedLanguages),
-        userRole,
-        creativeRole,
-        experienceLevel,
-        primaryLanguage,
-        Object.hashAll(selectedMoods),
-        tempoPreference,
-        vocalEnergyPreference,
-        onboardingCompleteness,
-      );
+    hasCompletedOnboarding,
+    Object.hashAll(selectedGenres),
+    Object.hashAll(selectedLanguages),
+    userRole,
+    creativeRole,
+    experienceLevel,
+    primaryLanguage,
+    Object.hashAll(selectedMoods),
+    tempoPreference,
+    vocalEnergyPreference,
+    onboardingCompleteness,
+  );
 }
-
 
 /// The 12 distinct African genres curated for the Vhunambi onboarding deck (REQ-P47-BUG-02).
 @immutable

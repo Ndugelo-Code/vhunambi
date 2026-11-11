@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/player/data/services/vhunambi_audio_handler.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/audio_bridge_providers.dart';
@@ -10,21 +11,21 @@ import 'package:vhunambi_client/shared/models/track.dart';
 
 void main() {
   Track sampleTrack() => Track(
-        id: 'trk_pill_1',
-        title: 'Makhadzi Fire',
-        creatorName: 'Queen of Limpopo',
-        genre: 'Amapiano',
-        duration: const Duration(minutes: 4, seconds: 12),
-      );
+    id: 'trk_pill_1',
+    title: 'Makhadzi Fire',
+    creatorName: 'Queen of Limpopo',
+    genre: 'Amapiano',
+    duration: const Duration(minutes: 4, seconds: 12),
+  );
 
-  testWidgets('renders track iconography and responds to onExpand', (tester) async {
+  testWidgets('renders track iconography and responds to onExpand', (
+    tester,
+  ) async {
     final handler = TestVhunambiAudioHandler();
     addTearDown(handler.dispose);
 
     final container = ProviderContainer(
-      overrides: [
-        audioHandlerProvider.overrideWithValue(handler),
-      ],
+      overrides: [audioHandlerProvider.overrideWithValue(handler)],
     );
 
     container.read(playerStateProvider.notifier).playTrack(sampleTrack());
@@ -36,18 +37,14 @@ void main() {
         container: container,
         child: MaterialApp(
           theme: AppTheme.darkTheme,
-          home: Scaffold(
-            body: PillForm(
-              onExpand: () => expanded = true,
-            ),
-          ),
+          home: Scaffold(body: PillForm(onExpand: () => expanded = true)),
         ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(PillForm), findsOneWidget);
-    expect(find.byIcon(Icons.music_note_rounded), findsOneWidget);
+    expect(find.byIcon(AppIcons.songs), findsOneWidget);
 
     await tester.tap(find.byType(PillForm));
     await tester.pump();
@@ -60,15 +57,14 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('respects reduce-motion by removing blur and spread radius',
-      (tester) async {
+  testWidgets('respects reduce-motion by removing blur and spread radius', (
+    tester,
+  ) async {
     final handler = TestVhunambiAudioHandler();
     addTearDown(handler.dispose);
 
     final container = ProviderContainer(
-      overrides: [
-        audioHandlerProvider.overrideWithValue(handler),
-      ],
+      overrides: [audioHandlerProvider.overrideWithValue(handler)],
     );
 
     container.read(playerStateProvider.notifier).playTrack(sampleTrack());
@@ -80,9 +76,7 @@ void main() {
           data: const MediaQueryData(disableAnimations: true),
           child: MaterialApp(
             theme: AppTheme.darkTheme,
-            home: const Scaffold(
-              body: PillForm(),
-            ),
+            home: const Scaffold(body: PillForm()),
           ),
         ),
       ),
@@ -108,15 +102,14 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('samples MasterMediaObject masterRms curve during playback',
-      (tester) async {
+  testWidgets('samples MasterMediaObject masterRms curve during playback', (
+    tester,
+  ) async {
     final handler = TestVhunambiAudioHandler();
     addTearDown(handler.dispose);
 
     final container = ProviderContainer(
-      overrides: [
-        audioHandlerProvider.overrideWithValue(handler),
-      ],
+      overrides: [audioHandlerProvider.overrideWithValue(handler)],
     );
 
     container.read(playerStateProvider.notifier).playTrack(sampleTrack());
@@ -126,9 +119,7 @@ void main() {
         container: container,
         child: MaterialApp(
           theme: AppTheme.darkTheme,
-          home: const Scaffold(
-            body: PillForm(),
-          ),
+          home: const Scaffold(body: PillForm()),
         ),
       ),
     );

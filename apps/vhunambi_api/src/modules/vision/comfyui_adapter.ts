@@ -1,4 +1,6 @@
-import { env } from '../../config/env.js';
+import type { Context } from 'hono';
+import { resolveMediaUrl, resolveRuntimeEnv } from '../../config/env.js';
+import type { VhunambiWorkerEnv } from '../../types/cloudflare_worker_types.js';
 
 export interface ComfyUIJobResult {
   jobId: string;
@@ -97,7 +99,9 @@ export function buildComfyUIPromptGraph(
  */
 export async function dispatchComfyUIVisionJob(
   options: DispatchVisionOptions,
+  cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,
 ): Promise<ComfyUIJobResult> {
+  const runtimeEnv = resolveRuntimeEnv(cOrEnv);
   const seed = options.seed ?? Math.floor(Math.random() * 1000000000);
   const width = options.width ?? 768;
   const height = options.height ?? 1344;
@@ -112,14 +116,16 @@ export async function dispatchComfyUIVisionJob(
   );
 
   // 1. Direct ComfyUI HTTP Pod / Proxy endpoint
-  if (env.RUNPOD_COMFYUI_URL) {
+  if (runtimeEnv.RUNPOD_COMFYUI_URL) {
     try {
-      const url = `${env.RUNPOD_COMFYUI_URL.replace(/\/$/, '')}/prompt`;
+      const url = `${runtimeEnv.RUNPOD_COMFYUI_URL.replace(/\/$/, '')}/prompt`;
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(env.RUNPOD_API_KEY ? { Authorization: `Bearer ${env.RUNPOD_API_KEY}` } : {}),
+          ...(runtimeEnv.RUNPOD_API_KEY
+            ? { Authorization: `Bearer ${runtimeEnv.RUNPOD_API_KEY}` }
+            : {}),
         },
         body: JSON.stringify({
           client_id: clientId,
@@ -147,15 +153,15 @@ export async function dispatchComfyUIVisionJob(
   }
 
   // 2. RunPod Serverless ComfyUI Endpoint
-  if (env.RUNPOD_API_KEY && env.RUNPOD_COMFYUI_ENDPOINT_ID) {
+  if (runtimeEnv.RUNPOD_API_KEY && runtimeEnv.RUNPOD_COMFYUI_ENDPOINT_ID) {
     try {
       const response = await fetch(
-        `https://api.runpod.ai/v2/${env.RUNPOD_COMFYUI_ENDPOINT_ID}/run`,
+        `https://api.runpod.ai/v2/${runtimeEnv.RUNPOD_COMFYUI_ENDPOINT_ID}/run`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${env.RUNPOD_API_KEY}`,
+            Authorization: `Bearer ${runtimeEnv.RUNPOD_API_KEY}`,
           },
           body: JSON.stringify({
             input: {
@@ -186,7 +192,7 @@ export async function dispatchComfyUIVisionJob(
 
   // 3. Fallback: In-process Mock Simulation (for local dev & headless tests)
   const mockJobId = `mock_vision_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const mockR2Url = `https://r2.vhunambi.com/visuals/mock/${mockJobId}_9_16.png`;
+  const mockR2Url = resolveMediaUrl(`visuals/mock/${mockJobId}_9_16.png`, cOrEnv);
 
   console.info(`[ComfyUI] 🔄 Running mock simulation for vision job: ${mockJobId}`);
   return {

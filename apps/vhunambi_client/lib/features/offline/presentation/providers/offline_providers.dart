@@ -1,5 +1,10 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_hive_bootstrap_service.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../data/services/audio_download_service.dart';
@@ -28,23 +33,66 @@ final audioDownloadServiceProvider = Provider<IAudioDownloadService>((ref) {
 
 /// Central download manager managing queue, progress emission, and local vault sync.
 final downloadManagerProvider =
-    StateNotifierProvider<DownloadManagerNotifier, Map<String, DownloadTask>>((ref) {
-  final storageService = ref.watch(offlineStorageServiceProvider);
-  final downloadService = ref.watch(audioDownloadServiceProvider);
-  return DownloadManagerNotifier(ref, storageService, downloadService);
-});
+    StateNotifierProvider<DownloadManagerNotifier, Map<String, DownloadTask>>((
+      ref,
+    ) {
+      final storageService = ref.watch(offlineStorageServiceProvider);
+      final downloadService = ref.watch(audioDownloadServiceProvider);
+      return DownloadManagerNotifier(ref, storageService, downloadService);
+    });
 
-/// Aggregated storage quota analytics computed across cached vault audio.
+/// Aggregated storage quota analytics computed across cached vault audio
+/// and active Sovereign Hive boxes.
 final cacheStorageStatsProvider = Provider<CacheStorageStats>((ref) {
   final tracks = ref.watch(libraryTracksProvider);
   final prefs = ref.watch(offlinePreferencesProvider);
+  final downloads = ref.watch(downloadManagerProvider);
 
   final cachedTracks = tracks
       .where((t) => t.syncStatus == TrackSyncStatus.cachedLocally)
       .toList(growable: false);
 
   const avgTrackSizeBytes = 8500000;
-  final totalBytes = cachedTracks.length * avgTrackSizeBytes;
+  var totalBytes = 0;
+
+  for (final track in cachedTracks) {
+    final completedTask = downloads[track.id];
+    if (completedTask != null && completedTask.totalBytes > 0) {
+      totalBytes += completedTask.totalBytes;
+      continue;
+    }
+
+    int? realFileBytes;
+    final path = track.localAudioFilePath;
+    if (!kIsWeb && path != null && path.isNotEmpty) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          realFileBytes = file.lengthSync();
+        }
+      } catch (_) {}
+    }
+
+    if (realFileBytes == null &&
+        !kIsWeb &&
+        Hive.isBoxOpen(AppConstants.vaultBoxKey)) {
+      try {
+        final meta = Hive.box<dynamic>(AppConstants.vaultBoxKey).get(track.id);
+        if (meta is Map && meta['fileSizeBytes'] is num) {
+          realFileBytes = (meta['fileSizeBytes'] as num).toInt();
+        }
+      } catch (_) {}
+    }
+
+    totalBytes += realFileBytes ?? avgTrackSizeBytes;
+  }
+
+  final hiveSnapshot = SovereignHiveBootstrapService.getTelemetrySnapshot(
+    fallbackRecordCount: cachedTracks.length,
+  );
+  if (hiveSnapshot.openBoxesCount > 0) {
+    totalBytes += hiveSnapshot.estimatedHiveBytes;
+  }
 
   return CacheStorageStats(
     totalBytesUsed: totalBytes,
@@ -55,20 +103,25 @@ final cacheStorageStatsProvider = Provider<CacheStorageStats>((ref) {
 
 /// User preferences governing offline playback, storage limits, and download quality.
 final offlinePreferencesProvider =
-    StateNotifierProvider<OfflinePreferencesNotifier, OfflinePreferenceState>((ref) {
-  return OfflinePreferencesNotifier();
-});
+    StateNotifierProvider<OfflinePreferencesNotifier, OfflinePreferenceState>((
+      ref,
+    ) {
+      return OfflinePreferencesNotifier();
+    });
 
 class OfflinePreferencesNotifier extends StateNotifier<OfflinePreferenceState> {
   final IOfflineStorageService? _storage;
 
-  OfflinePreferencesNotifier([this._storage]) : super(const OfflinePreferenceState());
+  OfflinePreferencesNotifier([this._storage])
+    : super(const OfflinePreferenceState());
 
   Future<void> loadFromStorage() async {
     if (_storage == null) return;
     try {
-      final forced = await _storage.getPreference('isOfflineModeForced') as bool?;
-      final wifiOnly = await _storage.getPreference('downloadWifiOnly') as bool?;
+      final forced =
+          await _storage.getPreference('isOfflineModeForced') as bool?;
+      final wifiOnly =
+          await _storage.getPreference('downloadWifiOnly') as bool?;
       final limit = await _storage.getPreference('storageLimitBytes') as int?;
       if (!mounted) return;
       state = state.copyWith(
@@ -216,7 +269,9 @@ class DownloadManagerNotifier extends StateNotifier<Map<String, DownloadTask>> {
         onProgress: (int received, int total, [dynamic speed]) {
           final current = state[trackId];
           if (current != null && current.status == DownloadStatus.downloading) {
-            final progress = total > 0 ? (received / total).clamp(0.0, 1.0) : 0.0;
+            final progress = total > 0
+                ? (received / total).clamp(0.0, 1.0)
+                : 0.0;
             final double sp = (speed is num) ? speed.toDouble() : 0.0;
             final int eta = sp > 0 ? ((total - received) / sp).round() : 0;
             state = {
@@ -233,7 +288,8 @@ class DownloadManagerNotifier extends StateNotifier<Map<String, DownloadTask>> {
         },
       );
 
-      final completedTask = state[trackId]?.copyWith(
+      final completedTask =
+          state[trackId]?.copyWith(
             status: DownloadStatus.completed,
             progress: 1.0,
             receivedBytes: totalBytes,
@@ -281,7 +337,8 @@ class DownloadManagerNotifier extends StateNotifier<Map<String, DownloadTask>> {
       _completers[trackId]?.complete();
       _completers.remove(trackId);
     } catch (e) {
-      final failedTask = state[trackId]?.copyWith(
+      final failedTask =
+          state[trackId]?.copyWith(
             status: DownloadStatus.failed,
             errorMessage: e.toString(),
           ) ??
@@ -342,7 +399,8 @@ class DownloadManagerNotifier extends StateNotifier<Map<String, DownloadTask>> {
   }
 
   /// Alias per Phase 08 spec.
-  Future<void> removeOfflineDownload(String trackId) => removeOfflineTrack(trackId);
+  Future<void> removeOfflineDownload(String trackId) =>
+      removeOfflineTrack(trackId);
 
   /// Purges all downloaded audio files from disk, clears Hive metadata,
   /// and updates all vault tracks to cloudOnly status.

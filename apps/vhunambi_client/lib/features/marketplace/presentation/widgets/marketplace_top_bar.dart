@@ -77,7 +77,7 @@ class MarketplaceTopBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.xs),
-            const _CreditChip(),
+            const VhunambiUserCoinsChip(),
             const SizedBox(width: AppSpacing.xxs),
             const NotificationBellButton(),
             const SizedBox(width: AppSpacing.xxs),
@@ -167,46 +167,6 @@ class _MarketplaceSearchFieldState
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// `⚡ 10 songs left` credit balance chip driven by the credits provider.
-class _CreditChip extends ConsumerWidget {
-  const _CreditChip();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final credits = ref.watch(marketplaceCreditsProvider);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 6,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
-        borderRadius: AppRadius.pillBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const PhosphorIcon(
-            PhosphorIconsRegular.lightning,
-            size: 15,
-            color: AppColors.brandPrimary,
-          ),
-          const SizedBox(width: AppSpacing.xxs),
-          Text(
-            '$credits songs left',
-            style: AppTypography.caption.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],

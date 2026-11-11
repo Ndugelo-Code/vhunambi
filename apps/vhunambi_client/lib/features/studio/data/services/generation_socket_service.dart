@@ -3,13 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
 
 import '../../domain/models/generation_pipeline_state.dart';
 import '../../domain/services/i_generation_socket_service.dart';
 
 /// Production WebSocket bridge for the audio synthesis pipeline (T10.2).
 ///
-/// * Endpoint: `wss://api.vhunambi.com/ws/generation?id=<generationId>`
+/// * Endpoint: derived from [AppConstants.resolveWsUrl] (`/ws/generation?id=<generationId>`)
 /// * 25 s heartbeat PING with a 10 s PONG watchdog.
 /// * Exponential-backoff reconnection (1 / 2 / 4 / 8 / 16 s, max 5 attempts).
 ///
@@ -18,9 +19,14 @@ import '../../domain/services/i_generation_socket_service.dart';
 /// [FakeGenerationSocketService].
 class GenerationSocketService implements IGenerationSocketService {
   static const String baseUrl = 'wss://api.vhunambi.com/ws/generation';
+  static String get wsBaseUrl => AppConstants.resolveWsUrl();
   static const Duration pingInterval = Duration(seconds: 25);
   static const Duration pongTimeout = Duration(seconds: 10);
   static const int maxAttempts = 5;
+
+  final String? wsUrl;
+
+  GenerationSocketService({this.wsUrl});
 
   /// Exponential-backoff delay for [attempt] (`1`-based): 1/2/4/8/16 s.
   static Duration backoffForAttempt(int attempt) =>
@@ -60,7 +66,8 @@ class GenerationSocketService implements IGenerationSocketService {
     if (_disposed) return;
 
     try {
-      final socket = await WebSocket.connect('$baseUrl?id=$generationId');
+      final targetWsBase = wsUrl ?? wsBaseUrl;
+      final socket = await WebSocket.connect('$targetWsBase?id=$generationId');
       if (_disposed) {
         await socket.close(WebSocketStatus.normalClosure);
         return;
@@ -99,9 +106,8 @@ class GenerationSocketService implements IGenerationSocketService {
         case 'ERROR':
           _emit(
             PipelineSocketEvent(
-              generationId: json['generation_id'] as String? ??
-                  _activeGenerationId ??
-                  '',
+              generationId:
+                  json['generation_id'] as String? ?? _activeGenerationId ?? '',
               step: PipelineStep.failed,
               stepIndex: 0,
               progressPercent: 0.0,

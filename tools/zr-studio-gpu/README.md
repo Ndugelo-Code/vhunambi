@@ -29,8 +29,12 @@ Set these in your RunPod Endpoint Environment Variables:
 | `R2_ACCOUNT_ID` | Cloudflare account ID | `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` |
 | `R2_ACCESS_KEY_ID` | Cloudflare R2 access key with Write permissions | `xxxxxxxxxxxxxxxxxxxxxxxx` |
 | `R2_SECRET_ACCESS_KEY` | Cloudflare R2 secret key | `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` |
-| `R2_BUCKET_NAME` | R2 bucket name | `vhunambi-audio` |
-| `R2_PUBLIC_BASE_URL` | Public CDN base URL for R2 bucket | `https://r2.vhunambi.com` |
+| `R2_BUCKET_NAME` | Active Cloudflare R2 bucket name | `zr-studio-audio` |
+| `R2_PUBLIC_BASE_URL` | Public CDN base URL for R2 bucket | `https://pub-d22409017abb4dd999327a092c5f06d3.r2.dev` |
+
+> **Current Endpoint Standings (2026-11-12):**
+> - Active RunPod Serverless Endpoint ID: `e7wt9pgo7djv55` (currently `0` online workers until scaled/enabled in RunPod Console).
+> - **Docker Build Note:** [`Dockerfile`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/Dockerfile#L21-L24) copies `mmo_extractor.py`, `stem_mastering_worker.py`, `seed_vc_worker.py`, and `handler.py`, but does not currently copy `model_utils.py`. Unless the active container image (`ndugelo/zr-studio-gpu:v2`) already packages `model_utils.py` and ACE-Step weights, Stage 1 catches the `ImportError` in [`handler.py`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/handler.py#L116-L129) and falls back to synthesizing a 55Hz/110Hz sine-wave carrier before running Demucs, mastering, and MMO extraction.
 
 ---
 

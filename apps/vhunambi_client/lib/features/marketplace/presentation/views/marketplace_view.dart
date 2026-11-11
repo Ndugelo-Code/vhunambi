@@ -34,8 +34,9 @@ class MarketplaceView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
     final beats = ref.watch(filteredBeatsProvider);
-    final hasActiveTrack =
-        ref.watch(playerStateProvider.select((s) => s.hasActiveTrack));
+    final hasActiveTrack = ref.watch(
+      playerStateProvider.select((s) => s.hasActiveTrack),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -62,9 +63,7 @@ class MarketplaceView extends ConsumerWidget {
 
               // Seller monetization banner
               SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 sliver: SliverToBoxAdapter(
                   child: SellerCalloutBanner(
                     onGoToLibrary: onNavigateToLibrary,
@@ -90,17 +89,17 @@ class MarketplaceView extends ConsumerWidget {
                       mainAxisSpacing: AppSpacing.sm,
                       childAspectRatio: 0.68,
                     ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final beat = beats[index];
-                        return BeatCard(
-                          beat: beat,
-                          onLicenseRequested: () =>
-                              showBeatLicenseModal(context, beat),
-                        );
-                      },
-                      childCount: beats.length,
-                    ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final beat = beats[index];
+                      return BeatCard(
+                        beat: beat,
+                        onLicenseRequested: () => showBeatLicenseModal(
+                          context,
+                          beat,
+                          onNavigateToLibrary: onNavigateToLibrary,
+                        ),
+                      );
+                    }, childCount: beats.length),
                   ),
                 ),
 
@@ -113,8 +112,6 @@ class MarketplaceView extends ConsumerWidget {
               ),
             ],
           ),
-
-
         ],
       ),
     );
@@ -196,7 +193,6 @@ class MarketplaceView extends ConsumerWidget {
     );
   }
 
-
   Widget _buildCategoryTabs(BuildContext context, WidgetRef ref) {
     final activeFilter = ref.watch(marketplaceFilterProvider);
     final activeCategory = activeFilter.category;
@@ -217,8 +213,10 @@ class MarketplaceView extends ConsumerWidget {
               borderRadius: AppRadius.pillBorder,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? AppColors.brandPrimary

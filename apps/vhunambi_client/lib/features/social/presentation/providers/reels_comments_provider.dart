@@ -1,4 +1,8 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/auth/auth_providers.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/storage/sovereign_domain_repositories.dart';
 import '../../domain/models/reel_comment.dart';
 import '../../domain/repositories/i_social_repository.dart';
 import 'social_repository_provider.dart';
@@ -28,9 +32,38 @@ class ReelsCommentsState {
 /// love badges for published kinetic reels.
 class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
   final ISocialRepository? _repo;
+  final Ref? _ref;
 
-  ReelsCommentsNotifier([this._repo]) : super(const ReelsCommentsState()) {
+  ReelsCommentsNotifier([this._repo, this._ref])
+    : super(const ReelsCommentsState()) {
     _seedComments();
+    _hydrateFromStorage();
+  }
+
+  void _hydrateFromStorage() {
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.socialReelsBoxKey,
+    )) {
+      return;
+    }
+    final persisted = SocialReelsCacheRepository.loadAllReelComments();
+    if (persisted.isEmpty) return;
+    final nextMap = Map<String, List<ReelComment>>.from(state.commentsByClipId);
+    for (final entry in persisted.entries) {
+      try {
+        nextMap[entry.key] = entry.value.map(ReelComment.fromJson).toList();
+      } catch (_) {}
+    }
+    state = state.copyWith(commentsByClipId: nextMap);
+  }
+
+  void _persistCommentsForClip(String clipId, List<ReelComment> comments) {
+    unawaited(
+      SocialReelsCacheRepository.saveReelComments(
+        clipId,
+        comments.map((c) => c.toJson()).toList(),
+      ),
+    );
   }
 
   /// Synchronizes comments for a specific clip ID from backend if available.
@@ -40,11 +73,9 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
       final remote = await _repo.getComments(clipId);
       if (remote.isNotEmpty) {
         state = state.copyWith(
-          commentsByClipId: {
-            ...state.commentsByClipId,
-            clipId: remote,
-          },
+          commentsByClipId: {...state.commentsByClipId, clipId: remote},
         );
+        _persistCommentsForClip(clipId, remote);
       }
     } catch (_) {}
   }
@@ -59,19 +90,25 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
     required String clipId,
     required String text,
     int userReelLoves = 0,
-    String username = 'ndugelo_musician',
-    String displayName = 'Ndugelo Musician',
+    String? username,
+    String? displayName,
     String? giftEmoji,
     String? giftName,
   }) async {
     if (text.trim().isEmpty) return;
 
+    final session = _ref?.read(authSessionProvider);
+    final resolvedUserId = session?.canonicalCreatorId ?? 'creator_cern';
+    final resolvedUsername = username ?? session?.rawUsername ?? 'cern';
+    final resolvedDisplayName =
+        displayName ?? session?.displayName ?? 'cern';
+
     final newComment = ReelComment(
       id: 'c_${DateTime.now().millisecondsSinceEpoch}',
       clipId: clipId,
-      userId: 'user_current',
-      username: username,
-      displayName: displayName,
+      userId: resolvedUserId,
+      username: resolvedUsername,
+      displayName: resolvedDisplayName,
       text: text.trim(),
       userReelLoves: userReelLoves,
       giftEmoji: giftEmoji,
@@ -80,20 +117,19 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
     );
 
     final currentList = state.commentsByClipId[clipId] ?? const [];
+    final updatedList = [newComment, ...currentList];
     state = state.copyWith(
-      commentsByClipId: {
-        ...state.commentsByClipId,
-        clipId: [newComment, ...currentList],
-      },
+      commentsByClipId: {...state.commentsByClipId, clipId: updatedList},
     );
+    _persistCommentsForClip(clipId, updatedList);
 
     if (_repo != null) {
       try {
         await _repo.addComment(
           clipId: clipId,
           text: text,
-          username: username,
-          displayName: displayName,
+          username: resolvedUsername,
+          displayName: resolvedDisplayName,
           userReelLoves: userReelLoves,
           giftEmoji: giftEmoji,
           giftName: giftName,
@@ -103,10 +139,7 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
   }
 
   /// Toggles the current user's like on a specific comment (TikTok-style).
-  void toggleCommentLike({
-    required String clipId,
-    required String commentId,
-  }) {
+  void toggleCommentLike({required String clipId, required String commentId}) {
     final currentList = state.commentsByClipId[clipId];
     if (currentList == null) return;
 
@@ -115,19 +148,16 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
         if (comment.id == commentId)
           comment.copyWith(
             isLikedByMe: !comment.isLikedByMe,
-            likeCount:
-                comment.likeCount + (comment.isLikedByMe ? -1 : 1),
+            likeCount: comment.likeCount + (comment.isLikedByMe ? -1 : 1),
           )
         else
           comment,
     ];
 
     state = state.copyWith(
-      commentsByClipId: {
-        ...state.commentsByClipId,
-        clipId: updated,
-      },
+      commentsByClipId: {...state.commentsByClipId, clipId: updated},
     );
+    _persistCommentsForClip(clipId, updated);
     _repo?.toggleLikeComment(commentId);
   }
 
@@ -141,7 +171,8 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
         userId: 'u_thabo',
         username: 'thabo_beats',
         displayName: 'Thabo Beats',
-        text: 'This log drum hits directly in the chest! 🎹🔥 Top tier production.',
+        text:
+            'This log drum hits directly in the chest! 🎹🔥 Top tier production.',
         likeCount: 48,
         isLikedByMe: false,
         userReelLoves: 5,
@@ -166,7 +197,8 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
         username: 'makhadzi',
         displayName: 'Makhadzi',
         isCreator: true,
-        text: 'Ndo livhuwa vhathu vhanga! (Thank you my people!) ❤️ New drop soon!',
+        text:
+            'Ndo livhuwa vhathu vhanga! (Thank you my people!) ❤️ New drop soon!',
         likeCount: 230,
         isLikedByMe: true,
         userReelLoves: 12,
@@ -213,13 +245,16 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
 /// Global provider for kinetic reels comments.
 final reelsCommentsProvider =
     StateNotifierProvider<ReelsCommentsNotifier, ReelsCommentsState>((ref) {
-  final repo = ref.watch(socialRepositoryProvider);
-  return ReelsCommentsNotifier(repo);
-});
+      ref.watch(currentCreatorIdProvider);
+      final repo = ref.watch(socialRepositoryProvider);
+      return ReelsCommentsNotifier(repo, ref);
+    });
 
 /// Family provider to observe comments for a single reel reactively.
-final clipCommentsFamilyProvider =
-    Provider.family<List<ReelComment>, String>((ref, clipId) {
+final clipCommentsFamilyProvider = Provider.family<List<ReelComment>, String>((
+  ref,
+  clipId,
+) {
   final state = ref.watch(reelsCommentsProvider);
   return state.commentsByClipId[clipId] ?? const [];
 });

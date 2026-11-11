@@ -97,7 +97,7 @@ class _OnboardingAct1ShowcaseState extends State<OnboardingAct1Showcase>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final activePillar = _pillars[_selectedPillarIndex];
 
-    return Padding(
+    return SingleChildScrollView(
       key: const Key('onboarding_act_1_showcase'),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Column(

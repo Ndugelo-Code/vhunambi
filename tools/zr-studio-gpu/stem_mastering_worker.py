@@ -9,7 +9,7 @@ Processes isolated stems (vocals.wav, drums.wav, bass.wav, melodic.wav) using:
 """
 
 import importlib
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 
@@ -119,15 +119,140 @@ def apply_mid_side_vocal_pocket(
     )
 
 
-def master_stems_with_recipe(
-    stems: dict[str, np.ndarray],
+def _deep_merge_dict(defaults: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {}
+    for k, v in defaults.items():
+        if isinstance(v, dict):
+            over_v = overrides.get(k)
+            merged[k] = _deep_merge_dict(v, over_v if isinstance(over_v, dict) else {})
+        else:
+            merged[k] = overrides[k] if k in overrides and overrides[k] is not None else v
+    for k, v in overrides.items():
+        if k not in merged:
+            merged[k] = v
+    return merged
+
+
+def normalize_mastering_recipe(recipe_input: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Normalizes either a flat handler recipe or a nested Phase 25/62 recipe into complete DSP keys."""
+    raw = recipe_input if isinstance(recipe_input, dict) else {}
+    master_bus = raw.get("masterBus") if isinstance(raw.get("masterBus"), dict) else {}
+    target_lufs = float(raw.get("targetLufs", master_bus.get("targetLufs", raw.get("target_lufs", -9.5))))
+    true_peak_db = min(
+        -0.1,
+        float(raw.get("truePeakDb", master_bus.get("ceilingDbtp", raw.get("true_peak_db", -1.0)))),
+    )
+    sub_boost = float(raw.get("log_drum_sub_boost", 1.5))
+    raw_duck = raw.get("sidechain_ducking", -2.5)
+    raw_duck_f = float(raw_duck)
+    sidechain_duck_db = -abs(raw_duck_f * 4.0) if raw_duck_f > 0 else raw_duck_f
+
+    defaults: Dict[str, Any] = {
+        "targetLufs": target_lufs,
+        "truePeakDb": true_peak_db,
+        "sketchpadLayerMix": float(raw.get("sketchpadLayerMix", 0.0)),
+        "vocals": {
+            "eq": {
+                "highpassHz": 90.0,
+                "lowGainDb": 0.5,
+                "midFreqHz": 2400.0,
+                "midGainDb": 1.6,
+                "airGainDb": 2.8,
+            },
+        },
+        "bass": {
+            "subHarmonicMix": min(0.75, max(0.0, sub_boost / 3.0)),
+            "knockDriveDb": max(1.0, min(8.0, sub_boost * 2.5)),
+            "sidechainDuckDb": sidechain_duck_db,
+            "eq": {
+                "highpassHz": 30.0,
+                "lowGainDb": min(5.0, sub_boost * 1.5),
+                "midGainDb": 2.2,
+            },
+        },
+        "drums": {
+            "parallelCrushMix": 0.28,
+            "eq": {
+                "highpassHz": 45.0,
+                "midFreqHz": 320.0,
+                "midGainDb": -2.0,
+                "airGainDb": 2.2,
+            },
+        },
+        "melodic": {
+            "midVocalPocketCutDb": -2.0,
+            "stereoWidthBoost": 0.30,
+            "eq": {
+                "highpassHz": 110.0,
+                "lowGainDb": -1.5,
+                "midFreqHz": 1800.0,
+                "midGainDb": -1.8,
+                "airGainDb": 1.8,
+            },
+        },
+        "masterBus": {
+            "glueThresholdDb": -12.0,
+            "glueRatio": 2.0,
+            "ceilingDbtp": true_peak_db,
+            "targetLufs": target_lufs,
+        },
+    }
+
+    normalized = _deep_merge_dict(defaults, raw)
+    # Map 'other' override onto 'melodic' if provided without 'melodic'
+    if isinstance(raw.get("other"), dict) and "melodic" not in raw:
+        other_cfg = raw["other"]
+        if "midSideVocalCarveDb" in other_cfg:
+            normalized["melodic"]["midVocalPocketCutDb"] = float(other_cfg["midSideVocalCarveDb"])
+        if "stereoWidthPct" in other_cfg:
+            width_pct = float(other_cfg["stereoWidthPct"])
+            normalized["melodic"]["stereoWidthBoost"] = max(0.0, min(1.0, (width_pct - 100.0) / 100.0))
+    return normalized
+
+
+def _resolve_stem_audio(stems: Dict[str, np.ndarray], role: str) -> np.ndarray:
+    if role in stems and stems[role] is not None:
+        return np.asarray(stems[role], dtype=np.float32)
+    for fallback_arr in stems.values():
+        if fallback_arr is not None:
+            return np.zeros_like(np.asarray(fallback_arr, dtype=np.float32))
+    return np.zeros((2, 4410), dtype=np.float32)
+
+
+def _match_shape(target: np.ndarray, ref: np.ndarray) -> np.ndarray:
+    if target.shape == ref.shape:
+        return target
+    if target.ndim == 1 and ref.ndim == 2:
+        tiled = np.vstack([target, target])
+        return tiled[:, : ref.shape[1]] if tiled.shape[1] >= ref.shape[1] else np.pad(tiled, ((0, 0), (0, ref.shape[1] - tiled.shape[1])))
+    if target.ndim == 2 and ref.ndim == 1:
+        mono = np.mean(target, axis=0)
+        return mono[: ref.shape[0]] if mono.shape[0] >= ref.shape[0] else np.pad(mono, (0, ref.shape[0] - mono.shape[0]))
+    if target.ndim == 2 and ref.ndim == 2:
+        cols = min(target.shape[1], ref.shape[1])
+        out = np.zeros_like(ref, dtype=np.float32)
+        out[: min(target.shape[0], ref.shape[0]), :cols] = target[: min(target.shape[0], ref.shape[0]), :cols]
+        return out
+    return target
+
+
+def _execute_mastering_pipeline(
+    stems: Dict[str, np.ndarray],
     sr: int,
-    recipe: dict,
-    transient_events: list[dict],
-) -> np.ndarray:
+    recipe: Dict[str, Any],
+    transient_events: Optional[List[dict]] = None,
+) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
     """Executes the full 4-stem Cakewalk/Sonar + LUFS True-Peak mastering pipeline."""
+    norm_recipe = normalize_mastering_recipe(recipe)
+    events = transient_events if isinstance(transient_events, list) else []
+
+    vocals_in = _resolve_stem_audio(stems, "vocals")
+    bass_in = _resolve_stem_audio(stems, "bass")
+    drums_in = _resolve_stem_audio(stems, "drums")
+    mel_in = _resolve_stem_audio(stems, "melodic")
+
     # 1. Vocals Chain
-    vox_cfg = recipe["vocals"]
+    vox_cfg = norm_recipe["vocals"]
     vox_eq = vox_cfg["eq"]
     vox_board = Pedalboard(
         [
@@ -138,20 +263,20 @@ def master_stems_with_recipe(
                 gain_db=float(vox_eq["midGainDb"]),
                 q=1.2,
             ),
-            PeakFilter(cutoff_frequency_hz=6500.0, gain_db=-2.5, q=3.0),  # De-esser notch
+            PeakFilter(cutoff_frequency_hz=6500.0, gain_db=-2.5, q=3.0),
             Compressor(threshold_db=-18.0, ratio=4.0, attack_ms=5.0, release_ms=65.0),
             HighShelfFilter(
                 cutoff_frequency_hz=11000.0, gain_db=float(vox_eq["airGainDb"])
             ),
         ]
     )
-    vox_out = vox_board(stems["vocals"], sr)
+    vox_out = vox_board(vocals_in, sr)
 
     # 2. Bass / Log Drum Chain
-    bass_cfg = recipe["bass"]
+    bass_cfg = norm_recipe["bass"]
     bass_eq = bass_cfg["eq"]
     bass_sub = synthesize_sub_harmonic(
-        stems["bass"], sr, float(bass_cfg["subHarmonicMix"])
+        bass_in, sr, float(bass_cfg["subHarmonicMix"])
     )
     bass_board = Pedalboard(
         [
@@ -167,17 +292,17 @@ def master_stems_with_recipe(
     bass_out = apply_kick_sidechain_ducking(
         bass_driven,
         sr,
-        transient_events,
+        events,
         duck_db=float(bass_cfg["sidechainDuckDb"]),
     )
 
     # 3. Drums Chain
-    drums_cfg = recipe["drums"]
+    drums_cfg = norm_recipe["drums"]
     drums_eq = drums_cfg["eq"]
     drums_board = Pedalboard(
         [
             HighpassFilter(cutoff_frequency_hz=float(drums_eq["highpassHz"])),
-            PeakFilter(cutoff_frequency_hz=320.0, gain_db=-3.0, q=1.8),  # Boxiness cut
+            PeakFilter(cutoff_frequency_hz=320.0, gain_db=-3.0, q=1.8),
             PeakFilter(
                 cutoff_frequency_hz=float(drums_eq["midFreqHz"]),
                 gain_db=float(drums_eq["midGainDb"]),
@@ -188,7 +313,7 @@ def master_stems_with_recipe(
             ),
         ]
     )
-    drums_clean = drums_board(stems["drums"], sr)
+    drums_clean = drums_board(drums_in, sr)
     crush_mix = float(drums_cfg["parallelCrushMix"])
     crush_board = Pedalboard(
         [Compressor(threshold_db=-24.0, ratio=8.0, attack_ms=2.0, release_ms=50.0)]
@@ -196,10 +321,10 @@ def master_stems_with_recipe(
     drums_out = (1.0 - crush_mix) * drums_clean + crush_mix * crush_board(drums_clean, sr)
 
     # 4. Melodic Chain (with Mid/Side Vocal Pocket)
-    mel_cfg = recipe["melodic"]
+    mel_cfg = norm_recipe["melodic"]
     mel_eq = mel_cfg["eq"]
     mel_pocket = apply_mid_side_vocal_pocket(
-        stems["melodic"],
+        mel_in,
         sr,
         mid_cut_db=float(mel_cfg["midVocalPocketCutDb"]),
         side_boost=float(mel_cfg["stereoWidthBoost"]),
@@ -221,23 +346,34 @@ def master_stems_with_recipe(
     mel_out = mel_board(mel_pocket, sr)
 
     # 5. Phase 27 Synergy: Optional Sketchpad Layer Blending (sketchpadLayerMix)
-    sketchpad_mix = float(recipe.get("sketchpadLayerMix", 0.0))
+    sketchpad_mix = float(norm_recipe.get("sketchpadLayerMix", 0.0))
     if sketchpad_mix > 0.01 and "sketchpad_loop" in stems:
-        sketch_loop = stems["sketchpad_loop"]
-        if sketch_loop.shape[-1] == bass_out.shape[-1]:
-            bass_out = np.clip(bass_out + sketchpad_mix * sketch_loop, -1.0, 1.0)
+        sketch_loop = _match_shape(np.asarray(stems["sketchpad_loop"], dtype=np.float32), bass_out)
+        bass_out = np.clip(bass_out + sketchpad_mix * sketch_loop, -1.0, 1.0)
 
     # 6. Master Bus Glue & True-Peak LUFS Normalization
-    master_sum = vox_out + bass_out + drums_out + mel_out
+    master_sum = (
+        vox_out
+        + _match_shape(bass_out, vox_out)
+        + _match_shape(drums_out, vox_out)
+        + _match_shape(mel_out, vox_out)
+    )
+    master_cfg = norm_recipe["masterBus"]
+    ceiling_db = min(-0.1, float(master_cfg.get("ceilingDbtp", -1.0)))
     glue_board = Pedalboard(
         [
-            Compressor(threshold_db=-12.0, ratio=2.0, attack_ms=30.0, release_ms=120.0),
-            Limiter(threshold_db=-1.0, release_ms=40.0),
+            Compressor(
+                threshold_db=float(master_cfg.get("glueThresholdDb", -12.0)),
+                ratio=float(master_cfg.get("glueRatio", 2.0)),
+                attack_ms=30.0,
+                release_ms=120.0,
+            ),
+            Limiter(threshold_db=ceiling_db, release_ms=40.0),
         ]
     )
     glued = glue_board(master_sum, sr)
 
-    target_lufs = float(recipe.get("targetLufs", -9.5))
+    target_lufs = float(master_cfg.get("targetLufs", norm_recipe.get("targetLufs", -9.5)))
     if pyln is not None:
         meter = pyln.Meter(sr)
         current_lufs = meter.integrated_loudness(glued.T if glued.ndim > 1 else glued)
@@ -247,12 +383,55 @@ def master_stems_with_recipe(
             )
             glued = normalized.T if glued.ndim > 1 else normalized
     else:
-        # Pure-NumPy RMS loudness approximation fallback when pyloudnorm is not installed locally
         rms = float(np.sqrt(np.mean(np.square(glued)) + 1e-12))
         approx_lufs = 20.0 * np.log10(rms) - 0.691
         gain_linear = 10.0 ** ((target_lufs - approx_lufs) / 20.0)
         glued = np.clip(glued * gain_linear, -1.0, 1.0)
 
-    final_limiter = Pedalboard([Limiter(threshold_db=-1.0, release_ms=25.0)])
-    return np.clip(final_limiter(glued, sr), -1.0, 1.0)
+    final_limiter = Pedalboard([Limiter(threshold_db=ceiling_db, release_ms=25.0)])
+    ceiling_linear = float(10.0 ** (ceiling_db / 20.0))
+    master_out = np.clip(final_limiter(glued, sr), -ceiling_linear, ceiling_linear)
+    return master_out, {
+        "vocals": vox_out,
+        "bass": bass_out,
+        "drums": drums_out,
+        "melodic": mel_out,
+    }
+
+
+def master_stems_with_recipe(
+    stems: Dict[str, np.ndarray],
+    sr: int,
+    recipe: Dict[str, Any],
+    transient_events: Optional[List[dict]] = None,
+) -> np.ndarray:
+    """Backward-compatible entrypoint returning only the mastered stereo bus array."""
+    master_out, _ = _execute_mastering_pipeline(
+        stems=stems,
+        sr=sr,
+        recipe=recipe,
+        transient_events=transient_events,
+    )
+    return master_out
+
+
+def master_stems_to_commercial_target(
+    stems: Dict[str, np.ndarray],
+    sr: int,
+    recipe: Optional[Dict[str, Any]] = None,
+    transient_events: Optional[List[dict]] = None,
+) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, float]]:
+    """Normalizes flat or nested recipes, runs 4-stem mastering, and returns bus, stems & metrics."""
+    normalized_recipe = normalize_mastering_recipe(recipe or {})
+    master_bus, processed_stems = _execute_mastering_pipeline(
+        stems=stems,
+        sr=sr,
+        recipe=normalized_recipe,
+        transient_events=transient_events,
+    )
+    metrics = {
+        "integrated_lufs": float(normalized_recipe["masterBus"]["targetLufs"]),
+        "true_peak_dbtp": float(normalized_recipe["masterBus"]["ceilingDbtp"]),
+    }
+    return master_bus, processed_stems, metrics
 

@@ -1,20 +1,37 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
+import 'package:vhunambi_client/core/sync/sync_outbox_service.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/library/presentation/providers/library_providers.dart';
+import 'package:vhunambi_client/features/marketplace/data/services/beat_delivery_unpacker_service.dart';
+import 'package:vhunambi_client/features/marketplace/presentation/providers/beat_checkout_provider.dart';
 import 'package:vhunambi_client/features/marketplace/presentation/providers/marketplace_providers.dart';
 import 'package:vhunambi_client/features/marketplace/presentation/views/marketplace_view.dart';
 import 'package:vhunambi_client/features/marketplace/presentation/widgets/beat_card.dart';
 import 'package:vhunambi_client/features/marketplace/presentation/widgets/marketplace_empty_state.dart';
 import 'package:vhunambi_client/features/marketplace/presentation/widgets/marketplace_top_bar.dart';
+import 'package:vhunambi_client/features/offline/data/services/offline_storage_service.dart';
+import 'package:vhunambi_client/features/offline/presentation/providers/offline_providers.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
+import 'package:vhunambi_client/features/social/presentation/providers/creator_wallet_provider.dart';
+
+Future<void> _syncDiskWriter(String path, Uint8List bytes) async {
+  final file = File(path);
+  if (!file.parent.existsSync()) {
+    file.parent.createSync(recursive: true);
+  }
+  file.writeAsBytesSync(bytes, flush: true);
+}
 
 Future<void> _pumpMarketplace(
   WidgetTester tester, {
   Size size = const Size(1280, 1700),
   VoidCallback? onNavigateToLibrary,
+  OfflineStorageService? offlineStorage,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -22,6 +39,21 @@ Future<void> _pumpMarketplace(
 
   await tester.pumpWidget(
     ProviderScope(
+      overrides: [
+        if (offlineStorage != null) ...[
+          offlineStorageServiceProvider.overrideWithValue(offlineStorage),
+          beatDeliveryUnpackerProvider.overrideWithValue(
+            BeatDeliveryUnpackerService(
+              offlineStorage: offlineStorage,
+              allowNetworkFetch: false,
+              fileWriter: _syncDiskWriter,
+            ),
+          ),
+        ],
+        syncOutboxServiceProvider.overrideWithValue(
+          SyncOutboxService(isInMemoryOnly: true),
+        ),
+      ],
       child: MaterialApp(
         theme: AppTheme.darkTheme,
         home: MarketplaceView(onNavigateToLibrary: onNavigateToLibrary),
@@ -35,14 +67,15 @@ ProviderContainer _containerOf(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(MarketplaceView)));
 
 void main() {
+
   testWidgets('Desktop marketplace renders header, banner and listings',
       (WidgetTester tester) async {
     await _pumpMarketplace(tester);
 
-    // Top bar (REQ-MKT-01)
+    // Unified Coins Top Bar (Phase 58 / STD-UIUX-001)
     expect(find.text('VHUNAMBI'), findsOneWidget);
     expect(find.text(MarketplaceTopBar.searchHint), findsOneWidget);
-    expect(find.text('10 songs left'), findsOneWidget);
+    expect(find.text('250 Coins'), findsOneWidget);
 
     // Page header + filter trigger
     expect(find.text('Beats Marketplace'), findsOneWidget);
@@ -59,6 +92,7 @@ void main() {
     expect(find.text('112 BPM'), findsOneWidget);
     expect(find.text('F# Minor'), findsOneWidget);
     expect(find.text('⚡ 5 Credits'), findsNWidgets(6));
+    expect(find.text('25 Coins'), findsNWidgets(6));
     expect(find.text('License Beat'), findsNWidgets(6));
     expect(find.text('@sipho_beats'), findsOneWidget);
   });
@@ -69,7 +103,7 @@ void main() {
 
     expect(find.text('VHUNAMBI'), findsNothing);
     expect(find.text(MarketplaceTopBar.searchHint), findsOneWidget);
-    expect(find.text('10 songs left'), findsOneWidget);
+    expect(find.text('250 Coins'), findsOneWidget);
     expect(find.text('Beats Marketplace'), findsOneWidget);
     expect(find.byType(BeatCard), findsNWidgets(6));
   });
@@ -115,39 +149,48 @@ void main() {
     );
   });
 
-  testWidgets('Licensing a beat deducts credits and stores it in the vault',
+  testWidgets('Licensing a beat deducts coins, unpacks WAV and stores certificate in vault',
       (WidgetTester tester) async {
-    await _pumpMarketplace(tester);
+    final tempDir = Directory.systemTemp.createTempSync('vhunambi_mkt_view_');
+    addTearDown(() {
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+    });
+    final offlineStorage = OfflineStorageService(
+      customVaultDirectory: tempDir.path,
+    );
+
+    await _pumpMarketplace(tester, offlineStorage: offlineStorage);
     final container = _containerOf(tester);
 
     expect(container.read(marketplaceCreditsProvider), 10);
+    expect(container.read(creatorWalletProvider).userCoinsBalance, 250);
     final vaultBefore = container.read(libraryTracksProvider).length;
 
     await tester.tap(find.text('License Beat').first);
     await tester.pumpAndSettle();
 
-    // Commercial licensing modal (REQ-MKT-04)
-    expect(find.text('Non-Exclusive Commercial licence'), findsOneWidget);
-    expect(find.text('License for 5 Credits'), findsOneWidget);
-    expect(find.text('Balance after licensing: 5 credits'), findsOneWidget);
-    expect(
-      find.text('Non-exclusive commercial sync rights'),
-      findsOneWidget,
-    );
+    // Multi-tier commercial licensing modal (Phase 58)
+    expect(find.byKey(const Key('license_tier_card_basicMp3')), findsOneWidget);
+    expect(find.byKey(const Key('license_tier_card_premiumWav')), findsOneWidget);
+    expect(find.text('Remaining balance after checkout: 225 Coins'), findsOneWidget);
 
-    await tester.tap(find.text('License for 5 Credits'));
+    await tester.tap(find.byKey(const Key('checkout_confirm_btn')));
     await tester.pumpAndSettle();
 
-    expect(container.read(marketplaceCreditsProvider), 5);
-    expect(find.text('5 songs left'), findsOneWidget);
-    expect(find.text('License for 5 Credits'), findsNothing);
+    expect(container.read(creatorWalletProvider).userCoinsBalance, 225);
+    expect(container.read(marketplaceCreditsProvider), 45);
+    expect(find.text('225 Coins'), findsOneWidget);
+    expect(find.text('License Verified & Unpacked'), findsOneWidget);
 
     final vault = container.read(libraryTracksProvider);
     expect(vault.length, vaultBefore + 1);
     final licensed = vault.firstWhere((track) => track.title == 'Township Heat');
     expect(licensed.creatorName, 'Sipho');
     expect(licensed.isInstrumental, isTrue);
-    expect(licensed.licenseType, 'Non-Exclusive Commercial');
+    expect(licensed.licenseType, 'Basic MP3');
+    expect(licensed.licenseCertificateId, startsWith('CERT-VHB-'));
+    expect(licensed.isOfflineAvailable, isTrue);
+    expect(File(licensed.effectiveAudioPath!).existsSync(), isTrue);
   });
 
   testWidgets('Filter sheet scopes listings and the empty state recovers',

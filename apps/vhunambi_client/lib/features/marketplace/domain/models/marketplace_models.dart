@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../shared/models/track.dart';
+import '../services/license_agreement_engine.dart';
+import 'licensing_models.dart';
 
 /// The 12 curated African genres exposed by the marketplace filter engine
 /// (Blueprint 05 §2.2 / REQ-MKT-05).
@@ -21,7 +23,6 @@ const List<String> marketplaceGenreCatalog = [
 
 /// Beat preview audition length used by the screenless player bridge.
 const int beatPreviewDurationSeconds = 180;
-
 
 /// 4-Pillar Multi-Talent Marketplace Category (Phase 39 REQ-MKT-CAT-01)
 enum MarketplaceAssetCategory {
@@ -46,7 +47,8 @@ extension MarketplaceAssetCategoryExtension on MarketplaceAssetCategory {
     MarketplaceAssetCategory.beats => PhosphorIconsRegular.waveform,
     MarketplaceAssetCategory.vocals => PhosphorIconsRegular.microphone,
     MarketplaceAssetCategory.liveInstruments => PhosphorIconsRegular.guitar,
-    MarketplaceAssetCategory.voiceDnaAndPacks => PhosphorIconsRegular.fingerprint,
+    MarketplaceAssetCategory.voiceDnaAndPacks =>
+      PhosphorIconsRegular.fingerprint,
   };
 }
 
@@ -70,6 +72,9 @@ class BeatListingEntity {
   final DateTime createdAt;
   final MarketplaceAssetCategory assetCategory;
   final AudioProvenanceType provenanceType;
+  final bool isExclusiveSold;
+  final String? exclusiveBuyerId;
+  final List<BeatCheckoutTier> availableTiers;
 
   const BeatListingEntity({
     required this.id,
@@ -89,14 +94,95 @@ class BeatListingEntity {
     required this.createdAt,
     this.assetCategory = MarketplaceAssetCategory.beats,
     this.provenanceType = AudioProvenanceType.humanDawMaster,
+    this.isExclusiveSold = false,
+    this.exclusiveBuyerId,
+    this.availableTiers = BeatCheckoutTier.values,
   });
 
   String get bpmLabel => '$bpm BPM';
 
   String get priceLabel => '⚡ $priceInCredits Credits';
 
+  int get baseCoins => priceInCredits * kCoinsPerCredit;
+
+  double get baseZar =>
+      LicenseAgreementEngine.roundZar(baseCoins * kZarPerCoin);
+
+  String get coinsPriceLabel =>
+      '$baseCoins Coins (R${baseZar.toStringAsFixed(2)})';
+
   Duration get previewDuration =>
       const Duration(seconds: beatPreviewDurationSeconds);
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'id': id,
+    'title': title,
+    'producerId': producerId,
+    'producerName': producerName,
+    'producerHandle': producerHandle,
+    if (producerAvatarUrl != null) 'producerAvatarUrl': producerAvatarUrl,
+    'genre': genre,
+    'bpm': bpm,
+    'musicalKey': musicalKey,
+    'priceInCredits': priceInCredits,
+    'previewAudioUrl': previewAudioUrl,
+    if (stemZipUrl != null) 'stemZipUrl': stemZipUrl,
+    'licenseType': licenseType,
+    'totalSales': totalSales,
+    'createdAt': createdAt.toIso8601String(),
+    'assetCategory': assetCategory.name,
+    'provenanceType': provenanceType.name,
+    'isExclusiveSold': isExclusiveSold,
+    if (exclusiveBuyerId != null) 'exclusiveBuyerId': exclusiveBuyerId,
+    'availableTiers': availableTiers.map((t) => t.wireSlug).toList(),
+  };
+
+  factory BeatListingEntity.fromJson(Map<String, dynamic> json) {
+    final rawTiers = json['availableTiers'] as List<dynamic>?;
+    final parsedTiers = rawTiers != null && rawTiers.isNotEmpty
+        ? rawTiers
+              .map((e) => BeatCheckoutTier.fromWire(e.toString()))
+              .toList(growable: false)
+        : BeatCheckoutTier.values;
+    final categoryName = json['assetCategory'] as String?;
+    final provName = json['provenanceType'] as String?;
+
+    return BeatListingEntity(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? 'Untitled Beat').toString(),
+      producerId: (json['producerId'] ?? '').toString(),
+      producerName: (json['producerName'] ?? 'Producer').toString(),
+      producerHandle: (json['producerHandle'] ?? '@producer').toString(),
+      producerAvatarUrl: json['producerAvatarUrl'] as String?,
+      genre: (json['genre'] ?? 'Amapiano').toString(),
+      bpm: (json['bpm'] as num?)?.toInt() ?? 113,
+      musicalKey: (json['musicalKey'] ?? 'F# Minor').toString(),
+      priceInCredits: (json['priceInCredits'] as num?)?.toInt() ?? 5,
+      previewAudioUrl: (json['previewAudioUrl'] ?? '').toString(),
+      stemZipUrl: json['stemZipUrl'] as String?,
+      licenseType: (json['licenseType'] ?? 'Non-Exclusive Commercial')
+          .toString(),
+      totalSales: (json['totalSales'] as num?)?.toInt() ?? 0,
+      createdAt:
+          DateTime.tryParse((json['createdAt'] ?? '').toString()) ??
+          DateTime.now(),
+      assetCategory: categoryName != null
+          ? MarketplaceAssetCategory.values.firstWhere(
+              (c) => c.name == categoryName,
+              orElse: () => MarketplaceAssetCategory.beats,
+            )
+          : MarketplaceAssetCategory.beats,
+      provenanceType: provName != null
+          ? AudioProvenanceType.values.firstWhere(
+              (p) => p.name == provName,
+              orElse: () => AudioProvenanceType.humanDawMaster,
+            )
+          : AudioProvenanceType.humanDawMaster,
+      isExclusiveSold: json['isExclusiveSold'] as bool? ?? false,
+      exclusiveBuyerId: json['exclusiveBuyerId'] as String?,
+      availableTiers: parsedTiers,
+    );
+  }
 
   BeatListingEntity copyWith({
     String? id,
@@ -116,6 +202,9 @@ class BeatListingEntity {
     DateTime? createdAt,
     MarketplaceAssetCategory? assetCategory,
     AudioProvenanceType? provenanceType,
+    bool? isExclusiveSold,
+    String? exclusiveBuyerId,
+    List<BeatCheckoutTier>? availableTiers,
   }) {
     return BeatListingEntity(
       id: id ?? this.id,
@@ -135,6 +224,9 @@ class BeatListingEntity {
       createdAt: createdAt ?? this.createdAt,
       assetCategory: assetCategory ?? this.assetCategory,
       provenanceType: provenanceType ?? this.provenanceType,
+      isExclusiveSold: isExclusiveSold ?? this.isExclusiveSold,
+      exclusiveBuyerId: exclusiveBuyerId ?? this.exclusiveBuyerId,
+      availableTiers: availableTiers ?? this.availableTiers,
     );
   }
 
@@ -156,27 +248,31 @@ class BeatListingEntity {
         other.stemZipUrl == stemZipUrl &&
         other.licenseType == licenseType &&
         other.totalSales == totalSales &&
-        other.createdAt == createdAt;
+        other.createdAt == createdAt &&
+        other.isExclusiveSold == isExclusiveSold &&
+        other.exclusiveBuyerId == exclusiveBuyerId;
   }
 
   @override
   int get hashCode => Object.hash(
-        id,
-        title,
-        producerId,
-        producerName,
-        producerHandle,
-        producerAvatarUrl,
-        genre,
-        bpm,
-        musicalKey,
-        priceInCredits,
-        previewAudioUrl,
-        stemZipUrl,
-        licenseType,
-        totalSales,
-        createdAt,
-      );
+    id,
+    title,
+    producerId,
+    producerName,
+    producerHandle,
+    producerAvatarUrl,
+    genre,
+    bpm,
+    musicalKey,
+    priceInCredits,
+    previewAudioUrl,
+    stemZipUrl,
+    licenseType,
+    totalSales,
+    createdAt,
+    isExclusiveSold,
+    exclusiveBuyerId,
+  );
 }
 
 /// Real-time marketplace filter dimensions (design.md §1.1 / REQ-MKT-05).
@@ -224,8 +320,9 @@ class MarketplaceFilterState {
       genre: genre ?? this.genre,
       minBpm: clearBpmRange ? null : (minBpm ?? this.minBpm),
       maxBpm: clearBpmRange ? null : (maxBpm ?? this.maxBpm),
-      maxPriceCredits:
-          clearMaxPrice ? null : (maxPriceCredits ?? this.maxPriceCredits),
+      maxPriceCredits: clearMaxPrice
+          ? null
+          : (maxPriceCredits ?? this.maxPriceCredits),
       category: category ?? this.category,
     );
   }
@@ -246,6 +343,12 @@ class MarketplaceFilterState {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(searchQuery, genre, minBpm, maxBpm, maxPriceCredits, category);
+  int get hashCode => Object.hash(
+    searchQuery,
+    genre,
+    minBpm,
+    maxBpm,
+    maxPriceCredits,
+    category,
+  );
 }

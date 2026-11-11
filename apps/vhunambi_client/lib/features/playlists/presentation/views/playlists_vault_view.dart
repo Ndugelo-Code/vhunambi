@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/utils/responsive_utils.dart';
-import '../../../../shared/models/track.dart';
-import '../../../library/domain/models/library_models.dart';
-import '../../../library/presentation/providers/library_providers.dart';
-import '../../../library/presentation/widgets/library_empty_state.dart';
-import '../../domain/models/playlist_entity.dart';
-import '../providers/playlists_provider.dart';
-import '../widgets/playlist_cover_art.dart';
-import 'playlist_detail_view.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:vhunambi_client/core/theme/app_colors.dart';
+import 'package:vhunambi_client/core/theme/app_dimensions.dart';
+import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/core/utils/responsive_utils.dart';
+import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
+import 'package:vhunambi_client/features/library/presentation/providers/library_providers.dart';
+import 'package:vhunambi_client/features/library/presentation/widgets/library_empty_state.dart';
+import 'package:vhunambi_client/features/playlists/domain/models/playlist_entity.dart';
+import 'package:vhunambi_client/features/playlists/presentation/providers/playlists_provider.dart';
+import 'package:vhunambi_client/features/playlists/presentation/views/playlist_detail_view.dart';
+import 'package:vhunambi_client/features/playlists/presentation/widgets/playlist_cover_art.dart';
+import 'package:vhunambi_client/shared/models/track.dart';
 
 /// The Playlists tab view in User Library Vault (`/library?tab=playlists`).
 ///
@@ -41,10 +41,9 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
       context: context,
       builder: (dialogContext) => _CreatePlaylistDialog(
         onCreated: (title, description) {
-          ref.read(playlistsProvider.notifier).createPlaylist(
-                title,
-                description: description,
-              );
+          ref
+              .read(playlistsProvider.notifier)
+              .createPlaylist(title, description: description);
         },
       ),
     );
@@ -56,9 +55,7 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
     final byId = {
       for (final t in ref.read(libraryTracksProvider)) t.id: t.toTrack(),
     };
-    return [
-      for (final id in playlist.trackIds) ?byId[id],
-    ];
+    return [for (final id in playlist.trackIds) ?byId[id]];
   }
 
   void _showRenameDialog(PlaylistEntity playlist) {
@@ -68,7 +65,9 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
         currentTitle: playlist.title,
         currentDescription: playlist.description,
         onRenamed: (newTitle, newDescription) {
-          ref.read(playlistsProvider.notifier).updatePlaylist(
+          ref
+              .read(playlistsProvider.notifier)
+              .updatePlaylist(
                 playlist.id,
                 title: newTitle,
                 description: newDescription,
@@ -86,7 +85,9 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
         title: Text(
           'Delete Playlist?',
-          style: AppTypography.titleMedium.copyWith(color: AppColors.textPrimary),
+          style: AppTypography.titleMedium.copyWith(
+            color: AppColors.textPrimary,
+          ),
         ),
         content: Text(
           'Are you sure you want to delete "${playlist.title}"? Your saved tracks will remain in your Vault.',
@@ -119,18 +120,50 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
     );
   }
 
+  Future<void> _handleShare(PlaylistEntity playlist) async {
+    final shared = await ref
+        .read(playlistsProvider.notifier)
+        .sharePlaylist(playlist.id);
+    if (!mounted) return;
+    final url = shared?.shareUrl ?? 'https://vhunambi.za/p/${playlist.id}';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Share link ready: $url'),
+        backgroundColor: AppColors.brandPrimary,
+      ),
+    );
+  }
+
+  Future<void> _handleCloudSync() async {
+    await ref.read(playlistsProvider.notifier).syncWithCloud();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Playlists synchronized with Vhunambi Cloud'),
+        backgroundColor: AppColors.brandPrimary,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final allPlaylists = ref.watch(playlistsProvider);
     final viewMode = ref.watch(libraryViewModeProvider);
+    final isCloudSyncing = ref.watch(playlistCloudSyncingProvider);
 
     final filteredPlaylists = _searchQuery.isEmpty
         ? allPlaylists
         : allPlaylists
-            .where((p) =>
-                p.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                p.description.toLowerCase().contains(_searchQuery.toLowerCase()))
-            .toList();
+              .where(
+                (p) =>
+                    p.title.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ) ||
+                    p.description.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ),
+              )
+              .toList();
 
     if (allPlaylists.isEmpty) {
       return LibraryEmptyState(
@@ -157,24 +190,44 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
                   height: 38,
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                    onChanged: (val) =>
+                        setState(() => _searchQuery = val.trim()),
                     style: AppTypography.bodyLarge,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: AppColors.surfaceElevated,
                       hintText: 'Search playlists...',
-                      hintStyle: AppTypography.caption.copyWith(color: AppColors.textTertiary),
-                      prefixIcon: Icon(Icons.search_rounded, size: 18, color: AppColors.textSecondary),
+                      hintStyle: AppTypography.caption.copyWith(
+                        color: AppColors.textTertiary,
+                      ),
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: PhosphorIcon(
+                          PhosphorIconsRegular.magnifyingGlass,
+                          size: 18,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 38,
+                        minHeight: 38,
+                      ),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              icon: PhosphorIcon(
+                                PhosphorIconsRegular.x,
+                                size: 16,
+                                color: AppColors.textSecondary,
+                              ),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() => _searchQuery = '');
                               },
                             )
                           : null,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: AppRadius.pillBorder,
                         borderSide: BorderSide(color: AppColors.borderSubtle),
@@ -185,23 +238,61 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: AppRadius.pillBorder,
-                        borderSide: const BorderSide(color: AppColors.brandPrimary),
+                        borderSide: const BorderSide(
+                          color: AppColors.brandPrimary,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
+              const SizedBox(width: AppSpacing.xs),
+              IconButton(
+                key: const Key('playlists_cloud_sync_btn'),
+                tooltip: 'Sync Playlists to Cloud',
+                onPressed: isCloudSyncing ? null : _handleCloudSync,
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.surfaceElevated,
+                  foregroundColor: AppColors.brandPrimary,
+                  side: BorderSide(color: AppColors.borderSubtle),
+                ),
+                icon: isCloudSyncing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.brandPrimary,
+                        ),
+                      )
+                    : const PhosphorIcon(
+                        PhosphorIconsRegular.cloudArrowUp,
+                        size: 18,
+                        color: AppColors.brandPrimary,
+                      ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
               ElevatedButton.icon(
                 onPressed: _showCreateDialog,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandPrimary,
                   foregroundColor: AppColors.brandContrast,
-                  shape: const RoundedRectangleBorder(borderRadius: AppRadius.pillBorder),
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: AppRadius.pillBorder,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
                 ),
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('New Playlist', style: TextStyle(fontWeight: FontWeight.bold)),
+                icon: const PhosphorIcon(
+                  PhosphorIconsBold.plus,
+                  size: 18,
+                  color: AppColors.brandContrast,
+                ),
+                label: const Text(
+                  'New Playlist',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -217,63 +308,68 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
                   ),
                 )
               : viewMode == LibraryViewMode.grid
-                  ? GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md,
-                        AppSpacing.xxs,
-                        AppSpacing.md,
-                        110,
-                      ),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: ResponsiveUtils.gridColumns(context),
-                        crossAxisSpacing: AppSpacing.sm,
-                        mainAxisSpacing: AppSpacing.sm,
-                        childAspectRatio: 0.85,
-                      ),
-                      itemCount: filteredPlaylists.length,
-                      itemBuilder: (_, index) {
-                        final playlist = filteredPlaylists[index];
-                        return _PlaylistGridCard(
-                          playlist: playlist,
-                          tracks: _resolveTracks(playlist),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PlaylistDetailView(playlist: playlist),
-                              ),
-                            );
-                          },
-                          onRename: () => _showRenameDialog(playlist),
-                          onDelete: () => _confirmDelete(playlist),
+              ? GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.xxs,
+                    AppSpacing.md,
+                    110,
+                  ),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: ResponsiveUtils.gridColumns(context),
+                    crossAxisSpacing: AppSpacing.sm,
+                    mainAxisSpacing: AppSpacing.sm,
+                    childAspectRatio: 0.85,
+                  ),
+                  itemCount: filteredPlaylists.length,
+                  itemBuilder: (_, index) {
+                    final playlist = filteredPlaylists[index];
+                    return _PlaylistGridCard(
+                      playlist: playlist,
+                      tracks: _resolveTracks(playlist),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                PlaylistDetailView(playlist: playlist),
+                          ),
                         );
                       },
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md,
-                        AppSpacing.xxs,
-                        AppSpacing.md,
-                        110,
-                      ),
-                      itemCount: filteredPlaylists.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
-                      itemBuilder: (_, index) {
-                        final playlist = filteredPlaylists[index];
-                        return _PlaylistListTile(
-                          playlist: playlist,
-                          tracks: _resolveTracks(playlist),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PlaylistDetailView(playlist: playlist),
-                              ),
-                            );
-                          },
-                          onRename: () => _showRenameDialog(playlist),
-                          onDelete: () => _confirmDelete(playlist),
+                      onRename: () => _showRenameDialog(playlist),
+                      onShare: () => _handleShare(playlist),
+                      onDelete: () => _confirmDelete(playlist),
+                    );
+                  },
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.xxs,
+                    AppSpacing.md,
+                    110,
+                  ),
+                  itemCount: filteredPlaylists.length,
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: AppSpacing.xs),
+                  itemBuilder: (_, index) {
+                    final playlist = filteredPlaylists[index];
+                    return _PlaylistListTile(
+                      playlist: playlist,
+                      tracks: _resolveTracks(playlist),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                PlaylistDetailView(playlist: playlist),
+                          ),
                         );
                       },
-                    ),
+                      onRename: () => _showRenameDialog(playlist),
+                      onShare: () => _handleShare(playlist),
+                      onDelete: () => _confirmDelete(playlist),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -285,6 +381,7 @@ class _PlaylistGridCard extends StatelessWidget {
   final List<Track> tracks;
   final VoidCallback onTap;
   final VoidCallback onRename;
+  final VoidCallback onShare;
   final VoidCallback onDelete;
 
   const _PlaylistGridCard({
@@ -292,6 +389,7 @@ class _PlaylistGridCard extends StatelessWidget {
     required this.tracks,
     required this.onTap,
     required this.onRename,
+    required this.onShare,
     required this.onDelete,
   });
 
@@ -339,10 +437,15 @@ class _PlaylistGridCard extends StatelessWidget {
                     ),
                   ),
                   PopupMenuButton<String>(
-                    icon: Icon(Icons.more_vert_rounded, size: 18, color: AppColors.textSecondary),
+                    icon: PhosphorIcon(
+                      PhosphorIconsRegular.dotsThreeVertical,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
                     color: AppColors.surfaceModal,
                     onSelected: (action) {
                       if (action == 'rename') onRename();
+                      if (action == 'share') onShare();
                       if (action == 'delete') onDelete();
                     },
                     itemBuilder: (_) => [
@@ -350,9 +453,27 @@ class _PlaylistGridCard extends StatelessWidget {
                         value: 'rename',
                         child: Row(
                           children: [
-                            Icon(Icons.edit_rounded, size: 16, color: AppColors.textPrimary),
+                            PhosphorIcon(
+                              PhosphorIconsRegular.pencilSimple,
+                              size: 16,
+                              color: AppColors.textPrimary,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('Rename'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'share',
+                        child: Row(
+                          children: [
+                            PhosphorIcon(
+                              PhosphorIconsRegular.shareNetwork,
+                              size: 16,
+                              color: AppColors.brandPrimary,
+                            ),
                             SizedBox(width: 8),
-                            Text('Rename'),
+                            Text('Share Link'),
                           ],
                         ),
                       ),
@@ -360,9 +481,16 @@ class _PlaylistGridCard extends StatelessWidget {
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.error),
+                            PhosphorIcon(
+                              PhosphorIconsRegular.trash,
+                              size: 16,
+                              color: AppColors.error,
+                            ),
                             SizedBox(width: 8),
-                            Text('Delete', style: TextStyle(color: AppColors.error)),
+                            Text(
+                              'Delete',
+                              style: TextStyle(color: AppColors.error),
+                            ),
                           ],
                         ),
                       ),
@@ -374,7 +502,9 @@ class _PlaylistGridCard extends StatelessWidget {
               // Count info
               Text(
                 '${playlist.trackCount} ${playlist.trackCount == 1 ? 'song' : 'songs'}',
-                style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
@@ -389,6 +519,7 @@ class _PlaylistListTile extends StatelessWidget {
   final List<Track> tracks;
   final VoidCallback onTap;
   final VoidCallback onRename;
+  final VoidCallback onShare;
   final VoidCallback onDelete;
 
   const _PlaylistListTile({
@@ -396,6 +527,7 @@ class _PlaylistListTile extends StatelessWidget {
     required this.tracks,
     required this.onTap,
     required this.onRename,
+    required this.onShare,
     required this.onDelete,
   });
 
@@ -409,12 +541,11 @@ class _PlaylistListTile extends StatelessWidget {
       ),
       child: ListTile(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
-        leading: PlaylistCoverArt(
-          playlist: playlist,
-          tracks: tracks,
-          size: 48,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 4,
         ),
+        leading: PlaylistCoverArt(playlist: playlist, tracks: tracks, size: 48),
         title: Text(
           playlist.title,
           style: AppTypography.bodyLarge.copyWith(fontWeight: FontWeight.w600),
@@ -430,10 +561,15 @@ class _PlaylistListTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         trailing: PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert_rounded, size: 20, color: AppColors.textSecondary),
+          icon: PhosphorIcon(
+            PhosphorIconsRegular.dotsThreeVertical,
+            size: 20,
+            color: AppColors.textSecondary,
+          ),
           color: AppColors.surfaceModal,
           onSelected: (action) {
             if (action == 'rename') onRename();
+            if (action == 'share') onShare();
             if (action == 'delete') onDelete();
           },
           itemBuilder: (_) => [
@@ -441,9 +577,27 @@ class _PlaylistListTile extends StatelessWidget {
               value: 'rename',
               child: Row(
                 children: [
-                  Icon(Icons.edit_rounded, size: 16, color: AppColors.textPrimary),
+                  PhosphorIcon(
+                    PhosphorIconsRegular.pencilSimple,
+                    size: 16,
+                    color: AppColors.textPrimary,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Rename'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'share',
+              child: Row(
+                children: [
+                  PhosphorIcon(
+                    PhosphorIconsRegular.shareNetwork,
+                    size: 16,
+                    color: AppColors.brandPrimary,
+                  ),
                   SizedBox(width: 8),
-                  Text('Rename'),
+                  Text('Share Link'),
                 ],
               ),
             ),
@@ -451,7 +605,11 @@ class _PlaylistListTile extends StatelessWidget {
               value: 'delete',
               child: Row(
                 children: [
-                  Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.error),
+                  PhosphorIcon(
+                    PhosphorIconsRegular.trash,
+                    size: 16,
+                    color: AppColors.error,
+                  ),
                   SizedBox(width: 8),
                   Text('Delete', style: TextStyle(color: AppColors.error)),
                 ],

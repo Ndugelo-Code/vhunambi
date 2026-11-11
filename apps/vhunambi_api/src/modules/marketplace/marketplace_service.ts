@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
 import { nanoid } from 'nanoid';
+import { resolveMediaUrl } from '../../config/env.js';
+import {
+  canonicalizeCreatorId,
+  vhunambiDb,
+} from '../../db/vhunambi_db.js';
 import {
   BeatLicenseCertificate,
   BeatLicenseTier,
@@ -8,10 +13,49 @@ import {
   MarketplaceBeatListing,
   MarketplaceFilterQuery,
 } from './marketplace_types.js';
-import { creditProducerBeatRoyalty } from '../social/social_service.js';
 
-const marketplaceBeats = new Map<string, MarketplaceBeatListing>();
-const userLicenses = new Map<string, BeatLicenseCertificate[]>();
+function normalizeListingMedia(listing: MarketplaceBeatListing): MarketplaceBeatListing {
+  return {
+    ...listing,
+    previewAudioUrl: resolveMediaUrl(listing.previewAudioUrl),
+    stemPackage: {
+      masterAudioUrl: resolveMediaUrl(listing.stemPackage?.masterAudioUrl ?? listing.previewAudioUrl),
+      drumsUrl: listing.stemPackage?.drumsUrl ? resolveMediaUrl(listing.stemPackage.drumsUrl) : undefined,
+      bassUrl: listing.stemPackage?.bassUrl ? resolveMediaUrl(listing.stemPackage.bassUrl) : undefined,
+      melodicUrl: listing.stemPackage?.melodicUrl ? resolveMediaUrl(listing.stemPackage.melodicUrl) : undefined,
+      otherUrl: listing.stemPackage?.otherUrl ? resolveMediaUrl(listing.stemPackage.otherUrl) : undefined,
+    },
+    mmoManifestUrl: listing.mmoManifestUrl ? resolveMediaUrl(listing.mmoManifestUrl) : undefined,
+  };
+}
+
+export type LicenseBeatResult =
+  | {
+      ok: true;
+      certificate: BeatLicenseCertificate;
+      beat: MarketplaceBeatListing;
+    }
+  | {
+      ok: false;
+      errorCode: 'NOT_FOUND' | 'EXCLUSIVE_CONFLICT' | 'INSUFFICIENT_FUNDS';
+      error: string;
+    };
+
+function normalizeTierSlug(raw: string | undefined): BeatLicenseTier {
+  switch (raw) {
+    case 'basic_lease':
+      return 'basic_lease';
+    case 'stems_trackout':
+      return 'stems_trackout';
+    case 'unlimited_commercial':
+      return 'unlimited_commercial';
+    case 'exclusive':
+    case 'exclusive_stem':
+      return 'exclusive_stem';
+    default:
+      return 'basic_lease';
+  }
+}
 
 /** Pricing multipliers by licensing tier. */
 function calculateTierPricing(
@@ -25,19 +69,20 @@ function calculateTierPricing(
     case 'stems_trackout':
       return {
         coins: Math.round(baseCoins * 3),
-        zar: Math.round(baseZar * 3),
+        zar: Math.round(baseZar * 3 * 100) / 100,
       };
+    case 'exclusive_stem':
     case 'unlimited_commercial':
       return {
         coins: Math.round(baseCoins * 6),
-        zar: Math.round(baseZar * 6),
+        zar: Math.round(baseZar * 6 * 100) / 100,
       };
   }
 }
 
 /** Seed 6 Regional African Master Beats (Phase 28 Marketplace Catalog). */
 export function seedMarketplaceBeats(): void {
-  if (marketplaceBeats.size > 0) return;
+  if (vhunambiDb.countMarketplaceBeats() > 0) return;
 
   const now = new Date().toISOString();
   const seedItems: MarketplaceBeatListing[] = [
@@ -53,18 +98,18 @@ export function seedMarketplaceBeats(): void {
       tags: ['Log Drum', 'Soweto', 'VIP', 'Deep House'],
       priceCoins: 50,
       priceZar: 45.0,
-      previewAudioUrl: 'https://r2.vhunambi.com/beats/soweto_log_drum.mp3',
+      previewAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/soweto_log_drum.mp3'),
       stemPackage: {
-        masterAudioUrl: 'https://r2.vhunambi.com/beats/soweto_log_drum.mp3',
-        drumsUrl: 'https://r2.vhunambi.com/beats/stems/soweto_drums.wav',
-        bassUrl: 'https://r2.vhunambi.com/beats/stems/soweto_bass.wav',
-        melodicUrl: 'https://r2.vhunambi.com/beats/stems/soweto_keys.wav',
-        otherUrl: 'https://r2.vhunambi.com/beats/stems/soweto_fx.wav',
+        masterAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/soweto_log_drum.mp3'),
+        drumsUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/soweto_drums.wav'),
+        bassUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/soweto_bass.wav'),
+        melodicUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/soweto_keys.wav'),
+        otherUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/soweto_fx.wav'),
       },
       salesCount: 14,
       auditionCount: 142,
       licenseTiers: ['basic_lease', 'stems_trackout', 'unlimited_commercial'],
-      mmoManifestUrl: 'https://r2.vhunambi.com/manifests/soweto_vip_mmo.json',
+      mmoManifestUrl: resolveMediaUrl('https://r2.vhunambi.com/manifests/soweto_vip_mmo.json'),
       createdAt: now,
       updatedAt: now,
     },
@@ -80,13 +125,13 @@ export function seedMarketplaceBeats(): void {
       tags: ['Gqom', 'Durban', 'Raw Kick', 'Warehouse'],
       priceCoins: 60,
       priceZar: 55.0,
-      previewAudioUrl: 'https://r2.vhunambi.com/beats/durban_quantum.mp3',
+      previewAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/durban_quantum.mp3'),
       stemPackage: {
-        masterAudioUrl: 'https://r2.vhunambi.com/beats/durban_quantum.mp3',
-        drumsUrl: 'https://r2.vhunambi.com/beats/stems/durban_drums.wav',
-        bassUrl: 'https://r2.vhunambi.com/beats/stems/durban_bass.wav',
-        melodicUrl: 'https://r2.vhunambi.com/beats/stems/durban_synths.wav',
-        otherUrl: 'https://r2.vhunambi.com/beats/stems/durban_vox.wav',
+        masterAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/durban_quantum.mp3'),
+        drumsUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/durban_drums.wav'),
+        bassUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/durban_bass.wav'),
+        melodicUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/durban_synths.wav'),
+        otherUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/durban_vox.wav'),
       },
       salesCount: 9,
       auditionCount: 98,
@@ -106,13 +151,13 @@ export function seedMarketplaceBeats(): void {
       tags: ['Tshivenḓa', 'Malende', 'Folk', 'Ngoma'],
       priceCoins: 40,
       priceZar: 35.0,
-      previewAudioUrl: 'https://r2.vhunambi.com/beats/thohoyandou_pulse.mp3',
+      previewAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/thohoyandou_pulse.mp3'),
       stemPackage: {
-        masterAudioUrl: 'https://r2.vhunambi.com/beats/thohoyandou_pulse.mp3',
-        drumsUrl: 'https://r2.vhunambi.com/beats/stems/malende_drums.wav',
-        bassUrl: 'https://r2.vhunambi.com/beats/stems/malende_bass.wav',
-        melodicUrl: 'https://r2.vhunambi.com/beats/stems/malende_flute.wav',
-        otherUrl: 'https://r2.vhunambi.com/beats/stems/malende_percussion.wav',
+        masterAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/thohoyandou_pulse.mp3'),
+        drumsUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/malende_drums.wav'),
+        bassUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/malende_bass.wav'),
+        melodicUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/malende_flute.wav'),
+        otherUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/malende_percussion.wav'),
       },
       salesCount: 22,
       auditionCount: 215,
@@ -132,13 +177,13 @@ export function seedMarketplaceBeats(): void {
       tags: ['Private School', 'Rhodes', 'Jazz Keys', 'Pretoria'],
       priceCoins: 70,
       priceZar: 65.0,
-      previewAudioUrl: 'https://r2.vhunambi.com/beats/pretoria_rhodes.mp3',
+      previewAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/pretoria_rhodes.mp3'),
       stemPackage: {
-        masterAudioUrl: 'https://r2.vhunambi.com/beats/pretoria_rhodes.mp3',
-        drumsUrl: 'https://r2.vhunambi.com/beats/stems/rhodes_drums.wav',
-        bassUrl: 'https://r2.vhunambi.com/beats/stems/rhodes_sub.wav',
-        melodicUrl: 'https://r2.vhunambi.com/beats/stems/rhodes_keys.wav',
-        otherUrl: 'https://r2.vhunambi.com/beats/stems/rhodes_horns.wav',
+        masterAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/pretoria_rhodes.mp3'),
+        drumsUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/rhodes_drums.wav'),
+        bassUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/rhodes_sub.wav'),
+        melodicUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/rhodes_keys.wav'),
+        otherUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/rhodes_horns.wav'),
       },
       salesCount: 18,
       auditionCount: 174,
@@ -158,13 +203,13 @@ export function seedMarketplaceBeats(): void {
       tags: ['Maskandi', 'Acoustic Guitar', 'isiZulu', 'Traditional'],
       priceCoins: 45,
       priceZar: 40.0,
-      previewAudioUrl: 'https://r2.vhunambi.com/beats/zululand_guitar.mp3',
+      previewAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/zululand_guitar.mp3'),
       stemPackage: {
-        masterAudioUrl: 'https://r2.vhunambi.com/beats/zululand_guitar.mp3',
-        drumsUrl: 'https://r2.vhunambi.com/beats/stems/guitar_drums.wav',
-        bassUrl: 'https://r2.vhunambi.com/beats/stems/guitar_bass.wav',
-        melodicUrl: 'https://r2.vhunambi.com/beats/stems/maskandi_acoustic.wav',
-        otherUrl: 'https://r2.vhunambi.com/beats/stems/guitar_congas.wav',
+        masterAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/zululand_guitar.mp3'),
+        drumsUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/guitar_drums.wav'),
+        bassUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/guitar_bass.wav'),
+        melodicUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/maskandi_acoustic.wav'),
+        otherUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/guitar_congas.wav'),
       },
       salesCount: 7,
       auditionCount: 65,
@@ -184,13 +229,13 @@ export function seedMarketplaceBeats(): void {
       tags: ['Afro-Tech', 'Lagos', 'Hypnotic', 'Synthesizer'],
       priceCoins: 50,
       priceZar: 45.0,
-      previewAudioUrl: 'https://r2.vhunambi.com/beats/lagos_afrotech.mp3',
+      previewAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/lagos_afrotech.mp3'),
       stemPackage: {
-        masterAudioUrl: 'https://r2.vhunambi.com/beats/lagos_afrotech.mp3',
-        drumsUrl: 'https://r2.vhunambi.com/beats/stems/afrotech_drums.wav',
-        bassUrl: 'https://r2.vhunambi.com/beats/stems/afrotech_bass.wav',
-        melodicUrl: 'https://r2.vhunambi.com/beats/stems/afrotech_synths.wav',
-        otherUrl: 'https://r2.vhunambi.com/beats/stems/afrotech_chords.wav',
+        masterAudioUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/lagos_afrotech.mp3'),
+        drumsUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/afrotech_drums.wav'),
+        bassUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/afrotech_bass.wav'),
+        melodicUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/afrotech_synths.wav'),
+        otherUrl: resolveMediaUrl('https://r2.vhunambi.com/beats/stems/afrotech_chords.wav'),
       },
       salesCount: 12,
       auditionCount: 130,
@@ -201,12 +246,16 @@ export function seedMarketplaceBeats(): void {
   ];
 
   for (const item of seedItems) {
-    marketplaceBeats.set(item.id, item);
+    vhunambiDb.upsertMarketplaceBeat(item);
   }
 }
 
-// Auto-seed on module import
-seedMarketplaceBeats();
+function listAllBeatsInternal(includeExclusiveSold = false): MarketplaceBeatListing[] {
+  seedMarketplaceBeats();
+  return vhunambiDb
+    .listMarketplaceBeats(includeExclusiveSold)
+    .map((row) => normalizeListingMedia(row as MarketplaceBeatListing));
+}
 
 /**
  * Filtered, paginated public marketplace beats feed.
@@ -214,7 +263,7 @@ seedMarketplaceBeats();
 export function getMarketplaceBeats(
   query: MarketplaceFilterQuery,
 ): { beats: MarketplaceBeatListing[]; total: number; hasMore: boolean } {
-  let list = [...marketplaceBeats.values()];
+  let list = listAllBeatsInternal(false).filter((b) => !b.isExclusiveSold);
 
   if (query.genre && query.genre !== 'All') {
     const targetGenre = query.genre.toLowerCase();
@@ -259,7 +308,9 @@ export function getMarketplaceBeats(
 }
 
 export function getBeatById(id: string): MarketplaceBeatListing | null {
-  return marketplaceBeats.get(id) ?? null;
+  seedMarketplaceBeats();
+  const row = vhunambiDb.getMarketplaceBeatById(id);
+  return row ? normalizeListingMedia(row as MarketplaceBeatListing) : null;
 }
 
 /**
@@ -270,12 +321,12 @@ export function upsertMarketplaceBeat(
 ): MarketplaceBeatListing {
   const now = new Date().toISOString();
   const id = req.id || `beat_${nanoid(8)}`;
-  const existing = marketplaceBeats.get(id);
+  const existing = getBeatById(id);
 
   const priceCoins = req.priceCoins ?? (existing ? existing.priceCoins : 50);
   const priceZar = req.priceZar ?? (existing ? existing.priceZar : 45.0);
 
-  const stemPackage = {
+  const rawStemPackage = {
     masterAudioUrl: req.previewAudioUrl,
     drumsUrl: req.stemPackage?.drumsUrl ?? existing?.stemPackage.drumsUrl,
     bassUrl: req.stemPackage?.bassUrl ?? existing?.stemPackage.bassUrl,
@@ -283,9 +334,9 @@ export function upsertMarketplaceBeat(
     otherUrl: req.stemPackage?.otherUrl ?? existing?.stemPackage.otherUrl,
   };
 
-  const listing: MarketplaceBeatListing = {
+  const listing: MarketplaceBeatListing = normalizeListingMedia({
     id,
-    producerId: req.producerId || existing?.producerId || 'creator_user',
+    producerId: canonicalizeCreatorId(req.producerId || existing?.producerId || 'creator_cern'),
     producerHandle: req.producerHandle || existing?.producerHandle || '@user_beats',
     producerName: req.producerName || existing?.producerName || 'User Beats',
     title: req.title,
@@ -296,17 +347,24 @@ export function upsertMarketplaceBeat(
     priceCoins,
     priceZar,
     previewAudioUrl: req.previewAudioUrl,
-    stemPackage,
+    stemPackage: rawStemPackage,
     salesCount: existing ? existing.salesCount : 0,
     auditionCount: existing ? existing.auditionCount : 0,
     licenseTiers: req.licenseTiers ??
-      existing?.licenseTiers ?? ['basic_lease', 'stems_trackout', 'unlimited_commercial'],
+      existing?.licenseTiers ?? [
+        'basic_lease',
+        'stems_trackout',
+        'exclusive_stem',
+        'unlimited_commercial',
+      ],
+    isExclusiveSold: existing ? existing.isExclusiveSold : false,
+    exclusiveBuyerId: existing?.exclusiveBuyerId,
     mmoManifestUrl: req.mmoManifestUrl ?? existing?.mmoManifestUrl,
     createdAt: existing ? existing.createdAt : now,
     updatedAt: now,
-  };
+  });
 
-  marketplaceBeats.set(id, listing);
+  vhunambiDb.upsertMarketplaceBeat(listing);
   return listing;
 }
 
@@ -314,44 +372,59 @@ export function upsertMarketplaceBeat(
  * Removes a beat listing from the public marketplace catalog.
  */
 export function deleteMarketplaceBeat(id: string): boolean {
-  return marketplaceBeats.delete(id);
+  seedMarketplaceBeats();
+  return vhunambiDb.deleteMarketplaceBeat(id);
 }
 
 /**
- * Atomic Licensing Purchase:
- * 1. Validates beat & tier.
- * 2. Generates cryptographic `BeatLicenseCertificate` with unique `licenseHash`.
- * 3. Increments beat sales count.
- * 4. Routes 85% of Coins and ZAR directly into the seller's Creator Wallet!
+ * Atomic Licensing Purchase (Phase 58/62 SQLite WAL + SHA-256 Registry):
+ * 1. Validates beat, exclusive availability, and server Coin balance.
+ * 2. Generates canonical `VHUNAMBI_LIC_V2` SHA-256 hash & commits ACID ledger rows once.
+ * 3. Locks exclusive buyouts and increments beat sales count in persistent SQLite.
  */
 export function licenseBeat(
   beatId: string,
   req: LicenseBeatRequest,
-): { certificate: BeatLicenseCertificate; beat: MarketplaceBeatListing } | null {
-  const beat = marketplaceBeats.get(beatId);
-  if (!beat) return null;
+): LicenseBeatResult {
+  const beat = getBeatById(beatId);
+  if (!beat) {
+    return {
+      ok: false,
+      errorCode: 'NOT_FOUND',
+      error: 'Beat not found',
+    };
+  }
 
-  const buyerId = req.buyerId || 'buyer_default';
+  if (beat.isExclusiveSold) {
+    return {
+      ok: false,
+      errorCode: 'EXCLUSIVE_CONFLICT',
+      error: 'Beat has already been purchased under an Exclusive license',
+    };
+  }
+
+  const buyerId = canonicalizeCreatorId(req.buyerId || 'buyer_default');
   const buyerHandle = req.buyerHandle || '@buyer_creator';
-  const tier = req.tier || 'basic_lease';
+  const tier = normalizeTierSlug(req.tier);
+  const isExclusive =
+    tier === 'exclusive_stem' || tier === 'unlimited_commercial';
 
   const pricing = calculateTierPricing(beat.priceCoins, beat.priceZar, tier);
-  const issuedAt = new Date().toISOString();
-  const certificateId = `CERT-VHB-${nanoid(8).toUpperCase()}`;
-
-  // Deterministic license verification hash
-  const hashRaw = `${certificateId}|${beat.id}|${buyerId}|${tier}|${pricing.zar}|${issuedAt}`;
-  const licenseHash = createHash('sha256').update(hashRaw).digest('hex');
+  const issuedAt = req.issuedAt || new Date().toISOString();
+  const certificateId =
+    req.certificateId || `CERT-VHB-${nanoid(8).toUpperCase()}`;
 
   // 85% creator royalty split
   const producerRoyaltyZar = Math.round(pricing.zar * 0.85 * 100) / 100;
-  const producerRoyaltyCoins = Math.round(pricing.coins * 0.85);
-
+  const producerRoyaltyCoins = Math.floor((pricing.coins * 85 + 50) / 100);
   const commercialTerms = switchTerms(tier, beat.title, buyerHandle);
+  const masterDigest =
+    req.masterFileSha256 ||
+    createHash('sha256').update(beat.id).digest('hex');
 
-  const cert: BeatLicenseCertificate = {
+  const provisionalCert: BeatLicenseCertificate = {
     certificateId,
-    licenseHash,
+    licenseHash: '',
     beatId: beat.id,
     beatTitle: beat.title,
     producerId: beat.producerId,
@@ -365,26 +438,70 @@ export function licenseBeat(
     producerRoyaltyCoins,
     issuedAt,
     commercialTerms,
+    masterFileSha256: masterDigest,
     stemUrls: beat.stemPackage,
   };
 
-  // 1. Increment sales count
-  beat.salesCount += 1;
-
-  // 2. Route 85% royalties to producer's wallet via social_service
-  creditProducerBeatRoyalty(
-    beat.producerId,
-    producerRoyaltyZar,
-    producerRoyaltyCoins,
-    `Beat license sale: "${beat.title}" (${tier.replaceAll('_', ' ')}) to ${buyerHandle}`,
+  const enforceWallet =
+    req.enforceWalletBalance ?? vhunambiDb.hasWalletActivity(buyerId);
+  const dbRes = vhunambiDb.recordBeatLicenseAtomic({
+    certificateId,
+    beatId: beat.id,
+    beatTitle: beat.title,
+    producerId: beat.producerId,
+    producerHandle: beat.producerHandle,
+    buyerId,
     buyerHandle,
-  );
+    tierSlug: tier,
+    amountPaidCoins: pricing.coins,
+    amountPaidZar: pricing.zar,
+    producerRoyaltyCoins,
+    producerRoyaltyZar,
+    issuedAt,
+    commercialTerms,
+    masterFileSha256: masterDigest,
+    isExclusive,
+    enforceBuyerWallet: enforceWallet,
+    dataJson: provisionalCert as unknown as Record<string, any>,
+  });
 
-  // 3. Record in user's licenses
-  const existing = userLicenses.get(buyerId) ?? [];
-  userLicenses.set(buyerId, [cert, ...existing]);
+  if (dbRes.status === 'exclusive_conflict') {
+    vhunambiDb.updateMarketplaceBeatSaleState(beat.id, { isExclusiveSold: true });
+    return {
+      ok: false,
+      errorCode: 'EXCLUSIVE_CONFLICT',
+      error: 'Beat has already been purchased under an Exclusive license',
+    };
+  }
+  if (dbRes.status === 'insufficient_funds') {
+    return {
+      ok: false,
+      errorCode: 'INSUFFICIENT_FUNDS',
+      error: 'Insufficient Coins balance for selected licensing tier',
+    };
+  }
 
-  return { certificate: cert, beat };
+  const cert: BeatLicenseCertificate = {
+    ...provisionalCert,
+    licenseHash: dbRes.licenseHash!,
+    masterFileSha256: dbRes.masterFileSha256 ?? masterDigest,
+  };
+
+  // Update persistent beat salesCount & exclusive lock state in SQLite (royalty already committed in recordBeatLicenseAtomic)
+  const updatedBeatRow = vhunambiDb.updateMarketplaceBeatSaleState(beat.id, {
+    isExclusiveSold: isExclusive ? true : undefined,
+    exclusiveBuyerId: isExclusive ? buyerId : undefined,
+  });
+  const updatedBeat = updatedBeatRow
+    ? normalizeListingMedia(updatedBeatRow as MarketplaceBeatListing)
+    : {
+        ...beat,
+        salesCount: beat.salesCount + 1,
+        isExclusiveSold: isExclusive ? true : beat.isExclusiveSold,
+        exclusiveBuyerId: isExclusive ? buyerId : beat.exclusiveBuyerId,
+      };
+
+  return { ok: true, certificate: cert, beat: updatedBeat };
 }
 
 function switchTerms(tier: BeatLicenseTier, title: string, buyer: string): string {
@@ -393,8 +510,9 @@ function switchTerms(tier: BeatLicenseTier, title: string, buyer: string): strin
       return `Non-exclusive commercial sync lease for "${title}" granted to ${buyer}. Up to 100,000 monetized streams. Lossless WAV master included.`;
     case 'stems_trackout':
       return `Non-exclusive stems trackout sync license for "${title}" granted to ${buyer}. Up to 500,000 monetized streams. 4 isolated stems (Drums, Bass, Melodic, Other) included.`;
+    case 'exclusive_stem':
     case 'unlimited_commercial':
-      return `Unlimited worldwide commercial license for "${title}" granted to ${buyer}. Unlimited streaming, broadcast, and sync distribution across all platforms.`;
+      return `Exclusive worldwide commercial master buyout license for "${title}" granted to ${buyer}. Unlimited streaming, broadcast, sync distribution, and 4 isolated stems.`;
   }
 }
 
@@ -402,13 +520,17 @@ function switchTerms(tier: BeatLicenseTier, title: string, buyer: string): strin
  * Returns all licenses and certificates purchased by a buyer.
  */
 export function getLicensesByBuyer(buyerId: string): BeatLicenseCertificate[] {
-  return userLicenses.get(buyerId) ?? [];
+  const canonicalBuyer = canonicalizeCreatorId(buyerId);
+  return vhunambiDb.getBeatLicensesByBuyer(canonicalBuyer) as BeatLicenseCertificate[];
 }
 
 /**
  * Returns beats created by a specific producer.
  */
 export function getProducerBeats(producerId: string): MarketplaceBeatListing[] {
-  return [...marketplaceBeats.values()].filter((b) => b.producerId === producerId);
+  const canonicalProducer = canonicalizeCreatorId(producerId);
+  return listAllBeatsInternal(true).filter(
+    (b) => canonicalizeCreatorId(b.producerId) === canonicalProducer,
+  );
 }
 

@@ -1,37 +1,83 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vhunambi_client/core/auth/auth_providers.dart';
+import 'package:vhunambi_client/core/sync/sync_outbox_service.dart';
+import 'package:vhunambi_client/features/playlists/data/repositories/in_memory_playlist_repository.dart';
+import 'package:vhunambi_client/features/playlists/data/repositories/playlist_repository.dart';
+import 'package:vhunambi_client/features/playlists/domain/models/playlist_entity.dart';
+import 'package:vhunambi_client/features/playlists/domain/repositories/i_playlist_repository.dart';
 
-import '../../data/repositories/in_memory_playlist_repository.dart';
-import '../../data/repositories/playlist_repository.dart';
-import '../../domain/models/playlist_entity.dart';
-import '../../domain/repositories/i_playlist_repository.dart';
-
-/// Injectable playlist repository (REQ-PL-01 / REQ-PV-01).
+/// Injectable playlist repository (REQ-PL-01 / REQ-PV-01 + Phase 59 cloud CRUD).
 ///
 /// Backed by production [PlaylistRepository] with automatic headless fallback;
 /// override with [InMemoryPlaylistRepository] when isolation is preferred.
-final playlistRepositoryProvider = Provider<IPlaylistRepository>(
-  (ref) => PlaylistRepository(),
-);
+final playlistRepositoryProvider = Provider<IPlaylistRepository>((ref) {
+  return PlaylistRepository(
+    outbox: ref.watch(syncOutboxServiceProvider),
+    creatorIdReader: () => ref.read(currentCreatorIdProvider),
+    authInterceptor: ref.watch(authDioInterceptorProvider),
+  );
+});
+
+/// True while [PlaylistsNotifier.syncWithCloud] is executing.
+final playlistCloudSyncingProvider = StateProvider<bool>((ref) => false);
 
 /// The user's playlist vault, newest first (REQ-PL-02).
 final playlistsProvider =
     StateNotifierProvider<PlaylistsNotifier, List<PlaylistEntity>>((ref) {
-  final notifier = PlaylistsNotifier(ref.watch(playlistRepositoryProvider));
-  notifier.loadPlaylists();
-  return notifier;
-});
+      ref.watch(currentCreatorIdProvider);
+      final notifier = PlaylistsNotifier(
+        ref.watch(playlistRepositoryProvider),
+        ref: ref,
+      );
+      notifier.loadPlaylists();
+      return notifier;
+    });
 
 /// Full playlist CRUD engine backing the vault, queue drawer and picker sheet.
 class PlaylistsNotifier extends StateNotifier<List<PlaylistEntity>> {
-  PlaylistsNotifier(this._repository) : super(const <PlaylistEntity>[]);
+  PlaylistsNotifier(this._repository, {this._ref})
+    : super(const <PlaylistEntity>[]);
 
   final IPlaylistRepository _repository;
+  final Ref? _ref;
 
   /// Re-reads the persisted vault.
   Future<void> loadPlaylists() async {
     final playlists = await _repository.getAllPlaylists();
     if (!mounted) return;
     state = playlists;
+  }
+
+  /// Synchronizes playlists bidirectionally with `GET/POST /api/playlists`.
+  Future<List<PlaylistEntity>> syncWithCloud({String? creatorId}) async {
+    final resolvedCreatorId =
+        creatorId ?? _ref?.read(currentCreatorIdProvider) ?? 'creator_cern';
+    _ref?.read(playlistCloudSyncingProvider.notifier).state = true;
+    try {
+      final merged = await _repository.syncPlaylistsWithCloud(
+        creatorId: resolvedCreatorId,
+      );
+      if (mounted) {
+        state = merged;
+      }
+      return merged;
+    } finally {
+      _ref?.read(playlistCloudSyncingProvider.notifier).state = false;
+    }
+  }
+
+  /// Publishes [id] and generates its public share link via `POST /api/playlists/:id/share`.
+  Future<PlaylistEntity?> sharePlaylist(String id) async {
+    final shared = await _repository.sharePlaylist(id);
+    if (shared != null && mounted) {
+      final idx = state.indexWhere((p) => p.id == id);
+      if (idx >= 0) {
+        final next = List<PlaylistEntity>.of(state);
+        next[idx] = shared;
+        state = next;
+      }
+    }
+    return shared;
   }
 
   /// Creates a playlist, prepends it to the vault and returns it.

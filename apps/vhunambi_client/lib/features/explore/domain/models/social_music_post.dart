@@ -32,11 +32,11 @@ class KineticPostImageAttachment {
   });
 
   Map<String, dynamic> toJson() => {
-        'imageUrl': imageUrl,
-        'isAiGeneratedVision': isAiGeneratedVision,
-        if (visionPrompt != null) 'visionPrompt': visionPrompt,
-        'aspectRatio': aspectRatio.name,
-      };
+    'imageUrl': imageUrl,
+    'isAiGeneratedVision': isAiGeneratedVision,
+    if (visionPrompt != null) 'visionPrompt': visionPrompt,
+    'aspectRatio': aspectRatio.name,
+  };
 
   factory KineticPostImageAttachment.fromJson(Map<String, dynamic> json) =>
       KineticPostImageAttachment(
@@ -83,14 +83,14 @@ class KineticPostAudioAttachment {
   });
 
   Map<String, dynamic> toJson() => {
-        'sourceType': sourceType.name,
-        'clipStartSec': clipStartSec,
-        'clipDurationSec': clipDurationSec,
-        'originalCreatorId': originalCreatorId,
-        'originalCreatorHandle': originalCreatorHandle,
-        'allowSoundReuse': allowSoundReuse,
-        'allowRepost': allowRepost,
-      };
+    'sourceType': sourceType.name,
+    'clipStartSec': clipStartSec,
+    'clipDurationSec': clipDurationSec,
+    'originalCreatorId': originalCreatorId,
+    'originalCreatorHandle': originalCreatorHandle,
+    'allowSoundReuse': allowSoundReuse,
+    'allowRepost': allowRepost,
+  };
 
   factory KineticPostAudioAttachment.fromJson(Map<String, dynamic> json) =>
       KineticPostAudioAttachment(
@@ -213,8 +213,7 @@ class SocialMusicPost {
       repostedFromPostId != null && repostedFromPostId!.isNotEmpty;
 
   /// Whether this post has any static visual attachments.
-  bool get hasVisuals =>
-      imageAttachments.isNotEmpty || imageAttachment != null;
+  bool get hasVisuals => imageAttachments.isNotEmpty || imageAttachment != null;
 
   /// Unified list of all image attachments (handling both multi and single).
   List<KineticPostImageAttachment> get allImageAttachments {
@@ -226,8 +225,8 @@ class SocialMusicPost {
   /// Effective visual aspect ratio for rendering the Zone 3 canvas.
   KineticPostAspectRatio get effectiveAspectRatio =>
       allImageAttachments.isNotEmpty
-          ? allImageAttachments.first.aspectRatio
-          : KineticPostAspectRatio.square1x1;
+      ? allImageAttachments.first.aspectRatio
+      : KineticPostAspectRatio.square1x1;
 
   /// Human-readable relative publication timestamp.
   String get relativeTimeAgo {
@@ -244,38 +243,38 @@ class SocialMusicPost {
   /// Synthesizes a native [PublishedClip] entity to power comments, tipping,
   /// and interactive bottom sheets without duplicating code.
   PublishedClip get toPublishedClip => PublishedClip(
-        id: id,
-        trackId: track.id,
-        creatorId: creatorId,
-        creatorUsername: creatorHandle.replaceFirst('@', ''),
-        creatorDisplayName: creatorName,
-        creatorAvatarUrl: creatorAvatarUrl,
-        isCreatorVerified: isCreatorVerified,
-        title: track.title,
-        caption: caption,
-        genre: track.genre,
-        audioUrl: track.audioUrl ?? '',
-        coverUrl: track.coverUrl ?? '',
-        dna: SongMetadataDna.fromTrackInfo(
-          id: track.id,
-          title: track.title,
-          genre: track.genre,
-          language: track.language,
-          durationSec: track.duration.inSeconds,
-        ),
-        likeCount: likeCount,
-        commentCount: commentCount,
-        remixCount: remixCount,
-        isLikedByMe: isLikedByMe,
-        remixMode: remixMode,
-        parentClipId: parentClipId,
-        parentTrackTitle: parentTrackTitle,
-        parentCreatorId: parentCreatorId,
-        parentCreatorHandle: parentCreatorHandle,
-        remixGenerationDepth: remixGenerationDepth,
-        coCreationSplits: coCreationSplits,
-        publishedAt: publishedAt,
-      );
+    id: id,
+    trackId: track.id,
+    creatorId: creatorId,
+    creatorUsername: creatorHandle.replaceFirst('@', ''),
+    creatorDisplayName: creatorName,
+    creatorAvatarUrl: creatorAvatarUrl,
+    isCreatorVerified: isCreatorVerified,
+    title: track.title,
+    caption: caption,
+    genre: track.genre,
+    audioUrl: track.audioUrl ?? '',
+    coverUrl: track.coverUrl ?? '',
+    dna: SongMetadataDna.fromTrackInfo(
+      id: track.id,
+      title: track.title,
+      genre: track.genre,
+      language: track.language,
+      durationSec: track.duration.inSeconds,
+    ),
+    likeCount: likeCount,
+    commentCount: commentCount,
+    remixCount: remixCount,
+    isLikedByMe: isLikedByMe,
+    remixMode: remixMode,
+    parentClipId: parentClipId,
+    parentTrackTitle: parentTrackTitle,
+    parentCreatorId: parentCreatorId,
+    parentCreatorHandle: parentCreatorHandle,
+    remixGenerationDepth: remixGenerationDepth,
+    coCreationSplits: coCreationSplits,
+    publishedAt: publishedAt,
+  );
 
   SocialMusicPost copyWith({
     String? id,
@@ -375,62 +374,156 @@ class SocialMusicPost {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'creatorId': creatorId,
-        'creatorName': creatorName,
-        'creatorHandle': creatorHandle,
-        'creatorAvatarUrl': creatorAvatarUrl,
-        'isCreatorVerified': isCreatorVerified,
-        'publishedAt': publishedAt.toIso8601String(),
-        'location': location,
-        'caption': caption,
-        'trackId': track.id,
-        'trackTitle': track.title,
-        'likeCount': likeCount,
-        'isLikedByMe': isLikedByMe,
-        'commentCount': commentCount,
-        'remixCount': remixCount,
-        'tipCountCoins': tipCountCoins,
-        'isFollowingCreator': isFollowingCreator,
-        'remixMode': remixMode?.name,
-        'parentClipId': parentClipId,
-        'parentTrackTitle': parentTrackTitle,
-        'parentCreatorId': parentCreatorId,
-        'parentCreatorHandle': parentCreatorHandle,
-        'remixGenerationDepth': remixGenerationDepth,
-        'imageAttachment': imageAttachment?.toJson(),
-        'imageAttachments': imageAttachments.map((e) => e.toJson()).toList(),
-        'audioAttachment': audioAttachment?.toJson(),
-        'repostedFromPostId': repostedFromPostId,
-        'repostedFromCreatorHandle': repostedFromCreatorHandle,
-        'quoteComment': quoteComment,
-        'repostCount': repostCount,
-        'provenanceType': provenanceType.name,
-        'cosignCount': cosignCount,
-        'isCosigned': isCosigned,
-      };
+    'id': id,
+    'creatorId': creatorId,
+    'creatorName': creatorName,
+    'creatorHandle': creatorHandle,
+    'creatorAvatarUrl': creatorAvatarUrl,
+    'isCreatorVerified': isCreatorVerified,
+    'publishedAt': publishedAt.toIso8601String(),
+    'location': location,
+    'caption': caption,
+    'trackId': track.id,
+    'trackTitle': track.title,
+    'track': track.toJson(),
+    'likeCount': likeCount,
+    'isLikedByMe': isLikedByMe,
+    'commentCount': commentCount,
+    'remixCount': remixCount,
+    'tipCountCoins': tipCountCoins,
+    'isFollowingCreator': isFollowingCreator,
+    'remixMode': remixMode?.name,
+    'parentClipId': parentClipId,
+    'parentTrackTitle': parentTrackTitle,
+    'parentCreatorId': parentCreatorId,
+    'parentCreatorHandle': parentCreatorHandle,
+    'remixGenerationDepth': remixGenerationDepth,
+    'coCreationSplits': coCreationSplits.map((e) => e.toJson()).toList(),
+    'imageAttachment': imageAttachment?.toJson(),
+    'imageAttachments': imageAttachments.map((e) => e.toJson()).toList(),
+    'audioAttachment': audioAttachment?.toJson(),
+    'repostedFromPostId': repostedFromPostId,
+    'repostedFromCreatorHandle': repostedFromCreatorHandle,
+    'quoteComment': quoteComment,
+    'repostCount': repostCount,
+    'provenanceType': provenanceType.name,
+    'cosignCount': cosignCount,
+    'isCosigned': isCosigned,
+  };
+
+  factory SocialMusicPost.fromJson(Map<String, dynamic> json) {
+    final rawTrack = json['track'];
+    final resolvedTrack = rawTrack is Map
+        ? Track.fromJson(Map<String, dynamic>.from(rawTrack))
+        : Track(
+            id: (json['trackId'] ?? json['id'] ?? '').toString(),
+            title: (json['trackTitle'] ?? 'Untitled Track').toString(),
+            creatorName: (json['creatorName'] ?? 'Vhunambi Creator').toString(),
+            creatorHandle: json['creatorHandle'] as String?,
+            genre: (json['genre'] ?? 'Amapiano').toString(),
+            duration: const Duration(minutes: 3),
+          );
+
+    final rawImage = json['imageAttachment'];
+    final rawImages = json['imageAttachments'] as List<dynamic>?;
+    final rawAudio = json['audioAttachment'];
+    final rawSplits = json['coCreationSplits'] as List<dynamic>?;
+    final rawRemixMode = json['remixMode'] as String?;
+    final rawProvenance = json['provenanceType'] as String?;
+
+    return SocialMusicPost(
+      id: (json['id'] ?? '').toString(),
+      creatorId: (json['creatorId'] ?? '').toString(),
+      creatorName: (json['creatorName'] ?? 'Creator').toString(),
+      creatorHandle: (json['creatorHandle'] ?? '@creator').toString(),
+      creatorAvatarUrl: json['creatorAvatarUrl'] as String?,
+      isCreatorVerified: json['isCreatorVerified'] as bool? ?? false,
+      publishedAt:
+          DateTime.tryParse((json['publishedAt'] ?? '').toString()) ??
+          DateTime.now(),
+      location: json['location'] as String? ?? 'South Africa',
+      caption: json['caption'] as String? ?? '',
+      track: resolvedTrack,
+      likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
+      isLikedByMe: json['isLikedByMe'] as bool? ?? false,
+      commentCount: (json['commentCount'] as num?)?.toInt() ?? 0,
+      remixCount: (json['remixCount'] as num?)?.toInt() ?? 0,
+      tipCountCoins: (json['tipCountCoins'] as num?)?.toInt() ?? 0,
+      isFollowingCreator: json['isFollowingCreator'] as bool? ?? false,
+      remixMode: rawRemixMode != null
+          ? RemixCreationMode.fromWire(rawRemixMode)
+          : null,
+      parentClipId: json['parentClipId'] as String?,
+      parentTrackTitle: json['parentTrackTitle'] as String?,
+      parentCreatorId: json['parentCreatorId'] as String?,
+      parentCreatorHandle: json['parentCreatorHandle'] as String?,
+      remixGenerationDepth:
+          (json['remixGenerationDepth'] as num?)?.toInt() ?? 0,
+      coCreationSplits: rawSplits != null
+          ? rawSplits
+                .whereType<Map<dynamic, dynamic>>()
+                .map(
+                  (s) =>
+                      SplitParticipant.fromJson(Map<String, dynamic>.from(s)),
+                )
+                .toList(growable: false)
+          : const [],
+      imageAttachment: rawImage is Map
+          ? KineticPostImageAttachment.fromJson(
+              Map<String, dynamic>.from(rawImage),
+            )
+          : null,
+      imageAttachments: rawImages != null
+          ? rawImages
+                .whereType<Map<dynamic, dynamic>>()
+                .map(
+                  (e) => KineticPostImageAttachment.fromJson(
+                    Map<String, dynamic>.from(e),
+                  ),
+                )
+                .toList(growable: false)
+          : const [],
+      audioAttachment: rawAudio is Map
+          ? KineticPostAudioAttachment.fromJson(
+              Map<String, dynamic>.from(rawAudio),
+            )
+          : null,
+      repostedFromPostId: json['repostedFromPostId'] as String?,
+      repostedFromCreatorHandle: json['repostedFromCreatorHandle'] as String?,
+      quoteComment: json['quoteComment'] as String?,
+      repostCount: (json['repostCount'] as num?)?.toInt() ?? 0,
+      provenanceType: rawProvenance != null
+          ? AudioProvenanceType.values.firstWhere(
+              (e) => e.name == rawProvenance,
+              orElse: () => AudioProvenanceType.hybridCoCreation,
+            )
+          : AudioProvenanceType.hybridCoCreation,
+      cosignCount: (json['cosignCount'] as num?)?.toInt() ?? 0,
+      isCosigned: json['isCosigned'] as bool? ?? false,
+    );
+  }
 
   @override
   int get hashCode => Object.hash(
-        id,
-        creatorId,
-        creatorName,
-        creatorHandle,
-        creatorAvatarUrl,
-        isCreatorVerified,
-        publishedAt,
-        location,
-        caption,
-        track,
-        likeCount,
-        isLikedByMe,
-        commentCount,
-        remixCount,
-        tipCountCoins,
-        isFollowingCreator,
-        repostedFromPostId,
-        repostCount,
-      );
+    id,
+    creatorId,
+    creatorName,
+    creatorHandle,
+    creatorAvatarUrl,
+    isCreatorVerified,
+    publishedAt,
+    location,
+    caption,
+    track,
+    likeCount,
+    isLikedByMe,
+    commentCount,
+    remixCount,
+    tipCountCoins,
+    isFollowingCreator,
+    repostedFromPostId,
+    repostCount,
+  );
 }
 
 /// Seeded social music posts for the V4.1 Explore Social Feed.

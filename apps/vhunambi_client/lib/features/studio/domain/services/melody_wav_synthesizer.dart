@@ -734,7 +734,18 @@ class MelodyWavSynthesizer {
     for (final note in pattern.notes) {
       final startSample =
           (note.stepIndex * stepDurationSec * sampleRate).round();
-      final holdSec = stepDurationSec * 2.2;
+      final durationSteps = note.durationSteps.clamp(1, 8);
+      final gateDurationSec = durationSteps <= 1
+          ? stepDurationSec * 1.8
+          : math.max(
+              stepDurationSec * 1.8,
+              durationSteps * stepDurationSec * 1.35,
+            );
+      final releaseTailSec =
+          durationSteps >= 3 ? 0.36 : stepDurationSec * 0.4;
+      final holdSec = durationSteps <= 1
+          ? stepDurationSec * 2.2
+          : gateDurationSec + releaseTailSec;
       final stepSamples = (holdSec * sampleRate).round();
 
       final targetFreqHz = resolveScaleFrequencyHz(
@@ -764,10 +775,10 @@ class MelodyWavSynthesizer {
 
         final env = _computeLegatoEnvelope(
           localSec: localSec,
-          gateDurationSec: stepDurationSec * 1.8,
+          gateDurationSec: gateDurationSec,
           totalNoteSec: holdSec,
           attackSec: 0.010,
-          sustainDecayTau: 0.45,
+          sustainDecayTau: durationSteps >= 3 ? 0.55 : 0.45,
         );
 
         final rawSample = _synthesizeVoiceSample(

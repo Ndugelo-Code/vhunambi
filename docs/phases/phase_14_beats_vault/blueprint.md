@@ -3,6 +3,7 @@
 > **Phase:** 14  
 > **Codename:** `beats-vault`  
 > **References:** `docs/foundation_blueprints/04_LIBRARY_VAULT_SPEC.md` §2.1 (Tab 3), `docs/foundation_blueprints/05_MARKETPLACE_AND_LANDING_SPEC.md` §1.2  
+> **Commercial Checkout & Stem Delivery Extension:** [`docs/phases/phase_58_sovereign_beatstore_licensing/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_58_sovereign_beatstore_licensing/blueprint.md) *(adds multi-tier Coin/ZAR checkout, FIPS 180-4 SHA-256 license deeds, exclusive sold buyout locks, and automated 44.1 kHz master + 4-stem Vault delivery)*.  
 > **Authored By:** Antigravity (Dual-Agent Symbiosis Protocol)  
 > **Date:** 2026-09-27  
 

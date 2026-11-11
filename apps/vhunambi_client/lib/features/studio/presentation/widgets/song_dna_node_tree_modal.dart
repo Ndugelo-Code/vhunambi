@@ -9,6 +9,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/song_dna_graph_models.dart' hide Vector3D;
 import '../../domain/models/studio_form_state.dart';
 import '../providers/generation_pipeline_providers.dart';
+import '../providers/melody_sketchpad_provider.dart';
 import '../providers/song_dna_graph_provider.dart';
 import '../providers/studio_form_provider.dart';
 import 'melody_sketchpad_modal.dart';
@@ -86,20 +87,25 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
   BiomeCameraState? _dollyEndCamera;
 
   // 2-Tier Spatial Hierarchy (REQ-P52-MACRO-02)
-  String? _focusedBranchRootId; // null = Overview Mode, non-null = Branch Canopy Focus
+  String?
+  _focusedBranchRootId; // null = Overview Mode, non-null = Branch Canopy Focus
 
   // Mobile Popover Tooltip Toggles (REQ-P56-BIOME-02)
   bool _isMobileControlsPopoverOpen = false;
   bool _isMobileLayersPopoverOpen = false;
+  StateController<int>? _modalSheetCounter;
+  bool _didIncrementModalCount = false;
 
   @override
   void initState() {
     super.initState();
     // Suppress MiniPlayerHost while 3D Organelle Universe is active (REQ-P51-FIX-03)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ref.read(modalSheetOpenCountProvider.notifier).state++;
-      }
+      if (!mounted) return;
+      final counter = ref.read(modalSheetOpenCountProvider.notifier);
+      _modalSheetCounter = counter;
+      _didIncrementModalCount = true;
+      counter.state++;
     });
 
     _pulseController = AnimationController(
@@ -117,39 +123,38 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
       duration: const Duration(seconds: 8),
     )..repeat();
 
-    _biomeAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )
-      ..addListener(() {
-        if (!mounted) return;
-        try {
-          if (ref.read(biomeCameraProvider).isAutoRotating) {
-            ref.read(biomeCameraProvider.notifier).stepAutoRotate(0.008);
-          }
-        } catch (_) {}
-      })
-      ..repeat();
+    _biomeAnimationController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 4))
+          ..addListener(() {
+            if (!mounted) return;
+            try {
+              if (ref.read(biomeCameraProvider).isAutoRotating) {
+                ref.read(biomeCameraProvider.notifier).stepAutoRotate(0.008);
+              }
+            } catch (_) {}
+          })
+          ..repeat();
 
-    _cameraDollyController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 450),
-    )..addListener(() {
-        if (!mounted ||
-            _dollyStartCamera == null ||
-            _dollyEndCamera == null) {
-          return;
-        }
-        final curvedT = Curves.easeOutCubic.transform(
-          _cameraDollyController.value,
-        );
-        final nextCam = BiomeCameraState.lerp(
-          _dollyStartCamera!,
-          _dollyEndCamera!,
-          curvedT,
-        );
-        ref.read(biomeCameraProvider.notifier).setCameraState(nextCam);
-      });
+    _cameraDollyController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 450),
+        )..addListener(() {
+          if (!mounted ||
+              _dollyStartCamera == null ||
+              _dollyEndCamera == null) {
+            return;
+          }
+          final curvedT = Curves.easeOutCubic.transform(
+            _cameraDollyController.value,
+          );
+          final nextCam = BiomeCameraState.lerp(
+            _dollyStartCamera!,
+            _dollyEndCamera!,
+            curvedT,
+          );
+          ref.read(biomeCameraProvider.notifier).setCameraState(nextCam);
+        });
 
     if (widget.initialFocusedDomain != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -162,13 +167,16 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
 
   @override
   void dispose() {
-    // Release MiniPlayerHost suppression
-    try {
-      final current = ref.read(modalSheetOpenCountProvider);
-      if (current > 0) {
-        ref.read(modalSheetOpenCountProvider.notifier).state = current - 1;
-      }
-    } catch (_) {}
+    // Release MiniPlayerHost suppression safely outside dispose/unmount cycle
+    final counter = _modalSheetCounter;
+    if (_didIncrementModalCount && counter != null) {
+      _didIncrementModalCount = false;
+      Future<void>.microtask(() {
+        if (counter.mounted && counter.state > 0) {
+          counter.state = (counter.state - 1).clamp(0, 99);
+        }
+      });
+    }
 
     _pulseController.dispose();
     _conduitFlowController.dispose();
@@ -291,7 +299,9 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
     );
 
     // If tapping a primary branch root in Overview Mode, dive into its canopy!
-    if (_focusedBranchRootId == null && target != null && (target.isBranchRoot || target.parentId == 'node_core')) {
+    if (_focusedBranchRootId == null &&
+        target != null &&
+        (target.isBranchRoot || target.parentId == 'node_core')) {
       _diveIntoBranch(nodeId);
       return;
     }
@@ -336,6 +346,12 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
         ? formState.language
         : 'isiZulu';
 
+    final musicalKey =
+        formState.referenceAudioPath?.startsWith('sketchpad://') == true
+            ? ref.read(melodySketchpadProvider).attachedPattern?.musicalKey ??
+                formState.toSongMetadataDna().musical.key
+            : formState.toSongMetadataDna().musical.key;
+
     ref
         .read(generationProgressProvider.notifier)
         .submitAndStartGeneration(
@@ -344,6 +360,8 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
           language: language,
           lyrics: formState.customLyrics,
           isInstrumental: formState.isInstrumental,
+          tempoBpm: formState.tempo.defaultBpm,
+          musicalKey: musicalKey,
         );
   }
 
@@ -397,7 +415,9 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
             BiomeTopBar(
               trackTitle: formState.prompt.isNotEmpty
                   ? formState.prompt
-                  : (formState.genre.isNotEmpty ? formState.genre : 'African AI Genesis'),
+                  : (formState.genre.isNotEmpty
+                        ? formState.genre
+                        : 'African AI Genesis'),
               isPlaying: true,
               isMuted: false,
               onTogglePlay: () {
@@ -535,12 +555,11 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
                               final badgeWorld =
                                   cluster.capApexPosition +
                                   const Vector3D(0, 34, 0);
-                              final badgeProj =
-                                  BiomeProjectionEngine.project3D(
-                                    badgeWorld,
-                                    biomeCamera,
-                                    size,
-                                  );
+                              final badgeProj = BiomeProjectionEngine.project3D(
+                                badgeWorld,
+                                biomeCamera,
+                                size,
+                              );
                               if (badgeProj == null) {
                                 return const SizedBox.shrink();
                               }
@@ -769,8 +788,7 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
             // Single Unified Bottom Inspector on Mobile (< 680dp) vs Desktop QuickActionCard (REQ-P56-BIOME-04)
             Builder(
               builder: (context) {
-                final isMobileViewport =
-                    MediaQuery.sizeOf(context).width < 680;
+                final isMobileViewport = MediaQuery.sizeOf(context).width < 680;
                 if (isMobileViewport) {
                   if (_focusedBranchRootId == null && selectedNode == null) {
                     return const SizedBox.shrink();
@@ -883,10 +901,7 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 8,
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 8),
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -1034,8 +1049,10 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
     if (offset == null) return const SizedBox.shrink();
 
     final isSelected = node.id == selectedNodeId;
-    final isInsideThisBranch = _focusedBranchRootId != null &&
-        (node.id == _focusedBranchRootId || node.parentId == _focusedBranchRootId);
+    final isInsideThisBranch =
+        _focusedBranchRootId != null &&
+        (node.id == _focusedBranchRootId ||
+            node.parentId == _focusedBranchRootId);
     final shouldShowLabelPill =
         _focusedBranchRootId != null && (isInsideThisBranch || isSelected);
 
@@ -1216,7 +1233,9 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
           const SizedBox(height: 10),
 
           // Stem Authority Mode Selector (REQ-P52-STEM-01..03)
-          if (node.isBranchRoot || node.parentId == 'node_core' || node.stemLockMode != null) ...[
+          if (node.isBranchRoot ||
+              node.parentId == 'node_core' ||
+              node.stemLockMode != null) ...[
             _buildStemAuthoritySelector(node, formState),
             const SizedBox(height: 10),
           ],
@@ -1225,7 +1244,8 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
           _buildContextualMutator(context, node, formState),
 
           // Dynamic Instrument Leaf Addition on Instruments Branch (REQ-P52-LEAF-01)
-          if (node.id == 'node_sketchpad_groove' || node.parentId == 'node_sketchpad_groove') ...[
+          if (node.id == 'node_sketchpad_groove' ||
+              node.parentId == 'node_sketchpad_groove') ...[
             const SizedBox(height: 8),
             _buildAddInstrumentLeafButton(context),
           ],
@@ -1235,8 +1255,12 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
   }
 
   /// 3-way Stem Authority Selector Pill (REQ-P52-STEM-03).
-  Widget _buildStemAuthoritySelector(SongDnaNode node, StudioFormState formState) {
-    final activeMode = formState.branchStemLockModes[node.id] ??
+  Widget _buildStemAuthoritySelector(
+    SongDnaNode node,
+    StudioFormState formState,
+  ) {
+    final activeMode =
+        formState.branchStemLockModes[node.id] ??
         node.stemLockMode ??
         StemLockMode.harmonicInpaint;
 
@@ -1294,7 +1318,9 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
           duration: const Duration(milliseconds: 160),
           padding: const EdgeInsets.symmetric(vertical: 6),
           decoration: BoxDecoration(
-            color: isActive ? activeColor.withValues(alpha: 0.22) : Colors.transparent,
+            color: isActive
+                ? activeColor.withValues(alpha: 0.22)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(13),
             border: Border.all(
               color: isActive ? activeColor : Colors.transparent,
@@ -1354,12 +1380,36 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
   void _showAddInstrumentLeafSheet(BuildContext context) {
     HapticFeedback.mediumImpact();
     final instruments = [
-      {'name': 'Private School Rhodes', 'icon': PhosphorIconsBold.pianoKeys, 'sub': 'Soulful Jazz Keys'},
-      {'name': 'Bamboo Flute', 'icon': PhosphorIconsBold.musicNote, 'sub': 'Ancestral Aerophone'},
-      {'name': 'Maskandi Guitar', 'icon': PhosphorIconsBold.guitar, 'sub': 'Zulu Fingerpicking Acoustic'},
-      {'name': 'Soprano Sax', 'icon': PhosphorIconsBold.waveform, 'sub': 'Emotive Brass Solo'},
-      {'name': 'Solo Violin', 'icon': PhosphorIconsBold.sparkle, 'sub': 'Strings Harmonic Lead'},
-      {'name': '808 Sub-Bass', 'icon': PhosphorIconsBold.waveSine, 'sub': 'Deep Electronic Low-End'},
+      {
+        'name': 'Private School Rhodes',
+        'icon': PhosphorIconsBold.pianoKeys,
+        'sub': 'Soulful Jazz Keys',
+      },
+      {
+        'name': 'Bamboo Flute',
+        'icon': PhosphorIconsBold.musicNote,
+        'sub': 'Ancestral Aerophone',
+      },
+      {
+        'name': 'Maskandi Guitar',
+        'icon': PhosphorIconsBold.guitar,
+        'sub': 'Zulu Fingerpicking Acoustic',
+      },
+      {
+        'name': 'Soprano Sax',
+        'icon': PhosphorIconsBold.waveform,
+        'sub': 'Emotive Brass Solo',
+      },
+      {
+        'name': 'Solo Violin',
+        'icon': PhosphorIconsBold.sparkle,
+        'sub': 'Strings Harmonic Lead',
+      },
+      {
+        'name': '808 Sub-Bass',
+        'icon': PhosphorIconsBold.waveSine,
+        'sub': 'Deep Electronic Low-End',
+      },
     ];
 
     showModalBottomSheet<void>(
@@ -1381,10 +1431,18 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
                   children: [
                     const Text(
                       'Sprout Instrument Leaf',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
                     ),
                     IconButton(
-                      icon: const PhosphorIcon(PhosphorIconsBold.x, size: 18, color: Colors.white70),
+                      icon: const PhosphorIcon(
+                        PhosphorIconsBold.x,
+                        size: 18,
+                        color: Colors.white70,
+                      ),
                       onPressed: () => Navigator.of(ctx).pop(),
                     ),
                   ],
@@ -1398,24 +1456,41 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
                         color: const Color(0xFF10B981).withValues(alpha: 0.18),
                         shape: BoxShape.circle,
                       ),
-                      child: PhosphorIcon(inst['icon'] as PhosphorIconData, size: 16, color: const Color(0xFF10B981)),
+                      child: PhosphorIcon(
+                        inst['icon'] as PhosphorIconData,
+                        size: 16,
+                        color: const Color(0xFF10B981),
+                      ),
                     ),
                     title: Text(
                       inst['name'] as String,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
                     ),
                     subtitle: Text(
                       inst['sub'] as String,
-                      style: const TextStyle(fontSize: 10.5, color: Colors.white60),
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: Colors.white60,
+                      ),
                     ),
-                    trailing: const PhosphorIcon(PhosphorIconsBold.caretRight, size: 14, color: Colors.white38),
+                    trailing: const PhosphorIcon(
+                      PhosphorIconsBold.caretRight,
+                      size: 14,
+                      color: Colors.white38,
+                    ),
                     onTap: () {
                       Navigator.of(ctx).pop();
-                      ref.read(songDnaGraphProvider.notifier).addInstrumentLeaf(
-                        name: inst['name'] as String,
-                        icon: inst['icon'] as PhosphorIconData,
-                        subtitle: inst['sub'] as String,
-                      );
+                      ref
+                          .read(songDnaGraphProvider.notifier)
+                          .addInstrumentLeaf(
+                            name: inst['name'] as String,
+                            icon: inst['icon'] as PhosphorIconData,
+                            subtitle: inst['sub'] as String,
+                          );
                     },
                   ),
                 ],

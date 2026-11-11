@@ -82,13 +82,21 @@ Future<void> _advance(WidgetTester tester, [int frames = 6]) async {
 void main() {
   testWidgets('a null session keeps the shell and hides the steps',
       (tester) async {
-    await _pumpCard(tester);
+    await _pumpCard(tester, onNewSong: () {});
 
     expect(find.text('Result'), findsOneWidget);
     expect(find.text('New song'), findsOneWidget);
     expect(find.byType(AnimatedSwitcher), findsOneWidget);
     expect(find.text('Starting up...'), findsNothing);
     expect(find.text('Your song is ready!'), findsNothing);
+  });
+
+  testWidgets('hides New song action when onNewSong callback is omitted',
+      (tester) async {
+    await _pumpCard(tester);
+
+    expect(find.text('Result'), findsOneWidget);
+    expect(find.text('New song'), findsNothing);
   });
 
   testWidgets('a generating session renders title, genre, pill and steps',

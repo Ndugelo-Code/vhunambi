@@ -1,5 +1,5 @@
-import '../../domain/models/playlist_entity.dart';
-import '../../domain/repositories/i_playlist_repository.dart';
+import 'package:vhunambi_client/features/playlists/domain/models/playlist_entity.dart';
+import 'package:vhunambi_client/features/playlists/domain/repositories/i_playlist_repository.dart';
 
 /// In-memory [IPlaylistRepository] double (NFR-12-02).
 ///
@@ -79,5 +79,29 @@ class InMemoryPlaylistRepository implements IPlaylistRepository {
       trackIds: trackIds,
       updatedAt: DateTime.now(),
     );
+  }
+
+  @override
+  Future<List<PlaylistEntity>> syncPlaylistsWithCloud({
+    String? creatorId,
+  }) async {
+    return getAllPlaylists();
+  }
+
+  @override
+  Future<PlaylistEntity?> sharePlaylist(String id) async {
+    final playlist = _playlists[id];
+    if (playlist == null) return null;
+    final code =
+        playlist.shareCode ??
+        'VH-${id.toUpperCase().replaceAll('_', '').padRight(6, 'X').substring(0, 6)}';
+    final updated = playlist.copyWith(
+      isPublic: true,
+      shareCode: code,
+      shareUrl: 'https://vhunambi.za/p/$code',
+      updatedAt: DateTime.now(),
+    );
+    _playlists[id] = updated;
+    return updated;
   }
 }

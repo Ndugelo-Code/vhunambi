@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../domain/models/video_export_job.dart';
 
 /// State notifier managing native hardware video rendering and social sharing.
@@ -82,9 +83,15 @@ class VideoExportNotifier extends StateNotifier<VideoExportState> {
       String outputPath;
 
       if (muxer != null) {
-        outputPath = await muxer(job, (p) {
+        final rawOutput = await muxer(job, (p) {
           state = state.copyWith(progress: p);
         });
+        outputPath =
+            (rawOutput.startsWith('http://') ||
+                rawOutput.startsWith('https://') ||
+                rawOutput.startsWith('/mock-storage/'))
+            ? AppConstants.normalizeCloudMediaUrl(rawOutput)
+            : rawOutput;
       } else {
         // Fast deterministic simulation for testing and preview
         final steps = [0.25, 0.55, 0.85, 1.0];

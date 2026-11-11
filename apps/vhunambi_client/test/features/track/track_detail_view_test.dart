@@ -39,8 +39,9 @@ Future<void> _pumpTrackDetail(
 }
 
 void main() {
-  testWidgets('TrackDetailView renders all 11 core dissection components',
-      (WidgetTester tester) async {
+  testWidgets('TrackDetailView renders all 11 core dissection components', (
+    WidgetTester tester,
+  ) async {
     await _pumpTrackDetail(tester);
 
     // 1. Hero Showcase (REQ-TRK-02, REQ-TRK-03)
@@ -80,7 +81,10 @@ void main() {
     // 6. Lyrics Teleprompter (REQ-TRK-08)
     expect(find.byType(LyricsTeleprompter), findsOneWidget);
     expect(find.text('Lyrics'), findsOneWidget);
-    expect(find.textContaining('Moonlight falls on your shoulder'), findsOneWidget);
+    expect(
+      find.textContaining('Moonlight falls on your shoulder'),
+      findsOneWidget,
+    );
 
     // 7. Stem Separation Lab (REQ-TRK-09)
     expect(find.byType(StemSeparationLab), findsOneWidget);
@@ -102,8 +106,9 @@ void main() {
     expect(find.text('More Like This'), findsOneWidget);
   });
 
-  testWidgets('TrackDetailView toggles like and updates like count',
-      (WidgetTester tester) async {
+  testWidgets('TrackDetailView toggles like and updates like count', (
+    WidgetTester tester,
+  ) async {
     await _pumpTrackDetail(tester);
 
     // Initial like count for seed-01 is 1 in TrackActionsBar
@@ -116,10 +121,12 @@ void main() {
     );
 
     // Tap Like within TrackActionsBar
-    final likeButton = find.descendant(
-      of: find.byType(TrackActionsBar),
-      matching: find.byType(InkWell),
-    ).first;
+    final likeButton = find
+        .descendant(
+          of: find.byType(TrackActionsBar),
+          matching: find.byType(InkWell),
+        )
+        .first;
     await tester.tap(likeButton);
     await tester.pumpAndSettle();
 
@@ -146,39 +153,45 @@ void main() {
     );
   });
 
-  testWidgets('TrackDetailView adds a new comment to discussion thread',
-      (WidgetTester tester) async {
+  testWidgets('TrackDetailView adds a new comment to discussion thread', (
+    WidgetTester tester,
+  ) async {
     await _pumpTrackDetail(tester);
 
     final commentField = find.byType(TextField);
     expect(commentField, findsOneWidget);
 
     await tester.enterText(commentField, 'Mindblowing sound design!');
-    await tester.tap(find.byIcon(Icons.send_rounded));
+    final sendButton = find.byIcon(Icons.send_rounded);
+    await tester.ensureVisible(sendButton);
+    await tester.pumpAndSettle();
+    await tester.tap(sendButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Mindblowing sound design!'), findsOneWidget);
   });
 
-  testWidgets('TrackDetailView stem separation triggers simulation and extracts 4 stems',
-      (WidgetTester tester) async {
-    await _pumpTrackDetail(tester);
+  testWidgets(
+    'TrackDetailView stem separation triggers simulation and extracts 4 stems',
+    (WidgetTester tester) async {
+      await _pumpTrackDetail(tester);
 
-    final extractButton = find.text('Separate');
-    expect(extractButton, findsOneWidget);
+      final extractButton = find.text('Separate');
+      expect(extractButton, findsOneWidget);
 
-    await tester.tap(extractButton);
-    // Pump through the 40ms delayed transitions in separateStems
-    await tester.pump(const Duration(milliseconds: 60));
-    await tester.pump(const Duration(milliseconds: 60));
-    await tester.pump(const Duration(milliseconds: 60));
-    await tester.pump(const Duration(milliseconds: 60));
-    await tester.pumpAndSettle();
+      await tester.tap(extractButton);
+      // Pump through the 40ms delayed transitions in separateStems
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.pumpAndSettle();
 
-    // Check that all 4 isolated stems are displayed
-    expect(find.text('Vocals'), findsOneWidget);
-    expect(find.text('Drums'), findsOneWidget);
-    expect(find.text('Bass & Log Drums'), findsOneWidget);
-    expect(find.text('Instrumental'), findsOneWidget);
-  });
+      // Check that all 4 isolated stems are displayed
+      expect(find.text('Vocals'), findsOneWidget);
+      expect(find.text('Drums'), findsOneWidget);
+      expect(find.text('Bass & Log Drums'), findsOneWidget);
+      expect(find.text('Instrumental'), findsOneWidget);
+    },
+  );
 }

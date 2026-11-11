@@ -21,9 +21,14 @@ class HttpLyricsGenerationService implements ILyricsGenerationService {
     Dio? dio,
     String? baseUrl,
     FakeLyricsGenerationService? fallback,
+    Interceptor? authInterceptor,
   })  : _dio = dio ?? Dio(),
         _baseUrl = baseUrl ?? AppConstants.apiBaseUrl,
-        _fallback = fallback ?? FakeLyricsGenerationService();
+        _fallback = fallback ?? FakeLyricsGenerationService() {
+    if (dio == null && authInterceptor != null) {
+      _dio.interceptors.add(authInterceptor);
+    }
+  }
 
   @override
   Future<LyricsReviewDraft> generateLyrics({

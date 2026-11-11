@@ -1,4 +1,6 @@
-import { env } from '../../config/env.js';
+import type { Context } from 'hono';
+import { resolveRuntimeEnv } from '../../config/env.js';
+import type { VhunambiWorkerEnv } from '../../types/cloudflare_worker_types.js';
 import { CompiledSynthesisPrompt } from './prompt_compiler.js';
 import { simulateSynthesisPipeline } from './mock_worker.js';
 
@@ -27,9 +29,15 @@ export async function dispatchSynthesisJob(
   generationId: string,
   prompt: CompiledSynthesisPrompt,
   userId: string = 'vhunambi_user',
+  cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,
 ): Promise<RunPodJobSubmitResult> {
+  const runtimeEnv = resolveRuntimeEnv(cOrEnv);
+
   // Warn loudly in development if tunnel isn't configured — RunPod cannot reach localhost
-  if (env.NODE_ENV === 'development' && env.WEBHOOK_BASE_URL.startsWith('http://localhost')) {
+  if (
+    runtimeEnv.NODE_ENV === 'development' &&
+    runtimeEnv.WEBHOOK_BASE_URL.startsWith('http://localhost')
+  ) {
     console.warn(
       '[RunPod] ⚠️  WEBHOOK_BASE_URL is localhost — RunPod GPU callbacks WILL fail.\n' +
       '          Start a cloudflared tunnel and set WEBHOOK_BASE_URL in .env:\n' +
@@ -37,19 +45,19 @@ export async function dispatchSynthesisJob(
     );
   }
 
-  const webhookUrl = `${env.WEBHOOK_BASE_URL}/v1/webhooks/ace-step`;
+  const webhookUrl = `${runtimeEnv.WEBHOOK_BASE_URL.replace(/\/+$/, '')}/v1/webhooks/ace-step`;
   const jobId = `vhunambi_${generationId}`;
 
   // If RunPod credentials are configured, dispatch to the shared GPU endpoint
-  if (env.RUNPOD_API_KEY && env.RUNPOD_ENDPOINT_ID) {
+  if (runtimeEnv.RUNPOD_API_KEY && runtimeEnv.RUNPOD_ENDPOINT_ID) {
     try {
       const response = await fetch(
-        `https://api.runpod.ai/v2/${env.RUNPOD_ENDPOINT_ID}/run`,
+        `https://api.runpod.ai/v2/${runtimeEnv.RUNPOD_ENDPOINT_ID}/run`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${env.RUNPOD_API_KEY}`,
+            Authorization: `Bearer ${runtimeEnv.RUNPOD_API_KEY}`,
           },
           body: JSON.stringify({
             input: {
@@ -73,6 +81,15 @@ export async function dispatchSynthesisJob(
               ...(prompt.melodyConditioning
                 ? { melody_conditioning: prompt.melodyConditioning }
                 : {}),
+              ...(prompt.referenceAudioUrl
+                ? { reference_audio_url: prompt.referenceAudioUrl }
+                : {}),
+              ...(prompt.pregenStemLocks
+                ? { pregen_stem_locks: prompt.pregenStemLocks }
+                : {}),
+              ...(prompt.lockedStemsPayload
+                ? { locked_stems_payload: prompt.lockedStemsPayload }
+                : {}),
             },
           }),
         },
@@ -91,16 +108,19 @@ export async function dispatchSynthesisJob(
     }
   }
 
-  // Local development / fallback: run the 4-phase mock simulation in-process
+  // Local development / fallback: run the 4-phase mock simulation
   console.info(`[RunPod] 🔄 No credentials configured — running mock simulation for ${generationId}`);
-  simulateSynthesisPipeline(generationId);
+  void simulateSynthesisPipeline(generationId, cOrEnv);
   return { jobId: `mock_${generationId}`, isMock: true };
 }
 
 export interface RunPodJobStatusResult {
   status: 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'UNKNOWN';
   audioUrl?: string;
+  masterWavUrl?: string;
   stemsZipUrl?: string;
+  stemUrls?: Record<string, string>;
+  manifestUrl?: string;
   error?: string;
   progress?: number;
 }
@@ -109,18 +129,22 @@ export interface RunPodJobStatusResult {
  * Query the live status of a job on RunPod Serverless GPU endpoint.
  * Acts as an active fallback when webhook callbacks cannot reach the server.
  */
-export async function checkRunPodJobStatus(jobId: string): Promise<RunPodJobStatusResult> {
-  if (!env.RUNPOD_API_KEY || !env.RUNPOD_ENDPOINT_ID) {
+export async function checkRunPodJobStatus(
+  jobId: string,
+  cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,
+): Promise<RunPodJobStatusResult> {
+  const runtimeEnv = resolveRuntimeEnv(cOrEnv);
+  if (!runtimeEnv.RUNPOD_API_KEY || !runtimeEnv.RUNPOD_ENDPOINT_ID) {
     return { status: 'UNKNOWN' };
   }
 
   try {
     const response = await fetch(
-      `https://api.runpod.ai/v2/${env.RUNPOD_ENDPOINT_ID}/status/${jobId}`,
+      `https://api.runpod.ai/v2/${runtimeEnv.RUNPOD_ENDPOINT_ID}/status/${jobId}`,
       {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${env.RUNPOD_API_KEY}`,
+          Authorization: `Bearer ${runtimeEnv.RUNPOD_API_KEY}`,
         },
       },
     );
@@ -134,7 +158,10 @@ export async function checkRunPodJobStatus(jobId: string): Promise<RunPodJobStat
       status: string;
       output?: {
         audio_url?: string;
+        master_wav_url?: string;
         stems_zip_url?: string;
+        stem_urls?: Record<string, string>;
+        manifest_url?: string;
         error?: string;
         status?: string;
       };
@@ -147,7 +174,10 @@ export async function checkRunPodJobStatus(jobId: string): Promise<RunPodJobStat
       return {
         status: 'COMPLETED',
         audioUrl: data.output?.audio_url,
+        masterWavUrl: data.output?.master_wav_url,
         stemsZipUrl: data.output?.stems_zip_url,
+        stemUrls: data.output?.stem_urls,
+        manifestUrl: data.output?.manifest_url,
       };
     } else if (statusUpper === 'FAILED') {
       return {

@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import '../../domain/models/heritage_crate_models.dart';
 import '../../domain/models/mycelium_biome_models.dart';
 import '../../domain/models/studio_form_state.dart';
@@ -47,31 +50,61 @@ final biomeCameraProvider =
 
 class MyceliumBiomeGraphNotifier extends StateNotifier<MusicalDnaGraph> {
   final Ref _ref;
-  final List<MyceliumChildNode> _customHarmonyLeaves = [];
+  final List<MyceliumChildNode> _customHarmonyLeaves;
 
-  MyceliumBiomeGraphNotifier(this._ref)
-    : super(
-        _createInitialGraph(
-          _ref.read(studioFormProvider),
-          _ref.read(melodySketchpadProvider),
-          _ref.read(mpcSlicerProvider),
-          _ref.read(vocalIdentityProvider),
-        ),
-      );
+  MyceliumBiomeGraphNotifier._internal(
+    this._ref,
+    this._customHarmonyLeaves,
+    MusicalDnaGraph initialGraph,
+  ) : super(initialGraph);
+
+  factory MyceliumBiomeGraphNotifier(Ref ref) {
+    final restoredLeaves = _loadInitialCustomLeaves();
+    final initialGraph = _createInitialGraph(
+      ref.read(studioFormProvider),
+      ref.read(melodySketchpadProvider),
+      ref.read(mpcSlicerProvider),
+      ref.read(vocalIdentityProvider),
+      customLeaves: restoredLeaves,
+    );
+    return MyceliumBiomeGraphNotifier._internal(
+      ref,
+      restoredLeaves,
+      initialGraph,
+    );
+  }
+
+  static List<MyceliumChildNode> _loadInitialCustomLeaves() {
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.crateMpcKitsBoxKey,
+    )) {
+      return [];
+    }
+    final saved = CrateMpcKitsRepository.loadCustomBiomeLeaves();
+    if (saved == null || saved.isEmpty) return [];
+    final leaves = <MyceliumChildNode>[];
+    for (final raw in saved) {
+      try {
+        leaves.add(MyceliumChildNode.fromJson(raw));
+      } catch (_) {}
+    }
+    return leaves;
+  }
 
   static MusicalDnaGraph _createInitialGraph(
     StudioFormState form,
     MelodySketchpadState sketchpad,
     MpcSlicerState mpc,
-    VocalIdentityState vocal,
-  ) {
+    VocalIdentityState vocal, {
+    List<MyceliumChildNode> customLeaves = const [],
+  }) {
     final seed = _computeSongFingerprintSeed(form);
     final rawClusters = _buildCanonicalClusters(
       form: form,
       sketchpad: sketchpad,
       mpc: mpc,
       vocal: vocal,
-      customLeaves: const [],
+      customLeaves: customLeaves,
     );
 
     final lumMap = _sectionLuminosity(SongJourneySection.chorus);
@@ -1028,6 +1061,11 @@ class MyceliumBiomeGraphNotifier extends StateNotifier<MusicalDnaGraph> {
     );
 
     _customHarmonyLeaves.add(newLeaf);
+    unawaited(
+      CrateMpcKitsRepository.saveCustomBiomeLeaves(
+        _customHarmonyLeaves.map((leaf) => leaf.toJson()).toList(),
+      ),
+    );
     reconcileWithCockpitState();
   }
 }

@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:vhunambi_client/core/auth/auth_providers.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import '../../../player/domain/models/stem_mixer_state.dart';
 import '../../../player/presentation/providers/stem_mixer_provider.dart';
 import '../../domain/models/stem_mastering_recipe.dart';
@@ -76,10 +80,63 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
           recipe: StemMasteringRecipe.forGenre('Amapiano'),
           isMasteredPreviewActive: true,
         )) {
+    _hydrateForTrack('trk_active_master');
     // Initial sync with player mixer deferred after provider construction
     Future.microtask(() {
       if (!_isDisposed) _applyTierAPreviewToMixer();
     });
+  }
+
+  bool _hydrateForTrack(String trackId) {
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.stemDspRecipesBoxKey,
+    )) {
+      return false;
+    }
+    final saved = StemDspRecipeRepository.loadMasteringRecipe(trackId);
+    if (saved == null) return false;
+
+    try {
+      final rawRecipe = saved['recipe'];
+      final recipeMap = rawRecipe is Map
+          ? Map<String, dynamic>.from(rawRecipe)
+          : saved;
+      final restoredRecipe = StemMasteringRecipe.fromJson(recipeMap);
+      state = state.copyWith(
+        trackId: saved['trackId'] as String? ?? trackId,
+        trackTitle: saved['trackTitle'] as String? ?? state.trackTitle,
+        genre: saved['genre'] as String? ?? state.genre,
+        recipe: restoredRecipe,
+        isMasteredPreviewActive:
+            saved['isMasteredPreviewActive'] as bool? ?? true,
+        hasBakedMaster: saved['hasBakedMaster'] as bool? ?? false,
+        masteredMp3Url: saved['masteredMp3Url'] as String?,
+        masteredWavUrl: saved['masteredWavUrl'] as String?,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _persistSession() {
+    unawaited(
+      StemDspRecipeRepository.saveMasteringRecipe(
+        state.trackId,
+        <String, dynamic>{
+          'trackId': state.trackId,
+          'trackTitle': state.trackTitle,
+          'genre': state.genre,
+          'recipe': state.recipe.toJson(),
+          'isMasteredPreviewActive': state.isMasteredPreviewActive,
+          'hasBakedMaster': state.hasBakedMaster,
+          if (state.masteredMp3Url != null)
+            'masteredMp3Url': state.masteredMp3Url,
+          if (state.masteredWavUrl != null)
+            'masteredWavUrl': state.masteredWavUrl,
+        },
+      ),
+    );
   }
 
   /// Initializes the session with an active track and genre-matched preset.
@@ -98,6 +155,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
       isBaking: false,
       hasBakedMaster: false,
     );
+    _hydrateForTrack(trackId);
     Future.microtask(() {
       if (!_isDisposed) _applyTierAPreviewToMixer();
     });
@@ -110,6 +168,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
       orElse: () => kGenreMasterPresets.first,
     );
     state = state.copyWith(recipe: preset.recipe);
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -124,6 +183,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
         presetId: 'custom',
       ),
     );
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -134,6 +194,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
         sketchpadLayerMix: mix.clamp(0.0, 1.0),
       ),
     );
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -152,6 +213,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
         presetId: 'custom',
       ),
     );
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -197,6 +259,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
         presetId: 'custom',
       ),
     );
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -236,6 +299,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
         presetId: 'custom',
       ),
     );
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -275,6 +339,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
         presetId: 'custom',
       ),
     );
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -286,6 +351,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
         presetId: 'custom',
       ),
     );
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -297,6 +363,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
         presetId: 'custom',
       ),
     );
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -308,6 +375,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
         presetId: 'custom',
       ),
     );
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -319,6 +387,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
         presetId: 'custom',
       ),
     );
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -327,6 +396,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
     state = state.copyWith(
       isMasteredPreviewActive: !state.isMasteredPreviewActive,
     );
+    _persistSession();
     _applyTierAPreviewToMixer();
   }
 
@@ -379,16 +449,25 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
   }
 
   /// Bakes the final commercial production master via Tier B (POST /v1/generations/:id/master).
-  Future<bool> bakeProductionMaster({String apiBaseUrl = 'http://localhost:3000'}) async {
+  Future<bool> bakeProductionMaster({String? apiBaseUrl}) async {
     if (state.isBaking) return false;
 
     state = state.copyWith(isBaking: true, errorMessage: null);
+    final resolvedBaseUrl = apiBaseUrl ?? AppConstants.resolveApiRootUrl();
 
     try {
-      final url = Uri.parse('$apiBaseUrl/v1/generations/${state.trackId}/master');
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      try {
+        headers.addAll(_ref.read(authHeadersProvider));
+      } catch (_) {
+        // Optional auth headers in isolated provider tests.
+      }
+      final url = Uri.parse(
+        '$resolvedBaseUrl/v1/generations/${state.trackId}/master',
+      );
       final response = await _httpClient.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(state.recipe.toJson()),
       );
 
@@ -401,6 +480,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
           masteredWavUrl: data['masteredWavUrl'] as String?,
           errorMessage: null,
         );
+        _persistSession();
         return true;
       } else {
         // Deterministic offline simulation fallback for test/offline environments
@@ -415,6 +495,7 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
           masteredWavUrl: fallbackWav,
           errorMessage: null,
         );
+        _persistSession();
         return true;
       }
     } catch (e) {
@@ -430,12 +511,13 @@ class MasteringSessionNotifier extends StateNotifier<MasteringSessionState> {
         masteredWavUrl: fallbackWav,
         errorMessage: null,
       );
+      _persistSession();
       return true;
     }
   }
 
   /// Convenience alias for bakeProductionMaster.
-  Future<bool> bakeMaster({String apiBaseUrl = 'http://localhost:3000'}) =>
+  Future<bool> bakeMaster({String? apiBaseUrl}) =>
       bakeProductionMaster(apiBaseUrl: apiBaseUrl);
 
   @override

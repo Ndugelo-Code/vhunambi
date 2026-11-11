@@ -145,10 +145,7 @@ class AudioSourceResolver implements IAudioSourceResolver {
         ? remoteUrl
         : '${AppConstants.defaultOrigin}/audio/${track.id}.mp3';
 
-    return ResolvedAudioSource(
-      uri: Uri.parse(resolvedUrl),
-      isLocalFile: false,
-    );
+    return ResolvedAudioSource(uri: Uri.parse(resolvedUrl), isLocalFile: false);
   }
 
   /// Guards against an unreadable vault path in restricted environments.
@@ -166,10 +163,7 @@ class EncryptedVmfStreamSource extends StreamAudioSource {
   final String filePath;
   final VaultEnvelopeCrypto crypto;
 
-  EncryptedVmfStreamSource({
-    required this.filePath,
-    required this.crypto,
-  });
+  EncryptedVmfStreamSource({required this.filePath, required this.crypto});
 
   @override
   Future<StreamAudioResponse> request([int? start, int? end]) async {

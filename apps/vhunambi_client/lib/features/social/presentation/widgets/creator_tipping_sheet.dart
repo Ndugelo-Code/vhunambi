@@ -95,8 +95,8 @@ class _CreatorTippingSheetState extends ConsumerState<CreatorTippingSheet> {
     final ok = await wallet.sendGift(
       clipId: _effectiveClipId,
       recipientCreatorId: _effectiveCreatorId,
-      senderUsername: owner.username.isNotEmpty ? owner.username : 'ndugelo_musician',
-      senderDisplayName: owner.displayName.isNotEmpty ? owner.displayName : 'Ndugelo Musician',
+      senderUsername: owner.username.isNotEmpty ? owner.username : 'cern',
+      senderDisplayName: owner.displayName.isNotEmpty ? owner.displayName : 'cern',
       gift: _selected,
       message: _messageController.text.trim(),
     );

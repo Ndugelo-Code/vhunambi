@@ -1,9 +1,11 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
-import { env } from '../config/env.js';
+import { resolveRuntimeEnv } from '../config/env.js';
+import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
 import { compileSongSpec } from '../modules/synthesis/prompt_compiler.js';
 import { dispatchSynthesisJob, checkRunPodJobStatus } from '../modules/synthesis/runpod_adapter.js';
+import { getVoiceCloneProfile } from '../modules/voices/voice_catalog.js';
 import { compileMasterMediaObjectManifest } from '../modules/dna/dna_compiler.js';
 import { StemMasteringRecipeSchema } from '../modules/mastering/mastering_types.js';
 import { MelodyPatternManifestSchema } from '../modules/melody/melody_types.js';
@@ -21,7 +23,17 @@ import {
   failJob,
 } from '../modules/jobs/job_store.js';
 
-export const generationRoutes = new Hono();
+export const generationRoutes = new Hono<{ Bindings: VhunambiWorkerEnv }>();
+
+function resolveGenerationWsUrl(reqUrlRaw: string, forwardedProto: string | undefined, hostHeader: string | undefined, port: number, generationId: string): string {
+  const reqUrl = new URL(reqUrlRaw);
+  const isHttps = forwardedProto
+    ? forwardedProto.toLowerCase() === 'https'
+    : reqUrl.protocol === 'https:';
+  const wsProto = isHttps ? 'wss:' : 'ws:';
+  const host = hostHeader || reqUrl.host || `localhost:${port}`;
+  return `${wsProto}//${host}/ws/generation?id=${generationId}`;
+}
 
 const SubmitGenerationSchema = z.object({
   trackTitle: z.string().default('Untitled Track'),
@@ -30,6 +42,7 @@ const SubmitGenerationSchema = z.object({
   lyrics: z.string().optional(),
   isInstrumental: z.boolean().default(false),
   tempoBpm: z.number().optional(),
+  bpm: z.number().optional(),
   musicalKey: z.string().optional(),
   durationSec: z.number().default(180),
   /** Optional user identifier — forwarded to RunPod worker as user_id */
@@ -42,6 +55,17 @@ const SubmitGenerationSchema = z.object({
   melodyPattern: MelodyPatternManifestSchema.optional(),
   /** Phase 27: Optional Melody Pattern Reference ID */
   melodyReferenceId: z.string().optional(),
+  /** Phase 63: Optional pre-gen uploaded R2 reference audio URL */
+  referenceAudioUrl: z.string().optional(),
+  /** Phase 63: Optional 3D Mycelium stem authority locks */
+  pregenStemLocks: z
+    .record(
+      z.string(),
+      z.enum(['lockedPure44k', 'harmonicInpaint', 'elasticResynth']),
+    )
+    .optional(),
+  /** Phase 63: Optional base64 payloads for pure 44.1 kHz locked stems */
+  lockedStemsPayload: z.record(z.string(), z.string()).optional(),
 });
 
 generationRoutes.post('/', async (c) => {
@@ -64,18 +88,38 @@ generationRoutes.post('/', async (c) => {
       language: input.language,
     });
 
+    const clonedProfile = input.clonedVoiceProfileId
+      ? getVoiceCloneProfile(input.clonedVoiceProfileId)
+      : undefined;
+
     // 2. Compile prompt for AI synthesis model
-    const compiledPrompt = compileSongSpec(input);
+    const compiledPrompt = compileSongSpec({
+      ...input,
+      tempoBpm: input.tempoBpm ?? input.bpm,
+      ...(clonedProfile?.r2ReferenceUrl
+        ? { clonedVoiceReferenceUrl: clonedProfile.r2ReferenceUrl }
+        : {}),
+    });
 
     // 3. Dispatch to RunPod Serverless GPU (or mock simulation worker)
     const dispatchResult = await dispatchSynthesisJob(
       generationId,
       compiledPrompt,
       input.userId ?? 'vhunambi_user',
+      c,
     );
 
     // Record providerTaskId for fallback active polling
     setJobProviderTaskId(generationId, dispatchResult.jobId);
+
+    const runtimeEnv = resolveRuntimeEnv(c);
+    const websocketUrl = resolveGenerationWsUrl(
+      c.req.url,
+      c.req.header('x-forwarded-proto'),
+      c.req.header('host'),
+      runtimeEnv.PORT,
+      generationId,
+    );
 
     return c.json(
       {
@@ -86,7 +130,7 @@ generationRoutes.post('/', async (c) => {
         progressPct: 10,
         providerTaskId: dispatchResult.jobId,
         pollUrl: `/v1/generations/${generationId}`,
-        websocketUrl: `ws://localhost:${env.PORT}/ws/generation?id=${generationId}`,
+        websocketUrl,
         vocalIdentity: {
           selectedVoiceId: input.selectedVoiceId ?? null,
           clonedVoiceProfileId: input.clonedVoiceProfileId ?? null,
@@ -135,11 +179,13 @@ generationRoutes.get('/:id', async (c) => {
     job.providerTaskId &&
     !job.providerTaskId.startsWith('mock_')
   ) {
-    const liveStatus = await checkRunPodJobStatus(job.providerTaskId);
+    const liveStatus = await checkRunPodJobStatus(job.providerTaskId, c);
     if (liveStatus.status === 'COMPLETED' && liveStatus.audioUrl) {
       completeJob(id, {
         masterMp3Url: liveStatus.audioUrl,
         stemsZipUrl: liveStatus.stemsZipUrl,
+        stemUrls: liveStatus.stemUrls,
+        manifestUrl: liveStatus.manifestUrl,
       });
     } else if (liveStatus.status === 'FAILED') {
       failJob(id, liveStatus.error || 'RunPod GPU job failed');
@@ -152,21 +198,23 @@ generationRoutes.get('/:id', async (c) => {
     }
   }
 
+  const currentJob = getJob(id) ?? job;
+
   return c.json({
-    generationId: job.generationId,
-    trackTitle: job.trackTitle,
-    genre: job.genre,
-    language: job.language,
-    status: job.status,
-    step: job.step,
-    progressPct: job.progressPct,
-    masterMp3Url: job.masterMp3Url,
-    stemsZipUrl: job.stemsZipUrl,
-    stemUrls: job.stemUrls,
-    manifestUrl: job.manifestUrl,
-    durationSec: job.durationSec,
-    errorMessage: job.errorMessage,
-    updatedAt: job.updatedAt.toISOString(),
+    generationId: currentJob.generationId,
+    trackTitle: currentJob.trackTitle,
+    genre: currentJob.genre,
+    language: currentJob.language,
+    status: currentJob.status,
+    step: currentJob.step,
+    progressPct: currentJob.progressPct,
+    masterMp3Url: currentJob.masterMp3Url,
+    stemsZipUrl: currentJob.stemsZipUrl,
+    stemUrls: currentJob.stemUrls,
+    manifestUrl: currentJob.manifestUrl,
+    durationSec: currentJob.durationSec,
+    errorMessage: currentJob.errorMessage,
+    updatedAt: currentJob.updatedAt.toISOString(),
   });
 });
 

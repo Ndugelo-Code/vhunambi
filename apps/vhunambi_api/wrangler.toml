@@ -1,0 +1,30 @@
+name = "vhunambi-api"
+main = "src/worker.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+NODE_ENV = "production"
+VHUNAMBI_AUTH_MODE = "strict"
+SUPABASE_URL = "https://cbnruevwrqwjnnoscgsz.supabase.co"
+R2_BUCKET = "zr-studio-audio"
+R2_PUBLIC_BASE_URL = "https://pub-d22409017abb4dd999327a092c5f06d3.r2.dev"
+ZR_LLM_PROVIDER = "claude"
+
+[[r2_buckets]]
+binding = "VHUNAMBI_VAULT"
+bucket_name = "zr-studio-audio"
+
+# [[hyperdrive]]
+# binding = "HYPERDRIVE"
+# id = "00000000000000000000000000000000"
+
+[durable_objects]
+bindings = [
+  { name = "GENERATION_DO", class_name = "GenerationSessionDO" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GenerationSessionDO"]
+

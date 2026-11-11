@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../beats/presentation/providers/beats_provider.dart';
+import '../../../library/presentation/providers/library_providers.dart';
 import '../../../sound_signature/domain/services/audio_import_service.dart';
+import '../../data/services/pre_gen_r2_upload_service.dart';
 import '../providers/melody_sketchpad_provider.dart';
 import '../providers/studio_form_provider.dart';
 import 'melody_sketchpad_modal.dart';
@@ -25,8 +28,19 @@ class _ReferenceAudioDropzoneState
 
   void _showBeatPicker(BuildContext context) {
     HapticFeedback.mediumImpact();
+    final allTracks = ref.read(libraryTracksProvider);
+    final licensed = allTracks
+        .where(
+          (t) =>
+              !t.isDeleted &&
+              (t.id.startsWith('market_') ||
+                  (t.isInstrumental &&
+                      t.licenseType.trim().isNotEmpty &&
+                      t.licenseType != 'Commercial')),
+        )
+        .toList();
     final produced = ref.read(beatsProvider);
-    final hasAny = produced.isNotEmpty;
+    final hasAny = licensed.isNotEmpty || produced.isNotEmpty;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet<void>(
@@ -89,6 +103,48 @@ class _ReferenceAudioDropzoneState
                     child: ListView(
                       shrinkWrap: true,
                       children: [
+                        if (licensed.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(
+                              'Licensed Vault Beats',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.coinGold,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          for (final track in licensed)
+                            ListTile(
+                              leading: const PhosphorIcon(
+                                AppIcons.beatstore,
+                                color: AppColors.coinGold,
+                              ),
+                              title: Text(
+                                track.title,
+                                style: AppTypography.bodySmall,
+                              ),
+                              subtitle: Text(
+                                '${track.creatorName} • ${track.genre} • ${track.licenseType}',
+                                style: AppTypography.caption,
+                              ),
+                              onTap: () {
+                                ref
+                                    .read(studioFormProvider.notifier)
+                                    .setReferenceAudio(
+                                      track.effectiveAudioPath ??
+                                          track.remoteAudioUrl,
+                                    );
+                                ref
+                                    .read(studioFormProvider.notifier)
+                                    .setGenre(track.genre);
+                                ref
+                                    .read(melodySketchpadProvider.notifier)
+                                    .initializeFromRemixDna(genre: track.genre);
+                                Navigator.of(bottomSheetContext).pop();
+                              },
+                            ),
+                        ],
                         if (produced.isNotEmpty) ...[
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -102,8 +158,8 @@ class _ReferenceAudioDropzoneState
                           ),
                           for (final beat in produced)
                             ListTile(
-                              leading: const Icon(
-                                Icons.graphic_eq_rounded,
+                              leading: const PhosphorIcon(
+                                AppIcons.waveform,
                                 color: AppColors.brandPrimary,
                               ),
                               title: Text(
@@ -152,6 +208,15 @@ class _ReferenceAudioDropzoneState
         ref
             .read(studioFormProvider.notifier)
             .setReferenceAudio(result.fileName);
+        final r2Url = await ref
+            .read(preGenR2UploadServiceProvider)
+            .uploadReferenceAudioStem(
+              fileName: result.fileName,
+              bytes: result.takeResult.wavBytes,
+            );
+        if (r2Url != null && r2Url.isNotEmpty && mounted) {
+          ref.read(studioFormProvider.notifier).setReferenceAudio(r2Url);
+        }
       } else if (mounted &&
           ref.read(studioFormProvider).referenceAudioPath == null) {
         // Fallback for tests or direct simulation

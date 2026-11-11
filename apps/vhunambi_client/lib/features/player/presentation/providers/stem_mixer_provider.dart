@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import '../../data/services/stem_mix_bounce_service.dart';
 import '../../data/services/wav_file_writer_io.dart';
 import '../../domain/models/stem_mixer_state.dart';
@@ -14,20 +17,97 @@ class StemMixerNotifier extends StateNotifier<StemMixerState> {
   StemMixerNotifier({
     StemMixBounceService? bounceService,
     Future<String> Function()? outputDirectoryResolver,
-  })  : _bounceService = bounceService ??
-            const StemMixBounceService(writer: writeWavToFile),
-        _outputDirectoryResolver =
-            outputDirectoryResolver ?? _defaultDirResolver,
-        super(const StemMixerState(
-          channels: kDefaultStemChannels,
-          activeTrackId: 'trk_active_mix',
-          activeTrackTitle: 'Amapiano Sunrise Master',
-        ));
+  }) : _bounceService =
+           bounceService ?? const StemMixBounceService(writer: writeWavToFile),
+       _outputDirectoryResolver =
+           outputDirectoryResolver ?? _defaultDirResolver,
+       super(
+         const StemMixerState(
+           channels: kDefaultStemChannels,
+           activeTrackId: 'trk_active_mix',
+           activeTrackTitle: 'Amapiano Sunrise Master',
+         ),
+       ) {
+    _hydrateFromStorage(state.activeTrackId ?? 'trk_active_mix');
+  }
+
+  void _hydrateFromStorage(String trackId) {
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.stemDspRecipesBoxKey,
+    )) {
+      return;
+    }
+    final saved = StemDspRecipeRepository.loadStemMixerState(trackId);
+    if (saved == null) return;
+
+    final rawChannels = saved['channels'];
+    final channels = <StemChannel>[];
+    if (rawChannels is List) {
+      for (final item in rawChannels) {
+        if (item is Map) {
+          try {
+            channels.add(StemChannel.fromJson(Map<String, dynamic>.from(item)));
+          } catch (_) {}
+        }
+      }
+    }
+
+    MasterBusDsp? dsp;
+    final rawDsp = saved['masterDsp'];
+    if (rawDsp is Map) {
+      try {
+        dsp = MasterBusDsp.fromJson(Map<String, dynamic>.from(rawDsp));
+      } catch (_) {}
+    }
+
+    state = state.copyWith(
+      activeTrackId: saved['activeTrackId'] as String? ?? trackId,
+      activeTrackTitle:
+          saved['activeTrackTitle'] as String? ?? state.activeTrackTitle,
+      channels: channels.isNotEmpty ? channels : state.channels,
+      masterDsp: dsp ?? state.masterDsp,
+    );
+  }
+
+  /// Switches the active stem mix context and hydrates any persisted mix for [trackId].
+  void loadMixForTrack(String trackId, {String? trackTitle}) {
+    if (SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.stemDspRecipesBoxKey,
+    )) {
+      final saved = StemDspRecipeRepository.loadStemMixerState(trackId);
+      if (saved != null) {
+        state = state.copyWith(
+          activeTrackId: trackId,
+          activeTrackTitle: trackTitle ?? state.activeTrackTitle,
+        );
+        _hydrateFromStorage(trackId);
+        return;
+      }
+    }
+    state = StemMixerState(
+      channels: kDefaultStemChannels,
+      activeTrackId: trackId,
+      activeTrackTitle: trackTitle ?? state.activeTrackTitle,
+    );
+  }
+
+  void _persistMixerState() {
+    final trackId = state.activeTrackId ?? 'trk_active_mix';
+    unawaited(
+      StemDspRecipeRepository.saveStemMixerState(trackId, <String, dynamic>{
+        'activeTrackId': trackId,
+        'activeTrackTitle': state.activeTrackTitle,
+        'channels': state.channels.map((channel) => channel.toJson()).toList(),
+        'masterDsp': state.masterDsp.toJson(),
+      }),
+    );
+  }
 
   static Future<String> _defaultDirResolver() async {
     if (Platform.environment.containsKey('FLUTTER_TEST')) {
-      final tempDir =
-          Directory('${Directory.systemTemp.path}/vhunambi_bounces');
+      final tempDir = Directory(
+        '${Directory.systemTemp.path}/vhunambi_bounces',
+      );
       if (!tempDir.existsSync()) {
         tempDir.createSync(recursive: true);
       }
@@ -42,8 +122,9 @@ class StemMixerNotifier extends StateNotifier<StemMixerState> {
       }
       return bounceDir.path;
     } catch (_) {
-      final tempDir =
-          Directory('${Directory.systemTemp.path}/vhunambi_bounces');
+      final tempDir = Directory(
+        '${Directory.systemTemp.path}/vhunambi_bounces',
+      );
       if (!await tempDir.exists()) {
         await tempDir.create(recursive: true);
       }
@@ -61,6 +142,7 @@ class StemMixerNotifier extends StateNotifier<StemMixerState> {
         return channel;
       }).toList(),
     );
+    _persistMixerState();
   }
 
   /// Sets stereo panning for a specific stem channel (-1.0 to +1.0).
@@ -73,6 +155,7 @@ class StemMixerNotifier extends StateNotifier<StemMixerState> {
         return channel;
       }).toList(),
     );
+    _persistMixerState();
   }
 
   /// Toggles mute state for a specific stem channel.
@@ -85,6 +168,7 @@ class StemMixerNotifier extends StateNotifier<StemMixerState> {
         return channel;
       }).toList(),
     );
+    _persistMixerState();
   }
 
   /// Toggles solo state for a specific stem channel.
@@ -97,11 +181,13 @@ class StemMixerNotifier extends StateNotifier<StemMixerState> {
         return channel;
       }).toList(),
     );
+    _persistMixerState();
   }
 
   /// Updates Bantu Master Bus DSP suite.
   void updateMasterDsp(MasterBusDsp dsp) {
     state = state.copyWith(masterDsp: dsp);
+    _persistMixerState();
   }
 
   /// Applies a genre-specific sonic preset to the mixer.
@@ -152,6 +238,7 @@ class StemMixerNotifier extends StateNotifier<StemMixerState> {
         );
         break;
     }
+    _persistMixerState();
   }
 
   /// Resets all channels to unity gain (1.0), center pan (0.0), and unmuted/unsoloed.
@@ -160,6 +247,7 @@ class StemMixerNotifier extends StateNotifier<StemMixerState> {
       channels: kDefaultStemChannels,
       masterDsp: const MasterBusDsp(),
     );
+    _persistMixerState();
   }
 
   /// Renders and bounces the current active stem balance into a master audio file (REQ-MIX-05).
@@ -198,5 +286,5 @@ class StemMixerNotifier extends StateNotifier<StemMixerState> {
 /// Global provider for the Pocket 4-Channel Stem Mixer.
 final stemMixerProvider =
     StateNotifierProvider<StemMixerNotifier, StemMixerState>((ref) {
-  return StemMixerNotifier();
-});
+      return StemMixerNotifier();
+    });

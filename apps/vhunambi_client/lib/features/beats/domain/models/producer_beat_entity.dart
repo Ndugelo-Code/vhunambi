@@ -246,6 +246,8 @@ class ProducerBeatEntity {
   final BeatStemPackage stemPackage;
   final List<BeatSaleRecord> salesRecords;
   final int auditionCount;
+  final bool isExclusiveSold;
+  final String? exclusiveBuyerId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -267,6 +269,8 @@ class ProducerBeatEntity {
     this.stemPackage = const BeatStemPackage(),
     this.salesRecords = const <BeatSaleRecord>[],
     this.auditionCount = 0,
+    this.isExclusiveSold = false,
+    this.exclusiveBuyerId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -333,6 +337,8 @@ class ProducerBeatEntity {
     BeatStemPackage? stemPackage,
     List<BeatSaleRecord>? salesRecords,
     int? auditionCount,
+    bool? isExclusiveSold,
+    String? exclusiveBuyerId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -354,6 +360,8 @@ class ProducerBeatEntity {
       stemPackage: stemPackage ?? this.stemPackage,
       salesRecords: salesRecords ?? this.salesRecords,
       auditionCount: auditionCount ?? this.auditionCount,
+      isExclusiveSold: isExclusiveSold ?? this.isExclusiveSold,
+      exclusiveBuyerId: exclusiveBuyerId ?? this.exclusiveBuyerId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -377,6 +385,8 @@ class ProducerBeatEntity {
         'stem_package': stemPackage.toJson(),
         'sales_records': salesRecords.map((record) => record.toJson()).toList(),
         'audition_count': auditionCount,
+        'is_exclusive_sold': isExclusiveSold,
+        'exclusive_buyer_id': exclusiveBuyerId,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
@@ -413,6 +423,8 @@ class ProducerBeatEntity {
               .toList() ??
           const <BeatSaleRecord>[],
       auditionCount: json['audition_count'] as int? ?? 0,
+      isExclusiveSold: json['is_exclusive_sold'] as bool? ?? false,
+      exclusiveBuyerId: json['exclusive_buyer_id'] as String?,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.now(),
       updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? '') ??

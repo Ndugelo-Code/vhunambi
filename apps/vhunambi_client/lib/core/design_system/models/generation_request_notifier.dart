@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import '../tokens/design_enums.dart';
 import 'generation_request_model.dart';
 
@@ -49,8 +52,21 @@ class GenerationRequestNotifier extends StateNotifier<GenerationRequestState> {
 
   static const _prefsKey = 'generation_request_model';
 
-  /// Loads persisted state from SharedPreferences.
+  /// Loads persisted state from Sovereign Hive (when open) or SharedPreferences.
   Future<void> _loadState() async {
+    if (!kIsWeb && Hive.isBoxOpen(AppConstants.studioSessionBoxKey)) {
+      final cached = SovereignPrefsRepository.loadGenerationRequest();
+      if (cached != null) {
+        try {
+          final model = GenerationRequestModel.fromJson(cached);
+          model.validate();
+          state = state.copyWith(model: model);
+          return;
+        } catch (_) {
+          // Fall through to SharedPreferences or defaults.
+        }
+      }
+    }
     final prefs = _prefs;
     if (prefs == null) return;
     final json = prefs.getString(_prefsKey);
@@ -67,11 +83,15 @@ class GenerationRequestNotifier extends StateNotifier<GenerationRequestState> {
     }
   }
 
-  /// Persists the current model to SharedPreferences.
+  /// Persists the current model to Sovereign Hive (when open) and SharedPreferences.
   Future<void> _persistState() async {
+    final jsonMap = state.model.toJson();
+    if (!kIsWeb && Hive.isBoxOpen(AppConstants.studioSessionBoxKey)) {
+      await SovereignPrefsRepository.saveGenerationRequest(jsonMap);
+    }
     final prefs = _prefs;
     if (prefs == null) return;
-    await prefs.setString(_prefsKey, jsonEncode(state.model.toJson()));
+    await prefs.setString(_prefsKey, jsonEncode(jsonMap));
   }
 
   /// The current generation request model.
@@ -86,49 +106,49 @@ class GenerationRequestNotifier extends StateNotifier<GenerationRequestState> {
   /// Sets the genre and re-validates.
   Future<void> setGenre(Genre genre) async {
     final newModel = state.model.copyWith(genre: genre);
-    _validateAndUpdate(newModel);
+    await _validateAndUpdate(newModel);
   }
 
   /// Sets the mood and re-validates.
   Future<void> setMood(Mood mood) async {
     final newModel = state.model.copyWith(mood: mood);
-    _validateAndUpdate(newModel);
+    await _validateAndUpdate(newModel);
   }
 
   /// Sets the BPM and re-validates.
   Future<void> setBpm(int bpm) async {
     final newModel = state.model.copyWith(bpm: bpm);
-    _validateAndUpdate(newModel);
+    await _validateAndUpdate(newModel);
   }
 
   /// Sets the DNA strength (0.0 to 1.0) and re-validates.
   Future<void> setDnaStrength(double dnaStrength) async {
     final newModel = state.model.copyWith(dnaStrength: dnaStrength);
-    _validateAndUpdate(newModel);
+    await _validateAndUpdate(newModel);
   }
 
   /// Sets the visibility (e.g., 'public', 'private') and re-validates.
   Future<void> setVisibility(String visibility) async {
     final newModel = state.model.copyWith(visibility: visibility);
-    _validateAndUpdate(newModel);
+    await _validateAndUpdate(newModel);
   }
 
   /// Sets the lyrics and re-validates.
   Future<void> setLyrics(String? lyrics) async {
     final newModel = state.model.copyWith(lyrics: lyrics);
-    _validateAndUpdate(newModel);
+    await _validateAndUpdate(newModel);
   }
 
   /// Sets the prompt and re-validates.
   Future<void> setPrompt(String? prompt) async {
     final newModel = state.model.copyWith(prompt: prompt);
-    _validateAndUpdate(newModel);
+    await _validateAndUpdate(newModel);
   }
 
   /// Resets all fields to defaults.
   Future<void> reset() async {
     final newModel = GenerationRequestModel.defaults();
-    _validateAndUpdate(newModel);
+    await _validateAndUpdate(newModel);
   }
 
   /// Clears validation error without changing the model.

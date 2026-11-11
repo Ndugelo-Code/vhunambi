@@ -2,12 +2,12 @@
 
 > **DOCUMENT PURPOSE:** This is the single, authoritative handoff document for the Vhunambi monorepo. Any AI agent (Antigravity, Cline, Cursor, Windsurf) or human engineer resuming work on this repository can read this document and resume seamlessly with zero loss of context.
 >
-> **Last Updated:** 2026-11-06T22:40:00+02:00
+> **Last Updated:** 2026-11-12T00:57:00+02:00
 > **Repository Root:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\`  
 > **Client Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\`  
 > **Backend Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_api\`  
-> **Current Health:** `dart analyze` = **0 issues (100% clean)** | `flutter test` = **100% passing (Phase 50-57 tests green)** | Backend API = **0 errors (14/14 suites passing, 100%)**  
-> **Active Phase:** Phase 57 (System-1 Calibrated "Jev" DNA Melody Resynthesizer & Acoustic-True 44.1 kHz 5-Channel DSP Overhaul) Complete & Verified on Physical Hardware
+> **Current Health:** Backend API = **0 errors (20/20 suites passing, 100%)** | Live Worker `/health` = **200 OK** (`https://vhunambi-api.ndugelosigwadi.workers.dev`) | Android ARM64 Release APK = **42.8 MB** (`44,887,831 bytes`) installed on Huawei `JNY_LX1` (`EPHUT20917014649`) | Client Source Status = **Phases 0–63 compiled in APK** (zero source edits during `2026-11-12` docs update)  
+> **Active Phase:** Phases 0–63 Implemented · Hybrid Cloud Edge Deployed (`vhunambi-api` Worker + `zr-studio-audio` R2 + Supabase Cloud `cbnruevwrqwjnnoscgsz`) — See Section 40 for live cloud standings & post-Phase-63 remediation queue
 
 ---
 
@@ -406,13 +406,32 @@ Inside PowerShell from `apps/vhunambi_client`:
 cd c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client
 
 # Run static analysis (must report: No issues found!)
-dart analyze .
+flutter analyze
 
-# Run automated tests (must report: All tests passed!)
-flutter test
+# Run automated tests with hang-protection timeout guard
+flutter test --timeout=60s
+
+# Build & install Cloud-Wired ARM64 APK on connected physical Android device
+flutter build apk --release --target-platform android-arm64 `
+  --dart-define=API_BASE_URL=https://vhunambi-api.ndugelosigwadi.workers.dev `
+  --dart-define=MEDIA_BASE_URL=https://pub-d22409017abb4dd999327a092c5f06d3.r2.dev
+C:\Users\Ndugelo\AppData\Local\Android\Sdk\platform-tools\adb.exe -s EPHUT20917014649 install -r build\app\outputs\flutter-apk\app-release.apk
 ```
 
-Current gate benchmark: **0 analyzer issues** | **657+ tests passed (100%)**.
+And from `apps/vhunambi_api`:
+
+```powershell
+cd c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_api
+
+# TypeScript build & all 20 backend unit + integration test suites
+npm run build
+npm test
+
+# Deploy Cloudflare Worker edge gateway (requires Cloudflare OAuth / API token)
+.\node_modules\.bin\wrangler.cmd deploy
+```
+
+Verified Backend Gate Benchmark (`2026-11-12`): **`npm run build` (`tsc`) = 0 errors | `npm test` = 20 / 20 suites passing (100%) | Live Worker `/health` = `200 OK`**.
 
 ---
 
@@ -1666,3 +1685,96 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
     - **Jev MAD Confidence:** Evaluates input variance via Median Absolute Deviation and adaptively fuses regional genre priors.
     - **Beginner Rescue:** Sparse or erratic user sketches are harmonically elevated above coherence thresholds ($Q \ge 0.72$).
     - **10-State Undo Stack & Telemetry Banner:** Full state undo via `Key('sketchpad_undo_dna_btn')` and live coherence feedback via `Key('sketchpad_dna_report_banner')`.
+
+---
+
+## 34. Phase 58: Sovereign Beatstore Licensing, Cryptographic Certificates & Vault Stem Delivery (`docs/phases/phase_58_sovereign_beatstore_licensing/`)
+
+- **Location:** [`docs/phases/phase_58_sovereign_beatstore_licensing/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_58_sovereign_beatstore_licensing/blueprint.md)
+- **Status:** Complete (`apps/vhunambi_api` suite `phase58_marketplace_licensing.test.ts` + client domain/unpacker/checkout suites verified).
+- **Scope:**
+  - **Multi-Tier Economics & Conservation (`licensing_models.dart`, `license_agreement_engine.dart`):**
+    - Added 3 checkout tiers (`BeatCheckoutTier.basicMp3`, `premiumWav`, `exclusiveStem`) with `1x / 3x / 6x` multipliers, canonical tokenomics (`kCoinsPerCredit = 5`, `kZarPerCoin = 0.30`), and strict integer 85% Producer / 15% Platform split conservation.
+  - **Cryptographic SHA-256 Deeds (`sovereign_certificate_signer.dart`, `license_certificate_repository.dart`):**
+    - Replaced simulated certificate hashes with deterministic FIPS 180-4 `VHUNAMBI_LIC_V2|...` SHA-256 signatures backed by `VaultEnvelopeCrypto.sha256Bytes`, Hive box `vhunambi_license_certificates`, offline tamper verification, and legal `.vhlic.json` / `_DEED.txt` share export (`certificate_share_exporter.dart`).
+  - **Automated Master & 4-Stem Delivery (`beat_delivery_unpacker_service.dart`, `beats_vault_view.dart`):**
+    - Delivers un-tagged `44.1 kHz` PCM WAV masters (`untagged_master.wav`, `master_44k1.wav`) and isolated 4-stem WAV packages (`drums_44k1.wav`, `bass_44k1.wav`, `melody_44k1.wav`, `other_44k1.wav`), wired into [`BeatsVaultView`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/beats/presentation/views/beats_vault_view.dart) stems drawer and `ReferenceAudioDropzone`.
+  - **ACID Exclusive Buyout Lock (`vhunambi_db.ts`, `marketplace_service.ts`, `marketplace_routes.ts`):**
+    - `recordBeatLicenseAtomic` executes SQLite `BEGIN IMMEDIATE` debit/credit transfers, persists `beat_licenses`, sets `is_exclusive_sold`, returns `409 Conflict` on duplicate exclusive purchase, and exposes `GET /api/marketplace/licenses/verify/:certificateId`.
+
+---
+
+## 35. Phase 59: Full-Stack Backend API Convergence & SA Banking Gateway (`docs/phases/phase_59_fullstack_backend_convergence/`)
+
+- **Location:** [`docs/phases/phase_59_fullstack_backend_convergence/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_59_fullstack_backend_convergence/blueprint.md)
+- **Status:** Complete (`apps/vhunambi_api` suite `phase59_convergence.test.ts` + client Explore/Library/Playlist/Wallet suites verified).
+- **Scope:**
+  - **REST Surface Convergence:** Added [`explore_routes.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/routes/explore_routes.ts) (`/api/explore`, `/tracks`, `/radio/:genre`), [`library_routes.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/routes/library_routes.ts) (`GET/POST /api/library/sync` with LWW merge & monotonic `playCount`), [`playlist_routes.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/routes/playlist_routes.ts) (`GET/POST/PUT/DELETE /api/playlists`, `POST /:id/share`), and unified [`wallet_routes.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/routes/wallet_routes.ts) + `social_routes.ts` payouts.
+  - **Canonical SA Banking Registry:** Standardized 6 South African banks (`Capitec Bank`, `FNB`, `Standard Bank`, `Nedbank`, `Absa Bank`, `TymeBank`) with universal branch code auto-fill and 4 rails (`capitec_pay`, `ozow`, `payfast`, `eft`) across backend `SA_BANK_REGISTRY` and client [`PayoutDetailsSheet`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/profile/presentation/widgets/payout_details_sheet.dart).
+  - **Delta Hydrators & Cloud Repositories:** Added `HttpExploreRepository`, `HttpLibrarySyncRepository`, `PlaylistRepository` cloud sync + share links, and `EdgeSyncCoordinator.registerDeltaHydrator(...)`.
+
+---
+
+## 36. Phase 60: 26-Box Sovereign Hive Brain & Persistence Convergence (`docs/phases/phase_60_sovereign_hive_brain_and_persistence_convergence/`)
+
+- **Location:** [`docs/phases/phase_60_sovereign_hive_brain_and_persistence_convergence/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_60_sovereign_hive_brain_and_persistence_convergence/blueprint.md)
+- **Status:** Complete (`SovereignHiveBootstrapService`, `HiveAesVaultCipher`, `HiveCompactionScheduler`, `CheckoutWriteAheadJournal`, `HiveBrainTelemetryCard`).
+- **Scope:**
+  - **26-Box Startup Initialization ([`sovereign_hive_bootstrap_service.dart`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/core/storage/sovereign_hive_bootstrap_service.dart)):** Registered all 26 `AppConstants.*BoxKey` boxes at app boot in `main.dart` (with disk-free in-memory fallback under `FLUTTER_TEST`).
+  - **HKDF-SHA256 `HiveAesCipher` & WAL:** Shared 256-bit key derivation across sensitive Hive boxes and `.vmf` vault envelopes (`hive_aes_vault_cipher.dart`), fragmentation-triggered compaction (`hive_compaction_scheduler.dart`), and crash-safe [`CheckoutWriteAheadJournal`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/core/storage/checkout_write_ahead_journal.dart).
+  - **Domain & $O(1)$ Key Convergence ([`sovereign_domain_repositories.dart`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/core/storage/sovereign_domain_repositories.dart)):** Persisted Onboarding, Notifications (`notif_<id>`), Sound Signatures (with L1 memory fallback), Wallet Ledger, Playback Session, Stem DSP recipes, Crate/MPC kits, Explore likes/votes, Social Reels comments, Exclusive Beat buyouts, Content Studio drafts, `'me'` Creator Profile, `CreatorDna` ring buffer, and `AppLifecycleListener` foreground sync resume.
+  - **Telemetry HUD & Leak Fix:** Fixed `.vmf` file leaks in `purgeTrackPermanently`, switched offline quota stats to real file byte accounting, and added [`HiveBrainTelemetryCard`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/profile/presentation/widgets/hive_brain_telemetry_card.dart) to `ProfileSettingsDrawer`.
+
+---
+
+## 37. Phase 61: Sovereign Identity, Authentication & Multi-Tenant Security Convergence (`docs/phases/phase_61_sovereign_identity_auth_and_security_convergence/`)
+
+- **Location:** [`docs/phases/phase_61_sovereign_identity_auth_and_security_convergence/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_61_sovereign_identity_auth_and_security_convergence/blueprint.md)
+- **Status:** Complete (`apps/vhunambi_api` suite `phase61_sovereign_identity_auth_security.test.ts` verified).
+- **Scope:**
+  - **Backend Cryptographic Identity ([`crypto_token.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/security/crypto_token.ts), [`auth_routes.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/routes/auth_routes.ts), [`auth_middleware.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/middleware/auth_middleware.ts)):**
+    - Implemented `scrypt` (`N=16384,r=8,p=1`) password hashing, `HS256` & Supabase `ES256` JWKS JWT verification, refresh token rotation with family reuse revocation, and dual-gate `sovereignAuthMiddleware` / `assertTenantCreatorAccess` (supporting `VHUNAMBI_AUTH_MODE = "strict"`).
+  - **Security Vulnerability Closures:**
+    - Wrapped `requestPayout()` in `BEGIN IMMEDIATE` locks, enforced wallet coin balance checks on beat licensing (`402 INSUFFICIENT_WALLET_BALANCE`), enforced `creator_id` row ownership (`403 TENANT_FORBIDDEN`) across Library/Playlists/Marketplace, and scoped `/api/sync/delta` by viewer tenant.
+  - **Client Auth & Multi-Tenant Isolation:**
+    - Added per-device CSPRNG genesis salt in `HiveAesVaultCipher`, [`SovereignAuthSession`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/core/auth/sovereign_auth_session.dart), [`SovereignApiClient`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/core/network/sovereign_api_client.dart) (`401` single-flight refresh), [`SovereignHiveAccountSanitizer`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/core/auth/sovereign_hive_account_sanitizer.dart), `currentCreatorIdProvider`, and [`SovereignAuthSheet`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/auth/presentation/widgets/sovereign_auth_sheet.dart) (`@cern`, `@makhadzi`, `@sigwa` quick studio chips + `AccountIdentitySecurityCard`).
+
+---
+
+## 38. Phase 62: Hybrid Cloud Stack Topology & Production Edge Convergence (`docs/phases/phase_62_hybrid_cloud_stack_topology_convergence/`)
+
+- **Location:** [`docs/phases/phase_62_hybrid_cloud_stack_topology_convergence/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_62_hybrid_cloud_stack_topology_convergence/blueprint.md)
+- **Audit:** [`HYBRID_CLOUD_STACK_TOPOLOGY_PHASE62_AUDIT.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/HYBRID_CLOUD_STACK_TOPOLOGY_PHASE62_AUDIT.md)
+- **Status:** Complete (`apps/vhunambi_api` suite `phase62_hybrid_cloud_topology.test.ts` verified; Supabase migration & Cloudflare Worker artifacts created).
+- **Scope:**
+  - **Supabase PostgreSQL Migration ([`20261110000001_phase62_hybrid_cloud_schema.sql`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/supabase/migrations/20261110000001_phase62_hybrid_cloud_schema.sql)):** Defined 19 tables and atomic `FOR UPDATE` RPCs (`execute_atomic_payout`, `record_beat_license_atomic`, `send_cultural_tip_atomic`, `custom_access_token_hook`) plus [`SupabaseCloudDriver`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/db/supabase_cloud_driver.ts) and lazy `process.getBuiltinModule('node:sqlite')` proxy in [`vhunambi_db.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/db/vhunambi_db.ts).
+  - **Cloudflare Workers Edge Gateway ([`worker.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/worker.ts), [`wrangler.toml`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/wrangler.toml)):** Added `GenerationSessionDO` Durable Object WebSocket coordinator, request-scoped `resolveRuntimeEnv(c)`, `GET /r2/:key{.*}` zero-egress R2 streaming, canonical `@blackcoffee` (`creator_black_coffee`) ID parity, and Supabase GoTrue bridging.
+  - **PayFast ITN, RunPod & Client Origin Unification:** Implemented MD5 signature + constant-time ITN verification (`payment_routes.ts`), blocked unverified `/api/wallet/topup` in strict mode (`403 PAYMENT_VERIFICATION_REQUIRED`), repaired [`tools/zr-studio-gpu`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/README.md) mastering/Seed-VC/MP3/Dockerfile stages, added `GET /v1/vision/:id` polling & xAI Grok LLM branch, and unified Flutter `--dart-define` `API_BASE_URL` / `MEDIA_BASE_URL` resolvers in [`app_constants.dart`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/core/constants/app_constants.dart).
+
+---
+
+## 39. Phase 63: End-to-End Studio-to-Cloud Execution Loop, `workerd` Bridge & 5-Pillar Preflight (`docs/phases/phase_63_e2e_cloud_pipeline_and_preflight_convergence/`)
+
+- **Location:** [`docs/phases/phase_63_e2e_cloud_pipeline_and_preflight_convergence/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_63_e2e_cloud_pipeline_and_preflight_convergence/blueprint.md)
+- **Audit:** [`PHASE63_E2E_CLOUD_PIPELINE_AND_PREFLIGHT_AUDIT.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/PHASE63_E2E_CLOUD_PIPELINE_AND_PREFLIGHT_AUDIT.md)
+- **Status:** Complete (`apps/vhunambi_api` suite `phase63_e2e_cloud_pipeline_and_preflight.test.ts` passing in `20/20` backend gate; deployed live to Cloudflare Workers).
+- **Scope:**
+  - **`workerd` Persistence Bridge & `PUT /r2/:key` ([`edge_persistence_bridge.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/db/edge_persistence_bridge.ts)):** Added 3,821-line `EdgeIsolateDatabaseEngine`, 6 PostgreSQL $\leftrightarrow$ SQLite row normalizers + REST write helpers in `SupabaseCloudDriver`, and `PUT /r2/:key{.*}` binding proxy so `workerd` executes every API route without `SQLITE_UNAVAILABLE_IN_EDGE_ISOLATE`.
+  - **Unified Studio-to-Biome Loop:** Fixed `StudioActionBar._handleGenerate` for instrumental/custom-lyrics flows, updated `PipelineSocketEvent.fromJson` to decode both camelCase `GenerationSessionDO` frames and snake_case events, enabled R2 WAV reference uploads (`/v1/melodies/render-reference`, `melody_conditioning`, Seed-VC R2 downloads), and wired `_onGenerationComplete` into `libraryTracksProvider`, `masterMediaObjectProvider`, `stemMixerProvider`, `multiStemEngineProvider`, and `myceliumBiomeGraphProvider`.
+  - **PayFast SKUs, Vision Upload & 5-Pillar Preflight Cockpit:** Aligned coin packs (`500 / R55`, `1500 / R150`, `5000 / R450`), added `POST /api/payments/payfast/sandbox-settle/:checkoutId` + `userCoinsBalance` sync, wired `CloudVideoExportService` to `/v1/vision/render-video`, and created `GET /api/system/preflight` ([`system_routes.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/routes/system_routes.ts)) + [`CloudStackDiagnosticCard`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/profile/presentation/widgets/cloud_stack_diagnostic_card.dart) inside `ProfileSettingsDrawer`.
+
+---
+
+## 40. Live Cloud Standings & Post-Phase-63 Remediation Queue (`2026-11-12`)
+
+### 40.1 Verified Production Deployment Footprint
+- **Cloudflare Worker (`vhunambi-api`):** Live at `https://vhunambi-api.ndugelosigwadi.workers.dev` (`GET /health` $\to$ `200 OK`; `VHUNAMBI_AUTH_MODE = "strict"`, `GENERATION_DO` bound; `wrangler` authenticated).
+- **Cloudflare R2 (`zr-studio-audio`):** Bound as `VHUNAMBI_VAULT` (`https://pub-d22409017abb4dd999327a092c5f06d3.r2.dev`). Live `PUT /r2/:key` and `GET /r2/:key` operational; `0` pre-seeded objects currently uploaded.
+- **Supabase Cloud (`cbnruevwrqwjnnoscgsz.supabase.co`):** 19-table PostgreSQL schema deployed; GoTrue ES256 authentication active with 7 seeded creator identities (`@cern`, `@makhadzi`, `@sigwa`, `@kabza`, `@focalistic`, `@tyla`, `@blackcoffee`).
+- **Physical Android Client:** [`app-release.apk`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/build/app/outputs/flutter-apk/app-release.apk) (`44,887,831 bytes` / `42.8 MB` ARM64) built with `--dart-define=API_BASE_URL=https://vhunambi-api.ndugelosigwadi.workers.dev` and `--dart-define=MEDIA_BASE_URL=https://pub-d22409017abb4dd999327a092c5f06d3.r2.dev`, installed cleanly via `adb` onto Huawei `JNY_LX1` (`EPHUT20917014649`).
+
+### 40.2 Verified Operational Truth vs. Remaining Live-Cloud Gaps (Full Evidence in [`FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md` Section 11](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md#11-post-phase-63-live-cloud-deployment--physical-device-gap-audit-2026-11-12))
+1. **Main MiniPlayer Audio Transport Missing Hardware Override ([`main.dart`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/main.dart#L47-L52)):** `ProviderScope` does not invoke [`bootstrapPlatformAudioHandler`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/player/data/services/vhunambi_audio_handler.dart#L797-L831), leaving [`audioHandlerProvider`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/player/presentation/providers/audio_bridge_providers.dart#L41-L50) on headless `TestVhunambiAudioHandler` (timer ticks without speaker output). Sketchpad/Vocal previews (`RealSketchpadAudioPlayerService`) and 4-Stem Pocket DAW (`JustAudioMultiStemEngine`) DO play hardware `just_audio` sound.
+2. **RunPod Audio Endpoint (`e7wt9pgo7djv55`) Idle & `model_utils.py` Omitted:** Live Worker secrets dispatch real RunPod jobs, but `0` workers are active on `e7wt9pgo7djv55` (jobs queue past [`pollGenerationProgress`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/studio/data/services/http_generation_submission_service.dart#L118-L135)'s 90s cap) and [`tools/zr-studio-gpu/Dockerfile`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/Dockerfile#L21-L24) does not copy `model_utils.py`, triggering a 55/110 Hz sine fallback in `handler.py` unless baked into the image.
+3. **Worker Non-Auth Routes Use In-Isolate RAM (`EdgeIsolateDatabaseEngine`):** Only `auth_routes.ts` talks to `SupabaseCloudDriver`; all other Worker routes still read/write per-isolate JS memory rather than Postgres tables (`HYPERDRIVE` commented out in `wrangler.toml`), causing isolate-hop `404` risk (`GET /v1/generations/:id`) and volatile writes across Worker restarts.
+4. **R2 Empty Catalog, Fallbacks & Strict Auth UX:** Seeded catalog MP3s/covers 404 until uploaded to `zr-studio-audio`; missing `ANTHROPIC_API_KEY`/`GROK_API_KEY` and `RUNPOD_COMFYUI_*` trigger template lyrics and 1x1 PNG / 32-byte empty `.mp4` R2 placeholders; `/v1/voices/signatures/:id/analyze` is an `enqueued` stub; PayFast runs in Sandbox; fresh installs require signing in via `ProfileSettingsDrawer` $\to$ `SovereignAuthSheet` due to `VHUNAMBI_AUTH_MODE = "strict"`.

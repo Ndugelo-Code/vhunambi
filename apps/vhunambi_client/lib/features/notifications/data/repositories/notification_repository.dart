@@ -1,20 +1,23 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/storage/hive_compaction_scheduler.dart';
 import '../../domain/models/notification_entity.dart';
 
-/// Offline persistence layer for the Accessible Notifications Center (M8).
+/// Offline persistence layer for the Accessible Notifications Center (M8 / Phase 60 O(1) Upgrade).
 ///
-/// Adheres strictly to the Vhunambi repository standard (see
-/// [CreatorDnaRepository], `PlaylistRepository`, `BeatRepository`):
-/// - An **untyped** `Box?` opened only when already available.
-/// - An automatic in-memory fallback map so headless VM / widget tests never
-///   touch Hive's uninitialized path (no unhandled zone exceptions).
-/// - Hand-rolled JSON (`toJson` / `fromJson`) — **zero** `build_runner` or
-///   `@HiveType` codegen.
+/// Adheres strictly to the Vhunambi repository standard:
+/// - An **untyped** `Box?` adopted only when already available.
+/// - $O(1)$ per-entity keys `notif_<id>` instead of monolithic list rewrites,
+///   plus automatic one-time migration from legacy `'notifications'` list key.
+/// - Instance-scoped in-memory fallback map so headless VM / widget tests never
+///   touch Hive's uninitialized path or leak across tests.
 class NotificationRepository {
-  /// Single collection key holding the serialized notification list.
-  static const String _collectionKey = 'notifications';
+  /// Legacy single collection key retained solely for automatic migration.
+  static const String _legacyCollectionKey = 'notifications';
+
+  /// O(1) entity key prefix (`notif_<id>`).
+  static const String _entityPrefix = 'notif_';
 
   /// Upper bound to keep the persisted store from growing unbounded.
   static const int maxNotifications = 500;
@@ -25,20 +28,30 @@ class NotificationRepository {
 
   NotificationRepository([Box? box]) : _box = box;
 
+  void _resolveBoxSync() {
+    if (_box != null && _box!.isOpen) return;
+    try {
+      if (!kIsWeb && Hive.isBoxOpen(AppConstants.notificationsBoxKey)) {
+        _box = Hive.box(AppConstants.notificationsBoxKey);
+      }
+    } catch (_) {}
+  }
+
   /// Lazily binds to the notifications Hive box when it is already open.
-  ///
-  /// Mirrors the safe-storage invariant from the master handoff: never call
-  /// `Hive.openBox()` unconditionally — only adopt an already-open box, else
-  /// silently degrade to the in-memory fallback.
   Future<void> _ensureInit() async {
-    if (_initialized) return;
-    if (_box != null) {
+    if (_initialized && (_box == null || _box!.isOpen)) {
+      _resolveBoxSync();
+      return;
+    }
+    if (_box != null && _box!.isOpen) {
+      await _migrateLegacyListIfPresent();
       _initialized = true;
       return;
     }
     try {
       if (!kIsWeb && Hive.isBoxOpen(AppConstants.notificationsBoxKey)) {
         _box = Hive.box(AppConstants.notificationsBoxKey);
+        await _migrateLegacyListIfPresent();
       }
     } catch (e) {
       debugPrint('NotificationRepository running in-memory fallback: $e');
@@ -46,79 +59,177 @@ class NotificationRepository {
     _initialized = true;
   }
 
-  /// Reads every stored notification, newest-first.
-  ///
-  /// Returns an empty list when nothing is persisted or on a read failure
-  /// (defensive — never throws into the UI).
-  Future<List<NotificationEntity>> getNotifications() async {
-    await _ensureInit();
+  Future<void> _migrateLegacyListIfPresent() async {
+    final box = _box;
+    if (box == null || !box.isOpen || !box.containsKey(_legacyCollectionKey)) {
+      return;
+    }
     try {
-      final raw =
-          _box != null ? _box!.get(_collectionKey) : _inMemoryStore[_collectionKey];
-      if (raw == null) return <NotificationEntity>[];
-      final decoded = (raw as List)
-          .whereType<Map>()
-          .map((e) => NotificationEntity.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
-      decoded.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return decoded;
+      final raw = box.get(_legacyCollectionKey);
+      if (raw is List) {
+        for (final item in raw) {
+          if (item is Map) {
+            final entity = NotificationEntity.fromJson(
+              Map<String, dynamic>.from(item),
+            );
+            if (entity.id.isNotEmpty) {
+              await box.put('$_entityPrefix${entity.id}', entity.toJson());
+            }
+          }
+        }
+      }
+      await box.delete(_legacyCollectionKey);
+    } catch (_) {}
+  }
+
+  /// Synchronous read path for cold-boot provider hydration (reads Hive when open).
+  List<NotificationEntity> getNotificationsSync() {
+    _resolveBoxSync();
+    return _readAllDecoded();
+  }
+
+  List<NotificationEntity> _readAllDecoded() {
+    final decodedById = <String, NotificationEntity>{};
+    try {
+      if (_box != null && _box!.isOpen) {
+        for (final rawKey in _box!.keys) {
+          final key = rawKey.toString();
+          if (key.startsWith(_entityPrefix)) {
+            final val = _box!.get(key);
+            if (val is Map) {
+              final entity = NotificationEntity.fromJson(
+                Map<String, dynamic>.from(val),
+              );
+              decodedById[entity.id] = entity;
+            }
+          } else if (key == _legacyCollectionKey) {
+            final raw = _box!.get(_legacyCollectionKey);
+            if (raw is List) {
+              for (final item in raw.whereType<Map>()) {
+                final entity = NotificationEntity.fromJson(
+                  Map<String, dynamic>.from(item),
+                );
+                decodedById[entity.id] = entity;
+              }
+            }
+          }
+        }
+      } else {
+        for (final entry in _inMemoryStore.entries) {
+          if (entry.key.startsWith(_entityPrefix) && entry.value is Map) {
+            final entity = NotificationEntity.fromJson(
+              Map<String, dynamic>.from(entry.value as Map),
+            );
+            decodedById[entity.id] = entity;
+          }
+        }
+      }
+      final list = decodedById.values.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
     } catch (_) {
       return <NotificationEntity>[];
     }
   }
 
-  /// Inserts or replaces a single notification (keyed by `id`).
-  Future<void> saveNotification(NotificationEntity notification) async {
-    await saveNotifications(<NotificationEntity>[notification]);
+  /// Reads every stored notification, newest-first.
+  Future<List<NotificationEntity>> getNotifications() async {
+    await _ensureInit();
+    await _migrateLegacyListIfPresent();
+    return _readAllDecoded();
   }
 
-  /// Bulk upsert that enforces the [maxNotifications] ceiling by evicting the
-  /// oldest read notifications first, then the oldest overall.
+  /// Inserts or replaces a single notification in O(1) (keyed by `notif_<id>`).
+  Future<void> saveNotification(NotificationEntity notification) async {
+    await _ensureInit();
+    if (notification.id.isEmpty) return;
+    try {
+      final key = '$_entityPrefix${notification.id}';
+      final serialized = notification.toJson();
+      if (_box != null && _box!.isOpen) {
+        await _box!.put(key, serialized);
+        await _evictOverflowIfNeeded();
+        await HiveCompactionScheduler.recordMutation(
+          AppConstants.notificationsBoxKey,
+        );
+      } else {
+        _inMemoryStore[key] = serialized;
+        await _evictOverflowIfNeeded();
+      }
+    } catch (_) {}
+  }
+
+  /// Bulk upsert that enforces [maxNotifications] ceiling by evicting only
+  /// overflow keys (oldest read notifications first, then oldest overall).
   Future<void> saveNotifications(List<NotificationEntity> notifications) async {
     await _ensureInit();
     try {
-      final existing = await getNotifications();
-      final byId = <String, NotificationEntity>{
-        for (final n in existing) n.id: n,
-      };
       for (final n in notifications) {
-        byId[n.id] = n;
-      }
-
-      var merged = byId.values.toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-      if (merged.length > maxNotifications) {
-        // Evict oldest read entries first, preserving unread context.
-        final read = merged.where((n) => n.isRead).toList()
-          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-        final overflow = merged.length - maxNotifications;
-        final evictIds = <String>{};
-        for (final n in read) {
-          if (evictIds.length >= overflow) break;
-          evictIds.add(n.id);
+        if (n.id.isEmpty) continue;
+        final key = '$_entityPrefix${n.id}';
+        final serialized = n.toJson();
+        if (_box != null && _box!.isOpen) {
+          await _box!.put(key, serialized);
+        } else {
+          _inMemoryStore[key] = serialized;
         }
-        if (evictIds.length < overflow) {
-          for (final n in merged.reversed) {
-            if (evictIds.length >= overflow) break;
-            evictIds.add(n.id);
-          }
-        }
-        merged = merged.where((n) => !evictIds.contains(n.id)).toList();
       }
+      await _evictOverflowIfNeeded();
+      if (_box != null && _box!.isOpen && notifications.isNotEmpty) {
+        await HiveCompactionScheduler.recordMutation(
+          AppConstants.notificationsBoxKey,
+        );
+      }
+    } catch (_) {}
+  }
 
-      await _persist(merged);
-    } catch (_) {
-      // Swallow write failures — offline degradation is silent by design.
+  Future<void> _evictOverflowIfNeeded() async {
+    final currentCount = _box != null && _box!.isOpen
+        ? _box!.keys.where((k) => k.toString().startsWith(_entityPrefix)).length
+        : _inMemoryStore.keys.where((k) => k.startsWith(_entityPrefix)).length;
+    if (currentCount <= maxNotifications) return;
+
+    final all = _readAllDecoded();
+    if (all.length <= maxNotifications) return;
+    final overflow = all.length - maxNotifications;
+    final evictIds = <String>{};
+
+    final read = all.where((n) => n.isRead).toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    for (final n in read) {
+      if (evictIds.length >= overflow) break;
+      evictIds.add(n.id);
+    }
+    if (evictIds.length < overflow) {
+      for (final n in all.reversed) {
+        if (evictIds.length >= overflow) break;
+        evictIds.add(n.id);
+      }
+    }
+
+    for (final id in evictIds) {
+      final key = '$_entityPrefix$id';
+      if (_box != null && _box!.isOpen) {
+        await _box!.delete(key);
+      } else {
+        _inMemoryStore.remove(key);
+      }
     }
   }
 
-  /// Removes a single notification by [id].
+  /// Removes a single notification by [id] in O(1).
   Future<void> deleteNotification(String id) async {
     await _ensureInit();
     try {
-      final existing = await getNotifications();
-      await _persist(existing.where((n) => n.id != id).toList());
+      final key = '$_entityPrefix$id';
+      if (_box != null && _box!.isOpen) {
+        await _box!.delete(key);
+        await HiveCompactionScheduler.recordMutation(
+          AppConstants.notificationsBoxKey,
+        );
+      } else {
+        _inMemoryStore.remove(key);
+      }
     } catch (_) {}
   }
 
@@ -126,21 +237,17 @@ class NotificationRepository {
   Future<void> clearAll() async {
     await _ensureInit();
     try {
-      if (_box != null) {
-        await _box!.delete(_collectionKey);
+      if (_box != null && _box!.isOpen) {
+        final keysToDelete = _box!.keys
+            .where((k) {
+              final s = k.toString();
+              return s.startsWith(_entityPrefix) || s == _legacyCollectionKey;
+            })
+            .toList(growable: false);
+        await _box!.deleteAll(keysToDelete);
       } else {
-        _inMemoryStore.remove(_collectionKey);
+        _inMemoryStore.clear();
       }
     } catch (_) {}
-  }
-
-  /// Shared write path serializing the list into the active store.
-  Future<void> _persist(List<NotificationEntity> notifications) async {
-    final serialized = notifications.map((n) => n.toJson()).toList();
-    if (_box != null) {
-      await _box!.put(_collectionKey, serialized);
-    } else {
-      _inMemoryStore[_collectionKey] = serialized;
-    }
   }
 }

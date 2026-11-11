@@ -1,8 +1,13 @@
+import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 
 /// Threshold (ms) for hold gesture to activate Manual_Mode drag.
 const int kHoldGestureThresholdMs = 350;
@@ -89,7 +94,23 @@ class MiniPlayerController extends ChangeNotifier {
   }
 
   MiniPlayerController() {
+    _hydrateFromHiveIfOpen();
     loadState();
+  }
+
+  void _hydrateFromHiveIfOpen() {
+    if (kIsWeb || !Hive.isBoxOpen(AppConstants.prefsBoxKey)) return;
+    final cached = SovereignPrefsRepository.loadMiniPlayerState();
+    if (cached == null) return;
+    final formIndex = (cached['form'] as num?)?.toInt() ?? 0;
+    final modeIndex = (cached['mode'] as num?)?.toInt() ?? 0;
+    final posX = (cached['posX'] as num?)?.toDouble() ?? 0.0;
+    final posY = (cached['posY'] as num?)?.toDouble() ?? 0.0;
+    _form = formIndex >= PlayerForm.values.length
+        ? PlayerForm.pill
+        : PlayerForm.values[formIndex.clamp(0, PlayerForm.values.length - 1)];
+    _mode = PlayerMode.values[modeIndex.clamp(0, PlayerMode.values.length - 1)];
+    _position = Offset(posX, posY);
   }
 
   /// Sets the player form and persists. Notifies listeners so [MiniPlayerHost]
@@ -296,9 +317,17 @@ class MiniPlayerController extends ChangeNotifier {
     return false;
   }
 
-  /// Loads persisted form/mode/position from SharedPreferences.
+  /// Loads persisted form/mode/position from Sovereign Hive (when open) or SharedPreferences.
   Future<void> loadState() async {
     try {
+      if (!kIsWeb && Hive.isBoxOpen(AppConstants.prefsBoxKey)) {
+        final cached = SovereignPrefsRepository.loadMiniPlayerState();
+        if (cached != null) {
+          _hydrateFromHiveIfOpen();
+          if (!_isDisposed) notifyListeners();
+          return;
+        }
+      }
       final prefs = await SharedPreferences.getInstance();
       final formIndex = prefs.getInt(_keyForm) ?? 0;
       final modeIndex = prefs.getInt(_keyMode) ?? 0;
@@ -314,11 +343,23 @@ class MiniPlayerController extends ChangeNotifier {
     } catch (_) {
       // Use defaults on failure.
     }
-    notifyListeners();
+    if (!_isDisposed) {
+      notifyListeners();
+    }
   }
 
-  /// Persists current form/mode/position to SharedPreferences.
+  /// Persists current form/mode/position to Sovereign Hive (when open) and SharedPreferences.
   Future<void> _persistState() async {
+    if (!kIsWeb && Hive.isBoxOpen(AppConstants.prefsBoxKey)) {
+      unawaited(
+        SovereignPrefsRepository.saveMiniPlayerState(<String, dynamic>{
+          'form': _form.index,
+          'mode': _mode.index,
+          'posX': _position.dx,
+          'posY': _position.dy,
+        }),
+      );
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_keyForm, _form.index);

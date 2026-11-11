@@ -190,6 +190,40 @@ class CreatorVoiceCloneProfile {
   final String? signatureId;
   final VocalCleanseFlavor recommendedCleanseFlavor;
 
+  CreatorVoiceCloneProfile copyWith({
+    String? id,
+    String? creatorName,
+    String? nativeLanguage,
+    List<String>? calibrationLines,
+    List<double>? timbreEmbeddingPreview,
+    Map<String, double>? phonemeCadenceMap,
+    int? cadenceWpm,
+    double? clarityScore,
+    double? recordingDurationSec,
+    String? createdAtIso,
+    String? r2ReferenceUrl,
+    String? signatureId,
+    VocalCleanseFlavor? recommendedCleanseFlavor,
+  }) {
+    return CreatorVoiceCloneProfile(
+      id: id ?? this.id,
+      creatorName: creatorName ?? this.creatorName,
+      nativeLanguage: nativeLanguage ?? this.nativeLanguage,
+      calibrationLines: calibrationLines ?? this.calibrationLines,
+      timbreEmbeddingPreview:
+          timbreEmbeddingPreview ?? this.timbreEmbeddingPreview,
+      phonemeCadenceMap: phonemeCadenceMap ?? this.phonemeCadenceMap,
+      cadenceWpm: cadenceWpm ?? this.cadenceWpm,
+      clarityScore: clarityScore ?? this.clarityScore,
+      recordingDurationSec: recordingDurationSec ?? this.recordingDurationSec,
+      createdAtIso: createdAtIso ?? this.createdAtIso,
+      r2ReferenceUrl: r2ReferenceUrl ?? this.r2ReferenceUrl,
+      signatureId: signatureId ?? this.signatureId,
+      recommendedCleanseFlavor:
+          recommendedCleanseFlavor ?? this.recommendedCleanseFlavor,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'creatorName': creatorName,

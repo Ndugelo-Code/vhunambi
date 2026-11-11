@@ -5,38 +5,17 @@ import 'package:vhunambi_client/features/content_studio/domain/models/song_metad
 
 /// Library & User Asset Vault domain taxonomy.
 /// Reference: docs/foundation_blueprints/04_LIBRARY_VAULT_SPEC.md
-enum LibraryCategory {
-  songs,
-  playlists,
-  collections,
-  beats,
-  licensing,
-  trash,
-}
+enum LibraryCategory { songs, playlists, collections, beats, licensing, trash }
 
 /// Vault rendering mode: dense list rows vs. 2-column square grid cards.
-enum LibraryViewMode {
-  list,
-  grid,
-}
+enum LibraryViewMode { list, grid }
 
 /// Offline cache integrity state for a vaulted audio asset.
-enum TrackSyncStatus {
-  synced,
-  downloading,
-  cachedLocally,
-  cloudOnly,
-  error,
-}
+enum TrackSyncStatus { synced, downloading, cachedLocally, cloudOnly, error }
 
 /// Vault ordering applied by the populated asset list.
 /// Additive extension backing the header overflow control of Blueprint 04 §1.1.
-enum LibrarySortOrder {
-  newestFirst,
-  oldestFirst,
-  titleAscending,
-  mostPlayed,
-}
+enum LibrarySortOrder { newestFirst, oldestFirst, titleAscending, mostPlayed }
 
 /// Local vs. cloud presence filter backing the `🎛️ Filter` control (Blueprint 04 §3.2).
 enum LibrarySyncFilter {
@@ -99,6 +78,24 @@ class LibraryTrack {
   /// powering the cockpit lyrics reading mode (Mission 14).
   final String? lyrics;
 
+  /// Phase 58: Cryptographic ownership deed ID overriding legacy cosmetic format.
+  final String? licenseCertificateIdOverride;
+
+  /// Phase 58: Canonical FIPS 180-4 SHA-256 deed digest.
+  final String? licenseHash;
+
+  /// Phase 58: Wire tier slug (`basic_lease`, `stems_trackout`, `exclusive_stem`).
+  final String? licenseTierId;
+
+  /// Phase 58: Un-tagged 44.1 kHz master WAV local path on disk.
+  final String? masterAudioFilePath;
+
+  /// Phase 58: Isolated 4-channel 44.1 kHz stem WAV map (`drums`, `bass`, `melody`, `other`).
+  final Map<String, String> stemPaths;
+
+  /// Phase 59: LWW conflict-resolution timestamp in Unix epoch milliseconds.
+  final int? updatedAtMs;
+
   const LibraryTrack({
     required this.id,
     required this.title,
@@ -118,10 +115,29 @@ class LibraryTrack {
     this.playCount = 0,
     this.isFavorite = false,
     this.lyrics,
+    this.licenseCertificateIdOverride,
+    this.licenseHash,
+    this.licenseTierId,
+    this.masterAudioFilePath,
+    this.stemPaths = const <String, String>{},
+    this.updatedAtMs,
   });
 
+  /// Effective modification timestamp in milliseconds for LWW delta sync.
+  int get effectiveUpdatedAtMs =>
+      updatedAtMs ??
+      deletedAt?.millisecondsSinceEpoch ??
+      createdAt.millisecondsSinceEpoch;
+
   /// True when a local audio copy exists inside the device vault directory.
-  bool get isOfflineAvailable => localAudioFilePath != null;
+  bool get isOfflineAvailable =>
+      masterAudioFilePath != null || localAudioFilePath != null;
+
+  /// True when isolated 4-channel stems are unpacked on disk.
+  bool get hasUnpackedStems => stemPaths.isNotEmpty;
+
+  /// Prefers unpacked un-tagged master path before general offline cache path.
+  String? get effectiveAudioPath => masterAudioFilePath ?? localAudioFilePath;
 
   Duration get duration => Duration(seconds: durationSeconds);
 
@@ -183,6 +199,7 @@ class LibraryTrack {
 
   /// Ownership certificate reference displayed by the licensing action.
   String get licenseCertificateId =>
+      licenseCertificateIdOverride ??
       'VHB-${licenseType.toUpperCase()}-${id.toUpperCase()}';
 
   LibraryTrack copyWith({
@@ -206,6 +223,12 @@ class LibraryTrack {
     int? playCount,
     bool? isFavorite,
     String? lyrics,
+    String? licenseCertificateIdOverride,
+    String? licenseHash,
+    String? licenseTierId,
+    String? masterAudioFilePath,
+    Map<String, String>? stemPaths,
+    int? updatedAtMs,
   }) {
     return LibraryTrack(
       id: id ?? this.id,
@@ -228,6 +251,113 @@ class LibraryTrack {
       playCount: playCount ?? this.playCount,
       isFavorite: isFavorite ?? this.isFavorite,
       lyrics: lyrics ?? this.lyrics,
+      licenseCertificateIdOverride:
+          licenseCertificateIdOverride ?? this.licenseCertificateIdOverride,
+      licenseHash: licenseHash ?? this.licenseHash,
+      licenseTierId: licenseTierId ?? this.licenseTierId,
+      masterAudioFilePath: masterAudioFilePath ?? this.masterAudioFilePath,
+      stemPaths: stemPaths ?? this.stemPaths,
+      updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'id': id,
+    'title': title,
+    'creatorName': creatorName,
+    'genre': genre,
+    'language': language,
+    'durationSeconds': durationSeconds,
+    'remoteAudioUrl': remoteAudioUrl,
+    if (localAudioFilePath != null) 'localAudioFilePath': localAudioFilePath,
+    if (coverImageUrl != null) 'coverImageUrl': coverImageUrl,
+    'createdAt': createdAt.toIso8601String(),
+    'licenseType': licenseType,
+    'isDeleted': isDeleted,
+    if (deletedAt != null) 'deletedAt': deletedAt!.toIso8601String(),
+    'syncStatus': syncStatus.name,
+    'isInstrumental': isInstrumental,
+    'playCount': playCount,
+    'isFavorite': isFavorite,
+    if (lyrics != null) 'lyrics': lyrics,
+    if (licenseCertificateIdOverride != null)
+      'licenseCertificateIdOverride': licenseCertificateIdOverride,
+    if (licenseHash != null) 'licenseHash': licenseHash,
+    if (licenseTierId != null) 'licenseTierId': licenseTierId,
+    if (masterAudioFilePath != null) 'masterAudioFilePath': masterAudioFilePath,
+    if (stemPaths.isNotEmpty) 'stemPaths': stemPaths,
+    'updatedAtMs': effectiveUpdatedAtMs,
+    'updatedAt': DateTime.fromMillisecondsSinceEpoch(
+      effectiveUpdatedAtMs,
+    ).toIso8601String(),
+  };
+
+  factory LibraryTrack.fromJson(Map<String, dynamic> json) {
+    final createdAtStr = json['createdAt']?.toString();
+    final createdAt = createdAtStr != null
+        ? (DateTime.tryParse(createdAtStr) ?? DateTime.now())
+        : DateTime.now();
+
+    final deletedAtStr = json['deletedAt']?.toString();
+    final deletedAt = deletedAtStr != null
+        ? DateTime.tryParse(deletedAtStr)
+        : null;
+
+    final rawStemPaths = json['stemPaths'] ?? json['stemFilesJson'];
+    final stemMap = <String, String>{};
+    if (rawStemPaths is Map) {
+      for (final entry in rawStemPaths.entries) {
+        if (entry.value != null) {
+          stemMap[entry.key.toString()] = entry.value.toString();
+        }
+      }
+    }
+
+    final syncStatusStr = json['syncStatus']?.toString();
+    final syncStatus = TrackSyncStatus.values.firstWhere(
+      (e) => e.name == syncStatusStr,
+      orElse: () => TrackSyncStatus.cloudOnly,
+    );
+
+    final rawUpdatedAtMs = json['updatedAtMs'];
+    int? updatedAtMs;
+    if (rawUpdatedAtMs is num) {
+      updatedAtMs = rawUpdatedAtMs.toInt();
+    } else if (json['updatedAt'] is String) {
+      updatedAtMs = DateTime.tryParse(
+        json['updatedAt'] as String,
+      )?.millisecondsSinceEpoch;
+    }
+
+    return LibraryTrack(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? 'Untitled Track').toString(),
+      creatorName: (json['creatorName'] ?? json['artist'] ?? 'Unknown Creator')
+          .toString(),
+      genre: (json['genre'] ?? 'Amapiano').toString(),
+      language: (json['language'] ?? 'English').toString(),
+      durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 180,
+      remoteAudioUrl: (json['remoteAudioUrl'] ?? json['audioUrl'] ?? '')
+          .toString(),
+      localAudioFilePath: json['localAudioFilePath'] as String?,
+      coverImageUrl: (json['coverImageUrl'] ?? json['coverUrl']) as String?,
+      createdAt: createdAt,
+      licenseType: (json['licenseType'] ?? 'Commercial').toString(),
+      isDeleted: json['isDeleted'] as bool? ?? false,
+      deletedAt: deletedAt,
+      syncStatus: syncStatus,
+      isInstrumental: json['isInstrumental'] as bool? ?? false,
+      playCount: (json['playCount'] as num?)?.toInt() ?? 0,
+      isFavorite: json['isFavorite'] as bool? ?? false,
+      lyrics: json['lyrics'] as String?,
+      licenseCertificateIdOverride:
+          (json['licenseCertificateIdOverride'] ?? json['certificateId'])
+              as String?,
+      licenseHash: json['licenseHash'] as String?,
+      licenseTierId: (json['licenseTierId'] ?? json['licenseTier']) as String?,
+      masterAudioFilePath: json['masterAudioFilePath'] as String?,
+      stemPaths: Map<String, String>.unmodifiable(stemMap),
+      updatedAtMs: updatedAtMs,
     );
   }
 
@@ -240,7 +370,7 @@ class LibraryTrack {
       genre: genre,
       language: language,
       duration: duration,
-      audioUrl: localAudioFilePath ?? remoteAudioUrl,
+      audioUrl: masterAudioFilePath ?? localAudioFilePath ?? remoteAudioUrl,
       coverUrl: coverImageUrl,
       playCount: playCount,
     );
@@ -267,29 +397,40 @@ class LibraryTrack {
         other.isInstrumental == isInstrumental &&
         other.playCount == playCount &&
         other.isFavorite == isFavorite &&
-        other.lyrics == lyrics;
+        other.lyrics == lyrics &&
+        other.licenseCertificateIdOverride == licenseCertificateIdOverride &&
+        other.licenseHash == licenseHash &&
+        other.licenseTierId == licenseTierId &&
+        other.masterAudioFilePath == masterAudioFilePath &&
+        other.updatedAtMs == updatedAtMs &&
+        mapEquals(other.stemPaths, stemPaths);
   }
 
   @override
-  int get hashCode => Object.hash(
-        id,
-        title,
-        creatorName,
-        genre,
-        language,
-        durationSeconds,
-        remoteAudioUrl,
-        localAudioFilePath,
-        coverImageUrl,
-        createdAt,
-        licenseType,
-        isDeleted,
-        deletedAt,
-        syncStatus,
-        isInstrumental,
-        playCount,
-        isFavorite,
-        lyrics,
-      );
-
+  int get hashCode => Object.hashAll([
+    id,
+    title,
+    creatorName,
+    genre,
+    language,
+    durationSeconds,
+    remoteAudioUrl,
+    localAudioFilePath,
+    coverImageUrl,
+    createdAt,
+    licenseType,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+    isInstrumental,
+    playCount,
+    isFavorite,
+    lyrics,
+    licenseCertificateIdOverride,
+    licenseHash,
+    licenseTierId,
+    masterAudioFilePath,
+    updatedAtMs,
+    Object.hashAll(stemPaths.entries.map((e) => Object.hash(e.key, e.value))),
+  ]);
 }

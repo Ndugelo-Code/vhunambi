@@ -1,8 +1,13 @@
 import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/storage/sovereign_domain_repositories.dart';
+import '../../domain/models/licensing_models.dart';
 import '../../domain/models/marketplace_models.dart';
 import '../../domain/repositories/i_marketplace_repository.dart';
+import '../../domain/services/license_agreement_engine.dart';
+import '../../domain/services/sovereign_certificate_signer.dart';
 
 /// Production HTTP repository for Vhunambi Beats Marketplace (Phase 28).
 ///
@@ -13,6 +18,7 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
   final Dio _dio;
   final String _baseUrl;
   final bool isTestMode;
+  final bool _hasCustomDio;
 
   final Map<String, BeatListingEntity> _fallbackBeats = {};
 
@@ -20,21 +26,29 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
     Dio? dio,
     String? baseUrl,
     bool? isTestMode,
-  })  : _dio = dio ??
-            Dio(
-              BaseOptions(
-                connectTimeout: const Duration(seconds: 4),
-                receiveTimeout: const Duration(seconds: 4),
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                },
-              ),
-            ),
-        _baseUrl = baseUrl ?? _resolveDefaultBaseUrl(),
-        isTestMode = isTestMode ?? _detectTestMode() {
+    Interceptor? authInterceptor,
+  }) : _dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               connectTimeout: const Duration(seconds: 4),
+               receiveTimeout: const Duration(seconds: 4),
+               headers: {
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/json',
+               },
+             ),
+           ),
+       _baseUrl = baseUrl ?? _resolveDefaultBaseUrl(),
+       isTestMode = isTestMode ?? _detectTestMode(),
+       _hasCustomDio = dio != null {
+    if (dio == null && authInterceptor != null) {
+      _dio.interceptors.add(authInterceptor);
+    }
     _seedFallbackBeats();
   }
+
+  bool get _shouldSkipNetwork => isTestMode && !_hasCustomDio;
 
   static bool _detectTestMode() {
     if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
@@ -46,13 +60,8 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
     return false;
   }
 
-  static String _resolveDefaultBaseUrl() {
-    if (kIsWeb) return 'http://localhost:3000/api/marketplace';
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:3000/api/marketplace';
-    }
-    return 'http://localhost:3000/api/marketplace';
-  }
+  static String _resolveDefaultBaseUrl() =>
+      '${AppConstants.apiRestBaseUrl}/marketplace';
 
   void _seedFallbackBeats() {
     final now = DateTime.now();
@@ -152,6 +161,52 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
     for (final s in seeds) {
       _fallbackBeats[s.id] = s;
     }
+
+    if (SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.marketplaceCatalogBoxKey,
+    )) {
+      for (final removedId
+          in MarketplaceCatalogCacheRepository.loadRemovedListingIds()) {
+        _fallbackBeats.remove(removedId);
+      }
+      for (final customJson
+          in MarketplaceCatalogCacheRepository.loadCustomListings()) {
+        try {
+          final parsed = BeatListingEntity.fromJson(customJson);
+          _fallbackBeats[parsed.id] = parsed;
+        } catch (_) {}
+      }
+      for (final entry in _fallbackBeats.entries.toList()) {
+        _fallbackBeats[entry.key] = _overlayPersistedBeatState(entry.value);
+      }
+    }
+  }
+
+  BeatListingEntity _overlayPersistedBeatState(BeatListingEntity beat) {
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.marketplaceCatalogBoxKey,
+    )) {
+      return beat;
+    }
+    final isSold =
+        MarketplaceCatalogCacheRepository.isExclusiveSold(beat.id) ||
+        beat.isExclusiveSold;
+    final buyerId =
+        MarketplaceCatalogCacheRepository.loadExclusiveBuyerId(beat.id) ??
+        beat.exclusiveBuyerId;
+    final salesCount =
+        MarketplaceCatalogCacheRepository.loadSalesCount(beat.id) ??
+        beat.totalSales;
+    if (isSold == beat.isExclusiveSold &&
+        buyerId == beat.exclusiveBuyerId &&
+        salesCount == beat.totalSales) {
+      return beat;
+    }
+    return beat.copyWith(
+      isExclusiveSold: isSold,
+      exclusiveBuyerId: buyerId,
+      totalSales: salesCount,
+    );
   }
 
   @override
@@ -162,7 +217,7 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
     int? maxBpm,
     int? maxPrice,
   }) async {
-    if (!isTestMode) {
+    if (!_shouldSkipNetwork) {
       try {
         final res = await _dio.get(
           '$_baseUrl/beats',
@@ -176,14 +231,19 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
         );
         if (res.statusCode == 200 && res.data is Map) {
           final list = res.data['beats'] as List? ?? [];
-          return list.map((json) => _fromJson(Map<String, dynamic>.from(json))).toList();
+          return list
+              .map((json) => _fromJson(Map<String, dynamic>.from(json)))
+              .map(_overlayPersistedBeatState)
+              .toList();
         }
       } catch (_) {}
     }
 
-    var list = _fallbackBeats.values.toList();
+    var list = _fallbackBeats.values.map(_overlayPersistedBeatState).toList();
     if (genre != null && genre != 'All') {
-      list = list.where((b) => b.genre.toLowerCase() == genre.toLowerCase()).toList();
+      list = list
+          .where((b) => b.genre.toLowerCase() == genre.toLowerCase())
+          .toList();
     }
     if (search != null && search.trim().isNotEmpty) {
       final q = search.trim().toLowerCase();
@@ -199,28 +259,34 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
     }
     if (minBpm != null) list = list.where((b) => b.bpm >= minBpm).toList();
     if (maxBpm != null) list = list.where((b) => b.bpm <= maxBpm).toList();
-    if (maxPrice != null) list = list.where((b) => b.priceInCredits <= maxPrice).toList();
+    if (maxPrice != null) {
+      list = list.where((b) => b.priceInCredits <= maxPrice).toList();
+    }
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
   }
 
   @override
   Future<BeatListingEntity?> getBeatById(String id) async {
-    if (!isTestMode) {
+    if (!_shouldSkipNetwork) {
       try {
         final res = await _dio.get('$_baseUrl/beats/$id');
         if (res.statusCode == 200 && res.data is Map) {
-          return _fromJson(Map<String, dynamic>.from(res.data));
+          return _overlayPersistedBeatState(
+            _fromJson(Map<String, dynamic>.from(res.data)),
+          );
         }
       } catch (_) {}
     }
-    return _fallbackBeats[id];
+    final local = _fallbackBeats[id];
+    return local == null ? null : _overlayPersistedBeatState(local);
   }
 
   @override
   Future<BeatListingEntity> publishBeat(BeatListingEntity beat) async {
     _fallbackBeats[beat.id] = beat;
-    if (!isTestMode) {
+    await MarketplaceCatalogCacheRepository.saveBeatListing(beat.toJson());
+    if (!_shouldSkipNetwork) {
       try {
         final res = await _dio.post(
           '$_baseUrl/beats',
@@ -249,7 +315,8 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
   @override
   Future<bool> unpublishBeat(String id) async {
     _fallbackBeats.remove(id);
-    if (!isTestMode) {
+    await MarketplaceCatalogCacheRepository.removeBeatListing(id);
+    if (!_shouldSkipNetwork) {
       try {
         final res = await _dio.delete('$_baseUrl/beats/$id');
         return res.statusCode == 200;
@@ -266,43 +333,119 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
     String paymentMethod = 'coins',
   }) async {
     final beat = _fallbackBeats[beatId];
-    if (beat != null) {
-      _fallbackBeats[beatId] = beat.copyWith(totalSales: beat.totalSales + 1);
+    final checkoutTier = BeatCheckoutTier.fromWire(tier);
+    final persistedSold =
+        SovereignDomainStorageMode.canHydrateFromStorage(
+          AppConstants.marketplaceCatalogBoxKey,
+        ) &&
+        MarketplaceCatalogCacheRepository.isExclusiveSold(beatId);
+
+    if ((beat != null && beat.isExclusiveSold) || persistedSold) {
+      return {
+        'error': 'Beat has already been sold exclusively',
+        'errorCode': 'EXCLUSIVE_CONFLICT',
+        'exclusiveConflict': true,
+      };
     }
 
-    if (!isTestMode) {
+    if (beat != null) {
+      final updatedSales = beat.totalSales + 1;
+      _fallbackBeats[beatId] = beat.copyWith(
+        totalSales: updatedSales,
+        isExclusiveSold: checkoutTier.grantsExclusivity
+            ? true
+            : beat.isExclusiveSold,
+        exclusiveBuyerId: checkoutTier.grantsExclusivity
+            ? buyerId
+            : beat.exclusiveBuyerId,
+      );
+      await MarketplaceCatalogCacheRepository.saveSalesCount(
+        beatId,
+        updatedSales,
+      );
+    }
+    if (checkoutTier.grantsExclusivity) {
+      await MarketplaceCatalogCacheRepository.markExclusiveSold(
+        beatId,
+        buyerId: buyerId,
+      );
+    }
+
+    if (!_shouldSkipNetwork) {
       try {
         final res = await _dio.post(
           '$_baseUrl/beats/$beatId/license',
           data: {
             'buyerId': buyerId,
-            'tier': tier,
+            'tier': checkoutTier.wireSlug,
             'paymentMethod': paymentMethod,
           },
         );
         if (res.statusCode == 201 && res.data is Map) {
           return Map<String, dynamic>.from(res.data);
         }
+      } on DioException catch (e) {
+        final status = e.response?.statusCode;
+        if (status == 409) {
+          return {
+            'error': 'Beat has already been sold exclusively',
+            'errorCode': 'EXCLUSIVE_CONFLICT',
+            'exclusiveConflict': true,
+          };
+        }
+        if (status == 402) {
+          return {
+            'error': 'Insufficient Coins balance',
+            'errorCode': 'INSUFFICIENT_FUNDS',
+            'insufficientFunds': true,
+          };
+        }
       } catch (_) {}
     }
 
+    final issuedAt = DateTime.now().toUtc();
+    final issuedAtIso = issuedAt.toIso8601String();
+    final certificateId = SovereignCertificateSigner.generateCertificateId(
+      beatId: beatId,
+      buyerId: buyerId,
+      timestampUtc: issuedAt,
+    );
+    const engine = LicenseAgreementEngine();
+    final pricing = engine.calculateTierPricing(
+      baseCredits: beat?.priceInCredits ?? 10,
+      tier: checkoutTier,
+    );
+    final masterDigest = SovereignCertificateSigner.sha256HexUtf8(beatId);
+    final preimage = SovereignCertificateSigner.buildCanonicalPreimage(
+      certificateId: certificateId,
+      beatId: beatId,
+      producerId: beat?.producerId ?? 'vhunambi_producer',
+      buyerId: buyerId,
+      tier: checkoutTier,
+      amountPaidCoins: pricing.grossCoins,
+      amountPaidZar: pricing.grossZar,
+      issuedAtIso8601: issuedAtIso,
+      masterFileSha256: masterDigest,
+    );
+    final licenseHash = SovereignCertificateSigner.sha256HexUtf8(preimage);
+
     final certPayload = {
-      'id': 'CERT-VHB-${beatId.toUpperCase()}',
-      'certificateId': 'CERT-VHB-${beatId.toUpperCase()}',
+      'id': certificateId,
+      'certificateId': certificateId,
       'beatId': beatId,
       'buyerId': buyerId,
       'licenseType': tier == 'exclusive'
           ? 'Exclusive Commercial Master License'
-          : 'Non-Exclusive Commercial Lease',
-      'licenseHash': 'hash_simulated_${DateTime.now().millisecondsSinceEpoch}',
-      'tier': tier,
-      'amountPaidCoins': (beat?.priceInCredits ?? 10) * 5,
+          : checkoutTier.displayName,
+      'licenseHash': licenseHash,
+      'tier': checkoutTier.wireSlug,
+      'amountPaidCoins': pricing.grossCoins,
+      'amountPaidZar': pricing.grossZar,
+      'issuedAt': issuedAtIso,
+      'masterFileSha256': masterDigest,
     };
 
-    return {
-      ...certPayload,
-      'certificate': certPayload,
-    };
+    return {...certPayload, 'certificate': certPayload};
   }
 
   BeatListingEntity _fromJson(Map<String, dynamic> json) {
@@ -315,16 +458,23 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
       genre: json['genre'] as String? ?? 'Amapiano',
       bpm: json['bpm'] as int? ?? 115,
       musicalKey: json['musicalKey'] as String? ?? 'F# Minor',
-      priceInCredits: (json['priceInCredits'] as int?) ??
+      priceInCredits:
+          (json['priceInCredits'] as int?) ??
           ((json['priceCoins'] as num?)?.toInt() ?? 50) ~/ 5,
       previewAudioUrl: json['previewAudioUrl'] as String? ?? '',
       stemZipUrl: json['stemZipUrl'] as String?,
       licenseType: json['licenseType'] as String? ?? 'Non-Exclusive Commercial',
-      totalSales: (json['salesCount'] as int?) ?? (json['totalSales'] as int?) ?? 0,
+      totalSales:
+          (json['salesCount'] as int?) ?? (json['totalSales'] as int?) ?? 0,
+      isExclusiveSold:
+          (json['isExclusiveSold'] as bool?) ??
+          ((json['is_exclusive_sold'] as num?)?.toInt() == 1),
+      exclusiveBuyerId:
+          (json['exclusiveBuyerId'] as String?) ??
+          (json['exclusive_buyer_id'] as String?),
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
           : DateTime.now(),
     );
   }
 }
-

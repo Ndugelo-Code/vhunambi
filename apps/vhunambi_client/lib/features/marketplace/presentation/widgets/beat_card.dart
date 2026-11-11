@@ -154,14 +154,29 @@ class BeatCard extends ConsumerWidget {
     return Row(
       children: [
         Expanded(
-          child: Text(
-            beat.priceLabel,
-            style: AppTypography.bodySmall.copyWith(
-              color: AppColors.brandPrimary,
-              fontWeight: FontWeight.bold,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                beat.priceLabel,
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.brandPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                '${beat.baseCoins} Coins',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.coinGold,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
         const SizedBox(width: AppSpacing.xxs),

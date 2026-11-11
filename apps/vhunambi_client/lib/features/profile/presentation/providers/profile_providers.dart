@@ -1,5 +1,10 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/auth/auth_providers.dart';
+import '../../../../core/auth/sovereign_auth_session.dart';
 import '../../../../core/cache/profile_cache.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/storage/sovereign_domain_repositories.dart';
 import '../../../../core/utils/creator_id_utils.dart';
 import '../../data/repositories/profile_repository_impl.dart';
 import '../../domain/models/profile_models.dart';
@@ -20,7 +25,8 @@ final artistProfileFamilyProvider =
 /// Account owner creator studio profile provider for `/profile/me` (REQ-TRK-15).
 final ownerProfileProvider =
     StateNotifierProvider<ArtistProfileNotifier, ArtistProfileEntity>((ref) {
-      return ArtistProfileNotifier('me');
+      final session = ref.watch(authSessionProvider);
+      return ArtistProfileNotifier.forOwnerSession(session);
     });
 
 /// Global profile repository provider.
@@ -30,6 +36,7 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
 
 /// Global profile cache provider.
 final profileCacheProvider = Provider<ProfileCache>((ref) {
+  ref.watch(currentCreatorIdProvider);
   return ProfileCache();
 });
 
@@ -55,8 +62,13 @@ final ownerProfileOperationProvider =
     StateNotifierProvider<ProfileOperationNotifier, ProfileOperationState>((
       ref,
     ) {
+      final session = ref.watch(authSessionProvider);
+      final targetArtistId =
+          session.isGuest && session.canonicalCreatorId == 'creator_cern'
+          ? 'me'
+          : session.rawUsername;
       return ProfileOperationNotifier(
-        artistId: 'me',
+        artistId: targetArtistId,
         repository: ref.watch(profileRepositoryProvider),
         cache: ref.watch(profileCacheProvider),
         profileNotifier: ref.watch(ownerProfileProvider.notifier),
@@ -74,7 +86,59 @@ final ownerProfileOperationProvider =
 class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
   final String artistId;
 
-  ArtistProfileNotifier(this.artistId) : super(_lookupProfile(artistId));
+  ArtistProfileNotifier(this.artistId) : super(_initialProfile(artistId));
+
+  ArtistProfileNotifier.forOwnerSession(SovereignAuthSession session)
+    : artistId = 'me',
+      super(_initialOwnerProfile(session));
+
+  static ArtistProfileEntity _initialProfile(String artistId) {
+    if (artistId == 'me' &&
+        SovereignDomainStorageMode.canHydrateFromStorage(
+          AppConstants.profileBoxKey,
+        )) {
+      final cachedJson = SovereignPrefsRepository.loadOwnerProfile();
+      if (cachedJson != null && cachedJson.isNotEmpty) {
+        try {
+          return ArtistProfileEntity.fromJson(cachedJson);
+        } catch (_) {}
+      }
+    }
+    return _lookupProfile(artistId);
+  }
+
+  static ArtistProfileEntity _initialOwnerProfile(
+    SovereignAuthSession session,
+  ) {
+    if (SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.profileBoxKey,
+    )) {
+      final cachedJson = SovereignPrefsRepository.loadOwnerProfile();
+      if (cachedJson != null && cachedJson.isNotEmpty) {
+        try {
+          return ArtistProfileEntity.fromJson(cachedJson);
+        } catch (_) {}
+      }
+    }
+
+    if (session.isGuest && session.canonicalCreatorId == 'creator_cern') {
+      return _lookupProfile('me');
+    }
+
+    final matched = _lookupProfile(session.rawUsername);
+    return matched.copyWith(
+      id: session.canonicalCreatorId,
+      username: session.rawUsername,
+      displayName: session.displayName,
+      monogram: session.monogram,
+    );
+  }
+
+  void _persistIfOwner() {
+    if (artistId == 'me') {
+      unawaited(SovereignPrefsRepository.saveOwnerProfile(state.toJson()));
+    }
+  }
 
   /// Toggles following state and updates the follower counter (REQ-TRK-12).
   void toggleFollow() {
@@ -103,11 +167,13 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
       isReceived: true,
     );
     state = state.copyWith(tipHistory: [tipRecord, ...state.tipHistory]);
+    _persistIfOwner();
   }
 
   /// Toggles whether fans can send direct credit tips (REQ-TRK-16).
   void toggleTipsEnabled() {
     state = state.copyWith(tipsEnabled: !state.tipsEnabled);
+    _persistIfOwner();
   }
 
   /// Updates the creator's profile picture or AI-synthesized avatar.
@@ -117,11 +183,13 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
     } else {
       state = state.copyWith(avatarUrl: url);
     }
+    _persistIfOwner();
   }
 
   /// Adds an Album, EP, or Single to the artist discography (REQ-TRK-15).
   void addRelease(MusicReleaseEntity release) {
     state = state.copyWith(releases: [release, ...state.releases]);
+    _persistIfOwner();
   }
 
   /// Updates profile metadata details (display name, username, bio, signature genres) (Phase 33 REQ-PRF-02).
@@ -139,6 +207,7 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
       topGenres: topGenres,
       archetype: archetype,
     );
+    _persistIfOwner();
   }
 
   /// Sets or clears the pinned featured spotlight track (Phase 33 REQ-PRF-03).
@@ -148,6 +217,7 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
     } else {
       state = state.copyWith(pinnedTrackId: trackId);
     }
+    _persistIfOwner();
   }
 
   /// Synchronizes dynamic cross-platform analytics metrics onto profile state.
@@ -163,11 +233,13 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
       likeCount: likeCount,
       topGenres: topGenres,
     );
+    _persistIfOwner();
   }
 
   /// Seeds or updates the profile state from a cached or fresh entity.
   void seedFromCache(ArtistProfileEntity cached) {
     state = cached;
+    _persistIfOwner();
   }
 
   /// Rolls back an optimistic follow toggle.

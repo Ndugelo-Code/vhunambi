@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +10,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/studio_form_state.dart';
+import '../providers/generation_pipeline_providers.dart';
 import '../providers/lyrics_review_provider.dart';
+import '../providers/melody_sketchpad_provider.dart';
 import '../providers/studio_form_provider.dart';
 import 'lyrics_review_modal.dart';
 
@@ -185,6 +189,28 @@ class StudioActionBar extends ConsumerWidget {
 
     if (!reviewLyrics) {
       formNotifier.triggerGeneration();
+      final rawLyrics = formState.customLyrics?.trim();
+      final customLyrics = formState.isInstrumental
+          ? null
+          : ((rawLyrics != null && rawLyrics.isNotEmpty) ? rawLyrics : null);
+      final musicalKey =
+          formState.referenceAudioPath?.startsWith('sketchpad://') == true
+              ? ref.read(melodySketchpadProvider).attachedPattern?.musicalKey ??
+                  formState.toSongMetadataDna().musical.key
+              : formState.toSongMetadataDna().musical.key;
+      unawaited(
+        ref
+            .read(generationProgressProvider.notifier)
+            .submitAndStartGeneration(
+              trackTitle: formState.resolvedTitle,
+              genre: formState.genre,
+              language: formState.language,
+              lyrics: customLyrics,
+              isInstrumental: formState.isInstrumental,
+              tempoBpm: formState.tempo.defaultBpm,
+              musicalKey: musicalKey,
+            ),
+      );
       return;
     }
 

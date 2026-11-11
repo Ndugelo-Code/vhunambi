@@ -6,13 +6,7 @@ import '../../../track/domain/models/track_entity.dart';
 /// Deliberately distinct from `GenerationPhase` in `studio_form_state.dart`:
 /// that enum drives the studio *form* FSM, this one drives the live pipeline
 /// card (T10.1).
-enum PipelineStep {
-  startingUp,
-  writingLyrics,
-  producingBeat,
-  ready,
-  failed,
-}
+enum PipelineStep { startingUp, writingLyrics, producingBeat, ready, failed }
 
 /// Parsed representation of a single WebSocket `pipeline_event` frame.
 @immutable
@@ -43,29 +37,102 @@ class PipelineSocketEvent {
 
   /// Tolerant decoder — a malformed frame must never tear down the socket.
   factory PipelineSocketEvent.fromJson(Map<String, dynamic> json) {
-    final rawTrack = json['completed_track'];
+    final generationId =
+        (json['generation_id'] ?? json['generationId']) as String? ?? '';
+    final rawStepObj = json['step'] ?? json['status'];
+    final rawStep = rawStepObj as String? ?? '';
+    final step = stepFromString(rawStep);
+
+    final rawProgress = json['progress_percent'] ?? json['progressPct'];
+    var progressPercent = (rawProgress as num?)?.toDouble() ?? 0.0;
+    if (progressPercent > 1.0) {
+      progressPercent = (progressPercent / 100.0).clamp(0.0, 1.0);
+    }
+
+    final explicitError = (json['error'] ?? json['errorMessage']) as String?;
+    final hasStepOrError = rawStepObj != null || explicitError != null;
+
+    final rawStepIndex = (json['step_index'] as num?)?.toInt();
+    final stepIndex =
+        rawStepIndex ??
+        (!hasStepOrError
+            ? 0
+            : switch (step) {
+                PipelineStep.startingUp => 1,
+                PipelineStep.writingLyrics => 2,
+                PipelineStep.producingBeat => 3,
+                PipelineStep.ready => 4,
+                PipelineStep.failed => 0,
+              });
+
+    final explicitMessage =
+        (json['status_message'] ?? json['message']) as String?;
+    final statusMessage =
+        explicitMessage ??
+        (!hasStepOrError
+            ? ''
+            : switch (step) {
+                PipelineStep.startingUp => 'Starting synthesis pipeline...',
+                PipelineStep.writingLyrics =>
+                  'Composing authentic dialect lyrics...',
+                PipelineStep.producingBeat =>
+                  'Rendering African rhythm and audio stems...',
+                PipelineStep.ready => 'Studio Master Ready',
+                PipelineStep.failed => explicitError ?? 'Synthesis failed.',
+              });
+
+    TrackEntity? completedTrack;
+    final rawTrack = json['completed_track'] ?? json['completedTrack'];
+    if (rawTrack is Map) {
+      completedTrack = TrackEntity.fromJson(
+        Map<String, dynamic>.from(rawTrack),
+      );
+    } else if (step == PipelineStep.ready) {
+      final masterUrl =
+          (json['masterMp3Url'] ?? json['master_mp3_url'] ?? json['audio_url'])
+              as String? ??
+          '';
+      if (masterUrl.isNotEmpty) {
+        completedTrack = TrackEntity.fromJson(<String, dynamic>{
+          'id': generationId.isNotEmpty ? generationId : 'gen_ready',
+          'title': json['trackTitle'] ?? json['title'] ?? 'Studio Master',
+          'genre': json['genre'] ?? 'Amapiano',
+          'language': json['language'] ?? 'English',
+          'master_mp3_url': masterUrl,
+          'stems_url': json['stemsZipUrl'] ?? json['stems_zip_url'],
+          'stem_urls': json['stemUrls'] ?? json['stem_urls'],
+          'duration_seconds': json['durationSec'] ?? 180,
+        });
+      }
+    }
+
     return PipelineSocketEvent(
-      generationId: json['generation_id'] as String? ?? '',
-      step: stepFromString(json['step'] as String? ?? ''),
-      stepIndex: (json['step_index'] as num?)?.toInt() ?? 0,
-      progressPercent:
-          (json['progress_percent'] as num?)?.toDouble() ?? 0.0,
-      statusMessage: json['status_message'] as String? ?? '',
-      generatedLyrics: json['generated_lyrics'] as String?,
-      completedTrack: rawTrack is Map
-          ? TrackEntity.fromJson(Map<String, dynamic>.from(rawTrack))
-          : null,
-      error: json['error'] as String?,
+      generationId: generationId,
+      step: step,
+      stepIndex: stepIndex,
+      progressPercent: progressPercent,
+      statusMessage: statusMessage,
+      generatedLyrics:
+          (json['generated_lyrics'] ?? json['generatedLyrics']) as String?,
+      completedTrack: completedTrack,
+      error: explicitError,
     );
   }
 
   /// Wire-format step names → [PipelineStep] (`default → failed`).
   static PipelineStep stepFromString(String raw) {
-    return switch (raw) {
-      'starting_up' => PipelineStep.startingUp,
+    return switch (raw.trim().toLowerCase()) {
+      'starting_up' || 'queued' || 'in_queue' => PipelineStep.startingUp,
       'writing_lyrics' => PipelineStep.writingLyrics,
-      'producing_beat' => PipelineStep.producingBeat,
-      'ready' => PipelineStep.ready,
+      'producing_beat' ||
+      'synthesizing' ||
+      'running' ||
+      'processing' ||
+      'separating_stems' ||
+      'uploading' ||
+      'mastering' ||
+      'in_progress' => PipelineStep.producingBeat,
+      'ready' || 'completed' || 'succeeded' => PipelineStep.ready,
       _ => PipelineStep.failed,
     };
   }
@@ -153,12 +220,12 @@ class GenerationProgressState {
   /// Additive convenience mirroring [PipelineSocketEvent.stepIndex] so the
   /// pipeline card never has to duplicate the enum → index mapping.
   int get stepNumber => switch (currentStep) {
-        PipelineStep.startingUp => 1,
-        PipelineStep.writingLyrics => 2,
-        PipelineStep.producingBeat => 3,
-        PipelineStep.ready => 4,
-        PipelineStep.failed => 0,
-      };
+    PipelineStep.startingUp => 1,
+    PipelineStep.writingLyrics => 2,
+    PipelineStep.producingBeat => 3,
+    PipelineStep.ready => 4,
+    PipelineStep.failed => 0,
+  };
 
   GenerationProgressState copyWith({
     String? generationId,

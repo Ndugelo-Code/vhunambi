@@ -4,8 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/storage/hive_compaction_scheduler.dart';
 import '../../../mastering/domain/models/stem_mastering_recipe.dart';
 import '../../../mastering/presentation/providers/mastering_session_provider.dart';
+import '../../../sound_signature/data/sound_signature_repository.dart';
+import '../../data/services/pre_gen_r2_upload_service.dart';
 import '../../data/services/sketchpad_audio_player_service.dart';
 import '../../domain/models/vocal_identity_models.dart';
 import '../../domain/services/i_voice_calibration_recorder.dart';
@@ -163,43 +166,130 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
   final IVoiceCalibrationRecorder _recorder;
   StreamSubscription<double>? _amplitudeSub;
   static const String _profilesListKey = 'cloned_voice_profiles_json';
+  static const String _voiceKeyPrefix = 'voice_';
+  static const String _activeVoiceIdKey = 'active_cloned_voice_id';
 
   void _loadPersistedClones() {
     try {
       if (!Hive.isBoxOpen(AppConstants.voiceProfilesBoxKey)) return;
       final box = Hive.box<dynamic>(AppConstants.voiceProfilesBoxKey);
-      final rawJson = box.get(_profilesListKey) as String?;
-      if (rawJson == null || rawJson.isEmpty) return;
 
-      final decoded = jsonDecode(rawJson) as List<dynamic>;
-      final profiles = decoded
-          .map(
-            (e) => CreatorVoiceCloneProfile.fromJson(
-              Map<String, dynamic>.from(e as Map),
-            ),
-          )
-          .toList();
-
-      if (profiles.isNotEmpty) {
-        state = state.copyWith(
-          clonedProfiles: profiles,
-          activeClonedProfile: profiles.first,
-        );
+      // Migrate legacy monolithic JSON list to O(1) entity keys ('voice_<id>').
+      final legacyRaw = box.get(_profilesListKey) as String?;
+      if (legacyRaw != null && legacyRaw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(legacyRaw) as List<dynamic>;
+          final legacyProfiles = decoded
+              .map(
+                (e) => CreatorVoiceCloneProfile.fromJson(
+                  Map<String, dynamic>.from(e as Map),
+                ),
+              )
+              .toList();
+          for (final profile in legacyProfiles) {
+            unawaited(
+              box.put(
+                '$_voiceKeyPrefix${profile.id}',
+                jsonEncode(profile.toJson()),
+              ),
+            );
+          }
+          if (legacyProfiles.isNotEmpty &&
+              !box.containsKey(_activeVoiceIdKey)) {
+            unawaited(box.put(_activeVoiceIdKey, legacyProfiles.first.id));
+          }
+          unawaited(box.delete(_profilesListKey));
+        } catch (_) {}
       }
+
+      final profiles = <CreatorVoiceCloneProfile>[];
+      for (final rawKey in box.keys) {
+        final key = rawKey.toString();
+        if (!key.startsWith(_voiceKeyPrefix)) continue;
+        final rawVal = box.get(rawKey);
+        if (rawVal is String && rawVal.isNotEmpty) {
+          try {
+            profiles.add(
+              CreatorVoiceCloneProfile.fromJson(
+                Map<String, dynamic>.from(jsonDecode(rawVal) as Map),
+              ),
+            );
+          } catch (_) {}
+        } else if (rawVal is Map) {
+          try {
+            profiles.add(
+              CreatorVoiceCloneProfile.fromJson(
+                Map<String, dynamic>.from(rawVal),
+              ),
+            );
+          } catch (_) {}
+        }
+      }
+
+      if (profiles.isEmpty) return;
+      profiles.sort((a, b) => b.createdAtIso.compareTo(a.createdAtIso));
+
+      final hasActiveKey = box.containsKey(_activeVoiceIdKey);
+      final activeId = box.get(_activeVoiceIdKey) as String?;
+      CreatorVoiceCloneProfile? activeProfile;
+      if (hasActiveKey) {
+        if (activeId != null && activeId.isNotEmpty) {
+          activeProfile = profiles.where((p) => p.id == activeId).firstOrNull;
+        }
+      } else {
+        activeProfile = profiles.first;
+      }
+
+      state = state.copyWith(
+        clonedProfiles: profiles,
+        activeClonedProfile: activeProfile,
+        clearActiveClone: activeProfile == null,
+      );
     } catch (_) {
       // Safe fallback in headless tests when Hive is not initialized
     }
   }
 
-  Future<void> _persistClones(List<CreatorVoiceCloneProfile> profiles) async {
+  Future<void> _persistSingleProfile(CreatorVoiceCloneProfile profile) async {
     try {
       if (!Hive.isBoxOpen(AppConstants.voiceProfilesBoxKey)) return;
       final box = Hive.box<dynamic>(AppConstants.voiceProfilesBoxKey);
-      final encoded = jsonEncode(profiles.map((p) => p.toJson()).toList());
-      await box.put(_profilesListKey, encoded);
+      await box.put(
+        '$_voiceKeyPrefix${profile.id}',
+        jsonEncode(profile.toJson()),
+      );
+      await box.put(_activeVoiceIdKey, profile.id);
+      await HiveCompactionScheduler.recordMutation(
+        AppConstants.voiceProfilesBoxKey,
+      );
     } catch (_) {
       // Safe fallback in headless tests
     }
+  }
+
+  Future<void> _deleteSingleProfile(
+    String profileId, {
+    required bool clearActive,
+  }) async {
+    try {
+      if (!Hive.isBoxOpen(AppConstants.voiceProfilesBoxKey)) return;
+      final box = Hive.box<dynamic>(AppConstants.voiceProfilesBoxKey);
+      await box.delete('$_voiceKeyPrefix$profileId');
+      if (clearActive) {
+        await box.put(_activeVoiceIdKey, '');
+      }
+      await HiveCompactionScheduler.recordMutation(
+        AppConstants.voiceProfilesBoxKey,
+      );
+    } catch (_) {}
+  }
+
+  void _persistActiveVoiceSelection(String? profileId) {
+    try {
+      if (!Hive.isBoxOpen(AppConstants.voiceProfilesBoxKey)) return;
+      final box = Hive.box<dynamic>(AppConstants.voiceProfilesBoxKey);
+      unawaited(box.put(_activeVoiceIdKey, profileId ?? ''));
+    } catch (_) {}
   }
 
   /// Syncs the active voice's recommended `VocalCleanseFlavor` into Phase 25's mastering session.
@@ -213,12 +303,14 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
   /// Selects one of the 24 regional African voice archetypes and clears any active clone override.
   void selectArchetype(RegionalVoiceArchetype archetype) {
     state = state.copyWith(activeArchetype: archetype, clearActiveClone: true);
+    _persistActiveVoiceSelection(null);
     _syncCleanseFlavorToMastering(archetype.recommendedCleanseFlavor);
   }
 
   /// Selects a previously recorded `CreatorVoiceCloneProfile` for zero-shot synthesis.
   void selectClonedProfile(CreatorVoiceCloneProfile profile) {
     state = state.copyWith(activeClonedProfile: profile);
+    _persistActiveVoiceSelection(profile.id);
     _syncCleanseFlavorToMastering(profile.recommendedCleanseFlavor);
   }
 
@@ -355,9 +447,55 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
       activeClonedProfile: profile,
     );
 
-    await _persistClones(updatedList);
+    await _persistSingleProfile(profile);
     _syncCleanseFlavorToMastering(profile.recommendedCleanseFlavor);
-    return profile;
+
+    var finalProfile = profile;
+    try {
+      final uploadedUrl = await _ref
+          .read(preGenR2UploadServiceProvider)
+          .uploadVoiceCloneReference(
+            profileId: finalProfile.id,
+            wavBytes: result.wavBytes,
+            creatorName: finalProfile.creatorName,
+            nativeLanguage: finalProfile.nativeLanguage,
+            calibrationLines: finalProfile.calibrationLines,
+            recordingDurationSec: finalProfile.recordingDurationSec,
+          );
+      if (uploadedUrl != null && uploadedUrl.isNotEmpty && mounted) {
+        finalProfile = finalProfile.copyWith(r2ReferenceUrl: uploadedUrl);
+        final updatedWithUrl = state.clonedProfiles
+            .map((p) => p.id == finalProfile.id ? finalProfile : p)
+            .toList();
+        state = state.copyWith(
+          clonedProfiles: updatedWithUrl,
+          activeClonedProfile:
+              state.activeClonedProfile?.id == finalProfile.id
+              ? finalProfile
+              : state.activeClonedProfile,
+        );
+        await _persistSingleProfile(finalProfile);
+      }
+    } catch (_) {
+      // Best-effort R2 upload; local voice clone remains active.
+    }
+
+    if (result.signature != null) {
+      try {
+        final uploader = _ref.read(preGenR2UploadServiceProvider);
+        unawaited(
+          _ref
+              .read(soundSignatureRepositoryProvider)
+              .uploadSignatureTakeToCloud(
+                dna: result.signature!,
+                wavBytes: result.wavBytes,
+                uploader: uploader,
+              ),
+        );
+      } catch (_) {}
+    }
+
+    return finalProfile;
   }
 
   /// Deletes a saved `CreatorVoiceCloneProfile` from device storage and clears active override if matched.
@@ -370,14 +508,11 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
       clonedProfiles: updated,
       clearActiveClone: clearActive,
     );
-    await _persistClones(updated);
+    await _deleteSingleProfile(profileId, clearActive: clearActive);
   }
 
   /// Seeds and aligns vocal identity from parent reel DNA for viral remixing (Phase D).
-  void initializeFromRemixDna({
-    String? deliveryMode,
-    String? genre,
-  }) {
+  void initializeFromRemixDna({String? deliveryMode, String? genre}) {
     RegionalVoiceArchetype? matched;
     if (deliveryMode != null && deliveryMode.isNotEmpty) {
       final style = VocalDeliveryStyle.values.firstWhere(

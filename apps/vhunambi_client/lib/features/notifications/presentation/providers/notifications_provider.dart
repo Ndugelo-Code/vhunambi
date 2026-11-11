@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
+import '../../data/repositories/notification_repository.dart';
 import '../../domain/models/notification_entity.dart';
 import '../../domain/models/notification_enums.dart';
-
 
 /// Phase 40 authentic seeded notifications spanning all 4 canonical categories:
 /// Social, System, Activity (creatorActivity), and Discovery (algorithmic).
@@ -43,7 +46,8 @@ List<NotificationEntity> get phase40SeededNotifications => [
   NotificationEntity(
     id: 'notif_p40_act_2',
     title: 'Fresh Crate Graduation Alert!',
-    message: 'Your track reached 25/25 A&R Co-Signs and graduated to Rising Breakout!',
+    message:
+        'Your track reached 25/25 A&R Co-Signs and graduated to Rising Breakout!',
     category: NotificationCategory.creatorActivity,
     priority: NotificationPriority.high,
     createdAt: DateTime.now().subtract(const Duration(hours: 8)),
@@ -60,7 +64,8 @@ List<NotificationEntity> get phase40SeededNotifications => [
   NotificationEntity(
     id: 'notif_p40_sys_1',
     title: 'VHU-SIG Continuous Phase DSP Active',
-    message: 'Continuous phase 44.1 kHz audio engine & acoustic resonance active',
+    message:
+        'Continuous phase 44.1 kHz audio engine & acoustic resonance active',
     category: NotificationCategory.system,
     priority: NotificationPriority.normal,
     createdAt: DateTime.now().subtract(const Duration(days: 1)),
@@ -68,7 +73,8 @@ List<NotificationEntity> get phase40SeededNotifications => [
   NotificationEntity(
     id: 'notif_p40_sys_2',
     title: 'Welcome to Vhunambi Creator Suite!',
-    message: 'Start generating high-fidelity African regional music and licensing sound stems.',
+    message:
+        'Start generating high-fidelity African regional music and licensing sound stems.',
     category: NotificationCategory.system,
     priority: NotificationPriority.normal,
     createdAt: DateTime.now().subtract(const Duration(days: 2)),
@@ -77,7 +83,8 @@ List<NotificationEntity> get phase40SeededNotifications => [
   NotificationEntity(
     id: 'notif_p40_alg_1',
     title: 'Regional Trend Alert',
-    message: 'Maskandi & Private School Amapiano trending in Gauteng (+420% plays)',
+    message:
+        'Maskandi & Private School Amapiano trending in Gauteng (+420% plays)',
     category: NotificationCategory.algorithmic,
     priority: NotificationPriority.normal,
     createdAt: DateTime.now().subtract(const Duration(hours: 6)),
@@ -86,7 +93,8 @@ List<NotificationEntity> get phase40SeededNotifications => [
   NotificationEntity(
     id: 'notif_p40_alg_2',
     title: 'Sonic DNA Affinity Match',
-    message: 'Your vocal timbres match 94% with Tshivenḓa folk and Afro-house rhythms',
+    message:
+        'Your vocal timbres match 94% with Tshivenḓa folk and Afro-house rhythms',
     category: NotificationCategory.algorithmic,
     priority: NotificationPriority.normal,
     createdAt: DateTime.now().subtract(const Duration(days: 1)),
@@ -121,58 +129,149 @@ List<NotificationEntity> get seededNotifications => [
   ),
 ];
 
-/// StateNotifier that manages in-app notifications (newest first).
+/// StateNotifier that manages in-app notifications (newest first) with
+/// Hive O(1) `notif_<id>` persistence.
 class NotificationsNotifier extends StateNotifier<List<NotificationEntity>> {
-  NotificationsNotifier([List<NotificationEntity>? initial])
-      : super(initial ?? const <NotificationEntity>[]);
+  final NotificationRepository _repo;
+  bool _autoSeedPending;
 
-  /// Seeds authentic multi-category alerts across Social, System, Activity & Discovery.
-  void seedDemoAlerts() {
-    if (state.isEmpty) {
-      state = phase40SeededNotifications;
+  NotificationsNotifier([
+    List<NotificationEntity>? initial,
+    NotificationRepository? repository,
+  ]) : _repo = repository ?? NotificationRepository(),
+       _autoSeedPending = initial == null,
+       super(
+         initial ??
+             _hydrateInitialNotifications(
+               repository ?? NotificationRepository(),
+             ),
+       ) {
+    if (state.isNotEmpty) {
+      _autoSeedPending = false;
+    }
+    if (initial == null &&
+        SovereignDomainStorageMode.canHydrateFromStorage(
+          AppConstants.notificationsBoxKey,
+        )) {
+      Future<void>.microtask(hydrateFromStorage);
     }
   }
 
-  /// Prepends a new notification to the top of the list.
+  /// Whether opening [NotificationsView] should auto-seed demo alerts on an
+  /// empty default store without overriding explicit test seeds or cleared state.
+  bool get shouldAutoSeedDemoAlerts => _autoSeedPending && state.isEmpty;
+
+  static List<NotificationEntity> _hydrateInitialNotifications(
+    NotificationRepository repo,
+  ) {
+    if (!SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.notificationsBoxKey,
+    )) {
+      return const <NotificationEntity>[];
+    }
+    return repo.getNotificationsSync();
+  }
+
+  /// Hydrates from persistent storage asynchronously (migrating any legacy list).
+  Future<void> hydrateFromStorage() async {
+    final loaded = await _repo.getNotifications();
+    if (!mounted || loaded.isEmpty) return;
+    _autoSeedPending = false;
+    if (state.isEmpty) {
+      state = loaded;
+    } else {
+      final byId = <String, NotificationEntity>{
+        for (final n in loaded) n.id: n,
+        for (final n in state) n.id: n,
+      };
+      final merged = byId.values.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      state = merged;
+    }
+  }
+
+  /// Seeds authentic multi-category alerts across Social, System, Activity & Discovery
+  /// only if the persisted notification store is empty.
+  void seedDemoAlerts() {
+    _autoSeedPending = false;
+    if (state.isEmpty) {
+      final seeds = phase40SeededNotifications;
+      state = seeds;
+      unawaited(_repo.saveNotifications(seeds));
+    }
+  }
+
+  /// Prepends a new notification to the top of the list and persists it in O(1).
   void addNotification(NotificationEntity notification) {
+    _autoSeedPending = false;
     state = <NotificationEntity>[notification, ...state];
+    unawaited(_repo.saveNotification(notification));
   }
 
   /// Backward-compatible adapter for Phase 10's StateProvider `.update()` calls.
   void update(
     List<NotificationEntity> Function(List<NotificationEntity>) updater,
   ) {
-    state = updater(state);
+    _autoSeedPending = false;
+    final prevIds = state.map((e) => e.id).toSet();
+    final next = updater(state);
+    state = next;
+    final nextIds = next.map((e) => e.id).toSet();
+    for (final removedId in prevIds.difference(nextIds)) {
+      unawaited(_repo.deleteNotification(removedId));
+    }
+    if (next.isNotEmpty) {
+      unawaited(_repo.saveNotifications(next));
+    }
   }
 
-  /// Marks a single notification as read by [id].
+  /// Marks a single notification as read by [id] and writes through in O(1).
   void markAsRead(String id) {
-    state = state
-        .map((n) => n.id == id ? n.copyWith(isRead: true) : n)
-        .toList();
+    NotificationEntity? updatedItem;
+    state = state.map((n) {
+      if (n.id == id) {
+        updatedItem = n.copyWith(isRead: true);
+        return updatedItem!;
+      }
+      return n;
+    }).toList();
+    if (updatedItem != null) {
+      unawaited(_repo.saveNotification(updatedItem!));
+    }
   }
 
-  /// Marks every existing notification as read.
+  /// Marks every existing notification as read and persists the update.
   void markAllAsRead() {
-    state = state.map((n) => n.copyWith(isRead: true)).toList();
+    final updated = state.map((n) => n.copyWith(isRead: true)).toList();
+    state = updated;
+    if (updated.isNotEmpty) {
+      unawaited(_repo.saveNotifications(updated));
+    }
   }
 
   /// Removes an individual notification by [id].
   void removeNotification(String id) {
+    _autoSeedPending = false;
     state = state.where((n) => n.id != id).toList();
+    unawaited(_repo.deleteNotification(id));
   }
 
-  /// Clears all notifications from the state list.
+  /// Alias matching NotificationRepository contract.
+  void deleteNotification(String id) => removeNotification(id);
+
+  /// Clears all notifications from state and persistent storage.
   void clearAll() {
+    _autoSeedPending = false;
     state = const <NotificationEntity>[];
+    unawaited(_repo.clearAll());
   }
 }
 
 /// Global provider for the notification list.
 final notificationsProvider =
     StateNotifierProvider<NotificationsNotifier, List<NotificationEntity>>(
-  (ref) => NotificationsNotifier(),
-);
+      (ref) => NotificationsNotifier(),
+    );
 
 /// Computed count of unread notifications.
 final unreadNotificationsCountProvider = Provider<int>((ref) {
@@ -191,8 +290,9 @@ final selectedCategoryProvider = StateProvider<NotificationCategory?>(
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
 /// Unread count per category — powers the bouncing rail badges.
-final unreadCountByCategoryProvider =
-    Provider<Map<NotificationCategory, int>>((ref) {
+final unreadCountByCategoryProvider = Provider<Map<NotificationCategory, int>>((
+  ref,
+) {
   final list = ref.watch(notificationsProvider);
   final counts = <NotificationCategory, int>{
     for (final c in NotificationCategory.values) c: 0,

@@ -1,6 +1,15 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import {
+  assertTenantCreatorAccess,
+  resolveEffectiveCreatorId,
+  sovereignAuthMiddleware,
+} from '../middleware/auth_middleware.js';
+import {
+  deleteR2Object,
+  getPresignedPutUrl,
+} from '../modules/synthesis/r2_storage.js';
+import {
   CreateVoiceCloneRequestSchema,
   RegisterSoundSignatureSchema,
   SoundIdealizerRecipeSchema,
@@ -18,6 +27,8 @@ import {
 } from '../modules/voices/voice_catalog.js';
 
 export const voiceRoutes = new Hono();
+
+voiceRoutes.use('*', sovereignAuthMiddleware);
 
 /**
  * GET /v1/voices/catalog
@@ -93,7 +104,18 @@ voiceRoutes.post('/clone', async (c) => {
       );
     }
 
-    const profile = registerVoiceCloneProfile(parsed.data);
+    const forbidden = assertTenantCreatorAccess(c, parsed.data.creatorId);
+    if (forbidden) return forbidden;
+
+    const effectiveCreatorId = resolveEffectiveCreatorId(
+      c,
+      parsed.data.creatorId,
+      'creator_cern',
+    );
+    const profile = registerVoiceCloneProfile({
+      ...parsed.data,
+      creatorId: effectiveCreatorId,
+    });
 
     return c.json(
       {
@@ -142,7 +164,7 @@ voiceRoutes.post('/signatures', async (c) => {
     }
 
     // Explicit consent is required before presigning cloud storage or GPU analysis
-    if (!parsed.data.consentAtIso) {
+    if (!parsed.data.consentAtIso && !parsed.data.consentConfirmed) {
       return c.json(
         {
           error: 'CONSENT_REQUIRED_FOR_CLOUD_PROCESSING',
@@ -152,13 +174,35 @@ voiceRoutes.post('/signatures', async (c) => {
       );
     }
 
-    const record = registerSoundSignature(parsed.data);
+    if (parsed.data.creatorId) {
+      const forbidden = assertTenantCreatorAccess(c, parsed.data.creatorId);
+      if (forbidden) return forbidden;
+    }
+
+    const effectiveCreatorId = resolveEffectiveCreatorId(
+      c,
+      parsed.data.creatorId,
+      'creator_cern',
+    );
+    const record = registerSoundSignature({
+      ...parsed.data,
+      creatorId: effectiveCreatorId,
+      consentAtIso: parsed.data.consentAtIso ?? new Date().toISOString(),
+    });
+    const presignedUploadUrl = await getPresignedPutUrl(
+      record.r2AudioKey,
+      'audio/wav',
+      900,
+      c,
+    );
 
     return c.json(
       {
         success: true,
         signature: record,
-        uploadUrl: `https://r2.vhunambi.com/signatures/${record.id}/raw.wav?presigned=true&ttl=900`,
+        uploadUrl: presignedUploadUrl,
+        presignedUploadUrl,
+        expiresInSeconds: 900,
         r2Key: record.r2AudioKey,
       },
       201,
@@ -198,6 +242,13 @@ voiceRoutes.post('/signatures/:id/analyze', async (c) => {
  */
 voiceRoutes.patch('/signatures/:id/recipe', async (c) => {
   const id = c.req.param('id');
+  const existing = getSoundSignature(id);
+  if (!existing) {
+    return c.json({ error: 'NOT_FOUND', message: `Sound signature ${id} not found` }, 404);
+  }
+  const forbidden = assertTenantCreatorAccess(c, existing.creatorId);
+  if (forbidden) return forbidden;
+
   const body = await c.req.json();
 
   const parsed = SoundIdealizerRecipeSchema.partial().safeParse(body);
@@ -235,8 +286,18 @@ voiceRoutes.get('/signatures/:id', (c) => {
  * DELETE /v1/voices/signatures/:id
  * Purges signature metadata, cloud audio take, and speaker embedding.
  */
-voiceRoutes.delete('/signatures/:id', (c) => {
+voiceRoutes.delete('/signatures/:id', async (c) => {
   const id = c.req.param('id');
+  const existing = getSoundSignature(id);
+  if (!existing) {
+    return c.json({ error: 'NOT_FOUND', message: `Sound signature ${id} not found` }, 404);
+  }
+
+  const forbidden = assertTenantCreatorAccess(c, existing.creatorId);
+  if (forbidden) return forbidden;
+
+  const r2Key = existing.r2AudioKey || `signatures/${id}/raw.wav`;
+  await deleteR2Object(r2Key, c);
   const deleted = deleteSoundSignature(id);
 
   if (!deleted) {
@@ -245,8 +306,12 @@ voiceRoutes.delete('/signatures/:id', (c) => {
 
   return c.json({
     success: true,
+    deleted: true,
     deletedId: id,
-    purgedResources: [`r2://signatures/${id}/raw.wav`, `embeddings/${id}`],
+    id,
+    r2Cleaned: true,
+    timestamp: new Date().toISOString(),
+    purgedResources: [`r2://${r2Key}`, `embeddings/${id}`],
   });
 });
 

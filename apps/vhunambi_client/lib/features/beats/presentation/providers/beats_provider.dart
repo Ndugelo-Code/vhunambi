@@ -182,6 +182,8 @@ BeatListingEntity beatListingFromEntity(ProducerBeatEntity beat) {
         : null,
     licenseType: beat.licenseTier.label,
     totalSales: beat.totalSales,
+    isExclusiveSold: beat.isExclusiveSold,
+    exclusiveBuyerId: beat.exclusiveBuyerId,
     createdAt: beat.createdAt,
   );
 }
@@ -421,8 +423,9 @@ class BeatsNotifier extends StateNotifier<List<ProducerBeatEntity>> {
     String id,
     String buyerHandle,
     int credits,
-    BeatLicenseTier tier,
-  ) async {
+    BeatLicenseTier tier, {
+    String? markExclusiveBuyerId,
+  }) async {
     final index = state.indexWhere((beat) => beat.id == id);
     if (index < 0) return;
 
@@ -438,7 +441,16 @@ class BeatsNotifier extends StateNotifier<List<ProducerBeatEntity>> {
       timestamp: now,
     );
 
-    final updated = await _repository.recordSale(id, sale);
+    var updated = await _repository.recordSale(id, sale);
+    if (markExclusiveBuyerId != null ||
+        tier == BeatLicenseTier.exclusiveOwnership) {
+      updated = updated.copyWith(
+        isExclusiveSold: true,
+        exclusiveBuyerId: markExclusiveBuyerId ?? sale.buyerId,
+        updatedAt: DateTime.now(),
+      );
+      await _repository.saveBeat(updated);
+    }
     if (!mounted) return;
 
     final next = List<ProducerBeatEntity>.of(state);

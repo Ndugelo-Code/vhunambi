@@ -20,6 +20,7 @@ import base64
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 import numpy as np
 import soundfile as sf
@@ -204,30 +205,39 @@ def upload_artifacts_to_r2(
     master_wav_path: str,
     stem_wav_paths: dict[str, str],
     manifest_dict: dict,
-) -> dict[str, str]:
+) -> dict[str, object]:
     """
-    Compresses stems into a ZIP, uploads stems, ZIP, and manifest to Cloudflare R2,
-    and returns signed or public URLs for the assets.
+    Encodes `master.mp3` (320kbps) via ffmpeg, compresses stems into a ZIP, uploads
+    master MP3/WAV, stems, ZIP, and manifest to Cloudflare R2 (`vhunambi-vault`),
+    and returns signed/public URLs for all assets.
     """
-    account_id = os.environ.get("R2_ACCOUNT_ID")
-    access_key = os.environ.get("R2_ACCESS_KEY_ID")
-    secret_key = os.environ.get("R2_SECRET_ACCESS_KEY")
-    bucket_name = os.environ.get("R2_BUCKET_NAME", "vhunambi-audio")
-    public_base = os.environ.get("R2_PUBLIC_BASE_URL", "https://r2.vhunambi.com")
+    account_id = os.environ.get("R2_ACCOUNT_ID", "")
+    endpoint_url = os.environ.get(
+        "R2_ENDPOINT",
+        f"https://{account_id}.r2.cloudflarestorage.com" if account_id else "",
+    )
+    access_key = os.environ.get("R2_ACCESS_KEY_ID", "")
+    secret_key = os.environ.get("R2_SECRET_ACCESS_KEY", "")
+    bucket_name = os.environ.get("R2_BUCKET") or os.environ.get(
+        "R2_BUCKET_NAME", "vhunambi-vault"
+    )
+    public_base = os.environ.get(
+        "R2_PUBLIC_BASE_URL", "https://pub-vhunambi-vault.r2.dev"
+    ).rstrip("/")
 
-    if not (access_key and secret_key and account_id):
+    if not (access_key and secret_key and endpoint_url):
         # Offline or mock fallback
         prefix = f"{public_base}/audio/{job_id}"
         return {
-            "master_mp3_url": f"{prefix}_master.mp3",
+            "master_mp3_url": f"{prefix}/master.mp3",
+            "master_wav_url": f"{prefix}/master.wav",
             "stems_zip_url": f"{prefix}_stems.zip",
             "manifest_url": f"{public_base}/manifests/{job_id}_measured_mmo.json",
             "stem_urls": {
-                role: f"{prefix}_{role}.mp3" for role in STEM_ROLES
+                role: f"{prefix}_{role}.wav" for role in STEM_ROLES
             },
         }
 
-    endpoint_url = f"https://{account_id}.r2.cloudflarestorage.com"
     s3_client = boto3.client(
         "s3",
         endpoint_url=endpoint_url,
@@ -237,27 +247,82 @@ def upload_artifacts_to_r2(
         region_name="auto",
     )
 
-    result_urls = {"stem_urls": {}}
+    result_urls: dict[str, object] = {"stem_urls": {}}
+
+    # 0. Encode & upload Master MP3 (320kbps) + Master WAV (24-bit PCM)
+    if master_wav_path and os.path.exists(master_wav_path):
+        master_wav_key = f"audio/{job_id}/master.wav"
+        s3_client.upload_file(
+            master_wav_path,
+            bucket_name,
+            master_wav_key,
+            ExtraArgs={"ContentType": "audio/wav"},
+        )
+        result_urls["master_wav_url"] = f"{public_base}/{master_wav_key}"
+
+        master_mp3_local = os.path.join(os.path.dirname(master_wav_path), "master.mp3")
+        encoded_mp3 = False
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    master_wav_path,
+                    "-codec:a",
+                    "libmp3lame",
+                    "-b:a",
+                    "320k",
+                    master_mp3_local,
+                ],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            encoded_mp3 = os.path.exists(master_mp3_local)
+        except Exception:
+            master_mp3_local = master_wav_path
+
+        mp3_r2_key = f"audio/{job_id}/master.mp3" if encoded_mp3 else f"audio/{job_id}/master.wav"
+        s3_client.upload_file(
+            master_mp3_local,
+            bucket_name,
+            mp3_r2_key,
+            ExtraArgs={"ContentType": "audio/mpeg" if encoded_mp3 else "audio/wav"},
+        )
+        result_urls["master_mp3_url"] = f"{public_base}/{mp3_r2_key}"
 
     # 1. Upload individual stems
     for role, wav_path in stem_wav_paths.items():
+        if not wav_path or not os.path.exists(wav_path):
+            continue
         key = f"audio/{job_id}_{role}.wav"
         s3_client.upload_file(wav_path, bucket_name, key, ExtraArgs={"ContentType": "audio/wav"})
         result_urls["stem_urls"][role] = f"{public_base}/{key}"
 
     # 2. Bundle stems into a ZIP
-    temp_zip = tempfile.NamedTemporaryFile(suffix=".zip", delete=False).name
-    try:
-        shutil.make_archive(temp_zip[:-4], "zip", root_dir=os.path.dirname(list(stem_wav_paths.values())[0]))
-        zip_final = f"{temp_zip[:-4]}.zip"
-        zip_key = f"audio/{job_id}_stems.zip"
-        s3_client.upload_file(zip_final, bucket_name, zip_key, ExtraArgs={"ContentType": "application/zip"})
-        result_urls["stems_zip_url"] = f"{public_base}/{zip_key}"
-        if os.path.exists(zip_final):
-            os.remove(zip_final)
-    finally:
-        if os.path.exists(temp_zip):
-            os.remove(temp_zip)
+    if stem_wav_paths:
+        temp_zip = tempfile.NamedTemporaryFile(suffix=".zip", delete=False).name
+        try:
+            shutil.make_archive(
+                temp_zip[:-4],
+                "zip",
+                root_dir=os.path.dirname(list(stem_wav_paths.values())[0]),
+            )
+            zip_final = f"{temp_zip[:-4]}.zip"
+            zip_key = f"audio/{job_id}_stems.zip"
+            s3_client.upload_file(
+                zip_final,
+                bucket_name,
+                zip_key,
+                ExtraArgs={"ContentType": "application/zip"},
+            )
+            result_urls["stems_zip_url"] = f"{public_base}/{zip_key}"
+            if os.path.exists(zip_final):
+                os.remove(zip_final)
+        finally:
+            if os.path.exists(temp_zip):
+                os.remove(temp_zip)
 
     # 3. Upload Manifest JSON
     manifest_key = f"manifests/{job_id}_measured_mmo.json"

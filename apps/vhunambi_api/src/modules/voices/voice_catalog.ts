@@ -1,3 +1,8 @@
+import { resolveMediaUrl } from '../../config/env.js';
+import {
+  canonicalizeCreatorId,
+  vhunambiDb,
+} from '../../db/vhunambi_db.js';
 import {
   AfricanVoiceRegion,
   CreateVoiceCloneRequest,
@@ -13,7 +18,7 @@ import {
  * Curated Catalog of 24 Sovereign Regional African Voice Archetypes (REQ-VOC-01, REQ-VOC-02).
  * Prevents generic "2-voice AI fatigue" across Amapiano, Gqom, Maskandi, Afrobeats, Lekompo, and Gospel.
  */
-export const REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
+const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
   {
     id: 'vox_venda_royal_alto',
     name: 'Makhadzi Royal Alto',
@@ -352,6 +357,12 @@ export const REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
   },
 ];
 
+export const REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] =
+  RAW_REGIONAL_VOICE_CATALOG.map((arch) => ({
+    ...arch,
+    samplePreviewUrl: resolveMediaUrl(arch.samplePreviewUrl),
+  }));
+
 const DIACRITIC_REGEX = /[ḓṱṋḽṅḒṰṊḼṄ]/g;
 const CLUSTER_REGEX = /\b\w*(tsh|dz|pf|bv|hl|dl|kh|ph|th|ng|nk|ny|sh|zh)\w*\b/gi;
 const CULTURAL_IDIOMS = [
@@ -545,9 +556,6 @@ export function extractPhoneticCalibrationScript(
   };
 }
 
-/** In-memory registry of cloned creator voices for development & test runs */
-const clonedVoiceStore = new Map<string, CreatorVoiceCloneProfile>();
-
 export function registerVoiceCloneProfile(
   req: CreateVoiceCloneRequest,
 ): CreatorVoiceCloneProfile {
@@ -566,62 +574,93 @@ export function registerVoiceCloneProfile(
     .filter(Boolean).length;
   const durationMin = Math.max(0.1, req.recordingDurationSec / 60.0);
   const cadenceWpm = Math.round(Math.min(180, Math.max(75, totalWords / durationMin)));
+  const creatorId = canonicalizeCreatorId(req.creatorId || 'creator_cern');
 
   const profile: CreatorVoiceCloneProfile = {
     id,
+    creatorId,
     creatorName: req.creatorName,
     nativeLanguage: req.nativeLanguage,
     timbreEmbeddingPreview,
     cadenceWpm,
     clarityScore: 0.94,
-    r2ReferenceUrl:
+    r2ReferenceUrl: resolveMediaUrl(
       req.r2ReferenceUrl ?? `https://r2.vhunambi.com/voice-clones/${id}_ref.wav`,
+    ),
     recommendedCleanseFlavor: 'studio_clean',
     createdAtIso: new Date().toISOString(),
   };
 
-  clonedVoiceStore.set(id, profile);
+  vhunambiDb.upsertVoiceClone({
+    ...profile,
+    voiceId: id,
+    creatorId,
+    displayName: req.creatorName,
+    consentVerified: true,
+    referenceAudioDurationSec: req.recordingDurationSec,
+    timbreEmbedding: timbreEmbeddingPreview,
+    createdAt: profile.createdAtIso,
+  });
   return profile;
 }
 
 export function getVoiceCloneProfile(id: string): CreatorVoiceCloneProfile | undefined {
-  return clonedVoiceStore.get(id);
+  const row = vhunambiDb.getVoiceCloneById(id);
+  return row ? (row as CreatorVoiceCloneProfile) : undefined;
 }
 
-/** Registry of Sovereign Sound Signatures (Phase 35 / Design 8.2) */
-const soundSignatureStore = new Map<string, any>();
+export const createZeroShotVoiceClone = registerVoiceCloneProfile;
+export const getClonedVoiceById = getVoiceCloneProfile;
 
+/** Registry of Sovereign Sound Signatures (Phase 35 / Design 8.2, Phase 62 Persistent) */
 export function registerSoundSignature(data: any): any {
   const now = new Date().toISOString();
+  const creatorId = canonicalizeCreatorId(data.creatorId || 'creator_cern');
   const record = {
     ...data,
+    creatorId,
     recipe: data.recipe ?? {},
     r2AudioKey: `signatures/${data.id}/raw.wav`,
     createdAtIso: now,
     updatedAtIso: now,
+    createdAt: now,
+    updatedAt: now,
   };
-  soundSignatureStore.set(data.id, record);
+  vhunambiDb.upsertSoundSignature({
+    ...record,
+    name: data.displayCode || data.name || 'Sound Signature',
+  });
   return record;
 }
 
 export function getSoundSignature(id: string): any | undefined {
-  return soundSignatureStore.get(id);
+  return vhunambiDb.getSoundSignatureById(id) ?? undefined;
 }
 
 export function updateSoundSignatureRecipe(id: string, recipeUpdate: any): any | undefined {
-  const existing = soundSignatureStore.get(id);
+  const existing = getSoundSignature(id);
   if (!existing) return undefined;
+  const now = new Date().toISOString();
   const updated = {
     ...existing,
-    recipe: { ...existing.recipe, ...recipeUpdate },
-    updatedAtIso: new Date().toISOString(),
+    recipe: { ...(existing.recipe ?? {}), ...recipeUpdate },
+    updatedAtIso: now,
+    updatedAt: now,
   };
-  soundSignatureStore.set(id, updated);
+  vhunambiDb.upsertSoundSignature({
+    ...updated,
+    name: updated.displayCode || updated.name || 'Sound Signature',
+  });
   return updated;
 }
 
 export function deleteSoundSignature(id: string): boolean {
-  return soundSignatureStore.delete(id);
+  return vhunambiDb.deleteSoundSignature(id);
 }
+
+export const createSoundSignatureRecord = registerSoundSignature;
+export const getSoundSignatureRecord = getSoundSignature;
+export const updateSoundSignatureRecord = updateSoundSignatureRecipe;
+export const deleteSoundSignatureRecord = deleteSoundSignature;
 
 

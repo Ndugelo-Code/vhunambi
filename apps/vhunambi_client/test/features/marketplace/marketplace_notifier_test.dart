@@ -57,9 +57,13 @@ void main() {
   });
 
   group('Seeded marketplace listings', () {
-    test('seeds six African instrumentals with rich metadata', () {
-      final beats = MarketplaceBeatsNotifier().state;
+    test('seeds six African instrumentals inside the curated catalog', () {
+      final allItems = MarketplaceBeatsNotifier().state;
+      final beats = allItems
+          .where((item) => item.assetCategory == MarketplaceAssetCategory.beats)
+          .toList();
 
+      expect(allItems.length, 11);
       expect(beats.length, 6);
       expect(
         beats.map((beat) => beat.title),
@@ -77,12 +81,24 @@ void main() {
       expect(beats.every((beat) => beat.previewAudioUrl.isNotEmpty), isTrue);
     });
 
-    test('registerSale increments the listing sale counter', () {
+    test('registerSale and markSoldExclusive update listing state', () {
       final notifier = MarketplaceBeatsNotifier();
       final before = notifier.state.first.totalSales;
 
       notifier.registerSale(notifier.state.first.id);
       expect(notifier.state.first.totalSales, before + 1);
+
+      notifier.markSoldExclusive(
+        beatId: notifier.state.first.id,
+        buyerId: 'buyer_exclusive_1',
+      );
+      expect(notifier.state.first.isExclusiveSold, isTrue);
+      expect(notifier.state.first.exclusiveBuyerId, 'buyer_exclusive_1');
+      expect(
+        filterBeats(beats: notifier.state)
+            .any((b) => b.id == notifier.state.first.id),
+        isFalse,
+      );
     });
 
     test('provider tree exposes defaults for the marketplace surface', () {
@@ -90,7 +106,7 @@ void main() {
       addTearDown(container.dispose);
 
       expect(container.read(marketplaceCreditsProvider), 10);
-      expect(container.read(marketplaceBeatsProvider).length, 6);
+      expect(container.read(marketplaceBeatsProvider).length, 11);
       expect(container.read(filteredBeatsProvider).length, 6);
       expect(
         container.read(marketplaceFilterProvider),

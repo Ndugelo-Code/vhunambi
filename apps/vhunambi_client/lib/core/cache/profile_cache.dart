@@ -102,14 +102,21 @@ class ProfileCache {
   }
 
   /// Enforces maxCacheSize (20) by evicting oldest cached entries.
+  ///
+  /// Permanently pins `'profile_me'` (the signed-in creator owner profile) so
+  /// browsing external artist profiles never evicts local owner customizations.
   Future<void> _enforceSizeLimit() async {
     final keys = <String>[];
     if (_box != null) {
       keys.addAll(
-        _box!.keys.map((k) => k.toString()).where((k) => k.startsWith('profile_')),
+        _box!.keys
+            .map((k) => k.toString())
+            .where((k) => k.startsWith('profile_') && k != 'profile_me'),
       );
     } else {
-      keys.addAll(_inMemoryPersistentStore.keys);
+      keys.addAll(
+        _inMemoryPersistentStore.keys.where((k) => k != 'profile_me'),
+      );
     }
 
     if (keys.length <= maxCacheSize) return;

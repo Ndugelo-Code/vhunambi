@@ -1,11 +1,12 @@
 import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import '../../domain/models/creator_wallet.dart';
-import '../../domain/models/cultural_gift.dart';
-import '../../domain/models/published_clip.dart';
-import '../../domain/models/reel_comment.dart';
-import '../../domain/repositories/i_social_repository.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/features/social/domain/models/creator_wallet.dart';
+import 'package:vhunambi_client/features/social/domain/models/cultural_gift.dart';
+import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
+import 'package:vhunambi_client/features/social/domain/models/reel_comment.dart';
+import 'package:vhunambi_client/features/social/domain/repositories/i_social_repository.dart';
 
 /// Production HTTP repository for Vhunambi Social Creator Network (Phase C).
 ///
@@ -17,30 +18,43 @@ class HttpSocialRepository implements ISocialRepository {
   final Dio _dio;
   final String _baseUrl;
   final bool isTestMode;
+  final bool _hasCustomDio;
 
   // In-memory fallback stores for offline/test resilience
   final Map<String, List<ReelComment>> _fallbackComments = {};
   final Map<String, ({bool liked, int likeCount})> _fallbackLikes = {};
-  final Map<String, ({bool following, int followerCount})> _fallbackFollows = {};
+  final Map<String, ({bool following, int followerCount})> _fallbackFollows =
+      {};
   final Map<String, CreatorWallet> _fallbackWallets = {};
+  final Map<String, PayFastCheckoutSession> _fallbackPayFastSessions = {};
+  final Set<String> _settledFallbackCheckouts = {};
 
   HttpSocialRepository({
     Dio? dio,
     String? baseUrl,
     bool? isTestMode,
-  })  : _dio = dio ??
-            Dio(
-              BaseOptions(
-                connectTimeout: const Duration(seconds: 4),
-                receiveTimeout: const Duration(seconds: 4),
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                },
-              ),
-            ),
-        _baseUrl = baseUrl ?? _resolveDefaultBaseUrl(),
-        isTestMode = isTestMode ?? _detectTestMode();
+    Interceptor? authInterceptor,
+  }) : _dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               connectTimeout: const Duration(seconds: 4),
+               receiveTimeout: const Duration(seconds: 4),
+               headers: {
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/json',
+               },
+             ),
+           ),
+       _baseUrl = baseUrl ?? _resolveDefaultBaseUrl(),
+       isTestMode = isTestMode ?? _detectTestMode(),
+       _hasCustomDio = dio != null {
+    if (dio == null && authInterceptor != null) {
+      _dio.interceptors.add(authInterceptor);
+    }
+  }
+
+  bool get _shouldSkipNetwork => isTestMode && !_hasCustomDio;
 
   static bool _detectTestMode() {
     if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
@@ -52,24 +66,15 @@ class HttpSocialRepository implements ISocialRepository {
     return false;
   }
 
-  static String _resolveDefaultBaseUrl() {
-    if (kIsWeb) return 'http://localhost:3000/api';
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:3000/api';
-    }
-    return 'http://localhost:3000/api';
-  }
+  static String _resolveDefaultBaseUrl() => AppConstants.apiRestBaseUrl;
 
   @override
   Future<List<PublishedClip>> getFeed({String? cursor, int limit = 20}) async {
-    if (isTestMode) return const [];
+    if (_shouldSkipNetwork) return const [];
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '$_baseUrl/social/feed',
-        queryParameters: {
-          'cursor': ?cursor,
-          'limit': limit,
-        },
+        queryParameters: {'cursor': ?cursor, 'limit': limit},
       );
       if (response.statusCode == 200 && response.data != null) {
         final list = response.data!['clips'] as List<dynamic>? ?? const [];
@@ -85,7 +90,7 @@ class HttpSocialRepository implements ISocialRepository {
 
   @override
   Future<({bool liked, int likeCount})> toggleLikeClip(String clipId) async {
-    if (isTestMode) return _toggleLikeClipFallback(clipId);
+    if (_shouldSkipNetwork) return _toggleLikeClipFallback(clipId);
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '$_baseUrl/social/clips/$clipId/like',
@@ -115,8 +120,9 @@ class HttpSocialRepository implements ISocialRepository {
 
   @override
   Future<({bool following, int followerCount})> toggleFollowCreator(
-      String creatorId) async {
-    if (isTestMode) return _toggleFollowCreatorFallback(creatorId);
+    String creatorId,
+  ) async {
+    if (_shouldSkipNetwork) return _toggleFollowCreatorFallback(creatorId);
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '$_baseUrl/creators/$creatorId/follow',
@@ -136,13 +142,16 @@ class HttpSocialRepository implements ISocialRepository {
   }
 
   ({bool following, int followerCount}) _toggleFollowCreatorFallback(
-      String creatorId) {
+    String creatorId,
+  ) {
     final prev =
         _fallbackFollows[creatorId] ?? (following: false, followerCount: 120);
     final next = (
       following: !prev.following,
-      followerCount:
-          (prev.followerCount + (!prev.following ? 1 : -1)).clamp(0, 999999),
+      followerCount: (prev.followerCount + (!prev.following ? 1 : -1)).clamp(
+        0,
+        999999,
+      ),
     );
     _fallbackFollows[creatorId] = next;
     return next;
@@ -150,7 +159,7 @@ class HttpSocialRepository implements ISocialRepository {
 
   @override
   Future<List<PublishedClip>> getCreatorClips(String creatorId) async {
-    if (isTestMode) return const [];
+    if (_shouldSkipNetwork) return const [];
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '$_baseUrl/creators/$creatorId/clips',
@@ -169,7 +178,7 @@ class HttpSocialRepository implements ISocialRepository {
 
   @override
   Future<List<ReelComment>> getComments(String clipId) async {
-    if (isTestMode) return _fallbackComments[clipId] ?? const [];
+    if (_shouldSkipNetwork) return _fallbackComments[clipId] ?? const [];
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '$_baseUrl/social/clips/$clipId/comments',
@@ -177,24 +186,26 @@ class HttpSocialRepository implements ISocialRepository {
       if (response.statusCode == 200 && response.data != null) {
         final list = response.data!['comments'] as List<dynamic>? ?? const [];
         return list
-            .map((c) => ReelComment(
-                  id: c['id'] as String? ?? 'c_0',
-                  clipId: c['clipId'] as String? ?? clipId,
-                  userId: c['userId'] as String? ?? 'u_listener',
-                  username: c['username'] as String? ?? 'listener',
-                  displayName: c['displayName'] as String? ?? 'Listener',
-                  avatarUrl: c['avatarUrl'] as String?,
-                  isCreator: c['isCreator'] as bool? ?? false,
-                  text: c['text'] as String? ?? '',
-                  likeCount: (c['likeCount'] as num?)?.toInt() ?? 0,
-                  isLikedByMe: c['isLikedByMe'] as bool? ?? false,
-                  userReelLoves: (c['userReelLoves'] as num?)?.toInt() ?? 0,
-                  giftEmoji: c['giftEmoji'] as String?,
-                  giftName: c['giftName'] as String?,
-                  createdAt:
-                      DateTime.tryParse(c['createdAt'] as String? ?? '') ??
-                          DateTime.now(),
-                ))
+            .map(
+              (c) => ReelComment(
+                id: c['id'] as String? ?? 'c_0',
+                clipId: c['clipId'] as String? ?? clipId,
+                userId: c['userId'] as String? ?? 'u_listener',
+                username: c['username'] as String? ?? 'listener',
+                displayName: c['displayName'] as String? ?? 'Listener',
+                avatarUrl: c['avatarUrl'] as String?,
+                isCreator: c['isCreator'] as bool? ?? false,
+                text: c['text'] as String? ?? '',
+                likeCount: (c['likeCount'] as num?)?.toInt() ?? 0,
+                isLikedByMe: c['isLikedByMe'] as bool? ?? false,
+                userReelLoves: (c['userReelLoves'] as num?)?.toInt() ?? 0,
+                giftEmoji: c['giftEmoji'] as String?,
+                giftName: c['giftName'] as String?,
+                createdAt:
+                    DateTime.tryParse(c['createdAt'] as String? ?? '') ??
+                    DateTime.now(),
+              ),
+            )
             .toList();
       }
     } catch (e) {
@@ -214,7 +225,7 @@ class HttpSocialRepository implements ISocialRepository {
     String? giftEmoji,
     String? giftName,
   }) async {
-    if (isTestMode) {
+    if (_shouldSkipNetwork) {
       return _addCommentFallback(
         clipId: clipId,
         text: text,
@@ -243,7 +254,9 @@ class HttpSocialRepository implements ISocialRepository {
       if (response.statusCode == 201 && response.data != null) {
         final c = response.data!;
         final comment = ReelComment(
-          id: c['id'] as String? ?? 'c_${DateTime.now().millisecondsSinceEpoch}',
+          id:
+              c['id'] as String? ??
+              'c_${DateTime.now().millisecondsSinceEpoch}',
           clipId: c['clipId'] as String? ?? clipId,
           userId: c['userId'] as String? ?? 'u_me',
           username: c['username'] as String? ?? username ?? 'ndugelo_musician',
@@ -258,7 +271,8 @@ class HttpSocialRepository implements ISocialRepository {
               (c['userReelLoves'] as num?)?.toInt() ?? userReelLoves ?? 0,
           giftEmoji: c['giftEmoji'] as String? ?? giftEmoji,
           giftName: c['giftName'] as String? ?? giftName,
-          createdAt: DateTime.tryParse(c['createdAt'] as String? ?? '') ??
+          createdAt:
+              DateTime.tryParse(c['createdAt'] as String? ?? '') ??
               DateTime.now(),
         );
         final list = _fallbackComments[clipId] ?? [];
@@ -308,8 +322,9 @@ class HttpSocialRepository implements ISocialRepository {
 
   @override
   Future<({bool liked, int likeCount})> toggleLikeComment(
-      String commentId) async {
-    if (isTestMode) return _toggleLikeCommentFallback(commentId);
+    String commentId,
+  ) async {
+    if (_shouldSkipNetwork) return _toggleLikeCommentFallback(commentId);
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '$_baseUrl/social/comments/$commentId/like',
@@ -339,17 +354,15 @@ class HttpSocialRepository implements ISocialRepository {
 
   @override
   Future<
-      ({
-        GiftTransaction transaction,
-        ReelComment comment,
-        double newBalanceZar
-      })> sendTip({
+    ({GiftTransaction transaction, ReelComment comment, double newBalanceZar})
+  >
+  sendTip({
     required String clipId,
     required String giftId,
     String? senderUsername,
     String? message,
   }) async {
-    if (isTestMode) {
+    if (_shouldSkipNetwork) {
       return _sendTipFallback(
         clipId: clipId,
         giftId: giftId,
@@ -372,7 +385,8 @@ class HttpSocialRepository implements ISocialRepository {
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data!;
         final tx = GiftTransaction.fromJson(
-            data['transaction'] as Map<String, dynamic>);
+          data['transaction'] as Map<String, dynamic>,
+        );
         final comment = ReelComment(
           id: data['comment']['id'] as String,
           clipId: clipId,
@@ -400,11 +414,9 @@ class HttpSocialRepository implements ISocialRepository {
   }
 
   Future<
-      ({
-        GiftTransaction transaction,
-        ReelComment comment,
-        double newBalanceZar
-      })> _sendTipFallback({
+    ({GiftTransaction transaction, ReelComment comment, double newBalanceZar})
+  >
+  _sendTipFallback({
     required String clipId,
     required String giftId,
     String? senderUsername,
@@ -439,7 +451,7 @@ class HttpSocialRepository implements ISocialRepository {
 
   @override
   Future<CreatorWallet> getCreatorWallet(String creatorId) async {
-    if (isTestMode) return _getCreatorWalletFallback(creatorId);
+    if (_shouldSkipNetwork) return _getCreatorWalletFallback(creatorId);
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '$_baseUrl/creators/$creatorId/wallet',
@@ -493,44 +505,178 @@ class HttpSocialRepository implements ISocialRepository {
   }
 
   @override
+  Future<List<SaBankOption>> fetchSupportedBanks() async {
+    if (_shouldSkipNetwork) return SaBankRegistry.banks;
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/wallet/banks',
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final rawBanks = response.data!['banks'] as List<dynamic>? ?? const [];
+        final parsed = rawBanks
+            .whereType<Map>()
+            .map((b) => SaBankOption.fromJson(Map<String, dynamic>.from(b)))
+            .where((b) => b.canonicalName.isNotEmpty)
+            .toList(growable: false);
+        if (parsed.isNotEmpty) return parsed;
+      }
+    } catch (e) {
+      debugPrint('[HttpSocialRepository] fetchSupportedBanks fallback: $e');
+    }
+    return SaBankRegistry.banks;
+  }
+
+  @override
   Future<PayoutReceipt> requestPayout({
     required String creatorId,
     required double amountZar,
     String payoutMethod = 'eft',
     required String accountDetails,
+    String? bankName,
+    String? accountHolder,
+    String? accountNumber,
+    String? branchCode,
+    PayoutGatewayRail? paymentRail,
   }) async {
-    if (isTestMode) {
-      return _requestPayoutFallback(creatorId, amountZar);
+    final resolvedRail =
+        paymentRail ?? PayoutGatewayRail.fromWire(payoutMethod);
+    final bankMeta = SaBankRegistry.lookupBank(bankName);
+    final resolvedBankName = bankMeta?.canonicalName ?? bankName?.trim();
+    final resolvedBranch = (branchCode != null && branchCode.trim().isNotEmpty)
+        ? branchCode.trim()
+        : bankMeta?.universalBranchCode;
+
+    if (_shouldSkipNetwork) {
+      return _requestPayoutFallback(
+        creatorId,
+        amountZar,
+        bankName: resolvedBankName,
+        branchCode: resolvedBranch,
+        accountNumber: accountNumber,
+        paymentRail: resolvedRail,
+      );
+    }
+
+    final hasStructuredBank =
+        resolvedBankName != null &&
+        resolvedBankName.isNotEmpty &&
+        accountNumber != null &&
+        accountNumber.trim().isNotEmpty;
+
+    final payload = <String, dynamic>{
+      'creatorId': creatorId,
+      'amountZar': amountZar,
+      'payoutMethod': payoutMethod,
+      'paymentRail': resolvedRail.wireId,
+      'accountDetails': accountDetails,
+      'bankName': ?resolvedBankName,
+      if (accountHolder != null && accountHolder.trim().isNotEmpty)
+        'accountHolder': accountHolder.trim(),
+      if (accountNumber != null && accountNumber.trim().isNotEmpty)
+        'accountNumber': accountNumber.trim(),
+      if (resolvedBranch != null && resolvedBranch.isNotEmpty)
+        'branchCode': resolvedBranch,
+    };
+
+    if (hasStructuredBank) {
+      try {
+        final response = await _dio.post<Map<String, dynamic>>(
+          '$_baseUrl/wallet/payout',
+          data: payload,
+        );
+        if (response.statusCode == 200 && response.data != null) {
+          final receipt = PayoutReceipt.fromJson(response.data!);
+          if (receipt.success && _fallbackWallets.containsKey(creatorId)) {
+            _fallbackWallets[creatorId] = _fallbackWallets[creatorId]!.copyWith(
+              balanceZar: receipt.remainingBalanceZar,
+            );
+          }
+          return receipt;
+        }
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 400 && e.response?.data is Map) {
+          final errMap = Map<String, dynamic>.from(e.response!.data as Map);
+          final cachedWallet = _fallbackWallets[creatorId];
+          return PayoutReceipt(
+            success: false,
+            payoutId: '',
+            remainingBalanceZar: cachedWallet?.balanceZar ?? 0.0,
+            status: 'rejected',
+            bankName: resolvedBankName,
+            branchCode: resolvedBranch,
+            paymentRail: resolvedRail,
+            error: errMap['error']?.toString() ?? 'Payout rejected by gateway',
+          );
+        }
+        debugPrint('[HttpSocialRepository] /wallet/payout fallback: $e');
+      } catch (e) {
+        debugPrint('[HttpSocialRepository] /wallet/payout fallback: $e');
+      }
     }
 
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '$_baseUrl/creators/$creatorId/wallet/payout',
-        data: {
-          'amountZar': amountZar,
-          'payoutMethod': payoutMethod,
-          'accountDetails': accountDetails,
-        },
+        data: payload,
       );
       if (response.statusCode == 200 && response.data != null) {
         return PayoutReceipt.fromJson(response.data!);
       }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400 && e.response?.data is Map) {
+        final errMap = Map<String, dynamic>.from(e.response!.data as Map);
+        final cachedWallet = _fallbackWallets[creatorId];
+        return PayoutReceipt(
+          success: false,
+          payoutId: '',
+          remainingBalanceZar: cachedWallet?.balanceZar ?? 0.0,
+          status: 'rejected',
+          bankName: resolvedBankName,
+          branchCode: resolvedBranch,
+          paymentRail: resolvedRail,
+          error: errMap['error']?.toString() ?? 'Payout rejected by gateway',
+        );
+      }
+      debugPrint('[HttpSocialRepository] requestPayout fallback: $e');
     } catch (e) {
       debugPrint('[HttpSocialRepository] requestPayout fallback: $e');
     }
 
-    return _requestPayoutFallback(creatorId, amountZar);
+    return _requestPayoutFallback(
+      creatorId,
+      amountZar,
+      bankName: resolvedBankName,
+      branchCode: resolvedBranch,
+      accountNumber: accountNumber,
+      paymentRail: resolvedRail,
+    );
   }
 
   Future<PayoutReceipt> _requestPayoutFallback(
-      String creatorId, double amountZar) async {
+    String creatorId,
+    double amountZar, {
+    String? bankName,
+    String? branchCode,
+    String? accountNumber,
+    PayoutGatewayRail paymentRail = PayoutGatewayRail.eft,
+  }) async {
     final wallet = await getCreatorWallet(creatorId);
     final remaining = (wallet.balanceZar - amountZar).clamp(0.0, 999999.0);
     _fallbackWallets[creatorId] = wallet.copyWith(balanceZar: remaining);
+    final digits = (accountNumber ?? '').replaceAll(RegExp(r'\D'), '');
+    final masked = digits.length >= 4
+        ? '****${digits.substring(digits.length - 4)}'
+        : null;
     return PayoutReceipt(
       success: true,
       payoutId: 'payout_local_${DateTime.now().millisecondsSinceEpoch}',
       remainingBalanceZar: remaining,
+      status: paymentRail.isInstant ? 'instant_cleared' : 'processing',
+      bankName: bankName,
+      branchCode: branchCode,
+      maskedAccount: masked,
+      paymentRail: paymentRail,
+      estimatedSettlement: paymentRail.estimatedSettlement,
     );
   }
 
@@ -538,7 +684,7 @@ class HttpSocialRepository implements ISocialRepository {
   Future<({String clipId, String shareUrl, DateTime publishedAt})> publishClip(
     Map<String, dynamic> payload,
   ) async {
-    if (isTestMode) return _publishClipFallback();
+    if (_shouldSkipNetwork) return _publishClipFallback();
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '$_baseUrl/social/publish',
@@ -547,10 +693,12 @@ class HttpSocialRepository implements ISocialRepository {
       if (response.statusCode == 201 && response.data != null) {
         final d = response.data!;
         return (
-          clipId: d['clipId'] as String? ??
+          clipId:
+              d['clipId'] as String? ??
               'clip_${DateTime.now().millisecondsSinceEpoch}',
           shareUrl: d['shareUrl'] as String? ?? 'https://vhunambi.com/reels',
-          publishedAt: DateTime.tryParse(d['publishedAt'] as String? ?? '') ??
+          publishedAt:
+              DateTime.tryParse(d['publishedAt'] as String? ?? '') ??
               DateTime.now(),
         );
       }
@@ -562,12 +710,229 @@ class HttpSocialRepository implements ISocialRepository {
   }
 
   ({String clipId, String shareUrl, DateTime publishedAt})
-      _publishClipFallback() {
+  _publishClipFallback() {
     final id = 'clip_pub_${DateTime.now().millisecondsSinceEpoch}';
     return (
       clipId: id,
       shareUrl: 'https://vhunambi.com/@creator/reels/$id',
       publishedAt: DateTime.now(),
+    );
+  }
+
+  static const List<PayFastCoinPack> _defaultCoinPacks = <PayFastCoinPack>[
+    PayFastCoinPack(
+      packId: 'pack_starter_500',
+      label: 'Starter Crate (500 Vhunambi Coins)',
+      amountZar: 55.0,
+      coinsGranted: 500,
+    ),
+    PayFastCoinPack(
+      packId: 'pack_producer_1500',
+      label: 'Producer Vault (1,500 Vhunambi Coins)',
+      amountZar: 150.0,
+      coinsGranted: 1500,
+    ),
+    PayFastCoinPack(
+      packId: 'pack_mogul_5000',
+      label: 'Studio Mogul (5,000 Vhunambi Coins)',
+      amountZar: 450.0,
+      coinsGranted: 5000,
+    ),
+  ];
+
+  @override
+  Future<List<PayFastCoinPack>> fetchPayFastCoinPacks() async {
+    if (_shouldSkipNetwork) return _defaultCoinPacks;
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/payments/payfast/packs',
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final rawPacks =
+            response.data!['packs'] as List<dynamic>? ?? const <dynamic>[];
+        final parsed = rawPacks
+            .whereType<Map>()
+            .map(
+              (entry) => PayFastCoinPack.fromJson(
+                Map<String, dynamic>.from(entry),
+              ),
+            )
+            .where((pack) => pack.packId.isNotEmpty)
+            .toList(growable: false);
+        if (parsed.isNotEmpty) return parsed;
+      }
+    } catch (e) {
+      debugPrint('[HttpSocialRepository] fetchPayFastCoinPacks fallback: $e');
+    }
+    return _defaultCoinPacks;
+  }
+
+  @override
+  Future<PayFastCheckoutSession> initiatePayFastCheckout({
+    required String creatorId,
+    required String packId,
+    double? amountZar,
+    int? coinsGranted,
+  }) async {
+    if (_shouldSkipNetwork) {
+      return _initiatePayFastFallback(
+        creatorId: creatorId,
+        packId: packId,
+        amountZar: amountZar,
+        coinsGranted: coinsGranted,
+      );
+    }
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/payments/payfast/checkout',
+        data: <String, dynamic>{
+          'creatorId': creatorId,
+          'packId': packId,
+          'amountZar': ?amountZar,
+          'coinsGranted': ?coinsGranted,
+        },
+      );
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          response.data != null) {
+        final session = PayFastCheckoutSession.fromJson(response.data!);
+        _fallbackPayFastSessions[session.checkoutId] = session;
+        return session;
+      }
+    } catch (e) {
+      debugPrint(
+        '[HttpSocialRepository] initiatePayFastCheckout fallback: $e',
+      );
+    }
+    return _initiatePayFastFallback(
+      creatorId: creatorId,
+      packId: packId,
+      amountZar: amountZar,
+      coinsGranted: coinsGranted,
+    );
+  }
+
+  PayFastCheckoutSession _initiatePayFastFallback({
+    required String creatorId,
+    required String packId,
+    double? amountZar,
+    int? coinsGranted,
+  }) {
+    final matched = _defaultCoinPacks.where((p) => p.packId == packId);
+    final pack = matched.isNotEmpty
+        ? matched.first
+        : PayFastCoinPack(
+            packId: packId,
+            label: 'Vhunambi Sovereign Coin Top-Up',
+            amountZar: amountZar ?? 150.0,
+            coinsGranted: coinsGranted ?? 1500,
+          );
+    final checkoutId = 'chk_pf_local_${DateTime.now().millisecondsSinceEpoch}';
+    final session = PayFastCheckoutSession(
+      checkoutId: checkoutId,
+      creatorId: creatorId,
+      packId: pack.packId,
+      amountZar: pack.amountZar,
+      coinsToCredit: pack.coinsGranted,
+      paymentUrl: 'https://sandbox.payfast.co.za/eng/process',
+      formFields: <String, String>{
+        'm_payment_id': checkoutId,
+        'amount': pack.amountZar.toStringAsFixed(2),
+        'item_name': pack.label,
+        'custom_str1': creatorId,
+        'custom_str2': pack.packId,
+      },
+      signature: 'local_sandbox_sig',
+      status: 'pending',
+    );
+    _fallbackPayFastSessions[checkoutId] = session;
+    return session;
+  }
+
+  @override
+  Future<PayFastStatusSnapshot> getPayFastCheckoutStatus(
+    String checkoutId,
+  ) async {
+    if (_shouldSkipNetwork) {
+      return _payFastStatusFallback(checkoutId);
+    }
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/payments/payfast/status/$checkoutId',
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        return PayFastStatusSnapshot.fromJson(response.data!);
+      }
+    } catch (e) {
+      debugPrint(
+        '[HttpSocialRepository] getPayFastCheckoutStatus fallback: $e',
+      );
+    }
+    return _payFastStatusFallback(checkoutId);
+  }
+
+  @override
+  Future<PayFastStatusSnapshot> sandboxSettlePayFastCheckout(
+    String checkoutId,
+  ) async {
+    if (_shouldSkipNetwork) {
+      return _payFastSettleFallback(checkoutId);
+    }
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/payments/payfast/sandbox-settle/$checkoutId',
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        return PayFastStatusSnapshot.fromJson(response.data!);
+      }
+    } catch (e) {
+      debugPrint(
+        '[HttpSocialRepository] sandboxSettlePayFastCheckout fallback: $e',
+      );
+    }
+    return _payFastSettleFallback(checkoutId);
+  }
+
+  PayFastStatusSnapshot _payFastStatusFallback(String checkoutId) {
+    final session = _fallbackPayFastSessions[checkoutId];
+    final creatorId = session?.creatorId ?? 'creator_cern';
+    final wallet = _getCreatorWalletFallback(creatorId);
+    final settled = _settledFallbackCheckouts.contains(checkoutId);
+    return PayFastStatusSnapshot(
+      checkoutId: checkoutId,
+      creatorId: creatorId,
+      status: settled ? 'completed' : (session?.status ?? 'pending'),
+      settled: settled,
+      coinsCredited: settled ? (session?.coinsToCredit ?? 0) : 0,
+      walletBalanceCoins: wallet.balanceCoins ?? wallet.totalCoinsReceived,
+      walletBalanceZar: wallet.balanceZar,
+    );
+  }
+
+  PayFastStatusSnapshot _payFastSettleFallback(String checkoutId) {
+    final session = _fallbackPayFastSessions[checkoutId];
+    final creatorId = session?.creatorId ?? 'creator_cern';
+    final coins = session?.coinsToCredit ?? 500;
+    final currentWallet = _getCreatorWalletFallback(creatorId);
+    final currentCoins =
+        currentWallet.balanceCoins ?? currentWallet.totalCoinsReceived;
+    final alreadySettled = _settledFallbackCheckouts.contains(checkoutId);
+    final nextCoins = alreadySettled ? currentCoins : currentCoins + coins;
+    if (!alreadySettled) {
+      _settledFallbackCheckouts.add(checkoutId);
+      _fallbackWallets[creatorId] = currentWallet.copyWith(
+        balanceCoins: nextCoins,
+      );
+    }
+    return PayFastStatusSnapshot(
+      checkoutId: checkoutId,
+      creatorId: creatorId,
+      status: 'completed',
+      settled: true,
+      idempotentReplay: alreadySettled,
+      coinsCredited: coins,
+      walletBalanceCoins: nextCoins,
+      walletBalanceZar: currentWallet.balanceZar,
+      pfPaymentId: 'pf_sandbox_$checkoutId',
     );
   }
 }

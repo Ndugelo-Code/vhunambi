@@ -19,6 +19,8 @@ RUN python -c "from demucs.pretrained import get_model; get_model('htdemucs')"
 
 # Copy application code
 COPY mmo_extractor.py .
+COPY stem_mastering_worker.py .
+COPY seed_vc_worker.py .
 COPY handler.py .
 
 # RunPod entrypoint

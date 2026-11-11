@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/storage/hive_compaction_scheduler.dart';
 import '../../../creator_dna/domain/entities/creator_dna_profile.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 import '../../../mastering/presentation/providers/mastering_session_provider.dart';
+import '../../data/services/pre_gen_r2_upload_service.dart';
 import '../../data/services/sketchpad_audio_player_service.dart';
 import '../../domain/models/melody_sketchpad_models.dart';
 import '../../domain/services/melody_wav_synthesizer.dart';
@@ -32,6 +34,8 @@ class MelodySketchpadState {
     this.currentPlayheadStep = 0,
     this.euclideanPulses = 5,
     this.lastSynthesizedWavBytes,
+    this.lastRenderedR2Url,
+    this.lastRenderedReferenceId,
     this.dnaUndoStack = const [],
     this.lastDnaReport,
   });
@@ -51,6 +55,8 @@ class MelodySketchpadState {
   final int currentPlayheadStep; // 0..15
   final int euclideanPulses; // 3..12
   final Uint8List? lastSynthesizedWavBytes;
+  final String? lastRenderedR2Url;
+  final String? lastRenderedReferenceId;
   final List<MultiTrackGrooveEntity> dnaUndoStack;
   final DnaResynthesisReport? lastDnaReport;
 
@@ -85,6 +91,9 @@ class MelodySketchpadState {
     int? currentPlayheadStep,
     int? euclideanPulses,
     Uint8List? lastSynthesizedWavBytes,
+    String? lastRenderedR2Url,
+    String? lastRenderedReferenceId,
+    bool clearLastRenderedR2Url = false,
     List<MultiTrackGrooveEntity>? dnaUndoStack,
     DnaResynthesisReport? lastDnaReport,
     bool clearLastDnaReport = false,
@@ -108,6 +117,12 @@ class MelodySketchpadState {
       euclideanPulses: euclideanPulses ?? this.euclideanPulses,
       lastSynthesizedWavBytes:
           lastSynthesizedWavBytes ?? this.lastSynthesizedWavBytes,
+      lastRenderedR2Url: clearLastRenderedR2Url
+          ? null
+          : (lastRenderedR2Url ?? this.lastRenderedR2Url),
+      lastRenderedReferenceId: clearLastRenderedR2Url
+          ? null
+          : (lastRenderedReferenceId ?? this.lastRenderedReferenceId),
       dnaUndoStack: dnaUndoStack ?? this.dnaUndoStack,
       lastDnaReport: clearLastDnaReport
           ? null
@@ -139,6 +154,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
 
   final Ref _ref;
   static const String _savedListKey = 'saved_melody_patterns_json';
+  static const String _sketchKeyPrefix = 'sketch_';
 
   ISketchpadAudioPlayerService get _audioService =>
       _ref.read(sketchpadAudioPlayerServiceProvider);
@@ -179,7 +195,8 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
   /// `state.dnaUndoStack` (bounded at 10 snapshots), cleanly replaces the active channel
   /// steps in-place, and re-synthesizes the 44.1 kHz master WAV preview.
   void applyDnaResynthesis({CreatorDnaProfile? dnaOverride}) {
-    final CreatorDnaProfile dnaProfile = dnaOverride ??
+    final CreatorDnaProfile dnaProfile =
+        dnaOverride ??
         _ref.read(creatorDnaProvider) ??
         CreatorDnaProfile.initial();
     final priorSnapshot = state.multiTrackGroove;
@@ -283,32 +300,81 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
     try {
       if (!Hive.isBoxOpen(AppConstants.melodySketchesBoxKey)) return;
       final box = Hive.box<dynamic>(AppConstants.melodySketchesBoxKey);
-      final rawJson = box.get(_savedListKey) as String?;
-      if (rawJson == null || rawJson.isEmpty) return;
 
-      final decoded = jsonDecode(rawJson) as List<dynamic>;
-      final loaded = decoded
-          .map(
-            (e) => MelodyPatternEntity.fromJson(
-              Map<String, dynamic>.from(e as Map),
-            ),
-          )
-          .toList();
+      // Auto-migrate legacy monolithic list key to O(1) 'sketch_<id>' keys.
+      final legacyRaw = box.get(_savedListKey) as String?;
+      if (legacyRaw != null && legacyRaw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(legacyRaw) as List<dynamic>;
+          for (final item in decoded) {
+            final parsed = MelodyPatternEntity.fromJson(
+              Map<String, dynamic>.from(item as Map),
+            );
+            unawaited(
+              box.put(
+                '$_sketchKeyPrefix${parsed.id}',
+                jsonEncode(parsed.toJson()),
+              ),
+            );
+          }
+          unawaited(box.delete(_savedListKey));
+        } catch (_) {}
+      }
+
+      final loaded = <MelodyPatternEntity>[];
+      for (final rawKey in box.keys) {
+        final key = rawKey.toString();
+        if (!key.startsWith(_sketchKeyPrefix)) continue;
+        final rawVal = box.get(rawKey);
+        if (rawVal is String && rawVal.isNotEmpty) {
+          try {
+            loaded.add(
+              MelodyPatternEntity.fromJson(
+                Map<String, dynamic>.from(jsonDecode(rawVal) as Map),
+              ),
+            );
+          } catch (_) {}
+        } else if (rawVal is Map) {
+          try {
+            loaded.add(
+              MelodyPatternEntity.fromJson(Map<String, dynamic>.from(rawVal)),
+            );
+          } catch (_) {}
+        }
+      }
 
       if (loaded.isNotEmpty) {
-        state = state.copyWith(savedPatterns: loaded);
+        state = state.copyWith(savedPatterns: loaded.reversed.toList());
       }
     } catch (_) {
       // Safe fallback in headless flutter test when Hive is not open
     }
   }
 
-  Future<void> _persistSavedPatterns(List<MelodyPatternEntity> patterns) async {
+  Future<void> _persistSinglePattern(MelodyPatternEntity pattern) async {
     try {
       if (!Hive.isBoxOpen(AppConstants.melodySketchesBoxKey)) return;
       final box = Hive.box<dynamic>(AppConstants.melodySketchesBoxKey);
-      final encoded = jsonEncode(patterns.map((p) => p.toJson()).toList());
-      await box.put(_savedListKey, encoded);
+      await box.put(
+        '$_sketchKeyPrefix${pattern.id}',
+        jsonEncode(pattern.toJson()),
+      );
+      await HiveCompactionScheduler.recordMutation(
+        AppConstants.melodySketchesBoxKey,
+      );
+    } catch (_) {
+      // Safe fallback in headless tests
+    }
+  }
+
+  Future<void> _deleteSinglePattern(String patternId) async {
+    try {
+      if (!Hive.isBoxOpen(AppConstants.melodySketchesBoxKey)) return;
+      final box = Hive.box<dynamic>(AppConstants.melodySketchesBoxKey);
+      await box.delete('$_sketchKeyPrefix$patternId');
+      await HiveCompactionScheduler.recordMutation(
+        AppConstants.melodySketchesBoxKey,
+      );
     } catch (_) {
       // Safe fallback in headless tests
     }
@@ -781,7 +847,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       savedPatterns: updatedVault,
     );
 
-    await _persistSavedPatterns(updatedVault);
+    await _persistSinglePattern(savedPattern);
     return savedPattern;
   }
 
@@ -791,7 +857,7 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
         .where((p) => p.id != patternId)
         .toList();
     state = state.copyWith(savedPatterns: updated);
-    await _persistSavedPatterns(updated);
+    await _deleteSinglePattern(patternId);
   }
 
   /// Renders the multi-track master groove to an ephemeral RAM WAV buffer,
@@ -814,12 +880,38 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
       _ref.read(masteringSessionProvider.notifier).setSketchpadLayerMix(0.35);
     });
 
+    unawaited(_uploadAttachedSketchpadToR2(state.activePattern, wavBytes));
+
     return wavBytes;
+  }
+
+  Future<void> _uploadAttachedSketchpadToR2(
+    MelodyPatternEntity pattern,
+    Uint8List wavBytes,
+  ) async {
+    try {
+      final result = await _ref
+          .read(preGenR2UploadServiceProvider)
+          .uploadMelodyReference(pattern: pattern, wavBytes: wavBytes);
+      if (!mounted) return;
+      if ((result.r2ReferenceUrl != null && result.r2ReferenceUrl!.isNotEmpty) ||
+          (result.referenceId != null && result.referenceId!.isNotEmpty)) {
+        state = state.copyWith(
+          lastRenderedR2Url: result.r2ReferenceUrl,
+          lastRenderedReferenceId: result.referenceId,
+        );
+      }
+    } catch (_) {
+      // Best-effort cloud conditioning upload; local sketchpad remains active.
+    }
   }
 
   /// Detaches the active sketchpad reference from the studio form and resets `sketchpadLayerMix` to 0.0.
   void detachSongReference() {
-    state = state.copyWith(clearAttachedPattern: true);
+    state = state.copyWith(
+      clearAttachedPattern: true,
+      clearLastRenderedR2Url: true,
+    );
     Future.microtask(() {
       if (!mounted) return;
       _ref.read(studioFormProvider.notifier).setReferenceAudio(null);

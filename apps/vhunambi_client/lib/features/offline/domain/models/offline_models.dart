@@ -23,14 +23,14 @@ enum AudioDownloadQuality {
 
 extension AudioDownloadQualityExtension on AudioDownloadQuality {
   String get label => switch (this) {
-        AudioDownloadQuality.mp3HighQuality => 'MP3 (320 kbps)',
-        AudioDownloadQuality.wavLossless => 'WAV (Lossless 24-bit)',
-      };
+    AudioDownloadQuality.mp3HighQuality => 'MP3 (320 kbps)',
+    AudioDownloadQuality.wavLossless => 'WAV (Lossless 24-bit)',
+  };
 
   String get fileExtension => switch (this) {
-        AudioDownloadQuality.mp3HighQuality => 'mp3',
-        AudioDownloadQuality.wavLossless => 'wav',
-      };
+    AudioDownloadQuality.mp3HighQuality => 'mp3',
+    AudioDownloadQuality.wavLossless => 'wav',
+  };
 }
 
 /// Immutable record tracking an active or completed download task.
@@ -174,7 +174,14 @@ class DownloadTask {
           retryCount == other.retryCount;
 
   @override
-  int get hashCode => Object.hash(trackId, status, progress, receivedBytes, totalBytes, retryCount);
+  int get hashCode => Object.hash(
+    trackId,
+    status,
+    progress,
+    receivedBytes,
+    totalBytes,
+    retryCount,
+  );
 }
 
 class _ConstDateTime implements DateTime {
@@ -222,9 +229,11 @@ class _ConstDateTime implements DateTime {
   @override
   bool get isUtc => true;
   @override
-  DateTime add(Duration duration) => DateTime.fromMillisecondsSinceEpoch(duration.inMilliseconds);
+  DateTime add(Duration duration) =>
+      DateTime.fromMillisecondsSinceEpoch(duration.inMilliseconds);
   @override
-  DateTime subtract(Duration duration) => DateTime.fromMillisecondsSinceEpoch(-duration.inMilliseconds);
+  DateTime subtract(Duration duration) =>
+      DateTime.fromMillisecondsSinceEpoch(-duration.inMilliseconds);
   @override
   Duration difference(DateTime other) => Duration.zero;
 }
@@ -288,7 +297,8 @@ class CacheStorageStats {
           storageLimitBytes == other.storageLimitBytes;
 
   @override
-  int get hashCode => Object.hash(totalBytesUsed, cachedTrackCount, storageLimitBytes);
+  int get hashCode =>
+      Object.hash(totalBytesUsed, cachedTrackCount, storageLimitBytes);
 }
 
 /// Configurable user preferences governing offline storage and downloads.
@@ -318,7 +328,8 @@ class OfflinePreferenceState {
     return OfflinePreferenceState(
       isOfflineModeForced: isOfflineModeForced ?? this.isOfflineModeForced,
       downloadQuality: downloadQuality ?? this.downloadQuality,
-      wifiOnlyDownload: downloadWifiOnly ?? wifiOnlyDownload ?? this.wifiOnlyDownload,
+      wifiOnlyDownload:
+          downloadWifiOnly ?? wifiOnlyDownload ?? this.wifiOnlyDownload,
       storageLimitBytes: storageLimitBytes ?? this.storageLimitBytes,
     );
   }
@@ -335,9 +346,9 @@ class OfflinePreferenceState {
 
   @override
   int get hashCode => Object.hash(
-        isOfflineModeForced,
-        downloadQuality,
-        wifiOnlyDownload,
-        storageLimitBytes,
-      );
+    isOfflineModeForced,
+    downloadQuality,
+    wifiOnlyDownload,
+    storageLimitBytes,
+  );
 }

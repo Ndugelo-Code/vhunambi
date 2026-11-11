@@ -1,6 +1,6 @@
-import '../models/creator_wallet.dart';
-import '../models/published_clip.dart';
-import '../models/reel_comment.dart';
+import 'package:vhunambi_client/features/social/domain/models/creator_wallet.dart';
+import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
+import 'package:vhunambi_client/features/social/domain/models/reel_comment.dart';
 
 /// Abstract contract for the Vhunambi Social Creator Network repository (REQ-SOC-01..26).
 ///
@@ -52,16 +52,41 @@ abstract class ISocialRepository {
   /// Retrieves the creator's wallet balance, supporter leaderboard, and transaction ledger.
   Future<CreatorWallet> getCreatorWallet(String creatorId);
 
+  /// Retrieves supported South African clearing banks and instant payout rails.
+  Future<List<SaBankOption>> fetchSupportedBanks();
+
   /// Requests a payout / cashout from the creator wallet.
   Future<PayoutReceipt> requestPayout({
     required String creatorId,
     required double amountZar,
     String payoutMethod = 'eft',
     required String accountDetails,
+    String? bankName,
+    String? accountHolder,
+    String? accountNumber,
+    String? branchCode,
+    PayoutGatewayRail? paymentRail,
   });
 
   /// 1-tap in-house publishing of a song clip to the social creator network.
   Future<({String clipId, String shareUrl, DateTime publishedAt})> publishClip(
     Map<String, dynamic> payload,
   );
+
+  /// Retrieves canonical PayFast ZAR coin top-up SKUs (`Phase 63`).
+  Future<List<PayFastCoinPack>> fetchPayFastCoinPacks();
+
+  /// Initiates a PayFast ZAR checkout session (`POST /api/payments/payfast/checkout`).
+  Future<PayFastCheckoutSession> initiatePayFastCheckout({
+    required String creatorId,
+    required String packId,
+    double? amountZar,
+    int? coinsGranted,
+  });
+
+  /// Polls PayFast checkout settlement status (`GET /api/payments/payfast/status/:checkoutId`).
+  Future<PayFastStatusSnapshot> getPayFastCheckoutStatus(String checkoutId);
+
+  /// Executes deterministic sandbox ITN settlement (`POST /api/payments/payfast/sandbox-settle/:checkoutId`).
+  Future<PayFastStatusSnapshot> sandboxSettlePayFastCheckout(String checkoutId);
 }

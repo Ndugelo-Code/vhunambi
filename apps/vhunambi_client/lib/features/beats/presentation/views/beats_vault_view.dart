@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../shared/models/track.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/widgets/library_empty_state.dart';
 import '../../../player/domain/models/player_state.dart';
@@ -513,22 +517,191 @@ class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
         return _LicensedBeatCard(
           track: track,
           onUseInStudio: () {
-            ref.read(studioFormProvider.notifier).setReferenceAudio(track.remoteAudioUrl);
+            ref
+                .read(studioFormProvider.notifier)
+                .setReferenceAudio(
+                  track.effectiveAudioPath ?? track.remoteAudioUrl,
+                );
             ref.read(studioFormProvider.notifier).setGenre(track.genre);
             ref.read(melodySketchpadProvider.notifier).initializeFromRemixDna(
                   genre: track.genre,
                 );
             widget.onCreateRequested?.call();
-            _showSnack('Loaded "${track.title}" into Studio as backing track 🎤');
+            _showSnack('Loaded "${track.title}" into Studio as backing track');
           },
           onShowCertificate: () {
             showLibraryLicenseDialog(context, track);
           },
+          onOpenStemsDrawer: track.hasUnpackedStems
+              ? () => _showLicensedStemsDrawer(track)
+              : null,
           onPlay: () {
             playLibraryTrack(ref, track);
           },
         );
       },
+    );
+  }
+
+  void _showLicensedStemsDrawer(LibraryTrack track) {
+    final entries = track.stemPaths.entries.toList();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceModalOf(context),
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.modalBorder,
+        side: BorderSide(color: AppColors.borderSubtleOf(context)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            AppSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderActive,
+                    borderRadius: AppRadius.pillBorder,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  const PhosphorIcon(
+                    AppIcons.waveform,
+                    size: 20,
+                    color: AppColors.coinGold,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      '${track.title} — Isolated 44.1 kHz Stems',
+                      style: AppTypography.titleMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '${entries.length} isolated WAV channels unpacked inside your encrypted device vault.',
+                style: AppTypography.caption,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              for (final entry in entries)
+                Container(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceSecondaryOf(sheetContext),
+                    borderRadius: AppRadius.inputBorder,
+                    border: Border.all(
+                      color: AppColors.borderSubtleOf(sheetContext),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const PhosphorIcon(
+                        AppIcons.songsOutline,
+                        size: 16,
+                        color: AppColors.brandPrimary,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${entry.key[0].toUpperCase()}${entry.key.substring(1)} Stem (44.1 kHz WAV)',
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.textPrimaryOf(sheetContext),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              entry.value,
+                              style: AppTypography.caption,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Play ${entry.key} stem',
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                        icon: const PhosphorIcon(
+                          AppIcons.play,
+                          size: 16,
+                          color: AppColors.brandPrimary,
+                        ),
+                        onPressed: () {
+                          ref.read(playerStateProvider.notifier).playTrack(
+                                Track(
+                                  id: '${track.id}_stem_${entry.key}',
+                                  title: '${track.title} (${entry.key} stem)',
+                                  creatorName: track.creatorName,
+                                  genre: track.genre,
+                                  language: 'Instrumental',
+                                  duration: track.duration,
+                                  audioUrl: entry.value,
+                                  coverUrl: track.coverImageUrl,
+                                ),
+                              );
+                          _showSnack('Auditioning ${entry.key} WAV stem');
+                        },
+                      ),
+                      IconButton(
+                        tooltip: 'Share ${entry.key} stem',
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                        icon: PhosphorIcon(
+                          AppIcons.share,
+                          size: 16,
+                          color: AppColors.textSecondaryOf(sheetContext),
+                        ),
+                        onPressed: () async {
+                          try {
+                            await Share.shareXFiles(
+                              [XFile(entry.value)],
+                              subject: '${track.title} — ${entry.key} Stem',
+                            );
+                          } catch (_) {}
+                          if (mounted) {
+                            _showSnack(
+                              'Prepared ${entry.key} WAV stem for export',
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -878,12 +1051,14 @@ class _LicensedBeatCard extends ConsumerWidget {
   final LibraryTrack track;
   final VoidCallback? onUseInStudio;
   final VoidCallback? onShowCertificate;
+  final VoidCallback? onOpenStemsDrawer;
   final VoidCallback? onPlay;
 
   const _LicensedBeatCard({
     required this.track,
     this.onUseInStudio,
     this.onShowCertificate,
+    this.onOpenStemsDrawer,
     this.onPlay,
   });
 
@@ -945,6 +1120,46 @@ class _LicensedBeatCard extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  if (onOpenStemsDrawer != null)
+                    Positioned(
+                      bottom: 6,
+                      right: 6,
+                      child: Material(
+                        color: AppColors.surfaceCanvas.withValues(alpha: 0.88),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: AppRadius.pillBorder,
+                          side: BorderSide(color: AppColors.coinGold),
+                        ),
+                        child: InkWell(
+                          key: Key('licensed_beat_stems_btn_${track.id}'),
+                          onTap: onOpenStemsDrawer,
+                          borderRadius: AppRadius.pillBorder,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const PhosphorIcon(
+                                  AppIcons.waveform,
+                                  size: 12,
+                                  color: AppColors.coinGold,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${track.stemPaths.length} Stems',
+                                  style: AppTypography.badge.copyWith(
+                                    color: AppColors.coinGold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

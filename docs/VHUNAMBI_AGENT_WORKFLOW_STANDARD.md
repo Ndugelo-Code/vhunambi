@@ -165,7 +165,9 @@ When authoring or hardening any specification suite, agents MUST reference these
 
 ---
 
-## 7. Stage 4 Verification & Physical Hardware Sign-Off Gate
+## 7. Stage 4 Execution Skill (`vhunambi-executioner`) & Physical Hardware Sign-Off Gate
+
+When transitioning to Stage 4 execution, invoke the **[`vhunambi-executioner`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/skills/vhunambi-executioner/SKILL.md)** skill (`/vhunambi-executioner`) Alongside its forensic checklist ([`STAGE4_EXECUTION_VERIFICATION_CHECKLIST.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/skills/vhunambi-executioner/references/STAGE4_EXECUTION_VERIFICATION_CHECKLIST.md)).
 
 Before any phase is marked complete in `AGENT_HANDOFF_BIBLE.md` and `README.md`, the Stage 4 Execution Agent (Gemini 3.8 Flash) MUST pass all 4 gates:
 

@@ -2,10 +2,12 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { getGenreSystemPrompt } from '../modules/lyrics/system_prompts.js';
 import { generateLyricsFromLLM, parseStanzas } from '../modules/lyrics/llm_handler.js';
+import { refineLyricsWithLLM } from '../modules/lyrics/llm_handler.js';
 import { MUSIC_LANGUAGES } from '../modules/bantu/language_context.js';
 import { STORY_GENRES, normalizeGenre, transformStoryToLyrics } from '../modules/lyrics/story_transform.js';
+import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
 
-export const lyricsRoutes = new Hono();
+export const lyricsRoutes = new Hono<{ Bindings: VhunambiWorkerEnv }>();
 
 const GenerateLyricsSchema = z.object({
   prompt: z.string().min(1),
@@ -24,7 +26,13 @@ lyricsRoutes.post('/generate', async (c) => {
 
     const { prompt, genre, language } = parsed.data;
     const systemPrompt = getGenreSystemPrompt(genre);
-    const result = await generateLyricsFromLLM(prompt, genre, language, systemPrompt);
+    const result = await generateLyricsFromLLM(
+      prompt,
+      genre,
+      language,
+      systemPrompt,
+      c,
+    );
 
     return c.json({
       success: true,
@@ -45,6 +53,8 @@ const RefineLyricsSchema = z.object({
   currentLyrics: z.string(),
   refinementInstruction: z.string(),
   idiomToInsert: z.string().optional(),
+  genre: z.string().optional(),
+  language: z.string().optional(),
 });
 
 lyricsRoutes.post('/refine', async (c) => {
@@ -56,18 +66,25 @@ lyricsRoutes.post('/refine', async (c) => {
       return c.json({ error: 'INVALID_REQUEST', details: parsed.error.flatten() }, 400);
     }
 
-    const { currentLyrics, refinementInstruction, idiomToInsert } = parsed.data;
-    let updatedLyrics = currentLyrics;
-
-    if (idiomToInsert) {
-      updatedLyrics = `${currentLyrics.trim()}\n${idiomToInsert}`;
-    }
+    const { currentLyrics, refinementInstruction, idiomToInsert, genre, language } =
+      parsed.data;
+    const refined = await refineLyricsWithLLM(
+      {
+        currentLyrics,
+        refinementInstruction,
+        idiomToInsert,
+        genre,
+        language,
+      },
+      c,
+    );
 
     return c.json({
       success: true,
-      rawLyrics: updatedLyrics,
-      stanzas: parseStanzas(updatedLyrics),
+      rawLyrics: refined.rawLyrics,
+      stanzas: refined.stanzas.length > 0 ? refined.stanzas : parseStanzas(refined.rawLyrics),
       refinementApplied: refinementInstruction,
+      provider: refined.provider,
     });
   } catch (error) {
     return c.json({ error: 'REFINE_ERROR', message: 'Failed to refine lyrics' }, 500);

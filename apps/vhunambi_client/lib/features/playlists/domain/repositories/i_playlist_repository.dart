@@ -1,9 +1,9 @@
-import '../models/playlist_entity.dart';
+import 'package:vhunambi_client/features/playlists/domain/models/playlist_entity.dart';
 
-/// Playlist persistence contract (REQ-PL-01).
+/// Playlist persistence contract (REQ-PL-01 + Phase 59 cloud CRUD & sharing).
 ///
-/// `InMemoryPlaylistRepository` backs headless tests; the Hive-backed
-/// implementation (`AppConstants.playlistsBoxKey`) backs production.
+/// `InMemoryPlaylistRepository` backs headless tests; [PlaylistRepository]
+/// (`AppConstants.playlistsBoxKey` + Hono REST `/api/playlists`) backs production.
 abstract class IPlaylistRepository {
   Future<List<PlaylistEntity>> getAllPlaylists();
   Future<PlaylistEntity?> getPlaylistById(String id);
@@ -16,4 +16,6 @@ abstract class IPlaylistRepository {
     int oldIndex,
     int newIndex,
   );
+  Future<List<PlaylistEntity>> syncPlaylistsWithCloud({String? creatorId});
+  Future<PlaylistEntity?> sharePlaylist(String id);
 }

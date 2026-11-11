@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import '../../../content_studio/domain/models/song_metadata_dna.dart';
 import '../../../content_studio/presentation/providers/master_media_object_provider.dart';
 import '../../../studio/domain/models/mycelium_biome_models.dart';
@@ -6,10 +10,38 @@ import '../../domain/models/stem_mixer_state.dart';
 import 'player_provider.dart';
 import 'stem_mixer_provider.dart';
 
+/// Manages and persists the active 3-Way Hero Mode in ExpandedCockpitModal (REQ-P55-HERO-01).
+class PlayerHeroModeNotifier extends Notifier<PlayerHeroMode> {
+  @override
+  PlayerHeroMode build() {
+    var initialMode = PlayerHeroMode.artwork;
+    if (SovereignDomainStorageMode.canHydrateFromStorage(
+      AppConstants.playbackSessionBoxKey,
+    )) {
+      final savedMode = PlaybackSessionRepository.loadHeroMode();
+      if (savedMode != null) {
+        initialMode = PlayerHeroMode.values.firstWhere(
+          (m) => m.name == savedMode,
+          orElse: () => PlayerHeroMode.artwork,
+        );
+      }
+    }
+    listenSelf((_, next) {
+      unawaited(PlaybackSessionRepository.saveHeroMode(next.name));
+    });
+    return initialMode;
+  }
+
+  void setHeroMode(PlayerHeroMode mode) {
+    state = mode;
+  }
+}
+
 /// Persists the active 3-Way Hero Mode in ExpandedCockpitModal (REQ-P55-HERO-01).
-final playerHeroModeProvider = StateProvider<PlayerHeroMode>((ref) {
-  return PlayerHeroMode.artwork;
-});
+final playerHeroModeProvider =
+    NotifierProvider<PlayerHeroModeNotifier, PlayerHeroMode>(
+      PlayerHeroModeNotifier.new,
+    );
 
 /// Canonical mapping from each 3D MyceliumClusterDomain to its primary StemType (REQ-P55-STEM-01).
 StemType primaryStemForCluster(MyceliumClusterDomain domain) {

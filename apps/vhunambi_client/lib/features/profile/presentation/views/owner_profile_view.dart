@@ -352,16 +352,24 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                Row(
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
                                   children: [
                                     Container(
                                       key: const Key('creator_archetype_badge'),
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.surfaceSecondaryOf(context),
+                                        color: AppColors.surfaceSecondaryOf(
+                                          context,
+                                        ),
                                         borderRadius: AppRadius.pillBorder,
                                         border: Border.all(
-                                          color: AppColors.brandPrimary.withValues(alpha: 0.4),
+                                          color: AppColors.brandPrimary
+                                              .withValues(alpha: 0.4),
                                           width: 0.8,
                                         ),
                                       ),
@@ -376,24 +384,36 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                                           const SizedBox(width: 4),
                                           Text(
                                             profile.archetype.displayName,
-                                            style: AppTypography.caption.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 10.5,
-                                              color: AppColors.textPrimaryOf(context),
-                                            ),
+                                            style: AppTypography.caption
+                                                .copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 10.5,
+                                                  color:
+                                                      AppColors.textPrimaryOf(
+                                                        context,
+                                                      ),
+                                                ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
                                     Container(
-                                      key: const Key('creator_monthly_listeners_pill'),
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      key: const Key(
+                                        'creator_monthly_listeners_pill',
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.surfaceSecondaryOf(context),
+                                        color: AppColors.surfaceSecondaryOf(
+                                          context,
+                                        ),
                                         borderRadius: AppRadius.pillBorder,
                                         border: Border.all(
-                                          color: AppColors.borderSubtleOf(context),
+                                          color: AppColors.borderSubtleOf(
+                                            context,
+                                          ),
                                           width: 0.8,
                                         ),
                                       ),
@@ -408,11 +428,15 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                                           const SizedBox(width: 4),
                                           Text(
                                             '${(profile.monthlyListenersCount / 1000).toStringAsFixed(1)}K Monthly',
-                                            style: AppTypography.caption.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 10.5,
-                                              color: AppColors.textPrimaryOf(context),
-                                            ),
+                                            style: AppTypography.caption
+                                                .copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 10.5,
+                                                  color:
+                                                      AppColors.textPrimaryOf(
+                                                        context,
+                                                      ),
+                                                ),
                                           ),
                                         ],
                                       ),
@@ -573,7 +597,12 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                         const OwnerBeatstoreCockpit(),
                       ] else if (_activeTab ==
                           OwnerStudioTab.voicesAndMelodies) ...[
-                        _buildVoicesAndMelodiesTab(context, ref, profile, syncAnalytics),
+                        _buildVoicesAndMelodiesTab(
+                          context,
+                          ref,
+                          profile,
+                          syncAnalytics,
+                        ),
                       ] else if (_activeTab == OwnerStudioTab.releases) ...[
                         ReleasesManagerCard(
                           releases: profile.releases,
@@ -1152,7 +1181,6 @@ class _OwnerReelsShelf extends ConsumerWidget {
   }
 }
 
-
 class _CreatorMasteryBadgesSection extends ConsumerWidget {
   const _CreatorMasteryBadgesSection();
 
@@ -1195,7 +1223,10 @@ class _CreatorMasteryBadgesSection extends ConsumerWidget {
             children: badges.map((badge) {
               final isUnlocked = badge.isUnlocked;
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: isUnlocked
                       ? AppColors.coinGold.withAlpha(20)
@@ -1215,7 +1246,9 @@ class _CreatorMasteryBadgesSection extends ConsumerWidget {
                           ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
                           : PhosphorIcons.lock(PhosphorIconsStyle.regular),
                       size: 14,
-                      color: isUnlocked ? AppColors.coinGold : AppColors.textTertiary,
+                      color: isUnlocked
+                          ? AppColors.coinGold
+                          : AppColors.textTertiary,
                     ),
                     const SizedBox(width: AppSpacing.xxs),
                     Text(

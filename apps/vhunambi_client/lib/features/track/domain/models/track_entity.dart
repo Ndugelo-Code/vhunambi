@@ -53,17 +53,30 @@ class TrackEntity {
     }
 
     return TrackEntity(
-      id: json['id'] as String? ?? '',
-      title: json['title'] as String? ?? 'Untitled',
+      id: (json['id'] ?? json['generationId'] ?? json['generation_id'])
+              as String? ??
+          '',
+      title: (json['title'] ?? json['trackTitle'] ?? json['track_title'])
+              as String? ??
+          'Untitled',
       genre: json['genre'] as String? ?? 'Afro House',
       language: json['language'] as String? ?? 'English',
       duration: Duration(
-        seconds: (json['duration_seconds'] as num?)?.toInt() ?? 0,
+        seconds:
+            ((json['duration_seconds'] ?? json['durationSec']) as num?)
+                ?.toInt() ??
+            0,
       ),
-      masterMp3Url: json['master_mp3_url'] as String? ?? '',
-      stemsUrl: json['stems_url'] as String? ?? json['stems_zip_url'] as String?,
+      masterMp3Url:
+          (json['master_mp3_url'] ?? json['masterMp3Url'] ?? json['audio_url'])
+              as String? ??
+          '',
+      stemsUrl: (json['stems_url'] ??
+              json['stems_zip_url'] ??
+              json['stemsZipUrl'])
+          as String?,
       stemUrls: parsedStemUrls,
-      coverUrl: json['cover_url'] as String?,
+      coverUrl: (json['cover_url'] ?? json['coverUrl']) as String?,
       lyrics: json['lyrics'] as String?,
     );
   }
@@ -143,6 +156,7 @@ class TrackEntity {
     Duration? duration,
     String? masterMp3Url,
     String? stemsUrl,
+    Map<StemType, String>? stemUrls,
     String? coverUrl,
     String? lyrics,
   }) {
@@ -154,6 +168,7 @@ class TrackEntity {
       duration: duration ?? this.duration,
       masterMp3Url: masterMp3Url ?? this.masterMp3Url,
       stemsUrl: stemsUrl ?? this.stemsUrl,
+      stemUrls: stemUrls ?? this.stemUrls,
       coverUrl: coverUrl ?? this.coverUrl,
       lyrics: lyrics ?? this.lyrics,
     );

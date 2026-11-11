@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
-import '../../features/player/domain/models/stem_mixer_state.dart';
+import 'package:vhunambi_client/features/player/domain/models/stem_mixer_state.dart';
 
 /// Audio provenance classifier declaring the human craft or algorithmic origin
 /// of a musical work (Phase 39 REQ-ID-PROV-01).
@@ -107,5 +107,152 @@ class Track {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
+  }
+
+  Track copyWith({
+    String? id,
+    String? title,
+    String? creatorName,
+    String? creatorAvatarUrl,
+    String? genre,
+    String? language,
+    Duration? duration,
+    String? audioUrl,
+    String? coverUrl,
+    int? likeCount,
+    int? playCount,
+    bool? isNew,
+    int? trendingRank,
+    String? mood,
+    String? creatorHandle,
+    Map<StemType, String>? stemUrls,
+    AudioProvenanceType? provenanceType,
+  }) {
+    return Track(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      creatorName: creatorName ?? this.creatorName,
+      creatorAvatarUrl: creatorAvatarUrl ?? this.creatorAvatarUrl,
+      genre: genre ?? this.genre,
+      language: language ?? this.language,
+      duration: duration ?? this.duration,
+      audioUrl: audioUrl ?? this.audioUrl,
+      coverUrl: coverUrl ?? this.coverUrl,
+      likeCount: likeCount ?? this.likeCount,
+      playCount: playCount ?? this.playCount,
+      isNew: isNew ?? this.isNew,
+      trendingRank: trendingRank ?? this.trendingRank,
+      mood: mood ?? this.mood,
+      creatorHandle: creatorHandle ?? this.creatorHandle,
+      stemUrls: stemUrls ?? this.stemUrls,
+      provenanceType: provenanceType ?? this.provenanceType,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'id': id,
+    'title': title,
+    'creatorName': creatorName,
+    'artist': creatorName,
+    if (creatorAvatarUrl != null) 'creatorAvatarUrl': creatorAvatarUrl,
+    'genre': genre,
+    'language': language,
+    'durationMs': duration.inMilliseconds,
+    'durationSeconds': duration.inSeconds,
+    if (audioUrl != null) 'audioUrl': audioUrl,
+    if (coverUrl != null) 'coverUrl': coverUrl,
+    'likeCount': likeCount,
+    'likesCount': likeCount,
+    'playCount': playCount,
+    'playsCount': playCount,
+    'isNew': isNew,
+    if (trendingRank != null) 'trendingRank': trendingRank,
+    if (mood != null) 'mood': mood,
+    if (creatorHandle != null) 'creatorHandle': creatorHandle,
+    if (stemUrls != null)
+      'stemUrls': <String, String>{
+        for (final entry in stemUrls!.entries) entry.key.name: entry.value,
+      },
+    'provenanceType': provenanceType.name,
+  };
+
+  factory Track.fromJson(Map<String, dynamic> json) {
+    final durationMsRaw = json['durationMs'] ?? json['duration_ms'];
+    final durationSecRaw =
+        json['durationSeconds'] ?? json['duration_seconds'] ?? json['duration'];
+    final Duration resolvedDuration;
+    if (durationMsRaw is num && durationMsRaw > 0) {
+      resolvedDuration = Duration(milliseconds: durationMsRaw.round());
+    } else if (durationSecRaw is num && durationSecRaw > 0) {
+      resolvedDuration = Duration(seconds: durationSecRaw.round());
+    } else {
+      resolvedDuration = const Duration(minutes: 3);
+    }
+
+    Map<StemType, String>? parsedStems;
+    final rawStems = json['stemUrls'];
+    if (rawStems is Map) {
+      final map = <StemType, String>{};
+      for (final entry in rawStems.entries) {
+        final keyStr = entry.key.toString();
+        final stemType = StemType.values
+            .where((s) => s.name == keyStr)
+            .firstOrNull;
+        if (stemType != null && entry.value != null) {
+          map[stemType] = entry.value.toString();
+        }
+      }
+      if (map.isNotEmpty) parsedStems = map;
+    }
+
+    final rawProvenance =
+        (json['provenanceType'] ??
+                (json['songDna'] is Map
+                    ? (json['songDna'] as Map)['provenanceType']
+                    : null))
+            ?.toString();
+    final AudioProvenanceType resolvedProvenance;
+    if (rawProvenance == 'humanCreated') {
+      resolvedProvenance = AudioProvenanceType.humanDawMaster;
+    } else {
+      resolvedProvenance = AudioProvenanceType.values.firstWhere(
+        (e) => e.name == rawProvenance,
+        orElse: () => AudioProvenanceType.hybridCoCreation,
+      );
+    }
+
+    return Track(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? 'Untitled Track').toString(),
+      creatorName:
+          (json['creatorName'] ??
+                  json['artist'] ??
+                  json['artist_name'] ??
+                  'Vhunambi Creator')
+              .toString(),
+      creatorAvatarUrl: json['creatorAvatarUrl'] as String?,
+      genre: (json['genre'] ?? 'Amapiano').toString(),
+      language: (json['language'] ?? 'English').toString(),
+      duration: resolvedDuration,
+      audioUrl: (json['audioUrl'] ?? json['audio_url']) as String?,
+      coverUrl: (json['coverUrl'] ?? json['cover_url']) as String?,
+      likeCount:
+          ((json['likeCount'] ?? json['likesCount'] ?? json['like_count'])
+                  as num?)
+              ?.toInt() ??
+          0,
+      playCount:
+          ((json['playCount'] ?? json['playsCount'] ?? json['play_count'])
+                  as num?)
+              ?.toInt() ??
+          0,
+      isNew: json['isNew'] as bool? ?? false,
+      trendingRank: (json['trendingRank'] as num?)?.toInt(),
+      mood: json['mood'] as String?,
+      creatorHandle:
+          (json['creatorHandle'] ?? json['creator_handle']) as String?,
+      stemUrls: parsedStems,
+      provenanceType: resolvedProvenance,
+    );
   }
 }

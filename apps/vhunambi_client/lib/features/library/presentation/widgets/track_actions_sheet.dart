@@ -15,6 +15,7 @@ import 'library_cover_art.dart';
 import 'track_details_modal.dart';
 import 'package:vhunambi_client/features/content_studio/presentation/views/content_studio_dock_view.dart';
 import '../../../beats/presentation/providers/beats_provider.dart';
+import '../../../marketplace/presentation/widgets/license_certificate_sheet.dart';
 
 /// Contextual vault asset action sheet (REQ-LIB-06).
 ///
@@ -25,11 +26,7 @@ class TrackActionsSheet extends ConsumerWidget {
   /// Host context retained so follow-up dialogs can mount after the sheet closes.
   final BuildContext? hostContext;
 
-  const TrackActionsSheet({
-    super.key,
-    required this.track,
-    this.hostContext,
-  });
+  const TrackActionsSheet({super.key, required this.track, this.hostContext});
 
   static Future<void> show(BuildContext context, LibraryTrack track) {
     return showModalBottomSheet<void>(
@@ -99,13 +96,17 @@ class TrackActionsSheet extends ConsumerWidget {
 
     void handleStemSeparation() {
       close();
-      notify('Queued 4-stem split for "${track.title}" — Vocals, Drums, Bass & Other.');
+      notify(
+        'Queued 4-stem split for "${track.title}" — Vocals, Drums, Bass & Other.',
+      );
     }
 
     void handleDownloadOffline() {
       ref.read(downloadManagerProvider.notifier).downloadTrack(track);
       close();
-      notify('"${track.title}" cached in your device vault — playable offline.');
+      notify(
+        '"${track.title}" cached in your device vault — playable offline.',
+      );
     }
 
     void handleRemoveOffline() {
@@ -194,7 +195,8 @@ class TrackActionsSheet extends ConsumerWidget {
         hostContext ?? context,
         dna: track.toSongMetadataDna(),
         audioUrl: track.remoteAudioUrl,
-        coverArtUrl: track.coverImageUrl ??
+        coverArtUrl:
+            track.coverImageUrl ??
             'https://r2.vhunambi.com/visuals/default_9_16.png',
       );
     }
@@ -330,7 +332,8 @@ class _TrackActionsLayout extends StatelessWidget {
                 _ActionTile(
                   icon: AppIcons.play,
                   label: 'Play Now',
-                  subtitle: 'Load into the persistent player and start playback',
+                  subtitle:
+                      'Load into the persistent player and start playback',
                   onTap: onPlayNow,
                 ),
                 _ActionTile(
@@ -343,7 +346,8 @@ class _TrackActionsLayout extends StatelessWidget {
                   key: const Key('track_action_list_in_beatstore'),
                   icon: AppIcons.coin,
                   label: '💰 List in Beatstore',
-                  subtitle: 'Convert to sellable beat listing on the Beats Marketplace',
+                  subtitle:
+                      'Convert to sellable beat listing on the Beats Marketplace',
                   onTap: onListInBeatstore,
                 ),
                 _ActionTile(
@@ -382,7 +386,8 @@ class _TrackActionsLayout extends StatelessWidget {
                 _ActionTile(
                   icon: PhosphorIconsRegular.scales,
                   label: 'View Commercial License',
-                  subtitle: '${track.licenseType} • ${track.licenseCertificateId}',
+                  subtitle:
+                      '${track.licenseType} • ${track.licenseCertificateId}',
                   onTap: onViewLicense,
                 ),
                 _ActionTile(
@@ -496,152 +501,10 @@ class _ActionTile extends StatelessWidget {
   }
 }
 
-/// Commercial licensing certificate preview (Blueprint 04 §3.2).
+/// Commercial licensing certificate preview (Blueprint 04 §3.2 / Phase 58).
 Future<void> showLibraryLicenseDialog(
   BuildContext context,
   LibraryTrack track,
 ) {
-  final messenger = ScaffoldMessenger.of(context);
-
-  return showDialog<void>(
-    context: context,
-    barrierColor: Colors.black54,
-    builder: (dialogContext) => Dialog(
-      backgroundColor: AppColors.surfaceModal,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.cardBorder,
-        side: BorderSide(color: AppColors.borderSubtle),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.balance_rounded,
-                  size: 20,
-                  color: AppColors.brandPrimary,
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Expanded(
-                  child: Text(
-                    'Commercial License',
-                    style: AppTypography.titleMedium,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _LicenseRow(
-              label: 'Certificate ID',
-              value: track.licenseCertificateId,
-            ),
-            _LicenseRow(
-              label: 'License type',
-              value: '${track.licenseType} — 100% ownership',
-            ),
-            _LicenseRow(
-              label: 'Asset',
-              value: '${track.title} • ${track.formattedDuration}',
-            ),
-            _LicenseRow(label: 'Creator', value: track.creatorName),
-            _LicenseRow(label: 'Language', value: track.language),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'You own 100% of the master recording, publishing and synchronization rights for assets generated on paid plans. Split sheets export with collaborators.',
-              style: AppTypography.caption.copyWith(height: 1.5),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text(
-                    'Close',
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    messenger.showSnackBar(
-                      SnackBar(
-                        backgroundColor: AppColors.surfaceModal,
-                        duration: const Duration(seconds: 3),
-                        content: Text(
-                          'PDF export for ${track.licenseCertificateId} ships with the licensing release.',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.brandPrimary,
-                    foregroundColor: AppColors.brandContrast,
-                    elevation: 0,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: AppRadius.pillBorder,
-                    ),
-                  ),
-                  icon: const Icon(
-                    Icons.picture_as_pdf_outlined,
-                    size: 16,
-                    color: AppColors.brandContrast,
-                  ),
-                  label: Text(
-                    'Download PDF',
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.brandContrast,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _LicenseRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _LicenseRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(label, style: AppTypography.caption),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTypography.bodySmall.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  return showLicenseCertificateSheet(context, track: track);
 }

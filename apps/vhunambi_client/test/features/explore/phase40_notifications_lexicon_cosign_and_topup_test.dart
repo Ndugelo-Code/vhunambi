@@ -253,18 +253,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Instant Coin Top-Up (ZAR)'), findsOneWidget);
-      expect(find.byKey(const Key('coin_topup_pack_100')), findsOneWidget);
-      expect(find.byKey(const Key('coin_topup_pack_300')), findsOneWidget);
-      expect(find.byKey(const Key('coin_topup_pack_1000')), findsOneWidget);
+      expect(find.byKey(const Key('coin_topup_pack_500')), findsOneWidget);
+      expect(find.byKey(const Key('coin_topup_pack_1500')), findsOneWidget);
+      expect(find.byKey(const Key('coin_topup_pack_5000')), findsOneWidget);
 
       final initialBalance = container.read(creatorWalletProvider).userCoinsBalance;
 
-      // Tap 100 coins pack
-      await tester.tap(find.byKey(const Key('coin_topup_pack_100')));
+      // Tap 500 coins pack
+      await tester.tap(find.byKey(const Key('coin_topup_pack_500')));
       await tester.pumpAndSettle();
 
       final newBalance = container.read(creatorWalletProvider).userCoinsBalance;
-      expect(newBalance, initialBalance + 100);
+      expect(newBalance, initialBalance + 500);
 
       final notifs = container.read(notificationsProvider);
       expect(
