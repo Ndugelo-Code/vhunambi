@@ -164,10 +164,13 @@ class SovereignAuthRepository {
             'deviceLabel': deviceLabel,
           }),
         )
-        .timeout(const Duration(seconds: 6));
+        .timeout(const Duration(seconds: 15));
 
     final decoded = _decodeJsonMap(res.body);
-    if (res.statusCode == 201 || res.statusCode == 200) {
+    if (res.statusCode == 201 ||
+        res.statusCode == 200 ||
+        (res.statusCode == 202 &&
+            (decoded['accessToken']?.toString().isNotEmpty ?? false))) {
       final session = parseAuthBundleJson(decoded);
       await saveSession(session);
       return session;
@@ -176,7 +179,8 @@ class SovereignAuthRepository {
     throw SovereignAuthException(
       statusCode: res.statusCode,
       code: (decoded['code'] ?? 'AUTH_REGISTER_FAILED').toString(),
-      message: (decoded['message'] ?? 'Registration failed').toString(),
+      message: (decoded['message'] ?? decoded['error'] ?? 'Registration failed')
+          .toString(),
     );
   }
 
@@ -207,10 +211,12 @@ class SovereignAuthRepository {
             'deviceLabel': deviceLabel,
           }),
         )
-        .timeout(const Duration(seconds: 6));
+        .timeout(const Duration(seconds: 15));
 
     final decoded = _decodeJsonMap(res.body);
-    if (res.statusCode == 200) {
+    if (res.statusCode == 200 ||
+        (res.statusCode == 202 &&
+            (decoded['accessToken']?.toString().isNotEmpty ?? false))) {
       final session = parseAuthBundleJson(decoded);
       await saveSession(session);
       return session;
@@ -219,7 +225,10 @@ class SovereignAuthRepository {
     throw SovereignAuthException(
       statusCode: res.statusCode,
       code: (decoded['code'] ?? 'AUTH_INVALID_CREDENTIALS').toString(),
-      message: (decoded['message'] ?? 'Invalid handle, email, or password').toString(),
+      message: (decoded['message'] ??
+              decoded['error'] ??
+              'Invalid handle, email, or password')
+          .toString(),
     );
   }
 

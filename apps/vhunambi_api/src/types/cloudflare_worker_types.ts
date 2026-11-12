@@ -72,11 +72,14 @@ export interface VhunambiWorkerEnv {
   R2_PUBLIC_BASE_URL?: string;
   RUNPOD_API_KEY?: string;
   RUNPOD_ENDPOINT_ID?: string;
+  RUNPOD_LLM_ENDPOINT_ID?: string;
+  RUNPOD_LLM_URL?: string;
+  RUNPOD_LLM_MODEL?: string;
   RUNPOD_COMFYUI_URL?: string;
   RUNPOD_COMFYUI_ENDPOINT_ID?: string;
   ZR_WEBHOOK_SECRET?: string;
   WEBHOOK_BASE_URL?: string;
-  ZR_LLM_PROVIDER?: 'claude' | 'grok' | 'mock';
+  ZR_LLM_PROVIDER?: 'runpod_vllm' | 'claude' | 'grok' | 'mock';
   ANTHROPIC_API_KEY?: string;
   GROK_API_KEY?: string;
   PAYFAST_MERCHANT_ID?: string;

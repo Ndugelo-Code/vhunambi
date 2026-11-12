@@ -83,8 +83,11 @@ export function completeJob(
     durationSec?: number;
     manifestUrl?: string;
     manifest?: MasterMediaObjectManifest;
+    coverUrl?: string;
+    lyrics?: string;
   },
 ): void {
+  const existing = getJob(generationId);
   vhunambiDb.updateGenerationJob(generationId, {
     status: 'succeeded',
     step: 'ready',
@@ -94,6 +97,12 @@ export function completeJob(
     stemUrls: result.stemUrls,
     manifestUrl: result.manifestUrl,
     manifest: result.manifest,
+    coverUrl:
+      result.coverUrl ??
+      existing?.coverUrl ??
+      result.manifest?.assets?.coverArt1x1Url ??
+      result.manifest?.assets?.coverArt9x16Url,
+    lyrics: result.lyrics ?? existing?.lyrics,
     durationSec: result.durationSec || 180,
   });
 }

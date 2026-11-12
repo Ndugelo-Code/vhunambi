@@ -2,7 +2,8 @@ import type { Context } from 'hono';
 import { resolveRuntimeEnv } from '../../config/env.js';
 import type { VhunambiWorkerEnv } from '../../types/cloudflare_worker_types.js';
 import { getLanguageContext } from '../bantu/language_context.js';
-import { VENDA_IDIOMS } from '../bantu/tshi_venda.js';
+import { VENDA_IDIOMS, VENDA_MUSICAL_TERMS } from '../bantu/tshi_venda.js';
+import { getGenrePreset } from '../synthesis/constants.js';
 
 export interface StanzaItem {
   type: string;
@@ -17,6 +18,147 @@ export interface GeneratedLyricsResult {
   detectedLanguage: string;
   moodAnalysis: string[];
   cultureTags: string[];
+}
+
+export interface SonicPromptPlan {
+  expandedCaption: string;
+  sonicTags: string[];
+  arrangementStructure: string[];
+  recommendedLoRA: {
+    loraId: string;
+    r2Key: string;
+    weight: number;
+  };
+  llmEngine: string;
+}
+
+const STOP_WORDS = new Set([
+  'the', 'and', 'for', 'with', 'about', 'that', 'this', 'from', 'into',
+  'your', 'song', 'track', 'beat', 'music', 'make', 'create', 'write',
+  'a', 'an', 'in', 'on', 'of', 'to', 'at', 'by', 'is', 'are', 'our', 'my',
+]);
+
+function hashPromptSeed(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function extractPromptMotifs(prompt: string, genre: string): {
+  primaryPhrase: string;
+  keywords: string[];
+} {
+  const cleaned = prompt
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
+    .trim();
+  const words = cleaned
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w.toLowerCase()));
+
+  const unique: string[] = [];
+  for (const w of words) {
+    if (!unique.some((u) => u.toLowerCase() === w.toLowerCase())) {
+      unique.push(w);
+    }
+    if (unique.length >= 6) break;
+  }
+
+  const primaryPhrase =
+    cleaned.length > 0
+      ? cleaned.slice(0, 68)
+      : `${genre} Ubuntu celebration`;
+  const keywords =
+    unique.length > 0 ? unique : [genre, 'heritage', 'sunrise', 'rhythm'];
+
+  return { primaryPhrase, keywords };
+}
+
+/**
+ * Resolves and invokes the Sovereign Open-Source LLM deployed on RunPod Serverless
+ * (`Qwen/Qwen2.5-7B-Instruct` / `meta-llama/Llama-3.1-8B-Instruct` via OpenAI-compatible vLLM API).
+ */
+export async function callRunPodOpenSourceLLM(
+  systemPrompt: string,
+  userMessage: string,
+  cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,
+  temperature: number = 0.72,
+  maxTokens: number = 1500,
+): Promise<string | null> {
+  const runtimeEnv = resolveRuntimeEnv(cOrEnv);
+  if (runtimeEnv.ZR_LLM_PROVIDER === 'mock') {
+    return null;
+  }
+
+  let endpointUrl = '';
+  if (runtimeEnv.RUNPOD_LLM_URL) {
+    const trimmed = runtimeEnv.RUNPOD_LLM_URL.replace(/\/+$/, '');
+    if (trimmed.endsWith('/chat/completions')) {
+      endpointUrl = trimmed;
+    } else if (trimmed.endsWith('/v1')) {
+      endpointUrl = `${trimmed}/chat/completions`;
+    } else {
+      endpointUrl = `${trimmed}/v1/chat/completions`;
+    }
+  } else if (runtimeEnv.RUNPOD_API_KEY && runtimeEnv.RUNPOD_LLM_ENDPOINT_ID) {
+    endpointUrl = `https://api.runpod.ai/v2/${runtimeEnv.RUNPOD_LLM_ENDPOINT_ID}/openai/v1/chat/completions`;
+  } else {
+    return null;
+  }
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (runtimeEnv.RUNPOD_API_KEY) {
+      headers['Authorization'] = `Bearer ${runtimeEnv.RUNPOD_API_KEY}`;
+    }
+
+    const response = await fetch(endpointUrl, {
+      method: 'POST',
+      headers,
+      signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({
+        model: runtimeEnv.RUNPOD_LLM_MODEL || 'Qwen/Qwen2.5-7B-Instruct',
+        temperature,
+        max_tokens: maxTokens,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string }; text?: string }>;
+      output?: {
+        text?: string;
+        choices?: Array<{ message?: { content?: string }; text?: string }>;
+      };
+    };
+
+    const text =
+      data.choices?.[0]?.message?.content?.trim() ||
+      data.choices?.[0]?.text?.trim() ||
+      data.output?.choices?.[0]?.message?.content?.trim() ||
+      data.output?.text?.trim() ||
+      '';
+    return text.length > 0 ? text : null;
+  } catch (error) {
+    console.warn(
+      '[Lyrics] RunPod Open-Source vLLM request failed, using deterministic composer:',
+      error,
+    );
+    return null;
+  }
 }
 
 /**
@@ -57,7 +199,9 @@ export function parseStanzas(rawText: string): StanzaItem[] {
 }
 
 /**
- * High-fidelity offline generator for African music lyrics
+ * Deterministic prompt-reactive Bantu & English multi-section lyric composer.
+ * Distinct prompts reliably produce unique, culturally rooted verses, hooks, and imagery
+ * even when external/RunPod vLLM workers are scaled down.
  */
 export function generateLocalMockLyrics(
   prompt: string,
@@ -65,56 +209,251 @@ export function generateLocalMockLyrics(
   language: string,
 ): GeneratedLyricsResult {
   const langCtx = getLanguageContext(language);
-  const idiom =
-    language.toLowerCase().startsWith('ve')
-      ? VENDA_IDIOMS[0].phrase
-      : 'Ubuntu ngumuntu ngabantu';
+  const preset = getGenrePreset(genre);
+  const { primaryPhrase, keywords } = extractPromptMotifs(prompt, genre);
+  const seed = hashPromptSeed(`${prompt}|${genre}|${language}`);
+
+  const kw0 = keywords[0] ?? genre;
+  const kw1 = keywords[1] ?? kw0;
+  const kw2 = keywords[2] ?? langCtx.languageName;
+  const kw3 = keywords[3] ?? preset.defaultMood;
+
+  const langLower = language.toLowerCase();
+  const idiomBank = langLower.startsWith('ve')
+    ? VENDA_IDIOMS.map((item) => item.phrase)
+    : langLower.startsWith('zu') || langLower.startsWith('xh')
+      ? [
+        'Ubuntu ngumuntu ngabantu',
+        'Indlela ibuzwa kwabaphambili',
+        'Izandla ziyagezana emculweni',
+        'Ukhanya njengelanga ebusuku',
+      ]
+      : langLower.startsWith('st') ||
+        langLower.startsWith('nso') ||
+        langLower.startsWith('tn')
+        ? [
+          'Motho ke motho ka batho',
+          'Pula ya medupe e na ka kgotso',
+          'Kopano ke matla mo pineng ya rona',
+          'Lesedi le bonesa tsela ya rona',
+        ]
+        : [
+          'Ri a takala namusi, rhythm in unity',
+          'Muthu ndi muthu nga vhathu',
+          'From Limpopo hills to the glowing skyline',
+          'Lwendo lu vhavhaho lu fhedza nga dakalo',
+        ];
+
+  const chosenIdiom = idiomBank[seed % idiomBank.length];
+  const secondaryIdiom = idiomBank[(seed + 1) % idiomBank.length];
+  const adLib0 = langCtx.adLibs[0] || 'Yebo!';
+  const adLib1 = langCtx.adLibs[1] || 'Woza!';
+  const adLib2 = langCtx.adLibs[2 % langCtx.adLibs.length] || adLib0;
+  const adLib3 = langCtx.adLibs[3 % langCtx.adLibs.length] || adLib1;
+
+  const grooveDescriptors = [
+    'log-drum thunder shaking the warm red earth',
+    'velvet Rhodes keys floating over midnight streets',
+    'fingerpicked strings singing across mountain valleys',
+    'syncopated percussion calling dancers into the circle',
+  ];
+  const grooveLine = grooveDescriptors[seed % grooveDescriptors.length];
+  const chorusRefrain = `${kw0} ${kw1} — let the ${genre} spirit rise tonight`;
 
   const rawLyrics = `[INTRO]
-${langCtx.adLibs[0] || 'Yebo!'}
-${langCtx.adLibs[1] || 'Woza!'}
-Vhunambi ha musika, the sound of the soil
+${adLib0}
+${adLib1}
+Vhunambi (${VENDA_MUSICAL_TERMS.ngoma}) — ${primaryPhrase}
 
 [VERSE 1]
-Walking through the morning mist where memories stay
-Listening to the elders teaching us the ancient way
-${idiom}
-A rhythm born of resilience that never fades away
+Thinking of ${primaryPhrase}, carried on the ${preset.defaultBpm} BPM tide
+${kw0} and ${kw1} glowing side by side
+${chosenIdiom}
+With ${grooveLine}
 
 [PRE-CHORUS]
-Hear the bassline speaking through the night
-Every heart is beating with the morning light
-${langCtx.adLibs[2] || 'Shisa!'}
+Feel ${kw2} rising in the chest, every heartbeat tuned in ${preset.defaultKey}
+Hold onto ${kw3} till the dawn breaks light and new
+${adLib2}
 
 [CHORUS]
-This is our song, this is our sacred beat
-Vhunambi rising strong on every township street
-Sing it loud across the mountains, feel the groove so deep
-A promise to our ancestors that we will always keep
+${chorusRefrain}
+Every voice answering together: ${chosenIdiom}
+From ${kw0} to the stars, we move through ${primaryPhrase}
+Sing it in ${langCtx.nativeName}, let the ancestral groove stay deep
 
 [VERSE 2]
-Through every trial and shadow we still rise and sing
-With unity and love in every word we bring
-${idiom}
-The spirit of our heritage in everything
+Yesterday's echoes turn to ${kw2} gold inside the sound
+${kw1} footsteps drumming sacred patterns on the ground
+${secondaryIdiom}
+Nothing breaks a melody born from ${primaryPhrase}
+
+[BRIDGE]
+Strip it back to breath and sub-bass pulse (${kw3})
+Hear ${kw0} whispering through the choir and the drums
+${adLib3}
 
 [OUTRO]
-${langCtx.adLibs[3] || 'Aa!'}
-Vhunambi musika...
-The song remains forever.`;
+${adLib0} (${kw0} forever...)
+${primaryPhrase} — the song remains in motion.`;
 
   return {
     rawLyrics,
     stanzas: parseStanzas(rawLyrics),
-    vocalInstructions: `${langCtx.vocalStyleAdvice} Rich harmonies and syncopated rhythmic ad-libs.`,
+    vocalInstructions: `${langCtx.vocalStyleAdvice} Theme: ${primaryPhrase}. Groove: ${grooveLine}.`,
     detectedLanguage: langCtx.languageName,
-    moodAnalysis: ['soulful', 'uplifting', 'resilient', 'celebratory'],
-    cultureTags: ['ubuntu', 'township_culture', 'heritage', 'ancestral_resilience'],
+    moodAnalysis: [preset.defaultMood, kw3.toLowerCase(), 'uplifting', 'authentic'],
+    cultureTags: [
+      'ubuntu',
+      genre.toLowerCase().replace(/\s+/g, '_'),
+      kw0.toLowerCase(),
+      'heritage',
+    ],
   };
 }
 
 /**
- * Main LLM Dispatcher (Claude / xAI Grok / Mock)
+ * Two-Stage Prompt Expansion & LoRA Matcher for ACE-Step 1.5 (Phase 64).
+ * Expands concise user prompts into rich musical captions, sonic tags, structure,
+ * and regional .safetensors LoRA selection.
+ */
+export function planSonicArrangementFromPrompt(
+  prompt: string,
+  genre: string,
+  language: string,
+  bpm: number,
+  musicalKey: string,
+): SonicPromptPlan {
+  const preset = getGenrePreset(genre);
+  const langCtx = getLanguageContext(language);
+  const cleanPrompt = prompt.trim() || `${genre} sunset groove`;
+  const gNorm = (genre || 'amapiano').toLowerCase().replace(/[^a-z]/g, '');
+
+  const loraMap: Record<
+    string,
+    { loraId: string; r2Key: string; weight: number }
+  > = {
+    amapiano: {
+      loraId: 'amapiano_logdrum_v1',
+      r2Key: 'loras/amapiano_logdrum_v1.safetensors',
+      weight: 0.85,
+    },
+    privateschoolamapiano: {
+      loraId: 'amapiano_logdrum_v1',
+      r2Key: 'loras/amapiano_logdrum_v1.safetensors',
+      weight: 0.85,
+    },
+    gqom: {
+      loraId: 'gqom_durban_v1',
+      r2Key: 'loras/gqom_durban_v1.safetensors',
+      weight: 0.88,
+    },
+    maskandi: {
+      loraId: 'maskandi_picking_v1',
+      r2Key: 'loras/maskandi_picking_v1.safetensors',
+      weight: 0.82,
+    },
+    venda: {
+      loraId: 'venda_malende_v1',
+      r2Key: 'loras/venda_malende_v1.safetensors',
+      weight: 0.85,
+    },
+    afrobeats: {
+      loraId: 'afrobeats_lagos_v1',
+      r2Key: 'loras/afrobeats_lagos_v1.safetensors',
+      weight: 0.80,
+    },
+    kwaito: {
+      loraId: 'kwaito_township_v1',
+      r2Key: 'loras/kwaito_township_v1.safetensors',
+      weight: 0.82,
+    },
+    gospel: {
+      loraId: 'afro_gospel_choir_v1',
+      r2Key: 'loras/afro_gospel_choir_v1.safetensors',
+      weight: 0.84,
+    },
+    afrohouse: {
+      loraId: 'afrohouse_ancestral_v1',
+      r2Key: 'loras/afrohouse_ancestral_v1.safetensors',
+      weight: 0.85,
+    },
+  };
+  const recommendedLoRA = loraMap[gNorm] ?? loraMap.amapiano;
+
+  const sonicTags = [
+    genre.toLowerCase(),
+    `${bpm} bpm`,
+    musicalKey.toLowerCase(),
+    ...preset.instruments.map((i) => i.toLowerCase()),
+    langCtx.languageName.toLowerCase(),
+    '44.1khz stereo master',
+    '-9.5 lufs commercial loudness',
+  ];
+
+  const arrangementStructure = [
+    '[INTRO: 8 bars percussive shaker & atmospheric pad]',
+    '[VERSE 1: 16 bars warm harmonic pocket & lead vocal entry]',
+    '[CHORUS: 16 bars full log-drum sub-bass drop & call-and-response hook]',
+    '[VERSE 2: 16 bars syncopated counter-melody & polyrhythmic groove]',
+    '[BRIDGE: 8 bars stripped vocal & bass breakdown]',
+    '[OUTRO: 8 bars dj-friendly stem fade]',
+  ];
+
+  const expandedCaption = [
+    `Prompt theme: ${cleanPrompt}.`,
+    `Genre: ${genre}.`,
+    `Style: ${preset.characteristicStyle}.`,
+    `Instruments: ${preset.instruments.join(', ')}.`,
+    `Tempo: ${bpm} BPM. Key: ${musicalKey}.`,
+    `Vocal direction: ${langCtx.vocalStyleAdvice}`,
+    `Arrangement: ${arrangementStructure.join(' -> ')}.`,
+    'High fidelity studio master, 320kbps production quality.',
+  ].join(' ');
+
+  return {
+    expandedCaption,
+    sonicTags,
+    arrangementStructure,
+    recommendedLoRA,
+    llmEngine: 'runpod_qwen2_5_7b_open_source_planner',
+  };
+}
+
+/**
+ * Optional async Stage-1 Open-Source RunPod vLLM prompt expansion with immediate local fallback.
+ */
+export async function expandPromptWithOpenSourceLLM(
+  prompt: string,
+  genre: string,
+  language: string,
+  bpm: number,
+  musicalKey: string,
+  cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,
+): Promise<SonicPromptPlan> {
+  const basePlan = planSonicArrangementFromPrompt(
+    prompt,
+    genre,
+    language,
+    bpm,
+    musicalKey,
+  );
+  const sys =
+    'You are an African music producer expanding a brief song idea into a concise single-paragraph ACE-Step acoustic production tag prompt including tempo, key, instrumentation, and vocal timbre.';
+  const usr = `Expand this prompt for ${genre} in ${language} (${bpm} BPM, ${musicalKey}): "${prompt}"`;
+
+  const llmExpanded = await callRunPodOpenSourceLLM(sys, usr, cOrEnv, 0.55, 220);
+  if (llmExpanded && llmExpanded.length >= 24) {
+    return {
+      ...basePlan,
+      expandedCaption: `${llmExpanded} Genre: ${genre}. Tempo: ${bpm} BPM. Key: ${musicalKey}.`,
+    };
+  }
+  return basePlan;
+}
+
+/**
+ * Main LLM Dispatcher (Sovereign RunPod Open-Source vLLM -> optional Grok/Claude -> Prompt-Reactive Composer)
  */
 export async function generateLyricsFromLLM(
   prompt: string,
@@ -126,7 +465,27 @@ export async function generateLyricsFromLLM(
   const runtimeEnv = resolveRuntimeEnv(cOrEnv);
   const userMessage = `Create authentic ${genre} lyrics based on prompt: "${prompt}". Requested language: ${language}. Maintain bracketed headers [INTRO], [VERSE 1], [CHORUS], etc.`;
 
-  // 1. xAI Grok Provider (api.x.ai)
+  // 1. Sovereign Open-Source RunPod vLLM (Qwen2.5-7B-Instruct / Llama-3.1-8B-Instruct)
+  const runpodLyrics = await callRunPodOpenSourceLLM(
+    systemPrompt,
+    userMessage,
+    cOrEnv,
+    0.72,
+    1500,
+  );
+  if (runpodLyrics) {
+    const langCtx = getLanguageContext(language);
+    return {
+      rawLyrics: runpodLyrics,
+      stanzas: parseStanzas(runpodLyrics),
+      vocalInstructions: langCtx.vocalStyleAdvice,
+      detectedLanguage: langCtx.languageName,
+      moodAnalysis: ['uplifting', 'authentic'],
+      cultureTags: ['african_music', genre.toLowerCase(), 'runpod_open_source_llm'],
+    };
+  }
+
+  // 2. Optional legacy xAI Grok Provider (api.x.ai)
   if (runtimeEnv.ZR_LLM_PROVIDER === 'grok' && runtimeEnv.GROK_API_KEY) {
     try {
       const response = await fetch('https://api.x.ai/v1/chat/completions', {
@@ -171,7 +530,7 @@ export async function generateLyricsFromLLM(
     }
   }
 
-  // 2. Anthropic Claude Provider (api.anthropic.com)
+  // 3. Optional legacy Anthropic Claude Provider (api.anthropic.com)
   if (
     runtimeEnv.ANTHROPIC_API_KEY &&
     (runtimeEnv.ZR_LLM_PROVIDER === 'claude' || runtimeEnv.ZR_LLM_PROVIDER === 'grok')
@@ -223,12 +582,12 @@ export async function generateLyricsFromLLM(
     }
   }
 
-  // 3. Graceful local synthesis generator
+  // 4. Prompt-reactive offline composer
   return generateLocalMockLyrics(prompt, genre, language);
 }
 
 /**
- * LLM-backed Lyric Refinement (Claude / xAI Grok) with deterministic offline idiom fallback.
+ * LLM-backed Lyric Refinement (Sovereign RunPod vLLM -> optional Grok/Claude -> offline idiom insert).
  */
 export async function refineLyricsWithLLM(
   params: {
@@ -250,6 +609,22 @@ export async function refineLyricsWithLLM(
       ? `\nIncorporate this authentic idiom naturally: ${params.idiomToInsert}`
       : '',
   ].join('');
+
+  // 1. Sovereign Open-Source RunPod vLLM
+  const runpodRefined = await callRunPodOpenSourceLLM(
+    systemPrompt,
+    userMessage,
+    cOrEnv,
+    0.65,
+    1500,
+  );
+  if (runpodRefined) {
+    return {
+      rawLyrics: runpodRefined,
+      stanzas: parseStanzas(runpodRefined),
+      provider: 'runpod_vllm',
+    };
+  }
 
   if (runtimeEnv.ZR_LLM_PROVIDER === 'grok' && runtimeEnv.GROK_API_KEY) {
     try {
@@ -283,7 +658,7 @@ export async function refineLyricsWithLLM(
     }
   }
 
-  if (runtimeEnv.ANTHROPIC_API_KEY && runtimeEnv.ZR_LLM_PROVIDER !== 'mock') {
+  if (runtimeEnv.ANTHROPIC_API_KEY && runtimeEnv.ZR_LLM_PROVIDER === 'claude') {
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',

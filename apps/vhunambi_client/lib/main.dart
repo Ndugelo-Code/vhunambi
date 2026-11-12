@@ -23,6 +23,8 @@ import 'features/library/presentation/providers/library_providers.dart';
 import 'features/library/presentation/views/library_view.dart';
 import 'features/marketplace/presentation/views/marketplace_view.dart';
 import 'features/onboarding/presentation/views/splash_view.dart';
+import 'features/player/data/services/vhunambi_audio_handler.dart';
+import 'features/player/presentation/providers/audio_bridge_providers.dart';
 import 'features/player/presentation/providers/mini_player_controller.dart';
 import 'features/player/presentation/providers/player_provider.dart';
 import 'features/player/presentation/widgets/mini_player_host.dart';
@@ -44,9 +46,15 @@ Future<void> main() async {
   TokenRegistration.registerAllTokens();
   DesignTokenRegistry.seal();
 
+  // Bootstrap OS/hardware audio transport for speaker playback & media controls.
+  final audioHandler = await bootstrapPlatformAudioHandler();
+
   runApp(
     ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      overrides: [
+        audioHandlerProvider.overrideWithValue(audioHandler),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
       child: const VhunambiApp(),
     ),
   );

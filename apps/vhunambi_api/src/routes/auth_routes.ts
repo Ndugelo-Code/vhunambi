@@ -1,7 +1,8 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { resolveRuntimeEnv } from '../config/env.js';
 import { SupabaseCloudDriver, type GoTrueAuthResponse } from '../db/supabase_cloud_driver.js';
 import {
+  type AuthTokenBundle,
   canonicalizeCreatorId,
   isNodeSqliteAvailable,
   vhunambiDb,
@@ -10,6 +11,7 @@ import {
   requireAuthenticatedUser,
   sovereignAuthMiddleware,
 } from '../middleware/auth_middleware.js';
+import { hashPassword, hashRefreshToken } from '../security/crypto_token.js';
 
 export const authRoutes = new Hono();
 
@@ -115,6 +117,162 @@ async function resolveEmailForIdentifier(
   return `${slug}@vhunambi.co.za`;
 }
 
+function scheduleBackground(c: Context, task: Promise<unknown>): void {
+  const safeTask = task.catch(() => { });
+  try {
+    c.executionCtx?.waitUntil(safeTask);
+  } catch {
+    // executionCtx absent outside Cloudflare Workers runtime
+  }
+}
+
+async function mirrorBundleToSupabase(
+  driver: SupabaseCloudDriver,
+  bundle: AuthTokenBundle,
+  rawPassword?: string,
+  authUid?: string,
+): Promise<void> {
+  if (!driver.isConfigured()) return;
+  const syncSnap = vhunambiDb.getAuthSyncSnapshot(
+    bundle.user.creatorId,
+    bundle.session.sessionId,
+  );
+  const passwordHash =
+    syncSnap?.passwordHash ||
+    (rawPassword ? hashPassword(rawPassword) : 'GOTRUE_MANAGED');
+  const refreshTokenHash =
+    syncSnap?.refreshTokenHash || hashRefreshToken(bundle.refreshToken);
+
+  try {
+    await driver.upsertRow(
+      'creators',
+      {
+        id: bundle.user.creatorId,
+        handle: bundle.user.handle,
+        display_name: bundle.user.displayName,
+        avatar_url: bundle.user.avatarUrl,
+        archetype: 'Producer',
+        tier: bundle.user.isVerified ? 'Sovereign' : 'Standard',
+        is_verified: bundle.user.isVerified,
+        updated_at: Date.now(),
+      },
+      'id',
+    );
+    await driver.upsertRow(
+      'users',
+      {
+        user_id: bundle.user.userId,
+        ...(authUid ? { auth_uid: authUid } : {}),
+        creator_id: bundle.user.creatorId,
+        handle: bundle.user.handle,
+        email: bundle.user.email.toLowerCase(),
+        password_hash: passwordHash,
+        role: bundle.user.role,
+        updated_at: new Date().toISOString(),
+      },
+      'creator_id',
+    );
+    await driver.upsertRow(
+      'auth_sessions',
+      {
+        session_id: bundle.session.sessionId,
+        user_id: bundle.user.userId,
+        creator_id: bundle.user.creatorId,
+        family_id: bundle.session.familyId,
+        refresh_token_hash: refreshTokenHash,
+        previous_token_hash: syncSnap?.previousTokenHash ?? null,
+        device_label: bundle.session.deviceLabel,
+        expires_at: bundle.session.expiresAt,
+        revoked: bundle.session.revoked,
+        revoke_reason: bundle.session.revokeReason,
+        created_at: bundle.session.createdAt,
+        rotated_at: bundle.session.rotatedAt,
+      },
+      'session_id',
+    );
+  } catch {
+    // Non-blocking PostgREST sync
+  }
+}
+
+async function hydrateUserFromSupabaseByIdentifier(
+  driver: SupabaseCloudDriver,
+  identifier: string,
+): Promise<boolean> {
+  if (!driver.isConfigured()) return false;
+  const trimmed = identifier.trim().toLowerCase();
+  const handleLookup = trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+  const canonical = canonicalizeCreatorId(trimmed);
+  try {
+    const userRows = await driver.selectRows<Record<string, unknown>>(
+      'users',
+      `select=*&or=(email.ilike.${encodeURIComponent(trimmed)},handle.ilike.${encodeURIComponent(handleLookup)},creator_id.eq.${encodeURIComponent(canonical)})&limit=1`,
+    );
+    const u = userRows[0];
+    if (!u) return false;
+    const cid = canonicalizeCreatorId(String(u.creator_id ?? canonical));
+    const creatorRows = await driver.selectRows<Record<string, unknown>>(
+      'creators',
+      `id=eq.${encodeURIComponent(cid)}&select=*&limit=1`,
+    ).catch(() => []);
+    const cr = creatorRows[0];
+    vhunambiDb.hydrateExternalUser({
+      userId: String(u.user_id ?? `usr_${cid}`),
+      creatorId: cid,
+      handle: String(u.handle ?? handleLookup),
+      displayName: cr?.display_name ? String(cr.display_name) : undefined,
+      email: String(u.email ?? `${cid}@vhunambi.co.za`),
+      passwordHash: String(u.password_hash ?? 'GOTRUE_MANAGED'),
+      role: String(u.role ?? 'creator'),
+      avatarUrl: cr?.avatar_url ? String(cr.avatar_url) : undefined,
+      isVerified: cr?.is_verified !== false,
+      createdAt: u.created_at ? String(u.created_at) : undefined,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function hydrateSessionFromSupabaseByRefreshToken(
+  driver: SupabaseCloudDriver,
+  refreshToken: string,
+): Promise<boolean> {
+  if (!driver.isConfigured()) return false;
+  const tokenHash = hashRefreshToken(refreshToken);
+  try {
+    const rows = await driver.selectRows<Record<string, unknown>>(
+      'auth_sessions',
+      `select=*&or=(refresh_token_hash.eq.${encodeURIComponent(tokenHash)},previous_token_hash.eq.${encodeURIComponent(tokenHash)})&limit=1`,
+    );
+    const s = rows[0];
+    if (!s) return false;
+    const cid = canonicalizeCreatorId(String(s.creator_id ?? ''));
+    if (cid && !vhunambiDb.getUserByCreatorId(cid)) {
+      await hydrateUserFromSupabaseByIdentifier(driver, cid);
+    }
+    vhunambiDb.hydrateExternalSession({
+      sessionId: String(s.session_id),
+      userId: String(s.user_id),
+      creatorId: cid,
+      familyId: String(s.family_id),
+      refreshTokenHash: String(s.refresh_token_hash),
+      previousTokenHash: s.previous_token_hash
+        ? String(s.previous_token_hash)
+        : null,
+      deviceLabel: String(s.device_label ?? 'vhunambi_client'),
+      expiresAt: String(s.expires_at),
+      revoked: Boolean(s.revoked),
+      revokeReason: s.revoke_reason ? String(s.revoke_reason) : null,
+      createdAt: s.created_at ? String(s.created_at) : undefined,
+      rotatedAt: s.rotated_at ? String(s.rotated_at) : undefined,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 authRoutes.post('/register', async (c) => {
   try {
     const body = (await c.req.json()) as {
@@ -139,97 +297,88 @@ authRoutes.post('/register', async (c) => {
 
     const runtimeEnv = resolveRuntimeEnv(c);
     const driver = new SupabaseCloudDriver(runtimeEnv);
+    const cleanedHandle = body.handle.trim().toLowerCase().replace(/^@+/, '');
+    const normalizedHandle = `@${cleanedHandle.replace(/[^a-z0-9_.-]/g, '')}`;
+    const handleSlug = normalizedHandle.slice(1).replace(/[^a-z0-9_]/g, '_');
+    const normalizedEmail = body.email.trim().toLowerCase();
+    const resolvedCreatorId = canonicalizeCreatorId(
+      body.creatorId?.trim() || `creator_${handleSlug}`,
+    );
+    const resolvedDisplayName =
+      body.displayName?.trim() || normalizedHandle.slice(1).toUpperCase();
+
     if (driver.isConfigured() && !isNodeSqliteAvailable()) {
-      const normalizedHandle = body.handle.startsWith('@')
-        ? body.handle.toLowerCase()
-        : `@${body.handle.toLowerCase()}`;
-      const creatorId = canonicalizeCreatorId(
-        body.creatorId || `creator_${normalizedHandle.slice(1)}`,
-      );
-      const goTrue = await driver.goTrueSignUp({
-        email: body.email.trim().toLowerCase(),
-        password: body.password,
-        creatorId,
-        handle: normalizedHandle,
-        displayName: body.displayName?.trim() || normalizedHandle.slice(1),
-      });
-      const resolvedGoTrueUser =
-        goTrue.user ??
-        (goTrue as unknown as { id?: string } | undefined);
-      const goTrueUserId = resolvedGoTrueUser?.id;
-      const resolvedDisplayName =
-        body.displayName?.trim() || normalizedHandle.slice(1);
       try {
-        await driver.upsertRow(
-          'creators',
-          {
-            id: creatorId,
-            handle: normalizedHandle,
-            display_name: resolvedDisplayName,
-            avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(creatorId)}`,
-            archetype: 'Producer',
-            tier: 'Sovereign',
-          },
-          'id',
+        const existingRows = await driver.selectRows<{ user_id?: string }>(
+          'users',
+          `select=user_id&or=(handle.ilike.${encodeURIComponent(normalizedHandle)},email.ilike.${encodeURIComponent(normalizedEmail)},creator_id.eq.${encodeURIComponent(resolvedCreatorId)})&limit=1`,
         );
-        if (goTrueUserId) {
-          await driver.upsertRow(
-            'users',
+        if (existingRows.length > 0) {
+          return c.json(
             {
-              user_id: goTrueUserId,
-              auth_uid: goTrueUserId,
-              creator_id: creatorId,
-              handle: normalizedHandle,
-              email: body.email.trim().toLowerCase(),
-              password_hash: 'GOTRUE_MANAGED',
-              role: 'creator',
+              error:
+                'AUTH_IDENTITY_EXISTS: A sovereign user with that handle, email, or creator ID already exists.',
+              code: 'AUTH_IDENTITY_EXISTS',
             },
-            'user_id',
+            409,
           );
         }
       } catch {
-        // Non-fatal if Supabase profile row already exists or email confirmation pending
+        // Proceed with local edge uniqueness validation if PostgREST query is unreachable
       }
-      if (!goTrue.access_token || !goTrue.user) {
-        return c.json(
-          {
-            pendingEmailConfirmation: true,
-            email: body.email.trim().toLowerCase(),
-            creatorId,
-            code: 'EMAIL_CONFIRMATION_REQUIRED',
-            message:
-              'Account created! Check your email inbox to confirm your address before signing in.',
-          },
-          202,
-        );
+    }
+
+    let goTrueUserId: string | undefined;
+    if (driver.isConfigured()) {
+      const adminUser = await driver.goTrueAdminCreateUser({
+        email: normalizedEmail,
+        password: body.password,
+        userMetadata: {
+          creator_id: resolvedCreatorId,
+          handle: normalizedHandle,
+          display_name: resolvedDisplayName,
+        },
+      });
+      if (adminUser && typeof adminUser.id === 'string') {
+        goTrueUserId = adminUser.id;
+      } else {
+        try {
+          const goTrue = await driver.goTrueSignUp({
+            email: normalizedEmail,
+            password: body.password,
+            creatorId: resolvedCreatorId,
+            handle: normalizedHandle,
+            displayName: resolvedDisplayName,
+          });
+          goTrueUserId = goTrue.user?.id;
+        } catch {
+          // Best-effort GoTrue shadow signup; Sovereign JWT + PostgREST persistence below is authoritative
+        }
       }
-      return c.json(
-        mapGoTrueBundle(goTrue, creatorId, body.deviceLabel),
-        201,
-      );
     }
 
     const bundle = vhunambiDb.registerUser({
       handle: body.handle,
-      email: body.email,
+      email: normalizedEmail,
       password: body.password,
       displayName: body.displayName,
       creatorId: body.creatorId,
       deviceLabel: body.deviceLabel,
       initialCoins: body.initialCoins,
+      jwtSecret: runtimeEnv.VHUNAMBI_JWT_SECRET,
     });
 
     if (driver.isConfigured()) {
-      try {
-        await driver.goTrueSignUp({
-          email: bundle.user.email,
-          password: body.password,
-          creatorId: bundle.user.creatorId,
-          handle: bundle.user.handle,
-          displayName: bundle.user.displayName,
-        });
-      } catch {
-        // Non-fatal if GoTrue already provisioned this test account
+      const syncPromise = mirrorBundleToSupabase(
+        driver,
+        bundle,
+        body.password,
+        goTrueUserId,
+      );
+      if (!isNodeSqliteAvailable()) {
+        await syncPromise;
+      } else {
+        scheduleBackground(c, syncPromise);
       }
     }
 
@@ -275,14 +424,17 @@ authRoutes.post('/login', async (c) => {
           resolvedEmail,
           body.password,
         );
-        return c.json(
-          mapGoTrueBundle(goTrue, identifier, body.deviceLabel),
-          200,
-        );
-      } catch (err) {
-        if (!isNodeSqliteAvailable()) {
-          throw err;
+        if (goTrue.access_token && goTrue.user) {
+          return c.json(
+            mapGoTrueBundle(goTrue, identifier, body.deviceLabel),
+            200,
+          );
         }
+      } catch {
+        // Fall back to Sovereign scrypt verification + PostgREST hydration
+      }
+      if (!isNodeSqliteAvailable()) {
+        await hydrateUserFromSupabaseByIdentifier(driver, identifier);
       }
     }
 
@@ -290,7 +442,17 @@ authRoutes.post('/login', async (c) => {
       identifier,
       password: body.password,
       deviceLabel: body.deviceLabel,
+      jwtSecret: runtimeEnv.VHUNAMBI_JWT_SECRET,
     });
+
+    if (driver.isConfigured()) {
+      const syncPromise = mirrorBundleToSupabase(driver, bundle);
+      if (!isNodeSqliteAvailable()) {
+        await syncPromise;
+      } else {
+        scheduleBackground(c, syncPromise);
+      }
+    }
 
     return c.json(bundle, 200);
   } catch (err) {
@@ -313,12 +475,22 @@ authRoutes.post('/refresh', async (c) => {
     const driver = new SupabaseCloudDriver(runtimeEnv);
     const isLocalSovereignRefresh = body.refreshToken.trim().startsWith('vrt_');
 
-    if (driver.isConfigured() && (!isLocalSovereignRefresh || !isNodeSqliteAvailable())) {
+    if (driver.isConfigured() && !isLocalSovereignRefresh) {
       const goTrue = await driver.goTrueRefreshSession(body.refreshToken);
       return c.json(mapGoTrueBundle(goTrue), 200);
     }
 
-    const bundle = vhunambiDb.rotateRefreshToken(body.refreshToken);
+    if (driver.isConfigured() && !isNodeSqliteAvailable()) {
+      await hydrateSessionFromSupabaseByRefreshToken(driver, body.refreshToken);
+    }
+
+    const bundle = vhunambiDb.rotateRefreshToken(
+      body.refreshToken,
+      runtimeEnv.VHUNAMBI_JWT_SECRET,
+    );
+    if (driver.isConfigured()) {
+      scheduleBackground(c, mirrorBundleToSupabase(driver, bundle));
+    }
     return c.json(bundle, 200);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Token refresh failed';
@@ -361,6 +533,22 @@ authRoutes.post('/logout', sovereignAuthMiddleware, async (c) => {
   }
 
   const result = vhunambiDb.revokeSession(sessionId, 'USER_LOGOUT');
+  const runtimeEnv = resolveRuntimeEnv(c);
+  const driver = new SupabaseCloudDriver(runtimeEnv);
+  if (driver.isConfigured()) {
+    scheduleBackground(
+      c,
+      driver.patchRows(
+        'auth_sessions',
+        `session_id=eq.${encodeURIComponent(sessionId)}`,
+        {
+          revoked: true,
+          revoke_reason: 'USER_LOGOUT',
+          rotated_at: new Date().toISOString(),
+        },
+      ),
+    );
+  }
   return c.json({
     loggedOut: true,
     sessionId: result.sessionId,
@@ -368,9 +556,16 @@ authRoutes.post('/logout', sovereignAuthMiddleware, async (c) => {
   });
 });
 
-authRoutes.get('/me', requireAuthenticatedUser, (c) => {
+authRoutes.get('/me', requireAuthenticatedUser, async (c) => {
   const authUser = c.get('authUser')!;
-  const user = vhunambiDb.getUserByCreatorId(authUser.creatorId);
+  let user = vhunambiDb.getUserByCreatorId(authUser.creatorId);
+  if (!user && !authUser.isGoTrueToken && !isNodeSqliteAvailable()) {
+    const driver = new SupabaseCloudDriver(resolveRuntimeEnv(c));
+    if (driver.isConfigured()) {
+      await hydrateUserFromSupabaseByIdentifier(driver, authUser.creatorId);
+      user = vhunambiDb.getUserByCreatorId(authUser.creatorId);
+    }
+  }
   if (!user && !authUser.isGoTrueToken) {
     return c.json({ error: 'User not found', code: 'USER_NOT_FOUND' }, 404);
   }

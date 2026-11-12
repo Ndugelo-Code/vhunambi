@@ -66,7 +66,14 @@ async function runPhase16Tests() {
     // Stub global fetch
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
-      capturedUrl = url.toString();
+      const urlStr = url.toString();
+      if (urlStr.endsWith('/health')) {
+        return new Response(JSON.stringify({ workers: { idle: 1, running: 0 } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      capturedUrl = urlStr;
       capturedHeaders = (init?.headers as Record<string, string>) || {};
       capturedBody = JSON.parse(init?.body as string);
       return new Response(JSON.stringify({ id: 'runpod_job_abc123' }), {
@@ -86,12 +93,14 @@ async function runPhase16Tests() {
     assert.strictEqual(capturedHeaders['Authorization'], 'Bearer test_api_key');
     assert.strictEqual(capturedHeaders['Content-Type'], 'application/json');
 
-    // Validate handler.py schema compliance
+    // Validate handler.py schema compliance (Phase 64 bf16 / 45 steps / LoRA)
     assert(capturedBody.input, 'Request must contain input object');
     assert.strictEqual(capturedBody.input.job_id, 'vhunambi_runpod_gen_99', 'job_id must be prefixed');
     assert.strictEqual(capturedBody.input.user_id, 'creator_ndugelo', 'user_id must match');
     assert.strictEqual(capturedBody.input.webhook_url, 'https://tunnel.example.com/v1/webhooks/ace-step');
-    assert.deepStrictEqual(capturedBody.input.loras, []);
+    assert(Array.isArray(capturedBody.input.loras) && capturedBody.input.loras.length >= 1, 'Genre/vocal LoRA adapter must be attached');
+    assert.strictEqual(capturedBody.input.infer_steps, 45);
+    assert.strictEqual(capturedBody.input.precision, 'bf16');
 
     const songSpec = capturedBody.input.song_spec;
     assert.strictEqual(songSpec.genre, 'amapiano');

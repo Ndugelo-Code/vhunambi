@@ -93,6 +93,13 @@ def runpod_handler(job: dict) -> dict:
     genre = song_spec.get("genre", "Amapiano")
     language = song_spec.get("language", "English")
 
+    if job_input.get("caption") and not song_spec.get("caption"):
+        song_spec["caption"] = job_input["caption"]
+    if job_input.get("infer_steps") is not None and not song_spec.get("infer_steps"):
+        song_spec["infer_steps"] = job_input["infer_steps"]
+    if job_input.get("sonic_tags") and not song_spec.get("sonic_tags"):
+        song_spec["sonic_tags"] = job_input["sonic_tags"]
+
     print(f"[GPU Worker] 🚀 Starting V2 Master Pipeline {job_id}: {title} ({genre}, {bpm} BPM, {duration_sec}s)")
 
     # 1. Processing Webhook
@@ -112,10 +119,17 @@ def runpod_handler(job: dict) -> dict:
         # STAGE 1: ACE-Step 1.5 Synthesis
         # ---------------------------------------------------------------------
         t0 = time.time()
+        gen_metrics: dict = {
+            "engine": "carrier_fallback",
+            "precision": "fp32",
+            "infer_steps": 0,
+            "active_lora": None,
+            "lora_weight": 0.0,
+        }
         try:
             from model_utils import ZRModelManager
             model_mgr = ZRModelManager.get_instance()
-            model_mgr.generate_audio(
+            gen_metrics = model_mgr.generate_audio(
                 song_spec=song_spec,
                 output_path=master_wav_path,
                 loras=job_input.get("loras", []),
@@ -132,6 +146,7 @@ def runpod_handler(job: dict) -> dict:
             "name": "ace_step_synthesis",
             "executed": True,
             "duration_ms": int((time.time() - t0) * 1000),
+            "metrics": gen_metrics,
             "input_sha256": "",
             "output_sha256": calculate_sha256(master_wav_path),
         })

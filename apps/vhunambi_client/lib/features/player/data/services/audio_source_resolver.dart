@@ -141,9 +141,10 @@ class AudioSourceResolver implements IAudioSourceResolver {
     }
 
     // 3. Cloud stream fallback (explicit track URL, then catalog convention).
-    final resolvedUrl = (remoteUrl != null && remoteUrl.isNotEmpty)
+    final rawUrl = (remoteUrl != null && remoteUrl.isNotEmpty)
         ? remoteUrl
         : '${AppConstants.defaultOrigin}/audio/${track.id}.mp3';
+    final resolvedUrl = AppConstants.normalizeCloudMediaUrl(rawUrl);
 
     return ResolvedAudioSource(uri: Uri.parse(resolvedUrl), isLocalFile: false);
   }

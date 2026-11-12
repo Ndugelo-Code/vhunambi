@@ -26,7 +26,8 @@ import {
  */
 export const socialRoutes = new Hono();
 
-socialRoutes.use('*', sovereignAuthMiddleware);
+socialRoutes.use('/social/*', sovereignAuthMiddleware);
+socialRoutes.use('/creators/*', sovereignAuthMiddleware);
 
 const PublishClipSchema = z.object({
   trackId: z.string().min(1, 'trackId is required'),

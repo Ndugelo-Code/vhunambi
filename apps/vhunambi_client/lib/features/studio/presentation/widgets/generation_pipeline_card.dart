@@ -136,28 +136,44 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
       children: [
         // Track Title, Genre Badge & Generating Pill
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(
-              state.trackTitle,
-              style: AppTypography.titleLarge.copyWith(fontSize: 22),
-            ),
-            const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceSecondary,
-                borderRadius: AppRadius.pillBorder,
-                border: Border.all(color: AppColors.borderSubtle),
+            Expanded(
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  Text(
+                    state.trackTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.titleLarge.copyWith(fontSize: 22),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondary,
+                      borderRadius: AppRadius.pillBorder,
+                      border: Border.all(color: AppColors.borderSubtle),
+                    ),
+                    child: Text(
+                      state.genre,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.badge.copyWith(
+                        color: AppColors.brandPrimary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              child: Text(
-                state.genre,
-                style: AppTypography.badge.copyWith(
-                  color: AppColors.brandPrimary,
-                ),
-              ),
             ),
-            const Spacer(),
-            if (state.isGenerating)
+            if (state.isGenerating) ...[
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -171,6 +187,7 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
                   ),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const SizedBox(
                       width: 12,
@@ -192,6 +209,7 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
                   ],
                 ),
               ),
+            ],
           ],
         ),
         const SizedBox(height: 16),
@@ -320,17 +338,24 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
           if (_showLyrics) ...[
             const SizedBox(height: 12),
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: AppColors.surfaceSecondary,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.borderSubtle),
               ),
-              child: Text(
-                state.generatedLyrics!,
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textPrimary,
-                  height: 1.5,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: Text(
+                    state.generatedLyrics!,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textPrimary,
+                      height: 1.5,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -392,11 +417,13 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
       children: [
         leading,
         const SizedBox(width: 12),
-        Text(
-          label,
-          style: AppTypography.bodySmall.copyWith(
-            color: textColor,
-            fontWeight: isDone || isActive ? FontWeight.w600 : FontWeight.w400,
+        Expanded(
+          child: Text(
+            label,
+            style: AppTypography.bodySmall.copyWith(
+              color: textColor,
+              fontWeight: isDone || isActive ? FontWeight.w600 : FontWeight.w400,
+            ),
           ),
         ),
       ],
@@ -592,36 +619,36 @@ class _ReadyTrackCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Row(
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
             children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  key: const Key('pipeline_play_master'),
-                  onPressed: () {
-                    ref
-                        .read(playerStateProvider.notifier)
-                        .playTrack(track.toTrack());
-                  },
-                  icon: const Icon(
-                    Icons.play_arrow_rounded,
+              ElevatedButton.icon(
+                key: const Key('pipeline_play_master'),
+                onPressed: () {
+                  ref
+                      .read(playerStateProvider.notifier)
+                      .playTrack(track.toTrack());
+                },
+                icon: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: AppColors.brandContrast,
+                ),
+                label: Text(
+                  'Play Master',
+                  style: AppTypography.bodySmall.copyWith(
                     color: AppColors.brandContrast,
+                    fontWeight: FontWeight.w700,
                   ),
-                  label: Text(
-                    'Play Master',
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.brandContrast,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.brandPrimary,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: AppRadius.pillBorder,
-                    ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.brandPrimary,
+                  minimumSize: const Size(0, 44),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: AppRadius.pillBorder,
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.xs),
               OutlinedButton.icon(
                 key: const Key('pipeline_create_reel_btn'),
                 onPressed: () {
@@ -651,13 +678,13 @@ class _ReadyTrackCard extends ConsumerWidget {
                 ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppColors.brandPrimary),
+                  minimumSize: const Size(0, 44),
                   shape: const RoundedRectangleBorder(
                     borderRadius: AppRadius.pillBorder,
                   ),
                 ),
               ),
-              if (track.hasStems) ...[
-                const SizedBox(width: AppSpacing.xs),
+              if (track.hasStems)
                 OutlinedButton.icon(
                   key: const Key('pipeline_download_stems'),
                   onPressed: () {
@@ -685,12 +712,12 @@ class _ReadyTrackCard extends ConsumerWidget {
                   ),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: AppColors.borderSubtle),
+                    minimumSize: const Size(0, 44),
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
                     ),
                   ),
                 ),
-              ],
             ],
           ),
         ],

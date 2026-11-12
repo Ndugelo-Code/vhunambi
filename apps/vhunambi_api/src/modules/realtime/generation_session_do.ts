@@ -16,6 +16,8 @@ export interface GenerationPipelineEventPayload {
   stemsZipUrl?: string;
   stemUrls?: Record<string, string>;
   manifestUrl?: string;
+  coverUrl?: string;
+  lyrics?: string;
   error?: string;
   timestamp?: number;
 }
@@ -80,6 +82,9 @@ export function buildDualDialectPipelineEventFrame(
           stem_urls: payload.stemUrls ?? null,
           stemUrls: payload.stemUrls ?? null,
           manifest_url: payload.manifestUrl ?? null,
+          cover_url: payload.coverUrl ?? null,
+          coverUrl: payload.coverUrl ?? null,
+          lyrics: payload.lyrics ?? null,
           duration_seconds: payload.durationSec ?? 180,
         }
       : null;

@@ -97,6 +97,10 @@ abstract final class AppConstants {
       final key = trimmed.substring('/mock-storage/'.length);
       return '$mediaBase/$key';
     }
+    if (trimmed.startsWith('/r2/')) {
+      final key = trimmed.substring('/r2/'.length);
+      return '$mediaBase/$key';
+    }
     final legacyRegex = RegExp(
       r'^https?:\/\/(?:r2\.vhunambi\.com|cdn\.vhunambi\.com|cdn\.vhunambi\.za|assets\.vhunambi\.com)\/(.+)$',
       caseSensitive: false,

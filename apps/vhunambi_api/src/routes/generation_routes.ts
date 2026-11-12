@@ -2,9 +2,15 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { resolveRuntimeEnv } from '../config/env.js';
+import { isNodeSqliteAvailable, vhunambiDb } from '../db/vhunambi_db.js';
 import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
 import { compileSongSpec } from '../modules/synthesis/prompt_compiler.js';
-import { dispatchSynthesisJob, checkRunPodJobStatus } from '../modules/synthesis/runpod_adapter.js';
+import {
+  dispatchSynthesisJob,
+  checkRunPodJobStatus,
+  checkRunPodEndpointHealth,
+} from '../modules/synthesis/runpod_adapter.js';
+import { simulateSynthesisPipeline } from '../modules/synthesis/mock_worker.js';
 import { getVoiceCloneProfile } from '../modules/voices/voice_catalog.js';
 import { compileMasterMediaObjectManifest } from '../modules/dna/dna_compiler.js';
 import { StemMasteringRecipeSchema } from '../modules/mastering/mastering_types.js';
@@ -37,6 +43,7 @@ function resolveGenerationWsUrl(reqUrlRaw: string, forwardedProto: string | unde
 
 const SubmitGenerationSchema = z.object({
   trackTitle: z.string().default('Untitled Track'),
+  prompt: z.string().optional(),
   genre: z.string().default('Amapiano'),
   language: z.string().default('ve'),
   lyrics: z.string().optional(),
@@ -80,19 +87,11 @@ generationRoutes.post('/', async (c) => {
     const input = parsed.data;
     const generationId = `gen_${Date.now()}_${nanoid(8)}`;
 
-    // 1. Record job
-    createJob({
-      generationId,
-      trackTitle: input.trackTitle,
-      genre: input.genre,
-      language: input.language,
-    });
-
     const clonedProfile = input.clonedVoiceProfileId
       ? getVoiceCloneProfile(input.clonedVoiceProfileId)
       : undefined;
 
-    // 2. Compile prompt for AI synthesis model
+    // 1. Compile prompt for AI synthesis model
     const compiledPrompt = compileSongSpec({
       ...input,
       tempoBpm: input.tempoBpm ?? input.bpm,
@@ -101,7 +100,17 @@ generationRoutes.post('/', async (c) => {
         : {}),
     });
 
-    // 3. Dispatch to RunPod Serverless GPU (or mock simulation worker)
+    // 2. Record job (including auto-composed lyrics if available)
+    createJob({
+      generationId,
+      trackTitle: input.trackTitle,
+      genre: input.genre,
+      language: input.language,
+      durationSec: input.durationSec,
+      ...(compiledPrompt.lyrics ? { lyrics: compiledPrompt.lyrics } : {}),
+    });
+
+    // 3. Dispatch to RunPod Serverless GPU (or Queue-Zero 4-stem R2 synthesis fallback)
     const dispatchResult = await dispatchSynthesisJob(
       generationId,
       compiledPrompt,
@@ -131,6 +140,9 @@ generationRoutes.post('/', async (c) => {
         providerTaskId: dispatchResult.jobId,
         pollUrl: `/v1/generations/${generationId}`,
         websocketUrl,
+        ...(compiledPrompt.lyrics ? { lyrics: compiledPrompt.lyrics } : {}),
+        sonicTags: compiledPrompt.sonicTags ?? [],
+        loras: compiledPrompt.loras ?? [],
         vocalIdentity: {
           selectedVoiceId: input.selectedVoiceId ?? null,
           clonedVoiceProfileId: input.clonedVoiceProfileId ?? null,
@@ -167,7 +179,13 @@ generationRoutes.get('/mastering/presets', (c) => {
 
 generationRoutes.get('/:id', async (c) => {
   const id = c.req.param('id');
-  const job = getJob(id);
+  let job = getJob(id);
+  if (
+    !isNodeSqliteAvailable() &&
+    (!job || job.status === 'queued' || job.status === 'running')
+  ) {
+    job = (await vhunambiDb.hydrateGenerationJobById(id, c)) ?? job;
+  }
 
   if (!job) {
     return c.json({ error: 'NOT_FOUND', message: `Generation job ${id} not found` }, 404);
@@ -195,10 +213,28 @@ generationRoutes.get('/:id', async (c) => {
         step: 'synthesizing',
         progressPct: liveStatus.progress ?? 60,
       });
+    } else if (liveStatus.status === 'IN_QUEUE') {
+      const ageMs = Date.now() - job.createdAt.getTime();
+      if (ageMs > 8000) {
+        const health = await checkRunPodEndpointHealth(c);
+        if (health.workersKnown && health.activePlusIdle === 0) {
+          setJobProviderTaskId(id, `mock_${id}`);
+          updateJobProgress(id, {
+            status: 'running',
+            step: 'synthesizing',
+            progressPct: 35,
+          });
+          void simulateSynthesisPipeline(id, c);
+        }
+      }
     }
   }
 
   const currentJob = getJob(id) ?? job;
+  const resolvedCoverUrl =
+    currentJob.coverUrl ??
+    currentJob.manifest?.assets?.coverArt1x1Url ??
+    currentJob.manifest?.assets?.coverArt9x16Url;
 
   return c.json({
     generationId: currentJob.generationId,
@@ -212,6 +248,8 @@ generationRoutes.get('/:id', async (c) => {
     stemsZipUrl: currentJob.stemsZipUrl,
     stemUrls: currentJob.stemUrls,
     manifestUrl: currentJob.manifestUrl,
+    ...(resolvedCoverUrl ? { coverUrl: resolvedCoverUrl } : {}),
+    ...(currentJob.lyrics ? { lyrics: currentJob.lyrics } : {}),
     durationSec: currentJob.durationSec,
     errorMessage: currentJob.errorMessage,
     updatedAt: currentJob.updatedAt.toISOString(),
@@ -224,7 +262,13 @@ generationRoutes.get('/:id', async (c) => {
  */
 generationRoutes.get('/:id/manifest', async (c) => {
   const id = c.req.param('id');
-  const job = getJob(id);
+  let job = getJob(id);
+  if (
+    !isNodeSqliteAvailable() &&
+    (!job || job.status === 'queued' || job.status === 'running')
+  ) {
+    job = (await vhunambiDb.hydrateGenerationJobById(id, c)) ?? job;
+  }
 
   if (!job) {
     return c.json({ error: 'NOT_FOUND', message: `Generation job ${id} not found` }, 404);

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:just_audio/just_audio.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/models/track.dart';
 import '../../domain/models/player_state.dart';
 import 'audio_session_manager.dart';
@@ -602,6 +603,11 @@ class VhunambiAudioHandler extends BaseAudioHandler
     await sessionManager.activate();
 
     final resolved = await sourceResolver.resolveSource(track);
+    final normalizedUri = resolved.isLocalFile
+        ? resolved.uri
+        : Uri.parse(
+            AppConstants.normalizeCloudMediaUrl(resolved.uri.toString()),
+          );
     final item = buildMediaItemForTrack(
       track,
       isOffline: resolved.isLocalFile,
@@ -615,12 +621,19 @@ class VhunambiAudioHandler extends BaseAudioHandler
           .toList(growable: false),
     );
 
+    final audioSource = resolved.streamSource ??
+        AudioSource.uri(normalizedUri, tag: item);
+
     await player.setAudioSource(
-      AudioSource.uri(resolved.uri, tag: item),
-      initialIndex: _index,
+      audioSource,
+      initialIndex: 0,
       initialPosition: Duration.zero,
     );
-    await player.play();
+    unawaited(
+      player.play().catchError((Object error) {
+        debugPrint('VhunambiAudioHandler play error: $error');
+      }),
+    );
   }
 
   void _wirePlayerStreams() {
@@ -774,7 +787,12 @@ class VhunambiAudioHandler extends BaseAudioHandler
   }
 
   @override
-  Future<void> dispose() async {
+  Future<void> dispose() => disposeResources();
+
+  Future<void> disposeResources({
+    bool disposeSession = true,
+    bool disposePlayer = true,
+  }) async {
     if (_disposed) return;
     _disposed = true;
 
@@ -783,50 +801,87 @@ class VhunambiAudioHandler extends BaseAudioHandler
     }
     _subscriptions.clear();
 
-    sessionManager.dispose();
-    await player.dispose();
+    if (disposeSession) {
+      sessionManager.dispose();
+    }
+    if (disposePlayer) {
+      await player.dispose();
+    }
+  }
+}
+
+const AudioServiceConfig vhunambiAudioServiceConfig = AudioServiceConfig(
+  androidNotificationChannelId: kAudioNotificationChannelId,
+  androidNotificationChannelName: kAudioNotificationChannelName,
+  androidNotificationChannelDescription: kAudioNotificationChannelDescription,
+  androidNotificationIcon: kAudioNotificationIcon,
+  androidNotificationOngoing: true,
+  androidStopForegroundOnPause: true,
+);
+
+class _DefaultCloudAudioSourceResolver implements IAudioSourceResolver {
+  const _DefaultCloudAudioSourceResolver();
+
+  @override
+  Future<ResolvedAudioSource> resolveSource(Track track) async {
+    final rawUrl = (track.audioUrl != null && track.audioUrl!.trim().isNotEmpty)
+        ? track.audioUrl!.trim()
+        : '${AppConstants.resolveMediaBaseUrl()}/audio/${track.id}.wav';
+    final normalized = AppConstants.normalizeCloudMediaUrl(rawUrl);
+    return ResolvedAudioSource(
+      uri: Uri.parse(normalized),
+      isLocalFile: false,
+    );
   }
 }
 
 /// Registers the OS media service and returns the active audio handler
-/// (REQ-AUD-01).
+/// (REQ-AUD-01 / REQ-P64-AUD-01).
 ///
-/// Falls back to the headless [TestVhunambiAudioHandler] when the platform
-/// channel is unavailable (`MissingPluginException` in tests, on headless CI, or
-/// on an unsupported desktop), guaranteeing metadata still flows to Riverpod.
+/// Falls back to [TestVhunambiAudioHandler] when the platform channel is
+/// unavailable (`MissingPluginException` in headless CI/unit tests), or keeps
+/// direct `just_audio` speaker playback alive via [VhunambiAudioHandler] if
+/// OS notification initialization throws.
 Future<IVhunambiAudioHandler> bootstrapPlatformAudioHandler({
-  required AudioPlayer player,
-  required IAudioSourceResolver sourceResolver,
-  required IAudioSessionManager sessionManager,
+  AudioPlayer? player,
+  IAudioSourceResolver? sourceResolver,
+  IAudioSessionManager? sessionManager,
+  Future<IVhunambiAudioHandler> Function()? initializerOverride,
 }) async {
+  final effectivePlayer = player ?? AudioPlayer();
+  final effectiveResolver =
+      sourceResolver ?? const _DefaultCloudAudioSourceResolver();
+  final effectiveSession = sessionManager ?? AudioSessionManager();
+
   final handler = VhunambiAudioHandler(
-    player: player,
-    sourceResolver: sourceResolver,
-    sessionManager: sessionManager,
+    player: effectivePlayer,
+    sourceResolver: effectiveResolver,
+    sessionManager: effectiveSession,
   );
 
   try {
+    if (initializerOverride != null) {
+      return await initializerOverride();
+    }
     return await AudioService.init<VhunambiAudioHandler>(
       builder: () => handler,
-      config: const AudioServiceConfig(
-        androidNotificationChannelId: kAudioNotificationChannelId,
-        androidNotificationChannelName: kAudioNotificationChannelName,
-        androidNotificationChannelDescription:
-            kAudioNotificationChannelDescription,
-        androidNotificationIcon: kAudioNotificationIcon,
-        androidNotificationOngoing: true,
-        androidStopForegroundOnPause: true,
-      ),
+      config: vhunambiAudioServiceConfig,
     );
   } on MissingPluginException catch (error) {
     debugPrint('AudioService unavailable, using headless handler: $error');
+    await handler.disposeResources(
+      disposeSession: sessionManager == null,
+      disposePlayer: player == null,
+    );
+    return TestVhunambiAudioHandler(
+      sourceResolver: effectiveResolver,
+      sessionManager: sessionManager ?? AudioSessionManager(),
+    );
   } catch (error) {
-    debugPrint('AudioService bootstrap failed, using headless handler: $error');
+    debugPrint(
+      'AudioService notification init bypassed, using direct hardware handler: $error',
+    );
+    return handler;
   }
-
-  return TestVhunambiAudioHandler(
-    sourceResolver: sourceResolver,
-    sessionManager: sessionManager,
-  );
 }
 

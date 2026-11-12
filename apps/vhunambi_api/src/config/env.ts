@@ -41,7 +41,7 @@ export interface RuntimeEnvConfig {
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   SUPABASE_JWT_SECRET: string;
-  ZR_LLM_PROVIDER: 'claude' | 'grok' | 'mock';
+  ZR_LLM_PROVIDER: 'runpod_vllm' | 'claude' | 'grok' | 'mock';
   ANTHROPIC_API_KEY: string;
   GROK_API_KEY: string;
   R2_ACCESS_KEY_ID: string;
@@ -51,6 +51,9 @@ export interface RuntimeEnvConfig {
   R2_PUBLIC_BASE_URL: string;
   RUNPOD_API_KEY: string;
   RUNPOD_ENDPOINT_ID: string;
+  RUNPOD_LLM_ENDPOINT_ID: string;
+  RUNPOD_LLM_URL: string;
+  RUNPOD_LLM_MODEL: string;
   RUNPOD_COMFYUI_URL: string;
   RUNPOD_COMFYUI_ENDPOINT_ID: string;
   ZR_WEBHOOK_SECRET: string;
@@ -114,7 +117,8 @@ export function resolveRuntimeEnv(
     SUPABASE_ANON_KEY: readString(w, 'SUPABASE_ANON_KEY', ''),
     SUPABASE_SERVICE_ROLE_KEY: readString(w, 'SUPABASE_SERVICE_ROLE_KEY', ''),
     SUPABASE_JWT_SECRET: readString(w, 'SUPABASE_JWT_SECRET', jwtSecret),
-    ZR_LLM_PROVIDER: readString(w, 'ZR_LLM_PROVIDER', 'claude') as
+    ZR_LLM_PROVIDER: readString(w, 'ZR_LLM_PROVIDER', 'runpod_vllm') as
+      | 'runpod_vllm'
       | 'claude'
       | 'grok'
       | 'mock',
@@ -131,6 +135,13 @@ export function resolveRuntimeEnv(
     ),
     RUNPOD_API_KEY: readString(w, 'RUNPOD_API_KEY', ''),
     RUNPOD_ENDPOINT_ID: readString(w, 'RUNPOD_ENDPOINT_ID', ''),
+    RUNPOD_LLM_ENDPOINT_ID: readString(w, 'RUNPOD_LLM_ENDPOINT_ID', ''),
+    RUNPOD_LLM_URL: readString(w, 'RUNPOD_LLM_URL', ''),
+    RUNPOD_LLM_MODEL: readString(
+      w,
+      'RUNPOD_LLM_MODEL',
+      'Qwen/Qwen2.5-7B-Instruct',
+    ),
     RUNPOD_COMFYUI_URL: readString(w, 'RUNPOD_COMFYUI_URL', ''),
     RUNPOD_COMFYUI_ENDPOINT_ID: readString(w, 'RUNPOD_COMFYUI_ENDPOINT_ID', ''),
     ZR_WEBHOOK_SECRET: readString(

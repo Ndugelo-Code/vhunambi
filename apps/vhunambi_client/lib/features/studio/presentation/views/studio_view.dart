@@ -180,31 +180,18 @@ class _StudioViewState extends ConsumerState<StudioView> {
         children: [
           _modeSwitcher(activeTab),
           const ProgressTrackerWidget(),
-          if (isPipelineVisible)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.sm,
-                AppSpacing.md,
-                AppSpacing.sm,
-              ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 840),
-                  child: GenerationPipelineCard(
-                    onNewSong: () {
-                      ref.read(generationProgressProvider.notifier).reset();
-                      ref.read(studioFormProvider.notifier).reset();
-                    },
-                  ),
-                ),
-              ),
-            ),
           Expanded(
             child: IndexedStack(
               index: activeTab.index,
               children: [
                 _tabScroll(isDesktop, [
+                  if (isPipelineVisible)
+                    GenerationPipelineCard(
+                      onNewSong: () {
+                        ref.read(generationProgressProvider.notifier).reset();
+                        ref.read(studioFormProvider.notifier).reset();
+                      },
+                    ),
                   const StudioSessionRecoveryBanner(),
                   const PromptInputBox(),
                   const ReferenceAudioDropzone(),

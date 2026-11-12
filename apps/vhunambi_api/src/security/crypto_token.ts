@@ -57,20 +57,34 @@ function base64UrlDecodeToBuffer(input: string): Buffer {
   return Buffer.from(padded, 'base64');
 }
 
+function isCloudflareWorkerEdgeRuntime(): boolean {
+  const g = globalThis as unknown as {
+    navigator?: { userAgent?: string };
+    WebSocketPair?: unknown;
+  };
+  return (
+    g.navigator?.userAgent === 'Cloudflare-Workers' ||
+    typeof g.WebSocketPair === 'function'
+  );
+}
+
 /**
- * Memory-hard password hashing via node:crypto scryptSync (N=16384, r=8, p=1, keylen=64).
- * Format: scrypt$16384$8$1$<saltHex>$<derivedKeyHex>
+ * Memory-hard password hashing via node:crypto scryptSync.
+ * Uses N=16384 in Node/SQLite and N=1024 in Cloudflare Workers edge isolates
+ * to stay comfortably inside the 10ms Free Plan Worker CPU budget.
+ * Format: scrypt$<N>$8$1$<saltHex>$<derivedKeyHex>
  */
 export function hashPassword(password: string, explicitSaltHex?: string): string {
   const saltBuf = explicitSaltHex
     ? Buffer.from(explicitSaltHex, 'hex')
     : randomBytes(16);
+  const effectiveN = isCloudflareWorkerEdgeRuntime() ? 1024 : SCRYPT_N;
   const derivedKey = scryptSync(password, saltBuf, SCRYPT_KEYLEN, {
-    N: SCRYPT_N,
+    N: effectiveN,
     r: SCRYPT_R,
     p: SCRYPT_P,
   });
-  return `scrypt$${SCRYPT_N}$${SCRYPT_R}$${SCRYPT_P}$${saltBuf.toString('hex')}$${derivedKey.toString('hex')}`;
+  return `scrypt$${effectiveN}$${SCRYPT_R}$${SCRYPT_P}$${saltBuf.toString('hex')}$${derivedKey.toString('hex')}`;
 }
 
 /**

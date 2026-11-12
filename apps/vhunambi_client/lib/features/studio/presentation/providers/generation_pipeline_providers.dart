@@ -48,17 +48,17 @@ final socketServiceProvider = Provider<IGenerationSocketService>(
 /// Injectable HTTP generation submission and polling service (Phase 15).
 final generationSubmissionServiceProvider =
     Provider<HttpGenerationSubmissionService>(
-  (ref) => HttpGenerationSubmissionService(
-    baseUrl: AppConstants.apiBaseUrl,
-    authInterceptor: ref.watch(authDioInterceptorProvider),
-  ),
-);
+      (ref) => HttpGenerationSubmissionService(
+        baseUrl: AppConstants.apiBaseUrl,
+        authInterceptor: ref.watch(authDioInterceptorProvider),
+      ),
+    );
 
 /// Nullable: `null` = no active generation; non-null = pipeline running or done.
 final generationProgressProvider =
     StateNotifierProvider<GenerationPipelineNotifier, GenerationProgressState?>(
-  (ref) => GenerationPipelineNotifier(ref),
-);
+      (ref) => GenerationPipelineNotifier(ref),
+    );
 
 /// Owns the live generation pipeline FSM for the Studio cockpit (T10.3).
 class GenerationPipelineNotifier
@@ -94,6 +94,7 @@ class GenerationPipelineNotifier
   /// and streams live progress ticks to the pipeline card (Phase 15 / REQ-SYN-01).
   Future<void> submitAndStartGeneration({
     required String trackTitle,
+    String? prompt,
     required String genre,
     required String language,
     String? lyrics,
@@ -158,8 +159,7 @@ class GenerationPipelineNotifier
         resolvedRefAudioUrl ??= sketchpadState.lastRenderedR2Url;
         final sketchpadKey = sketchpadState.attachedPattern!.musicalKey.trim();
         if (sketchpadKey.isNotEmpty &&
-            (resolvedMusicalKey == null ||
-                resolvedMusicalKey == 'F# Minor')) {
+            (resolvedMusicalKey == null || resolvedMusicalKey == 'F# Minor')) {
           resolvedMusicalKey = sketchpadKey;
         }
       }
@@ -167,7 +167,9 @@ class GenerationPipelineNotifier
 
     StudioFormState? formSnapshot;
     try {
-      final StudioFormState snap = _ref.read<StudioFormState>(studioFormProvider);
+      final StudioFormState snap = _ref.read<StudioFormState>(
+        studioFormProvider,
+      );
       formSnapshot = snap;
       if (resolvedRefAudioUrl == null &&
           snap.referenceAudioPath != null &&
@@ -190,6 +192,7 @@ class GenerationPipelineNotifier
     final submissionService = _ref.read(generationSubmissionServiceProvider);
     final response = await submissionService.submitGeneration(
       trackTitle: trackTitle,
+      prompt: prompt ?? formSnapshot?.prompt,
       genre: genre,
       language: language,
       lyrics: lyrics,
@@ -206,15 +209,25 @@ class GenerationPipelineNotifier
 
     final realGenerationId =
         response['generationId'] as String? ?? optimisticId;
+    final initialLyrics =
+        (response['lyrics'] ??
+                response['generatedLyrics'] ??
+                response['generated_lyrics'])
+            as String?;
     _completedGenerationIds.remove(realGenerationId);
 
     // 3. Update state with real generation ID
-    state = state?.copyWith(generationId: realGenerationId) ??
+    state =
+        state?.copyWith(
+          generationId: realGenerationId,
+          generatedLyrics: initialLyrics,
+        ) ??
         GenerationProgressState(
           generationId: realGenerationId,
           trackTitle: trackTitle,
           genre: genre,
           currentStep: PipelineStep.startingUp,
+          generatedLyrics: initialLyrics,
         );
 
     // T6.8: Record generation telemetry for Creator DNA (REQ-DNA-CAP-03).
@@ -224,15 +237,17 @@ class GenerationPipelineNotifier
     try {
       final StudioFormState formState =
           formSnapshot ?? _ref.read<StudioFormState>(studioFormProvider);
-      _ref.read(creatorDnaProvider.notifier).recordEvent(
-        BehaviorEvent.generationSubmit(
-          genre: genre.isNotEmpty ? genre : formState.genre,
-          language: language.isNotEmpty ? language : formState.language,
-          tempo: musicalKey ?? formState.tempo.name,
-          vocalEnergy: formState.vocalEnergy.name,
-          mood: formState.mood,
-        ),
-      );
+      _ref
+          .read(creatorDnaProvider.notifier)
+          .recordEvent(
+            BehaviorEvent.generationSubmit(
+              genre: genre.isNotEmpty ? genre : formState.genre,
+              language: language.isNotEmpty ? language : formState.language,
+              tempo: musicalKey ?? formState.tempo.name,
+              vocalEnergy: formState.vocalEnergy.name,
+              mood: formState.mood,
+            ),
+          );
     } catch (_) {
       // Telemetry is best-effort; never block generation on provider failure.
     }
@@ -255,7 +270,9 @@ class GenerationPipelineNotifier
 
     if (socket.wsUrl != null || !_isHeadlessTestEnv) {
       try {
-        _wsSubscription = socket.connect(realGenerationId).listen(
+        _wsSubscription = socket
+            .connect(realGenerationId)
+            .listen(
               _applyEvent,
               onError: (Object error) {
                 debugPrint(
@@ -270,10 +287,7 @@ class GenerationPipelineNotifier
 
     _subscription = submissionService
         .pollGenerationProgress(realGenerationId)
-        .listen(
-          _applyEvent,
-          onError: _onSocketError,
-        );
+        .listen(_applyEvent, onError: _onSocketError);
   }
 
   /// Binds [generationId] to the socket bridge and seeds the 4-step FSM.
@@ -297,10 +311,9 @@ class GenerationPipelineNotifier
 
     final socket = _ref.read(socketServiceProvider);
     _activeSocket = socket;
-    _subscription = socket.connect(generationId).listen(
-          _applyEvent,
-          onError: _onSocketError,
-        );
+    _subscription = socket
+        .connect(generationId)
+        .listen(_applyEvent, onError: _onSocketError);
   }
 
   void _applyEvent(PipelineSocketEvent event) {
@@ -322,8 +335,8 @@ class GenerationPipelineNotifier
       final completionKey = current.generationId.isNotEmpty
           ? current.generationId
           : (event.generationId.isNotEmpty
-              ? event.generationId
-              : event.completedTrack!.id);
+                ? event.generationId
+                : event.completedTrack!.id);
       if (_completedGenerationIds.add(completionKey)) {
         _onGenerationComplete(event.completedTrack!);
       }
@@ -354,16 +367,17 @@ class GenerationPipelineNotifier
     unawaited(_startMasterDownload(track));
 
     // 1b. Normalize cloud R2 URLs for playback, Library Vault, MMO & Stem Mixer (Phase 63).
-    final normalizedMasterUrl =
-        AppConstants.normalizeCloudMediaUrl(track.masterMp3Url);
+    final normalizedMasterUrl = AppConstants.normalizeCloudMediaUrl(
+      track.masterMp3Url,
+    );
     final normalizedStemsZipUrl =
         (track.stemsUrl != null && track.stemsUrl!.isNotEmpty)
-            ? AppConstants.normalizeCloudMediaUrl(track.stemsUrl!)
-            : track.stemsUrl;
+        ? AppConstants.normalizeCloudMediaUrl(track.stemsUrl!)
+        : track.stemsUrl;
     final normalizedCoverUrl =
         (track.coverUrl != null && track.coverUrl!.isNotEmpty)
-            ? AppConstants.normalizeCloudMediaUrl(track.coverUrl!)
-            : track.coverUrl;
+        ? AppConstants.normalizeCloudMediaUrl(track.coverUrl!)
+        : track.coverUrl;
     Map<StemType, String>? normalizedStemUrls;
     if (track.stemUrls != null && track.stemUrls!.isNotEmpty) {
       normalizedStemUrls = <StemType, String>{
@@ -387,11 +401,12 @@ class GenerationPipelineNotifier
     final notification = NotificationEntity.generationReady(
       trackId: normalizedTrack.id,
       trackTitle: effectiveTitle,
-      message: '${normalizedTrack.genre} • ${normalizedTrack.formattedDuration}',
+      message:
+          '${normalizedTrack.genre} • ${normalizedTrack.formattedDuration}',
     );
-    _ref.read(notificationsProvider.notifier).update(
-          (list) => <NotificationEntity>[notification, ...list],
-        );
+    _ref
+        .read(notificationsProvider.notifier)
+        .update((list) => <NotificationEntity>[notification, ...list]);
 
     // 2b. Hydrate User Library Vault, MasterMediaObject, 4-Stem Mixer & Mycelium Biome.
     StudioFormState? formSnapshot;
@@ -442,10 +457,9 @@ class GenerationPipelineNotifier
     }
 
     try {
-      _ref.read(stemMixerProvider.notifier).loadMixForTrack(
-            normalizedTrack.id,
-            trackTitle: effectiveTitle,
-          );
+      _ref
+          .read(stemMixerProvider.notifier)
+          .loadMixForTrack(normalizedTrack.id, trackTitle: effectiveTitle);
     } catch (error) {
       debugPrint('GenerationPipelineNotifier stem mixer load failed: $error');
     }
@@ -461,10 +475,10 @@ class GenerationPipelineNotifier
                 masterUrl: normalizedTrack.masterMp3Url,
               )
               .catchError((Object error) {
-            debugPrint(
-              'GenerationPipelineNotifier multi-stem load skipped: $error',
-            );
-          }),
+                debugPrint(
+                  'GenerationPipelineNotifier multi-stem load skipped: $error',
+                );
+              }),
         );
       } catch (error) {
         debugPrint(
@@ -474,7 +488,9 @@ class GenerationPipelineNotifier
     }
 
     try {
-      _ref.read(myceliumBiomeGraphProvider.notifier).reconcileWithCockpitState();
+      _ref
+          .read(myceliumBiomeGraphProvider.notifier)
+          .reconcileWithCockpitState();
     } catch (error) {
       debugPrint('GenerationPipelineNotifier biome reconcile failed: $error');
     }
@@ -494,9 +510,7 @@ class GenerationPipelineNotifier
   Future<void> _startMasterDownload(TrackEntity track) async {
     final downloader = _ref.read(stemDownloadServiceProvider);
     try {
-      await downloader
-          .downloadMaster(track.masterMp3Url)
-          .drain<void>();
+      await downloader.downloadMaster(track.masterMp3Url).drain<void>();
     } catch (error) {
       // Downloads never fail the pipeline: the rendered track stays playable
       // from the CDN.

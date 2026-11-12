@@ -1,7 +1,9 @@
 import type { Context, Next } from 'hono';
 import { resolveRuntimeEnv } from '../config/env.js';
+import { SupabaseCloudDriver } from '../db/supabase_cloud_driver.js';
 import {
   canonicalizeCreatorId,
+  isNodeSqliteAvailable,
   vhunambiDb,
 } from '../db/vhunambi_db.js';
 import { verifyAccessJwtAsync } from '../security/crypto_token.js';
@@ -97,13 +99,55 @@ export async function sovereignAuthMiddleware(c: Context, next: Next) {
       !claims.isGoTrueToken &&
       !vhunambiDb.isSessionActive(claims.sid)
     ) {
-      return c.json(
-        {
-          error: 'Authentication session has been revoked or expired.',
-          code: 'AUTH_SESSION_REVOKED',
-        },
-        401,
-      );
+      let hydratedActive = false;
+      if (!isNodeSqliteAvailable()) {
+        const driver = new SupabaseCloudDriver(runtimeEnv);
+        if (driver.isConfigured()) {
+          try {
+            const rows = await driver.selectRows<Record<string, unknown>>(
+              'auth_sessions',
+              `session_id=eq.${encodeURIComponent(claims.sid)}&select=*&limit=1`,
+            );
+            const row = rows[0];
+            if (
+              row &&
+              row.revoked !== true &&
+              Number(row.revoked ?? 0) === 0 &&
+              new Date(String(row.expires_at ?? '')).getTime() > Date.now()
+            ) {
+              vhunambiDb.hydrateExternalSession({
+                sessionId: String(row.session_id),
+                userId: String(row.user_id ?? claims.sub),
+                creatorId: String(row.creator_id ?? claims.cid),
+                familyId: String(row.family_id ?? claims.sid),
+                refreshTokenHash: String(row.refresh_token_hash ?? ''),
+                previousTokenHash: row.previous_token_hash
+                  ? String(row.previous_token_hash)
+                  : null,
+                deviceLabel: String(row.device_label ?? 'vhunambi_client'),
+                expiresAt: String(row.expires_at),
+                revoked: false,
+                revokeReason: null,
+                createdAt: String(row.created_at ?? new Date().toISOString()),
+                rotatedAt: String(row.rotated_at ?? new Date().toISOString()),
+              });
+              hydratedActive = true;
+            }
+          } catch {
+            // Fall through to 401 AUTH_SESSION_REVOKED when PostgREST check fails
+          }
+        }
+      }
+
+      if (!hydratedActive) {
+        return c.json(
+          {
+            error: 'Authentication session has been revoked or expired.',
+            code: 'AUTH_SESSION_REVOKED',
+          },
+          401,
+        );
+      }
     }
 
     c.set('authUser', {

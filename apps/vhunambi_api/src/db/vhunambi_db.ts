@@ -3631,9 +3631,141 @@ export class VhunambiDatabase {
     return new Date(row.expires_at).getTime() > Date.now();
   }
 
+  public getAuthSyncSnapshot(
+    creatorId: string,
+    sessionId?: string,
+  ): {
+    passwordHash: string;
+    refreshTokenHash: string;
+    previousTokenHash: string | null;
+  } | null {
+    const canonical = canonicalizeCreatorId(creatorId);
+    const userRow = this.db
+      .prepare(
+        `SELECT password_hash FROM users WHERE creator_id = ? OR creator_id = ? LIMIT 1`,
+      )
+      .get(creatorId, canonical) as { password_hash?: string } | undefined;
+    const sessionRow = sessionId
+      ? (this.db
+          .prepare(
+            `SELECT refresh_token_hash, previous_token_hash FROM auth_sessions WHERE session_id = ? LIMIT 1`,
+          )
+          .get(sessionId) as
+          | { refresh_token_hash?: string; previous_token_hash?: string | null }
+          | undefined)
+      : undefined;
+    if (!userRow && !sessionRow) return null;
+    return {
+      passwordHash: String(userRow?.password_hash ?? ''),
+      refreshTokenHash: String(sessionRow?.refresh_token_hash ?? ''),
+      previousTokenHash: sessionRow?.previous_token_hash
+        ? String(sessionRow.previous_token_hash)
+        : null,
+    };
+  }
+
+  public hydrateExternalUser(record: {
+    userId: string;
+    creatorId: string;
+    handle: string;
+    displayName?: string;
+    email: string;
+    passwordHash: string;
+    role?: string;
+    avatarUrl?: string;
+    isVerified?: boolean;
+    createdAt?: string;
+  }): void {
+    const cid = canonicalizeCreatorId(record.creatorId);
+    const handle = record.handle.startsWith('@')
+      ? record.handle
+      : `@${record.handle}`;
+    const displayName =
+      record.displayName?.trim() || handle.replace(/^@/, '').toUpperCase();
+    const avatarUrl =
+      record.avatarUrl ||
+      `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cid)}`;
+    const nowIso = record.createdAt || new Date().toISOString();
+    this.db
+      .prepare(
+        `INSERT INTO creators (
+          id, handle, display_name, avatar_url, archetype, tier, reputation_score, data_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, 'aiSonicArchitect', ?, 150, '{}', ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          handle = excluded.handle,
+          display_name = excluded.display_name,
+          updated_at = excluded.updated_at`,
+      )
+      .run(
+        cid,
+        handle,
+        displayName,
+        avatarUrl,
+        record.isVerified === false ? 'unverified' : 'verified',
+        nowIso,
+        nowIso,
+      );
+    this.db
+      .prepare(
+        `INSERT INTO users (user_id, creator_id, handle, email, password_hash, role, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(creator_id) DO NOTHING`,
+      )
+      .run(
+        record.userId || `usr_${cid}`,
+        cid,
+        handle,
+        record.email.toLowerCase(),
+        record.passwordHash || 'GOTRUE_MANAGED',
+        record.role || 'creator',
+        nowIso,
+        nowIso,
+      );
+  }
+
+  public hydrateExternalSession(record: {
+    sessionId: string;
+    userId: string;
+    creatorId: string;
+    familyId: string;
+    refreshTokenHash: string;
+    previousTokenHash?: string | null;
+    deviceLabel?: string;
+    expiresAt: string;
+    revoked?: boolean;
+    revokeReason?: string | null;
+    createdAt?: string;
+    rotatedAt?: string;
+  }): void {
+    const nowIso = new Date().toISOString();
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO auth_sessions (
+          session_id, user_id, creator_id, family_id, refresh_token_hash,
+          previous_token_hash, device_label, expires_at, revoked, revoke_reason,
+          created_at, rotated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        record.sessionId,
+        record.userId,
+        canonicalizeCreatorId(record.creatorId),
+        record.familyId,
+        record.refreshTokenHash,
+        record.previousTokenHash ?? null,
+        record.deviceLabel ?? 'vhunambi_client',
+        record.expiresAt,
+        record.revoked ? 1 : 0,
+        record.revokeReason ?? null,
+        record.createdAt ?? nowIso,
+        record.rotatedAt ?? nowIso,
+      );
+  }
+
   private createAuthSessionAndTokens(
     user: SovereignUserRecord,
     deviceLabel = 'vhunambi_client',
+    jwtSecret?: string,
   ): AuthTokenBundle {
     const now = new Date();
     const nowIso = now.toISOString();
@@ -3664,13 +3796,18 @@ export class VhunambiDatabase {
         nowIso,
       );
 
-    const signed = signAccessJwt({
-      sub: user.userId,
-      cid: user.creatorId,
-      hdl: user.handle,
-      sid: sessionId,
-      role: user.role,
-    });
+    const signed = signAccessJwt(
+      {
+        sub: user.userId,
+        cid: user.creatorId,
+        hdl: user.handle,
+        sid: sessionId,
+        role: user.role,
+      },
+      undefined,
+      undefined,
+      jwtSecret,
+    );
 
     return {
       user,
@@ -3700,6 +3837,7 @@ export class VhunambiDatabase {
     creatorId?: string;
     deviceLabel?: string;
     initialCoins?: number;
+    jwtSecret?: string;
   }): AuthTokenBundle {
     const normalizedHandle = VhunambiDatabase.normalizeHandle(input.handle);
     if (normalizedHandle.length < 3) {
@@ -3811,6 +3949,7 @@ export class VhunambiDatabase {
     return this.createAuthSessionAndTokens(
       createdUser,
       input.deviceLabel ?? 'vhunambi_client',
+      input.jwtSecret,
     );
   }
 
@@ -3818,6 +3957,7 @@ export class VhunambiDatabase {
     identifier: string;
     password: string;
     deviceLabel?: string;
+    jwtSecret?: string;
   }): AuthTokenBundle {
     const rawId = input.identifier.trim().toLowerCase();
     const handleCandidate = rawId.startsWith('@') ? rawId : `@${rawId}`;
@@ -3845,10 +3985,14 @@ export class VhunambiDatabase {
     return this.createAuthSessionAndTokens(
       user,
       input.deviceLabel ?? 'vhunambi_client',
+      input.jwtSecret,
     );
   }
 
-  public rotateRefreshToken(refreshToken: string): AuthTokenBundle {
+  public rotateRefreshToken(
+    refreshToken: string,
+    jwtSecret?: string,
+  ): AuthTokenBundle {
     const tokenHash = hashRefreshToken(refreshToken);
 
     const sessionRow = this.db
@@ -3915,13 +4059,18 @@ export class VhunambiDatabase {
       throw new Error('AUTH_USER_NOT_FOUND: User no longer exists.');
     }
 
-    const signed = signAccessJwt({
-      sub: user.userId,
-      cid: user.creatorId,
-      hdl: user.handle,
-      sid: sessionId,
-      role: user.role,
-    });
+    const signed = signAccessJwt(
+      {
+        sub: user.userId,
+        cid: user.creatorId,
+        hdl: user.handle,
+        sid: sessionId,
+        role: user.role,
+      },
+      undefined,
+      undefined,
+      jwtSecret,
+    );
 
     return {
       user,
@@ -4577,6 +4726,17 @@ export class VhunambiDatabase {
         updatedAt: String(row.updated_at),
       };
     }
+  }
+
+  public async ensureColdStartHydrated(_cOrEnv?: unknown): Promise<void> {
+    // Node SQLite WAL is persisted locally on disk; no remote cold-start hydration needed.
+  }
+
+  public async hydrateGenerationJobById(
+    generationId: string,
+    _cOrEnv?: unknown,
+  ): Promise<GenerationJob | null> {
+    return this.getGenerationJob(generationId);
   }
 
   public deleteSoundSignature(sigId: string): boolean {

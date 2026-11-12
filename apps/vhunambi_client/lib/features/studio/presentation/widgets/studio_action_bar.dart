@@ -203,6 +203,7 @@ class StudioActionBar extends ConsumerWidget {
             .read(generationProgressProvider.notifier)
             .submitAndStartGeneration(
               trackTitle: formState.resolvedTitle,
+              prompt: formState.prompt,
               genre: formState.genre,
               language: formState.language,
               lyrics: customLyrics,

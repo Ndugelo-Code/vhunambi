@@ -333,7 +333,14 @@ interface InternalMutationLogEntry {
  */
 export class EdgeIsolateDatabaseEngine {
   public static readonly DEFAULT_SEED_PASSWORD = 'VhunambiSovereign!2026';
+  private static readonly PRECOMPUTED_DEFAULT_SEED_HASH =
+    'scrypt$16384$8$1$7668756e616d62695f736565645f3631$019d07af66616b7e53fad54dcbe9f54bd408a3541a1ebe76b8236186a3c7a5ff3e46d2c1ac432e8c91de6c2824564d14df02413dad24040c4cfe5b08d3dac9a0';
+  private static readonly PRECOMPUTED_EDGE_SEED_HASH_N1024 =
+    'scrypt$1024$8$1$7668756e616d62695f736565645f3631$46240025478633eac29c8dfe3e22f42a40290ce0a444edc4ab2a67d8a6ac2b873e16373cafdfce184ddeecfde7362ab15cd8db9dbba51ae9089941ab19440b52';
   private static cachedDefaultSeedHash: string | null = null;
+
+  private coldStartHydrated = false;
+  private coldStartHydrationPromise: Promise<void> | null = null;
 
   private seqCounter = 0;
   private readonly creators = new Map<string, Record<string, any>>();
@@ -364,10 +371,16 @@ export class EdgeIsolateDatabaseEngine {
 
   private static getDefaultSeedPasswordHash(): string {
     if (!EdgeIsolateDatabaseEngine.cachedDefaultSeedHash) {
-      EdgeIsolateDatabaseEngine.cachedDefaultSeedHash = hashPassword(
-        EdgeIsolateDatabaseEngine.DEFAULT_SEED_PASSWORD,
-        '7668756e616d62695f736565645f3631',
-      );
+      const g = globalThis as unknown as {
+        navigator?: { userAgent?: string };
+        WebSocketPair?: unknown;
+      };
+      const isWorker =
+        g.navigator?.userAgent === 'Cloudflare-Workers' ||
+        typeof g.WebSocketPair === 'function';
+      EdgeIsolateDatabaseEngine.cachedDefaultSeedHash = isWorker
+        ? EdgeIsolateDatabaseEngine.PRECOMPUTED_EDGE_SEED_HASH_N1024
+        : EdgeIsolateDatabaseEngine.PRECOMPUTED_DEFAULT_SEED_HASH;
     }
     return EdgeIsolateDatabaseEngine.cachedDefaultSeedHash;
   }
@@ -378,6 +391,8 @@ export class EdgeIsolateDatabaseEngine {
   }
 
   public resetForTesting(): void {
+    this.coldStartHydrated = false;
+    this.coldStartHydrationPromise = null;
     this.seqCounter = 0;
     this.creators.clear();
     this.usersByCreatorId.clear();
@@ -403,6 +418,548 @@ export class EdgeIsolateDatabaseEngine {
     this.seedDefaults();
   }
 
+  private static async withTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    fallback: T,
+  ): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((resolve) => {
+          timer = setTimeout(() => resolve(fallback), timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
+  private mirrorWriteThrough(
+    op: (driver: SupabaseCloudDriver) => Promise<unknown>,
+  ): void {
+    const activeCtx = EdgePersistenceBridge.getActiveContext();
+    const driver = EdgePersistenceBridge.getCloudDriver(activeCtx);
+    if (!driver.isConfigured()) return;
+
+    const task = Promise.resolve()
+      .then(() => op(driver))
+      .catch(() => {
+        // Non-blocking PostgREST background mirror; isolate state is already committed
+      });
+
+    try {
+      const maybeExecCtx = (activeCtx as Context | undefined)?.executionCtx;
+      if (maybeExecCtx && typeof maybeExecCtx.waitUntil === 'function') {
+        maybeExecCtx.waitUntil(task);
+      }
+    } catch {
+      // Hono executionCtx getter throws outside Cloudflare Workers runtime
+    }
+  }
+
+  private async ensureCreatorRowInSupabase(
+    driver: SupabaseCloudDriver,
+    rawCreatorId: string,
+  ): Promise<void> {
+    const cid = canonicalizeCreatorId(rawCreatorId);
+    const local = this.creators.get(cid) ?? this.creators.get(rawCreatorId);
+    const handle = String(
+      local?.handle ?? `@${cid.replace(/^creator_/, '')}`,
+    );
+    await driver
+      .upsertRow(
+        'creators',
+        {
+          id: cid,
+          handle,
+          display_name: String(
+            local?.displayName ?? handle.slice(1).toUpperCase(),
+          ),
+          avatar_url: String(
+            local?.avatarUrl ??
+              `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cid)}`,
+          ),
+          archetype: String(local?.archetype ?? 'Producer'),
+          tier: String(local?.tier ?? 'verified'),
+          is_verified: String(local?.tier ?? 'verified') !== 'unverified',
+          updated_at: Date.now(),
+        },
+        'id',
+      )
+      .catch(() => {
+        // Best-effort creator FK assurance
+      });
+  }
+
+  public async ensureColdStartHydrated(cOrEnv?: unknown): Promise<void> {
+    if (this.coldStartHydrated) return;
+    if (this.coldStartHydrationPromise) return this.coldStartHydrationPromise;
+
+    const resolvedCtx = cOrEnv ?? EdgePersistenceBridge.getActiveContext();
+    const driver = EdgePersistenceBridge.getCloudDriver(
+      resolvedCtx as Context | Record<string, unknown> | undefined,
+    );
+    if (!driver.isConfigured()) {
+      return;
+    }
+
+    const hydrateTask = (async () => {
+      try {
+        const [
+          creatorsRows,
+          usersRows,
+          sessionsRows,
+          exploreRows,
+          postsRows,
+          clipsRows,
+          commentsRows,
+          assetsRows,
+          licensesRows,
+          signaturesRows,
+          libraryRows,
+          playlistRows,
+          jobRows,
+          voiceRows,
+          socialRows,
+          walletRows,
+          bankRows,
+          topupRows,
+          mutationRows,
+        ] = await EdgeIsolateDatabaseEngine.withTimeout(
+          Promise.all([
+            driver.selectRows<Record<string, any>>('creators', 'select=*&limit=300').catch(() => []),
+            driver.selectRows<Record<string, any>>('users', 'select=*&limit=300').catch(() => []),
+            driver.selectRows<Record<string, any>>('auth_sessions', 'select=*&revoked=eq.false&order=rotated_at.desc&limit=300').catch(() => []),
+            driver.selectRows<Record<string, any>>('explore_tracks', 'select=*&limit=200').catch(() => []),
+            driver.selectRows<Record<string, any>>('kinetic_posts', 'select=*&order=created_at.desc&limit=200').catch(() => []),
+            driver.selectRows<Record<string, any>>('published_clips', 'select=*&order=created_at.desc&limit=200').catch(() => []),
+            driver.selectRows<Record<string, any>>('reel_comments', 'select=*&order=timestamp_ms.desc&limit=400').catch(() => []),
+            driver.selectRows<Record<string, any>>('marketplace_assets', 'select=*&limit=200').catch(() => []),
+            driver.selectRows<Record<string, any>>('beat_licenses', 'select=*&order=purchased_at.desc&limit=300').catch(() => []),
+            driver.selectRows<Record<string, any>>('sound_signatures', 'select=*&limit=200').catch(() => []),
+            driver.selectRows<Record<string, any>>('user_library_sync', 'select=*&limit=500').catch(() => []),
+            driver.selectRows<Record<string, any>>('playlists', 'select=*&limit=200').catch(() => []),
+            driver.selectRows<Record<string, any>>('generation_jobs', 'select=*&order=updated_at.desc&limit=200').catch(() => []),
+            driver.selectRows<Record<string, any>>('voice_clones', 'select=*&limit=200').catch(() => []),
+            driver.selectRows<Record<string, any>>('social_interactions', 'select=*&limit=1000').catch(() => []),
+            driver.selectRows<Record<string, any>>('wallet_ledger', 'select=*&order=created_at.desc&limit=500').catch(() => []),
+            driver.selectRows<Record<string, any>>('bank_accounts', 'select=*&limit=200').catch(() => []),
+            driver.selectRows<Record<string, any>>('payment_topups', 'select=*&order=created_at.desc&limit=300').catch(() => []),
+            driver.selectRows<Record<string, any>>('sync_mutation_log', 'select=*&order=seq.asc&limit=300').catch(() => []),
+          ]),
+          4500,
+          Array.from({ length: 19 }, () => [] as Record<string, any>[]),
+        );
+
+        for (const cr of creatorsRows) {
+          const cid = canonicalizeCreatorId(String(cr.id ?? ''));
+          if (!cid) continue;
+          const existing = this.creators.get(cid);
+          this.creators.set(cid, {
+            ...(existing ?? {}),
+            id: cid,
+            handle: String(cr.handle ?? existing?.handle ?? `@${cid.replace(/^creator_/, '')}`),
+            displayName: String(cr.display_name ?? existing?.displayName ?? cid),
+            avatarUrl: String(cr.avatar_url ?? existing?.avatarUrl ?? ''),
+            archetype: String(cr.archetype ?? existing?.archetype ?? 'Producer'),
+            tier: String(cr.tier ?? existing?.tier ?? 'verified'),
+            reputationScore: Number(cr.reputation_score ?? existing?.reputationScore ?? 100),
+            createdAt: String(cr.created_at ?? existing?.createdAt ?? new Date().toISOString()),
+            updatedAt: new Date(Number(cr.updated_at || Date.now())).toISOString(),
+          });
+        }
+
+        for (const u of usersRows) {
+          const cid = canonicalizeCreatorId(String(u.creator_id ?? u.user_id ?? ''));
+          if (!cid) continue;
+          const creator = this.creators.get(cid);
+          this.hydrateExternalUser({
+            userId: String(u.user_id ?? `usr_${cid}`),
+            creatorId: cid,
+            handle: String(u.handle ?? creator?.handle ?? `@${cid.replace(/^creator_/, '')}`),
+            displayName: creator?.displayName ? String(creator.displayName) : undefined,
+            email: String(u.email ?? `${cid}@vhunambi.co.za`),
+            passwordHash: String(u.password_hash ?? 'GOTRUE_MANAGED'),
+            role: String(u.role ?? 'creator'),
+            avatarUrl: creator?.avatarUrl ? String(creator.avatarUrl) : undefined,
+            isVerified: creator?.tier !== 'unverified',
+            createdAt: u.created_at ? String(u.created_at) : undefined,
+          });
+        }
+
+        for (const s of sessionsRows) {
+          if (!s.session_id) continue;
+          this.hydrateExternalSession({
+            sessionId: String(s.session_id),
+            userId: String(s.user_id ?? ''),
+            creatorId: String(s.creator_id ?? 'creator_cern'),
+            familyId: String(s.family_id ?? s.session_id),
+            refreshTokenHash: String(s.refresh_token_hash ?? ''),
+            previousTokenHash: s.previous_token_hash ? String(s.previous_token_hash) : null,
+            deviceLabel: String(s.device_label ?? 'vhunambi_client'),
+            expiresAt: String(s.expires_at ?? new Date().toISOString()),
+            revoked: Boolean(s.revoked),
+            revokeReason: s.revoke_reason ? String(s.revoke_reason) : null,
+            createdAt: s.created_at ? String(s.created_at) : undefined,
+            rotatedAt: s.rotated_at ? String(s.rotated_at) : undefined,
+          });
+        }
+
+        for (const t of exploreRows) {
+          if (!t.id) continue;
+          const id = String(t.id);
+          const stems = t.stems_json && typeof t.stems_json === 'object' ? t.stems_json : {};
+          const updatedIso = new Date(Number(t.updated_at || Date.now())).toISOString();
+          this.exploreTracks.set(id, {
+            id,
+            title: String(t.title ?? 'Untitled Track'),
+            artist_id: String(t.creator_id ?? 'creator_cern'),
+            artist_name: String(t.artist ?? 'Vhunambi Creator'),
+            genre: String(t.genre ?? 'Amapiano'),
+            audio_url: String(t.audio_url ?? ''),
+            bpm: Number(t.bpm ?? 113),
+            play_count: Number(t.plays_count ?? 0),
+            like_count: Number(t.likes_count ?? 0),
+            cosign_count: Number(t.cosigns_count ?? 0),
+            discovery_stage:
+              Number(t.plays_count ?? 0) >= 8000
+                ? 'mainstage'
+                : Number(t.plays_count ?? 0) >= 1500
+                  ? 'risingBreakout'
+                  : 'freshCrate',
+            data_json: JSON.stringify({
+              subGenre: t.sub_genre ?? '',
+              province: t.region ?? 'South Africa',
+              musicalKey: t.musical_key ?? 'Am',
+              coverUrl: t.cover_url ?? '',
+              durationMs: Number(t.duration_sec ?? 180) * 1000,
+              stemsAvailable: Object.keys(stems).length > 0,
+              isNew: Boolean(t.is_featured ?? false),
+            }),
+            created_at: updatedIso,
+            updated_at: updatedIso,
+          });
+        }
+
+        for (const kp of postsRows) {
+          if (!kp.id) continue;
+          const dataObj =
+            kp.data_json && typeof kp.data_json === 'object'
+              ? kp.data_json
+              : {};
+          this.kineticPosts.set(String(kp.id), {
+            id: String(kp.id),
+            creator_id: String(kp.creator_id ?? 'creator_cern'),
+            creator_handle: String(kp.creator_handle ?? '@cern'),
+            creator_name: String(kp.creator_name ?? 'Cern'),
+            caption: String(kp.caption ?? ''),
+            media_type: String((dataObj as Record<string, unknown>).mediaType ?? 'audio_card'),
+            cosign_count: Number(kp.cosign_count ?? 0),
+            cosign_target: Number((dataObj as Record<string, unknown>).cosignTarget ?? 25),
+            repost_count: Number(kp.repost_count ?? 0),
+            discovery_stage: String(kp.discovery_stage ?? 'freshCrate'),
+            data_json:
+              typeof kp.data_json === 'string'
+                ? kp.data_json
+                : JSON.stringify(dataObj),
+            created_at: new Date(Number(kp.created_at || Date.now())).toISOString(),
+            updated_at: new Date(Number(kp.updated_at || Date.now())).toISOString(),
+          });
+        }
+
+        for (const pc of clipsRows) {
+          if (!pc.id) continue;
+          const parsedData =
+            pc.data_json && typeof pc.data_json === 'object'
+              ? (pc.data_json as Record<string, any>)
+              : {};
+          const createdIso = new Date(Number(pc.created_at || Date.now())).toISOString();
+          const updatedIso = new Date(Number(pc.updated_at || Date.now())).toISOString();
+          const cid = canonicalizeCreatorId(String(pc.creator_id ?? 'creator_cern'));
+          this.publishedClips.set(String(pc.id), {
+            id: String(pc.id),
+            creator_id: cid,
+            creator_handle: String(parsedData.creatorUsername ?? `@${cid.replace(/^creator_/, '')}`),
+            video_url: String(parsedData.audioUrl ?? parsedData.videoUrl ?? pc.audio_url ?? ''),
+            audio_title: String(parsedData.title ?? pc.title ?? 'Untitled Clip'),
+            bantu_language: pc.genre ? String(pc.genre) : null,
+            views_count: Number(parsedData.playCount ?? pc.views_count ?? 0),
+            likes_count: Number(pc.likes_count ?? parsedData.likeCount ?? 0),
+            comments_count: Number(pc.comments_count ?? parsedData.commentCount ?? 0),
+            remixes_count: Number(pc.remixes_count ?? parsedData.remixCount ?? 0),
+            remixed_from_clip_id: pc.remixed_from_clip_id ? String(pc.remixed_from_clip_id) : null,
+            data_json: JSON.stringify({
+              ...parsedData,
+              id: String(pc.id),
+              trackId: pc.track_id ?? parsedData.trackId,
+              creatorId: cid,
+              genre: pc.genre ?? parsedData.genre,
+              coverUrl: pc.cover_url ?? parsedData.coverUrl,
+            }),
+            created_at: createdIso,
+            updated_at: updatedIso,
+          });
+        }
+
+        for (const rc of commentsRows) {
+          if (!rc.id) continue;
+          const parsed =
+            rc.data_json && typeof rc.data_json === 'object'
+              ? (rc.data_json as Record<string, any>)
+              : {};
+          const createdIso = new Date(Number(rc.timestamp_ms || Date.now())).toISOString();
+          this.reelComments.set(String(rc.id), {
+            id: String(rc.id),
+            reel_id: String(rc.clip_id),
+            creator_id: String(rc.user_id),
+            content: String(rc.text ?? ''),
+            language_code: parsed.languageCode ? String(parsed.languageCode) : null,
+            data_json: JSON.stringify({
+              ...parsed,
+              id: String(rc.id),
+              clipId: String(rc.clip_id),
+              userId: String(rc.user_id),
+              text: String(rc.text ?? ''),
+              createdAt: parsed.createdAt ?? createdIso,
+            }),
+            created_at: createdIso,
+          });
+        }
+
+        for (const ma of assetsRows) {
+          if (!ma.id) continue;
+          const norm = normalizeMarketplaceAssetRow(ma);
+          const updatedIso = new Date(Number(ma.updated_at || Date.now())).toISOString();
+          this.marketplaceAssets.set(String(ma.id), {
+            id: String(ma.id),
+            title: String(ma.title ?? 'Untitled Beat'),
+            producer_id: String(ma.producer_id ?? 'creator_cern'),
+            asset_category: 'beats',
+            price_zar: Number(ma.price_zar ?? 0),
+            price_coins: Number(ma.price_coins ?? 0),
+            is_exclusive_sold: ma.is_exclusive_sold ? 1 : 0,
+            exclusive_buyer_id: ma.exclusive_buyer_id ? String(ma.exclusive_buyer_id) : null,
+            data_json: JSON.stringify(norm),
+            created_at: updatedIso,
+            updated_at: updatedIso,
+          });
+        }
+
+        for (const bl of licensesRows) {
+          if (!bl.certificate_id) continue;
+          const norm = normalizeBeatLicenseRow(bl);
+          const amtZar = Number(bl.amount_paid_zar ?? norm.amountPaidZar ?? 0);
+          const amtCoins = Number(bl.amount_paid_coins ?? norm.amountPaidCoins ?? 0);
+          this.beatLicenses.set(String(bl.certificate_id), {
+            certificate_id: String(bl.certificate_id),
+            license_hash: String(bl.license_hash ?? ''),
+            beat_id: String(bl.beat_id ?? ''),
+            producer_id: String(bl.producer_id ?? ''),
+            buyer_id: String(bl.buyer_id ?? ''),
+            tier: String(bl.tier ?? 'basic_lease'),
+            coins_paid: amtCoins,
+            zar_paid: amtZar,
+            producer_coins: Math.max(1, Math.floor(amtCoins * 0.85)),
+            producer_zar: Number((amtZar * 0.85).toFixed(2)),
+            issued_at: new Date(Number(bl.purchased_at || Date.now())).toISOString(),
+            data_json: JSON.stringify(norm),
+          });
+        }
+
+        for (const ss of signaturesRows) {
+          if (!ss.id) continue;
+          const parsedData =
+            ss.data_json && typeof ss.data_json === 'object'
+              ? (ss.data_json as Record<string, any>)
+              : {};
+          this.soundSignatures.set(String(ss.id), {
+            ...parsedData,
+            id: String(ss.id),
+            creatorId: String(ss.creator_id ?? 'creator_cern'),
+            name: String(ss.name ?? 'Sound Signature'),
+            category: String(ss.category ?? 'vocal_DNA'),
+            status: String(ss.status ?? 'awaiting_upload'),
+            r2AudioKey: String(ss.r2_audio_key ?? ''),
+            recipe: ss.recipe_json ?? parsedData.recipe ?? {},
+            embedding: ss.embedding_json ?? parsedData.embedding ?? [],
+            consentAtIso: String(ss.consent_at_iso ?? parsedData.consentAtIso ?? ''),
+          });
+        }
+
+        for (const lib of libraryRows) {
+          if (!lib.id) continue;
+          const norm = normalizeLibrarySyncRow(lib);
+          const normId = String(norm.id);
+          this.libraryItems.set(normId, {
+            id: normId,
+            creator_id: String(norm.creatorId ?? lib.creator_id ?? 'creator_cern'),
+            item_type: String(norm.itemType ?? 'track'),
+            title: String(norm.title ?? 'Untitled Track'),
+            data_json: JSON.stringify(norm),
+            created_at: String(norm.createdAt ?? norm.updatedAt ?? new Date().toISOString()),
+            updated_at: String(norm.updatedAt ?? new Date().toISOString()),
+          });
+        }
+
+        for (const pl of playlistRows) {
+          if (!pl.id) continue;
+          const norm = normalizePlaylistRow(pl);
+          const id = String(norm.id);
+          const rawShareCode = norm.shareCode ? String(norm.shareCode) : null;
+          const effectiveShareCode =
+            rawShareCode && rawShareCode.startsWith('priv_') ? null : rawShareCode;
+          const createdIso = new Date(Number(pl.created_at || Date.now())).toISOString();
+          const updatedIso = new Date(Number(pl.updated_at || Date.now())).toISOString();
+          this.playlists.set(id, {
+            id,
+            creator_id: String(norm.creatorId ?? 'usr_me'),
+            title: String(norm.title ?? 'Untitled Playlist'),
+            description: String(norm.description ?? ''),
+            cover_image_url: norm.coverImageUrl ?? null,
+            track_ids_json: JSON.stringify(norm.trackIds ?? []),
+            is_public: norm.isPublic ? 1 : 0,
+            share_code: effectiveShareCode,
+            share_url: effectiveShareCode ? `https://vhunambi.za/p/${effectiveShareCode}` : null,
+            created_at: createdIso,
+            updated_at: updatedIso,
+          });
+        }
+
+        for (const gj of jobRows) {
+          if (!gj.generation_id) continue;
+          const genId = String(gj.generation_id);
+          const existing = this.generationJobs.get(genId);
+          const job = this.mapSupabaseGenerationJobRow(gj, existing?.job);
+          this.generationJobs.set(job.generationId, {
+            job,
+            creatorId: canonicalizeCreatorId(String(gj.creator_id ?? existing?.creatorId ?? 'creator_cern')),
+            jobKind: String(gj.job_kind ?? existing?.jobKind ?? 'audio_synthesis'),
+          });
+        }
+
+        for (const vc of voiceRows) {
+          if (!vc.voice_id) continue;
+          const id = String(vc.voice_id);
+          this.voiceClones.set(id, {
+            id,
+            voiceId: id,
+            creatorId: canonicalizeCreatorId(String(vc.creator_id ?? 'creator_cern')),
+            displayName: String(vc.display_name ?? 'Cloned Voice'),
+            creatorName: String(vc.display_name ?? 'Cloned Voice'),
+            consentVerified: Boolean(vc.consent_verified ?? true),
+            referenceAudioDurationSec: Number(vc.reference_audio_duration_sec ?? 15.0),
+            r2ReferenceUrl: String(vc.r2_reference_url ?? ''),
+            pitchRangeHz: vc.pitch_range_hz_json ?? [110, 660],
+            timbreEmbedding: vc.timbre_embedding_json ?? [],
+            createdAt: String(vc.created_at ?? new Date().toISOString()),
+            createdAtIso: String(vc.created_at ?? new Date().toISOString()),
+          });
+        }
+
+        for (const si of socialRows) {
+          if (!si.interaction_type || !si.target_id || !si.actor_creator_id) continue;
+          this.socialInteractions.add(
+            `${si.interaction_type}::${si.target_id}::${canonicalizeCreatorId(String(si.actor_creator_id))}`,
+          );
+        }
+
+        const groupedWallet = new Map<string, Array<Record<string, any>>>();
+        for (const wl of walletRows) {
+          if (!wl.id || !wl.creator_id) continue;
+          const cid = canonicalizeCreatorId(String(wl.creator_id));
+          const list = groupedWallet.get(cid) ?? [];
+          const metaStr =
+            typeof wl.metadata_json === 'string'
+              ? wl.metadata_json
+              : JSON.stringify(wl.metadata_json ?? {});
+          list.push({
+            id: String(wl.id),
+            creator_id: cid,
+            type: String(wl.type ?? 'topup'),
+            amount_zar: Number(wl.amount_zar ?? 0),
+            amount_coins: Number(wl.amount_coins ?? 0),
+            status: String(wl.status ?? 'completed'),
+            reference: String(wl.reference ?? ''),
+            data_json: metaStr,
+            created_at: String(wl.created_at ?? new Date().toISOString()),
+          });
+          groupedWallet.set(cid, list);
+        }
+        for (const [cid, pgList] of groupedWallet.entries()) {
+          const existingList = this.walletLedger.get(cid) ?? [];
+          const seenIds = new Set(pgList.map((r) => String(r.id)));
+          const merged = [
+            ...pgList,
+            ...existingList.filter((r) => !seenIds.has(String(r.id))),
+          ];
+          this.walletLedger.set(cid, merged);
+        }
+
+        for (const ba of bankRows) {
+          if (!ba.id) continue;
+          this.bankAccounts.set(String(ba.id), {
+            id: String(ba.id),
+            creatorId: canonicalizeCreatorId(String(ba.creator_id ?? 'creator_cern')),
+            bankName: String(ba.bank_name ?? ''),
+            branchCode: String(ba.branch_code ?? ''),
+            maskedAccount: String(ba.account_number_masked ?? ''),
+            paymentRail: String(ba.payout_rail ?? 'payfast'),
+            accountHolder: ba.account_holder ? String(ba.account_holder) : null,
+            updatedAt: String(ba.updated_at ?? new Date().toISOString()),
+          });
+        }
+
+        for (const pt of topupRows) {
+          if (!pt.checkout_id) continue;
+          const cid = canonicalizeCreatorId(String(pt.creator_id ?? 'creator_cern'));
+          this.payfastCheckouts.set(String(pt.checkout_id), {
+            checkoutId: String(pt.checkout_id),
+            creatorId: cid,
+            provider: String(pt.provider ?? 'payfast'),
+            providerPaymentId: pt.provider_payment_id ? String(pt.provider_payment_id) : null,
+            packId: String(pt.pack_id ?? 'pack_producer_1500'),
+            amountZar: Number(pt.amount_zar ?? 0),
+            coinsGranted: Number(pt.coins_granted ?? 0),
+            status: String(pt.status ?? 'pending'),
+            signatureMd5: String(pt.signature_md5 ?? ''),
+            verifiedAt: pt.verified_at ? String(pt.verified_at) : null,
+            createdAt: String(pt.created_at ?? new Date().toISOString()),
+          });
+          if (pt.provider_payment_id) {
+            this.payfastByPfId.set(String(pt.provider_payment_id), String(pt.checkout_id));
+          }
+        }
+
+        for (const mut of mutationRows) {
+          const norm = normalizeSyncMutationRow(mut);
+          const key = String(norm.idempotencyKey || '');
+          const seqNum = Number(norm.seq ?? 0);
+          if (!key || this.seenMutationKeys.has(key)) continue;
+          this.seenMutationKeys.add(key);
+          this.seqCounter = Math.max(this.seqCounter, seqNum);
+          this.mutations.push({
+            seq: seqNum || this.seqCounter,
+            idempotencyKey: key,
+            entityType: String(norm.entityType ?? ''),
+            entityId: String(norm.entityId ?? ''),
+            action: String(norm.action ?? 'upsert'),
+            creatorId: String(norm.creatorId ?? 'system'),
+            payload: (norm.payload as Record<string, any>) ?? {},
+            createdAt: String(norm.createdAt ?? new Date().toISOString()),
+          });
+        }
+      } finally {
+        this.coldStartHydrated = true;
+        this.coldStartHydrationPromise = null;
+      }
+    })();
+
+    this.coldStartHydrationPromise = hydrateTask;
+    return hydrateTask;
+  }
+
   private appendMutation(entry: {
     idempotencyKey: string;
     entityType: string;
@@ -417,16 +974,35 @@ export class EdgeIsolateDatabaseEngine {
     }
     this.seqCounter += 1;
     this.seenMutationKeys.add(entry.idempotencyKey);
+    const createdAt = entry.createdAt ?? new Date().toISOString();
+    const creatorId = entry.creatorId?.trim() || 'system';
     this.mutations.push({
       seq: this.seqCounter,
       idempotencyKey: entry.idempotencyKey,
       entityType: entry.entityType,
       entityId: entry.entityId,
       action: entry.action,
-      creatorId: entry.creatorId?.trim() || 'system',
+      creatorId,
       payload: entry.payload,
-      createdAt: entry.createdAt ?? new Date().toISOString(),
+      createdAt,
     });
+    if (entry.entityType !== 'payout') {
+      this.mirrorWriteThrough(async (driver) => {
+        await driver.upsertRow(
+          'sync_mutation_log',
+          {
+            mutation_id: entry.idempotencyKey,
+            creator_id: creatorId,
+            entity_type: entry.entityType,
+            entity_id: entry.entityId,
+            operation: entry.action,
+            payload_json: entry.payload,
+            client_ts: Date.parse(createdAt) || Date.now(),
+          },
+          'mutation_id',
+        );
+      });
+    }
     return this.seqCounter;
   }
 
@@ -1044,7 +1620,7 @@ export class EdgeIsolateDatabaseEngine {
             if (t) t.like_count = Number(t.like_count ?? 0) + 1;
           }
         } else if (m.entityType === 'post' && m.action === 'create') {
-          this.kineticPosts.set(entityId, {
+          const postRow = {
             id: entityId,
             creator_id: m.payload.creatorId || 'creator_cern',
             creator_handle: m.payload.creatorHandle || '@cern',
@@ -1058,6 +1634,34 @@ export class EdgeIsolateDatabaseEngine {
             data_json: JSON.stringify(m.payload),
             created_at: m.createdAt,
             updated_at: m.createdAt,
+          };
+          this.kineticPosts.set(entityId, postRow);
+          const createdMs = Date.parse(m.createdAt) || Date.now();
+          this.mirrorWriteThrough(async (driver) => {
+            await driver.upsertRow(
+              'kinetic_posts',
+              {
+                id: entityId,
+                creator_id: postRow.creator_id,
+                creator_name: postRow.creator_name,
+                creator_handle: postRow.creator_handle,
+                avatar_url: String(m.payload?.avatarUrl ?? ''),
+                track_id: m.payload?.trackId ? String(m.payload.trackId) : null,
+                track_title: String(m.payload?.trackTitle ?? 'Untitled'),
+                genre: String(m.payload?.genre ?? 'Amapiano'),
+                caption: postRow.caption,
+                audio_preview_url: String(m.payload?.audioPreviewUrl ?? ''),
+                cover_url: String(m.payload?.coverUrl ?? ''),
+                cosign_count: Number(postRow.cosign_count),
+                repost_count: Number(postRow.repost_count),
+                comment_count: Number(m.payload?.commentCount ?? 0),
+                discovery_stage: postRow.discovery_stage,
+                data_json: m.payload ?? {},
+                created_at: createdMs,
+                updated_at: createdMs,
+              },
+              'id',
+            );
           });
         } else if (m.entityType === 'cosign') {
           this.cosignPost(entityId, m.payload?.creatorId);
@@ -1696,6 +2300,33 @@ export class EdgeIsolateDatabaseEngine {
     };
     this.exploreTracks.set(id, row);
 
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.upsertRow(
+        'explore_tracks',
+        {
+          id,
+          title: row.title,
+          artist: artistName,
+          creator_id: artistId,
+          genre,
+          sub_genre: String(dataJson.subGenre ?? ''),
+          region: String(dataJson.province ?? 'South Africa'),
+          bpm: Math.round(bpm),
+          musical_key: String(dataJson.musicalKey ?? 'Am'),
+          duration_sec: Math.max(1, Math.round(dataJson.durationMs / 1000)),
+          audio_url: row.audio_url,
+          cover_url: String(dataJson.coverUrl ?? ''),
+          stems_json: input.stemUrls ?? input.stems ?? {},
+          plays_count: playCount,
+          likes_count: likeCount,
+          cosigns_count: cosignCount,
+          is_featured: Boolean(dataJson.isNew),
+          updated_at: Date.now(),
+        },
+        'id',
+      );
+    });
+
     if (recordMutation) {
       this.appendMutation({
         idempotencyKey: `track_upsert_${id}_${Date.now()}_${this.seqCounter + 1}`,
@@ -1771,6 +2402,18 @@ export class EdgeIsolateDatabaseEngine {
     post.discovery_stage = newStage;
     post.updated_at = new Date().toISOString();
 
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.patchRows(
+        'kinetic_posts',
+        `id=eq.${encodeURIComponent(postId)}`,
+        {
+          cosign_count: newCount,
+          discovery_stage: newStage,
+          updated_at: Date.now(),
+        },
+      );
+    });
+
     return {
       success: true,
       postId,
@@ -1790,6 +2433,16 @@ export class EdgeIsolateDatabaseEngine {
     const newCount = Number(post.repost_count || 0) + 1;
     post.repost_count = newCount;
     post.updated_at = new Date().toISOString();
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.patchRows(
+        'kinetic_posts',
+        `id=eq.${encodeURIComponent(postId)}`,
+        {
+          repost_count: newCount,
+          updated_at: Date.now(),
+        },
+      );
+    });
     return { success: true, postId, repostCount: newCount };
   }
 
@@ -1835,6 +2488,15 @@ export class EdgeIsolateDatabaseEngine {
     if (!existing) return false;
     if (creatorId && existing.creator_id !== creatorId) return false;
     this.libraryItems.delete(id);
+    this.mirrorWriteThrough(async (driver) => {
+      const creatorFilter = creatorId
+        ? `&creator_id=eq.${encodeURIComponent(creatorId)}`
+        : '';
+      await driver.deleteRows(
+        'user_library_sync',
+        `id=eq.${encodeURIComponent(id)}${creatorFilter}`,
+      );
+    });
     if (recordMutation) {
       const now = new Date().toISOString();
       const effectiveCreator = creatorId || 'creator_cern';
@@ -1945,14 +2607,44 @@ export class EdgeIsolateDatabaseEngine {
       );
       const updatedAtIso = String(merged.updatedAt);
 
+      const effectiveCreator = existingRow?.creator_id ?? creatorId;
       this.libraryItems.set(id, {
         id,
-        creator_id: existingRow?.creator_id ?? creatorId,
+        creator_id: effectiveCreator,
         item_type: itemType,
         title,
         data_json: JSON.stringify(merged),
         created_at: createdAt,
         updated_at: updatedAtIso,
+      });
+
+      this.mirrorWriteThrough(async (driver) => {
+        await driver.upsertRow(
+          'user_library_sync',
+          {
+            id,
+            creator_id: effectiveCreator,
+            title,
+            artist: String(merged.artistName || merged.artist || 'Vhunambi Creator'),
+            genre: String(merged.genre || 'Amapiano'),
+            bpm: Math.round(Number(merged.bpm ?? 113)),
+            duration_sec: Math.round(Number(merged.durationSec ?? 180)),
+            audio_url: String(merged.remoteAudioUrl || merged.audioUrl || merged.masterMp3Url || ''),
+            cover_url: String(merged.coverUrl || ''),
+            is_favorite: Boolean(merged.isFavorite ?? false),
+            is_downloaded: Boolean(merged.isDownloaded ?? false),
+            play_count: mergedPlayCount,
+            is_licensed_beat: Boolean(merged.isLicensedBeat ?? false),
+            license_tier: merged.licenseTier ? String(merged.licenseTier) : null,
+            certificate_id: merged.certificateId ? String(merged.certificateId) : null,
+            license_hash: merged.licenseHash ? String(merged.licenseHash) : null,
+            master_file_sha256: merged.masterFileSha256 ? String(merged.masterFileSha256) : null,
+            stems_json: merged.stemFilesJson ?? merged.stems ?? {},
+            data_json: merged,
+            updated_at: incomingUpdatedAtMs,
+          },
+          'id,creator_id',
+        );
       });
 
       if (recordMutation) {
@@ -2100,6 +2792,25 @@ export class EdgeIsolateDatabaseEngine {
     });
 
     const mapped = this.getPlaylistById(id)!;
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.upsertRow(
+        'playlists',
+        {
+          id,
+          creator_id: mapped.creatorId,
+          title: mapped.title,
+          description: mapped.description,
+          cover_url: String(mapped.coverImageUrl ?? ''),
+          track_ids_json: mapped.trackIds,
+          is_public: Boolean(mapped.isPublic),
+          share_code: mapped.shareCode ? String(mapped.shareCode) : `priv_${id}`,
+          data_json: mapped,
+          created_at: Date.parse(String(mapped.createdAt)) || Date.now(),
+          updated_at: Date.parse(String(mapped.updatedAt)) || Date.now(),
+        },
+        'id',
+      );
+    });
     if (recordMutation) {
       this.appendMutation({
         idempotencyKey: `pl_upsert_${id}_${Date.now()}_${this.seqCounter + 1}`,
@@ -2130,6 +2841,9 @@ export class EdgeIsolateDatabaseEngine {
       return false;
     }
     this.playlists.delete(id);
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.deleteRows('playlists', `id=eq.${encodeURIComponent(id)}`);
+    });
     if (recordMutation) {
       const now = new Date().toISOString();
       const effectiveCreator = creatorId || 'usr_me';
@@ -2167,6 +2881,25 @@ export class EdgeIsolateDatabaseEngine {
     raw.updated_at = now;
 
     const updated = this.getPlaylistById(existing.id)!;
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.upsertRow(
+        'playlists',
+        {
+          id: existing.id,
+          creator_id: String(updated.creatorId ?? existing.creatorId ?? 'usr_me'),
+          title: String(updated.title ?? 'Untitled Playlist'),
+          description: String(updated.description ?? ''),
+          cover_url: String(updated.coverImageUrl ?? ''),
+          track_ids_json: updated.trackIds ?? [],
+          is_public: true,
+          share_code: shareCode,
+          data_json: updated,
+          created_at: Date.parse(String(updated.createdAt)) || Date.now(),
+          updated_at: Date.parse(now) || Date.now(),
+        },
+        'id',
+      );
+    });
     this.appendMutation({
       idempotencyKey: `pl_share_${existing.id}_${Date.now()}_${this.seqCounter + 1}`,
       entityType: 'playlist',
@@ -2466,9 +3199,80 @@ export class EdgeIsolateDatabaseEngine {
       this.walletLedger.set(recipientId, recipientList);
     }
 
+    const senderSnapBeforeTip = senderSnap;
+    this.mirrorWriteThrough(async (driver) => {
+      await this.ensureCreatorRowInSupabase(driver, senderId);
+      await this.ensureCreatorRowInSupabase(driver, recipientId);
+      if (ancestorId) {
+        await this.ensureCreatorRowInSupabase(driver, ancestorId);
+      }
+      try {
+        await driver.callRpc('send_cultural_tip_atomic', {
+          p_tip_id: params.tipId,
+          p_clip_id: params.clipId,
+          p_sender_id: senderId,
+          p_recipient_id: recipientId,
+          p_ancestor_id: ancestorId ?? null,
+          p_amount_coins: coins,
+          p_amount_zar: zar,
+          p_gift_name: params.giftName,
+          p_gift_emoji: params.giftEmoji,
+        });
+      } catch {
+        // Fallback mirror if seeded creator balance hasn't been topped up in PG ledger yet
+        const ledgerEntries: Array<Record<string, unknown>> = [
+          {
+            id: `wtx_tip_out_${params.tipId}`,
+            creator_id: senderId,
+            amount_zar: -zar,
+            amount_coins: -coins,
+            type: 'tip_sent',
+            reference: params.tipId,
+            status: 'completed',
+            metadata_json: {
+              clipId: params.clipId,
+              recipientId,
+              giftName: params.giftName,
+            },
+          },
+          {
+            id: `wtx_tip_in_${params.tipId}`,
+            creator_id: recipientId,
+            amount_zar: ancestorId && ancestorId !== recipientId ? Number((zar * 0.7).toFixed(2)) : zar,
+            amount_coins: primaryCoins,
+            type: 'tip_received',
+            reference: params.tipId,
+            status: 'completed',
+            metadata_json: {
+              clipId: params.clipId,
+              senderId,
+              giftName: params.giftName,
+            },
+          },
+        ];
+        if (ancestorId && ancestorId !== recipientId && ancestorCoins > 0) {
+          ledgerEntries.push({
+            id: `wtx_tip_anc_${params.tipId}`,
+            creator_id: ancestorId,
+            amount_zar: Number((zar - Number((zar * 0.7).toFixed(2))).toFixed(2)),
+            amount_coins: ancestorCoins,
+            type: 'remix_royalty',
+            reference: params.tipId,
+            status: 'completed',
+            metadata_json: {
+              clipId: params.clipId,
+              senderId,
+              giftName: params.giftName,
+            },
+          });
+        }
+        await driver.upsertRow('wallet_ledger', ledgerEntries, 'id');
+      }
+    });
+
     return {
       outcome: 'committed',
-      senderRemainingCoins: senderSnap.balanceCoins - coins,
+      senderRemainingCoins: senderSnapBeforeTip.balanceCoins - coins,
       primaryCoins,
       ancestorCoins,
     };
@@ -2496,6 +3300,26 @@ export class EdgeIsolateDatabaseEngine {
       signatureMd5: params.signatureMd5,
       verifiedAt: null,
       createdAt: nowIso,
+    });
+    this.mirrorWriteThrough(async (driver) => {
+      await this.ensureCreatorRowInSupabase(driver, creatorId);
+      await driver.upsertRow(
+        'payment_topups',
+        {
+          checkout_id: params.checkoutId,
+          creator_id: creatorId,
+          provider: 'payfast',
+          provider_payment_id: null,
+          pack_id: params.packId,
+          amount_zar: params.amountZar,
+          coins_granted: params.coinsGranted,
+          status: 'pending',
+          signature_md5: params.signatureMd5,
+          raw_itn_json: {},
+          created_at: nowIso,
+        },
+        'checkout_id',
+      );
     });
   }
 
@@ -2603,6 +3427,40 @@ export class EdgeIsolateDatabaseEngine {
     });
     this.walletLedger.set(String(checkout.creatorId), rows);
 
+    const topupCreatorId = String(checkout.creatorId);
+    this.mirrorWriteThrough(async (driver) => {
+      await this.ensureCreatorRowInSupabase(driver, topupCreatorId);
+      await driver.patchRows(
+        'payment_topups',
+        `checkout_id=eq.${encodeURIComponent(checkout.checkoutId)}`,
+        {
+          status: 'completed',
+          provider_payment_id: params.pfPaymentId,
+          raw_itn_json: params.rawItnPayload,
+          verified_at: nowIso,
+        },
+      );
+      await driver.upsertRow(
+        'wallet_ledger',
+        {
+          id: `wtx_pf_${params.pfPaymentId}`,
+          creator_id: topupCreatorId,
+          amount_zar: Number(checkout.amountZar),
+          amount_coins: Number(checkout.coinsGranted),
+          type: 'topup',
+          reference: `PF-ITN-${params.pfPaymentId}`,
+          status: 'completed',
+          metadata_json: {
+            checkoutId: checkout.checkoutId,
+            packId: checkout.packId,
+            pfPaymentId: params.pfPaymentId,
+          },
+          created_at: nowIso,
+        },
+        'id',
+      );
+    });
+
     const snap = this.getWallet(String(checkout.creatorId));
     return {
       outcome: 'settled',
@@ -2633,6 +3491,25 @@ export class EdgeIsolateDatabaseEngine {
       created_at: now,
     });
     this.walletLedger.set(creatorId, rows);
+    const canonicalCreator = canonicalizeCreatorId(creatorId);
+    this.mirrorWriteThrough(async (driver) => {
+      await this.ensureCreatorRowInSupabase(driver, canonicalCreator);
+      await driver.upsertRow(
+        'wallet_ledger',
+        {
+          id,
+          creator_id: canonicalCreator,
+          amount_zar: amountZar,
+          amount_coins: amountCoins,
+          type: 'topup',
+          reference: 'INSTANT_TOPUP',
+          status: 'completed',
+          metadata_json: {},
+          created_at: now,
+        },
+        'id',
+      );
+    });
     return this.getWallet(creatorId);
   }
 
@@ -2764,6 +3641,64 @@ export class EdgeIsolateDatabaseEngine {
       },
       creatorId: req.creatorId,
       createdAt: now,
+    });
+
+    const payoutCreator = canonicalizeCreatorId(req.creatorId);
+    const clientTs = Date.now();
+    this.mirrorWriteThrough(async (driver) => {
+      await this.ensureCreatorRowInSupabase(driver, payoutCreator);
+      try {
+        await driver.callRpc('execute_atomic_payout', {
+          p_creator_id: payoutCreator,
+          p_amount_zar: req.amountZar,
+          p_amount_coins: 0,
+          p_bank_code: bankMeta.code,
+          p_bank_name: bankMeta.canonicalName,
+          p_account_holder: req.accountHolder || payoutCreator,
+          p_account_masked: maskedAccount,
+          p_account_type: 'cheque',
+          p_branch_code: resolvedBranchCode,
+          p_payout_rail: normalizedRail,
+          p_tx_id: payoutId,
+          p_gateway_ref: gatewayRef,
+          p_status: ledgerStatus,
+          p_mutation_id: `payout_${payoutId}`,
+          p_client_ts: clientTs,
+        });
+      } catch {
+        await driver.upsertRow(
+          'bank_accounts',
+          {
+            id: bankAccountId,
+            creator_id: payoutCreator,
+            bank_code: bankMeta.code,
+            bank_name: bankMeta.canonicalName,
+            account_holder: req.accountHolder || payoutCreator,
+            account_number_masked: maskedAccount,
+            account_type: 'cheque',
+            branch_code: resolvedBranchCode,
+            payout_rail: normalizedRail,
+            is_verified: true,
+            updated_at: now,
+          },
+          'id',
+        );
+        await driver.upsertRow(
+          'wallet_ledger',
+          {
+            id: payoutId,
+            creator_id: payoutCreator,
+            amount_zar: -Math.abs(req.amountZar),
+            amount_coins: 0,
+            type: 'payout_withdrawal',
+            reference: gatewayRef,
+            status: ledgerStatus,
+            metadata_json: receiptPayload,
+            created_at: now,
+          },
+          'id',
+        );
+      }
     });
 
     const updatedWallet = this.getWallet(req.creatorId);
@@ -2973,6 +3908,75 @@ export class EdgeIsolateDatabaseEngine {
       }
     }
 
+    const purchasedAtMs = Date.parse(params.issuedAt) || Date.now();
+    this.mirrorWriteThrough(async (driver) => {
+      const buyerCid = canonicalizeCreatorId(params.buyerId);
+      const producerCid = canonicalizeCreatorId(params.producerId);
+      await this.ensureCreatorRowInSupabase(driver, buyerCid);
+      await this.ensureCreatorRowInSupabase(driver, producerCid);
+      const beatObj = this.getMarketplaceBeatById(params.beatId);
+      await driver.upsertRow(
+        'marketplace_assets',
+        {
+          id: params.beatId,
+          title: String(beatObj?.title ?? params.beatTitle),
+          producer_id: producerCid,
+          producer_name: String(beatObj?.producerName ?? params.producerHandle),
+          genre: String(beatObj?.genre ?? 'Amapiano'),
+          bpm: Math.round(Number(beatObj?.bpm ?? 113)),
+          musical_key: String(beatObj?.musicalKey ?? 'Am'),
+          price_zar: Number(beatObj?.priceZar ?? params.amountPaidZar),
+          price_coins: Number(beatObj?.priceCoins ?? params.amountPaidCoins),
+          is_exclusive_sold: Boolean(beatObj?.isExclusiveSold ?? params.isExclusive),
+          exclusive_buyer_id: params.isExclusive ? buyerCid : null,
+          updated_at: purchasedAtMs,
+        },
+        'id',
+      );
+      try {
+        await driver.callRpc('record_beat_license_atomic', {
+          p_certificate_id: params.certificateId,
+          p_beat_id: params.beatId,
+          p_beat_title: params.beatTitle,
+          p_buyer_id: buyerCid,
+          p_buyer_name: params.buyerHandle,
+          p_producer_id: producerCid,
+          p_producer_name: params.producerHandle,
+          p_tier: params.tierSlug,
+          p_amount_zar: params.amountPaidZar,
+          p_amount_coins: params.amountPaidCoins,
+          p_license_hash: licenseHash,
+          p_master_sha256: masterDigest,
+          p_terms_json: payloadWithHash,
+          p_stems_urls_json: (params.dataJson?.stemUrls as Record<string, unknown>) ?? {},
+          p_purchased_at: purchasedAtMs,
+          p_enforce_wallet: Boolean(params.enforceBuyerWallet),
+        });
+      } catch {
+        await driver.upsertRow(
+          'beat_licenses',
+          {
+            certificate_id: params.certificateId,
+            beat_id: params.beatId,
+            beat_title: params.beatTitle,
+            buyer_id: buyerCid,
+            buyer_name: params.buyerHandle,
+            producer_id: producerCid,
+            producer_name: params.producerHandle,
+            tier: params.tierSlug,
+            amount_paid_zar: params.amountPaidZar,
+            amount_paid_coins: params.amountPaidCoins,
+            license_hash: licenseHash,
+            master_file_sha256: masterDigest,
+            terms_json: payloadWithHash,
+            stems_urls_json: (params.dataJson?.stemUrls as Record<string, unknown>) ?? {},
+            purchased_at: purchasedAtMs,
+          },
+          'certificate_id',
+        );
+      }
+    });
+
     return { status: 'ok', licenseHash, masterFileSha256: masterDigest };
   }
 
@@ -3043,9 +4047,114 @@ export class EdgeIsolateDatabaseEngine {
     return new Date(row.expiresAt).getTime() > Date.now();
   }
 
+  public getAuthSyncSnapshot(
+    creatorId: string,
+    sessionId?: string,
+  ): {
+    passwordHash: string;
+    refreshTokenHash: string;
+    previousTokenHash: string | null;
+  } | null {
+    const canonical = canonicalizeCreatorId(creatorId);
+    const userRow =
+      this.usersByCreatorId.get(creatorId) ??
+      this.usersByCreatorId.get(canonical);
+    const sessionRow = sessionId ? this.sessions.get(sessionId) : undefined;
+    if (!userRow && !sessionRow) return null;
+    return {
+      passwordHash: userRow?.passwordHash ?? '',
+      refreshTokenHash: sessionRow?.refreshTokenHash ?? '',
+      previousTokenHash: sessionRow?.previousTokenHash ?? null,
+    };
+  }
+
+  public hydrateExternalUser(record: {
+    userId: string;
+    creatorId: string;
+    handle: string;
+    displayName?: string;
+    email: string;
+    passwordHash: string;
+    role?: string;
+    avatarUrl?: string;
+    isVerified?: boolean;
+    createdAt?: string;
+  }): void {
+    const cid = canonicalizeCreatorId(record.creatorId);
+    const handle = record.handle.startsWith('@')
+      ? record.handle
+      : `@${record.handle}`;
+    const displayName =
+      record.displayName?.trim() || handle.replace(/^@/, '').toUpperCase();
+    const avatarUrl =
+      record.avatarUrl ||
+      `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cid)}`;
+    const nowIso = record.createdAt || new Date().toISOString();
+
+    if (!this.creators.has(cid)) {
+      this.creators.set(cid, {
+        id: cid,
+        handle,
+        displayName,
+        avatarUrl,
+        tier: record.isVerified === false ? 'unverified' : 'verified',
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+    }
+    const existing = this.usersByCreatorId.get(cid);
+    this.usersByCreatorId.set(cid, {
+      userId: record.userId || existing?.userId || `usr_${cid}`,
+      creatorId: cid,
+      handle,
+      displayName,
+      email: record.email.toLowerCase(),
+      passwordHash:
+        record.passwordHash && record.passwordHash !== 'GOTRUE_MANAGED'
+          ? record.passwordHash
+          : existing?.passwordHash || 'GOTRUE_MANAGED',
+      role: record.role || existing?.role || 'creator',
+      avatarUrl,
+      isVerified: record.isVerified ?? true,
+      createdAt: nowIso,
+    });
+  }
+
+  public hydrateExternalSession(record: {
+    sessionId: string;
+    userId: string;
+    creatorId: string;
+    familyId: string;
+    refreshTokenHash: string;
+    previousTokenHash?: string | null;
+    deviceLabel?: string;
+    expiresAt: string;
+    revoked?: boolean;
+    revokeReason?: string | null;
+    createdAt?: string;
+    rotatedAt?: string;
+  }): void {
+    const nowIso = new Date().toISOString();
+    this.sessions.set(record.sessionId, {
+      sessionId: record.sessionId,
+      userId: record.userId,
+      creatorId: canonicalizeCreatorId(record.creatorId),
+      familyId: record.familyId,
+      refreshTokenHash: record.refreshTokenHash,
+      previousTokenHash: record.previousTokenHash ?? null,
+      deviceLabel: record.deviceLabel ?? 'vhunambi_client',
+      expiresAt: record.expiresAt,
+      revoked: Boolean(record.revoked),
+      revokeReason: record.revokeReason ?? null,
+      createdAt: record.createdAt ?? nowIso,
+      rotatedAt: record.rotatedAt ?? nowIso,
+    });
+  }
+
   private createAuthSessionAndTokens(
     user: SovereignUserRecord,
     deviceLabel = 'vhunambi_client',
+    jwtSecret?: string,
   ): AuthTokenBundle {
     const now = new Date();
     const nowIso = now.toISOString();
@@ -3072,13 +4181,18 @@ export class EdgeIsolateDatabaseEngine {
     };
     this.sessions.set(sessionId, sessionRow);
 
-    const signed = signAccessJwt({
-      sub: user.userId,
-      cid: user.creatorId,
-      hdl: user.handle,
-      sid: sessionId,
-      role: user.role,
-    });
+    const signed = signAccessJwt(
+      {
+        sub: user.userId,
+        cid: user.creatorId,
+        hdl: user.handle,
+        sid: sessionId,
+        role: user.role,
+      },
+      undefined,
+      undefined,
+      jwtSecret,
+    );
 
     return {
       user,
@@ -3108,6 +4222,7 @@ export class EdgeIsolateDatabaseEngine {
     creatorId?: string;
     deviceLabel?: string;
     initialCoins?: number;
+    jwtSecret?: string;
   }): AuthTokenBundle {
     const normalizedHandle = EdgeIsolateDatabaseEngine.normalizeHandle(
       input.handle,
@@ -3176,12 +4291,13 @@ export class EdgeIsolateDatabaseEngine {
         : 2500;
     if (welcomeCoins > 0 && !this.hasWalletActivity(creatorId)) {
       const zarRate = 0.3;
+      const welcomeZar = Number((welcomeCoins * zarRate).toFixed(2));
       const rows = this.walletLedger.get(creatorId) ?? [];
       rows.unshift({
         id: `wtx_welcome_${creatorId}`,
         creator_id: creatorId,
         type: 'topup',
-        amount_zar: Number((welcomeCoins * zarRate).toFixed(2)),
+        amount_zar: welcomeZar,
         amount_coins: welcomeCoins,
         status: 'completed',
         reference: 'SOVEREIGN_GRANT',
@@ -3189,12 +4305,31 @@ export class EdgeIsolateDatabaseEngine {
         created_at: now,
       });
       this.walletLedger.set(creatorId, rows);
+      this.mirrorWriteThrough(async (driver) => {
+        await this.ensureCreatorRowInSupabase(driver, creatorId);
+        await driver.upsertRow(
+          'wallet_ledger',
+          {
+            id: `wtx_welcome_${creatorId}`,
+            creator_id: creatorId,
+            amount_zar: welcomeZar,
+            amount_coins: welcomeCoins,
+            type: 'topup',
+            reference: 'SOVEREIGN_GRANT',
+            status: 'completed',
+            metadata_json: { note: 'Sovereign Creator Genesis Grant' },
+            created_at: now,
+          },
+          'id',
+        );
+      });
     }
 
     const createdUser = this.getUserByCreatorId(creatorId)!;
     return this.createAuthSessionAndTokens(
       createdUser,
       input.deviceLabel ?? 'vhunambi_client',
+      input.jwtSecret,
     );
   }
 
@@ -3202,6 +4337,7 @@ export class EdgeIsolateDatabaseEngine {
     identifier: string;
     password: string;
     deviceLabel?: string;
+    jwtSecret?: string;
   }): AuthTokenBundle {
     const rawId = input.identifier.trim().toLowerCase();
     const handleCandidate = rawId.startsWith('@') ? rawId : `@${rawId}`;
@@ -3232,10 +4368,14 @@ export class EdgeIsolateDatabaseEngine {
     return this.createAuthSessionAndTokens(
       user,
       input.deviceLabel ?? 'vhunambi_client',
+      input.jwtSecret,
     );
   }
 
-  public rotateRefreshToken(refreshToken: string): AuthTokenBundle {
+  public rotateRefreshToken(
+    refreshToken: string,
+    jwtSecret?: string,
+  ): AuthTokenBundle {
     const tokenHash = hashRefreshToken(refreshToken);
     let sessionRow: InternalSessionRow | undefined;
     for (const s of this.sessions.values()) {
@@ -3292,13 +4432,18 @@ export class EdgeIsolateDatabaseEngine {
       throw new Error('AUTH_USER_NOT_FOUND: User no longer exists.');
     }
 
-    const signed = signAccessJwt({
-      sub: user.userId,
-      cid: user.creatorId,
-      hdl: user.handle,
-      sid: sessionRow.sessionId,
-      role: user.role,
-    });
+    const signed = signAccessJwt(
+      {
+        sub: user.userId,
+        cid: user.creatorId,
+        hdl: user.handle,
+        sid: sessionRow.sessionId,
+        role: user.role,
+      },
+      undefined,
+      undefined,
+      jwtSecret,
+    );
 
     return {
       user,
@@ -3358,6 +4503,119 @@ export class EdgeIsolateDatabaseEngine {
   // Persistent Generation Jobs
   // ---------------------------------------------------------------------------
 
+  private mapSupabaseGenerationJobRow(
+    gj: Record<string, any>,
+    existingJob?: GenerationJob,
+  ): GenerationJob {
+    const manifest =
+      gj.manifest_json && typeof gj.manifest_json === 'object'
+        ? (gj.manifest_json as GenerationJob['manifest'])
+        : existingJob?.manifest;
+    const resolvedCoverUrl =
+      existingJob?.coverUrl ??
+      manifest?.assets?.coverArt1x1Url ??
+      manifest?.assets?.coverArt9x16Url;
+    const rawStemUrls = gj.stem_urls_json;
+    const hasRemoteStems =
+      rawStemUrls &&
+      typeof rawStemUrls === 'object' &&
+      Object.keys(rawStemUrls as Record<string, unknown>).length > 0;
+    return {
+      generationId: String(gj.generation_id),
+      trackTitle: String(gj.track_title ?? existingJob?.trackTitle ?? 'Untitled Track'),
+      genre: String(gj.genre ?? existingJob?.genre ?? 'Amapiano'),
+      language: String(gj.language ?? existingJob?.language ?? 'Instrumental'),
+      status: (gj.status ?? existingJob?.status ?? 'queued') as GenerationJob['status'],
+      step: (gj.step ?? existingJob?.step ?? 'queued') as GenerationJob['step'],
+      progressPct: Number(gj.progress_pct ?? existingJob?.progressPct ?? 0),
+      masterMp3Url: gj.master_mp3_url
+        ? String(gj.master_mp3_url)
+        : existingJob?.masterMp3Url,
+      stemsZipUrl: gj.stems_zip_url
+        ? String(gj.stems_zip_url)
+        : existingJob?.stemsZipUrl,
+      stemUrls: hasRemoteStems
+        ? (rawStemUrls as Record<string, string>)
+        : existingJob?.stemUrls,
+      manifestUrl: gj.manifest_url
+        ? String(gj.manifest_url)
+        : existingJob?.manifestUrl,
+      manifest,
+      coverUrl: resolvedCoverUrl,
+      lyrics: existingJob?.lyrics,
+      durationSec: Number(gj.duration_sec ?? existingJob?.durationSec ?? 180),
+      errorMessage: gj.error_message
+        ? String(gj.error_message)
+        : existingJob?.errorMessage,
+      providerTaskId: gj.provider_task_id
+        ? String(gj.provider_task_id)
+        : existingJob?.providerTaskId,
+      createdAt: new Date(
+        Number(gj.created_at || existingJob?.createdAt?.getTime() || Date.now()),
+      ),
+      updatedAt: new Date(
+        Number(gj.updated_at || existingJob?.updatedAt?.getTime() || Date.now()),
+      ),
+    };
+  }
+
+  public async hydrateGenerationJobById(
+    generationId: string,
+    cOrEnv?: unknown,
+  ): Promise<GenerationJob | null> {
+    const existing = this.generationJobs.get(generationId);
+    const resolvedCtx = cOrEnv ?? EdgePersistenceBridge.getActiveContext();
+    const driver = EdgePersistenceBridge.getCloudDriver(
+      resolvedCtx as Context | Record<string, unknown> | undefined,
+    );
+    if (!driver.isConfigured()) {
+      return existing?.job ?? null;
+    }
+    try {
+      const rows = await EdgeIsolateDatabaseEngine.withTimeout(
+        driver.selectRows<Record<string, any>>(
+          'generation_jobs',
+          `select=*&generation_id=eq.${encodeURIComponent(generationId)}&limit=1`,
+        ),
+        3000,
+        [],
+      );
+      const gj = rows[0];
+      if (!gj || !gj.generation_id) {
+        return existing?.job ?? null;
+      }
+      const remoteStatus = String(gj.status ?? 'queued');
+      const remoteUpdatedMs = Number(gj.updated_at || 0);
+      const existingUpdatedMs = existing?.job.updatedAt.getTime() ?? 0;
+      if (
+        existing &&
+        existing.job.status === 'succeeded' &&
+        remoteStatus !== 'succeeded'
+      ) {
+        return existing.job;
+      }
+      if (
+        !existing ||
+        (remoteStatus === 'succeeded' && existing.job.status !== 'succeeded') ||
+        (remoteStatus === 'failed' && existing.job.status !== 'failed') ||
+        remoteUpdatedMs >= existingUpdatedMs
+      ) {
+        const mapped = this.mapSupabaseGenerationJobRow(gj, existing?.job);
+        this.generationJobs.set(mapped.generationId, {
+          job: mapped,
+          creatorId: canonicalizeCreatorId(
+            String(gj.creator_id ?? existing?.creatorId ?? 'creator_cern'),
+          ),
+          jobKind: String(gj.job_kind ?? existing?.jobKind ?? 'audio_synthesis'),
+        });
+        return mapped;
+      }
+    } catch {
+      // Best-effort cross-isolate Supabase lookup
+    }
+    return existing?.job ?? null;
+  }
+
   public upsertGenerationJob(
     job: GenerationJob,
     creatorId = 'creator_cern',
@@ -3373,11 +4631,41 @@ export class EdgeIsolateDatabaseEngine {
       stemUrls: job.stemUrls ?? existing?.job.stemUrls,
       manifestUrl: job.manifestUrl ?? existing?.job.manifestUrl,
       manifest: job.manifest ?? existing?.job.manifest,
+      coverUrl: job.coverUrl ?? existing?.job.coverUrl,
+      lyrics: job.lyrics ?? existing?.job.lyrics,
     };
+    const effectiveCreatorId = canonicalizeCreatorId(creatorId);
     this.generationJobs.set(job.generationId, {
       job: merged,
-      creatorId: canonicalizeCreatorId(creatorId),
+      creatorId: effectiveCreatorId,
       jobKind,
+    });
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.upsertRow(
+        'generation_jobs',
+        {
+          generation_id: merged.generationId,
+          creator_id: effectiveCreatorId,
+          job_kind: jobKind,
+          provider_task_id: merged.providerTaskId ?? null,
+          status: merged.status,
+          step: merged.step,
+          progress_pct: Math.round(Number(merged.progressPct ?? 0)),
+          track_title: merged.trackTitle || 'Untitled Track',
+          genre: merged.genre || 'Amapiano',
+          language: merged.language || 'Instrumental',
+          duration_sec: Math.round(Number(merged.durationSec ?? 180)),
+          master_mp3_url: merged.masterMp3Url ?? null,
+          stems_zip_url: merged.stemsZipUrl ?? null,
+          stem_urls_json: merged.stemUrls ?? {},
+          manifest_url: merged.manifestUrl ?? null,
+          manifest_json: merged.manifest ?? null,
+          error_message: merged.errorMessage ?? null,
+          created_at: merged.createdAt ? merged.createdAt.getTime() : Date.now(),
+          updated_at: merged.updatedAt ? merged.updatedAt.getTime() : Date.now(),
+        },
+        'generation_id',
+      );
     });
   }
 
@@ -3456,6 +4744,32 @@ export class EdgeIsolateDatabaseEngine {
       created_at: String(beat.createdAt || now),
       updated_at: String(beat.updatedAt || now),
     });
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.upsertRow(
+        'marketplace_assets',
+        {
+          id,
+          title: String(beat.title || 'Untitled Beat'),
+          producer_id: canonicalizeCreatorId(String(beat.producerId || 'creator_cern')),
+          producer_name: String(beat.producerName || beat.producerHandle || 'Vhunambi Producer'),
+          genre: String(beat.genre || 'Amapiano'),
+          bpm: Math.round(Number(beat.bpm ?? 113)),
+          musical_key: String(beat.musicalKey || 'Am'),
+          price_zar: Number(beat.priceZar ?? 350),
+          price_coins: Math.round(Number(beat.priceCoins ?? 350)),
+          is_exclusive_sold: Boolean(beat.isExclusiveSold),
+          exclusive_buyer_id: beat.exclusiveBuyerId ? String(beat.exclusiveBuyerId) : null,
+          audio_preview_url: String(beat.previewAudioUrl || beat.audioUrl || ''),
+          cover_url: String(beat.coverUrl || ''),
+          tags_json: Array.isArray(beat.tags) ? beat.tags : [],
+          tier_pricing_json: beat.tierPricing ?? {},
+          stems_r2_keys_json: beat.stemsR2Keys ?? {},
+          data_json: beat,
+          updated_at: Date.parse(String(beat.updatedAt || now)) || Date.now(),
+        },
+        'id',
+      );
+    });
   }
 
   private mapMarketplaceBeatRow(r: Record<string, any>): Record<string, any> {
@@ -3532,7 +4846,13 @@ export class EdgeIsolateDatabaseEngine {
   public deleteMarketplaceBeat(beatId: string): boolean {
     const existing = this.marketplaceAssets.get(beatId);
     if (!existing || existing.asset_category !== 'beats') return false;
-    return this.marketplaceAssets.delete(beatId);
+    const deleted = this.marketplaceAssets.delete(beatId);
+    if (deleted) {
+      this.mirrorWriteThrough(async (driver) => {
+        await driver.deleteRows('marketplace_assets', `id=eq.${encodeURIComponent(beatId)}`);
+      });
+    }
+    return deleted;
   }
 
   // ---------------------------------------------------------------------------
@@ -3560,6 +4880,11 @@ export class EdgeIsolateDatabaseEngine {
       this.publishedClips.get(id)?.created_at ||
       now,
     );
+    const clipPayload = {
+      ...clip,
+      creatorId,
+      creatorUsername: creatorHandle,
+    };
     this.publishedClips.set(id, {
       id,
       creator_id: creatorId,
@@ -3574,13 +4899,39 @@ export class EdgeIsolateDatabaseEngine {
       remixed_from_clip_id: clip.remixedFromClipId
         ? String(clip.remixedFromClipId)
         : null,
-      data_json: JSON.stringify({
-        ...clip,
-        creatorId,
-        creatorUsername: creatorHandle,
-      }),
+      data_json: JSON.stringify(clipPayload),
       created_at: createdAt,
       updated_at: now,
+    });
+    const createdMs = Date.parse(createdAt) || Date.now();
+    const updatedMs = Date.parse(now) || Date.now();
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.upsertRow(
+        'published_clips',
+        {
+          id,
+          track_id: String(clip.trackId || id),
+          creator_id: creatorId,
+          title: String(clip.title || 'Untitled Groove'),
+          caption: String(clip.caption || ''),
+          genre: String(clip.genre || 'Amapiano'),
+          bpm: Math.round(Number(clip.bpm ?? 113)),
+          likes_count: Number(clip.likeCount ?? clip.likesCount ?? 0),
+          comments_count: Number(clip.commentCount ?? clip.commentsCount ?? 0),
+          remixes_count: Number(clip.remixCount ?? clip.remixesCount ?? 0),
+          shares_count: Number(clip.shareCount ?? clip.sharesCount ?? 0),
+          audio_url: String(clip.audioUrl || clip.videoUrl || ''),
+          cover_url: String(clip.coverUrl || ''),
+          remixed_from_clip_id: clip.remixedFromClipId ? String(clip.remixedFromClipId) : null,
+          remix_attribution: clip.remixAttribution ? String(clip.remixAttribution) : null,
+          tags_json: Array.isArray(clip.tags) ? clip.tags : [],
+          dna_json: clip.dna ?? {},
+          data_json: clipPayload,
+          created_at: createdMs,
+          updated_at: updatedMs,
+        },
+        'id',
+      );
     });
   }
 
@@ -3642,6 +4993,28 @@ export class EdgeIsolateDatabaseEngine {
       data_json: JSON.stringify(comment),
       created_at: createdAt,
     });
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.upsertRow(
+        'reel_comments',
+        {
+          id,
+          clip_id: reelId,
+          user_id: creatorId,
+          username: String(comment.username ?? `@${creatorId.replace(/^creator_/, '')}`),
+          display_name: String(comment.displayName ?? comment.creatorName ?? 'Creator'),
+          avatar_url: String(comment.avatarUrl ?? ''),
+          is_creator: Boolean(comment.isCreator ?? false),
+          text: content,
+          likes_count: Number(comment.likeCount ?? 0),
+          user_reel_loves: Number(comment.userReelLoves ?? 0),
+          gift_emoji: comment.giftEmoji ? String(comment.giftEmoji) : null,
+          gift_name: comment.giftName ? String(comment.giftName) : null,
+          timestamp_ms: Date.parse(createdAt) || Date.now(),
+          data_json: comment,
+        },
+        'id',
+      );
+    });
   }
 
   private mapReelCommentRow(r: Record<string, any>): Record<string, any> {
@@ -3689,12 +5062,32 @@ export class EdgeIsolateDatabaseEngine {
     actorCreatorId: string,
     active: boolean,
   ): boolean {
-    const key = `${interactionType}::${targetId}::${canonicalizeCreatorId(actorCreatorId)}`;
+    const canonicalActor = canonicalizeCreatorId(actorCreatorId);
+    const key = `${interactionType}::${targetId}::${canonicalActor}`;
     if (active) {
       this.socialInteractions.add(key);
     } else {
       this.socialInteractions.delete(key);
     }
+    this.mirrorWriteThrough(async (driver) => {
+      if (active) {
+        await driver.upsertRow(
+          'social_interactions',
+          {
+            interaction_type: interactionType,
+            target_id: targetId,
+            actor_creator_id: canonicalActor,
+            created_at: Date.now(),
+          },
+          'interaction_type,target_id,actor_creator_id',
+        );
+      } else {
+        await driver.deleteRows(
+          'social_interactions',
+          `interaction_type=eq.${encodeURIComponent(interactionType)}&target_id=eq.${encodeURIComponent(targetId)}&actor_creator_id=eq.${encodeURIComponent(canonicalActor)}`,
+        );
+      }
+    });
     return active;
   }
 
@@ -3751,7 +5144,25 @@ export class EdgeIsolateDatabaseEngine {
 
   public upsertVoiceClone(profile: Record<string, any>): void {
     const voiceId = String(profile.voiceId || profile.id);
-    this.voiceClones.set(voiceId, { ...profile, voiceId });
+    const mergedProfile = { ...profile, voiceId };
+    this.voiceClones.set(voiceId, mergedProfile);
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.upsertRow(
+        'voice_clones',
+        {
+          voice_id: voiceId,
+          creator_id: canonicalizeCreatorId(String(profile.creatorId || 'creator_cern')),
+          display_name: String(profile.displayName || profile.creatorName || 'Cloned Voice'),
+          consent_verified: Boolean(profile.consentVerified ?? true),
+          reference_audio_duration_sec: Number(profile.referenceAudioDurationSec ?? 15.0),
+          r2_reference_url: String(profile.r2ReferenceUrl || ''),
+          pitch_range_hz_json: profile.pitchRangeHz ?? [110, 660],
+          timbre_embedding_json: profile.timbreEmbedding ?? profile.timbreEmbeddingPreview ?? [],
+          created_at: String(profile.createdAt || profile.createdAtIso || new Date().toISOString()),
+        },
+        'voice_id',
+      );
+    });
   }
 
   public getVoiceCloneById(voiceId: string): Record<string, any> | null {
@@ -3759,7 +5170,27 @@ export class EdgeIsolateDatabaseEngine {
   }
 
   public upsertSoundSignature(sig: Record<string, any>): void {
-    this.soundSignatures.set(String(sig.id), { ...sig });
+    const id = String(sig.id);
+    this.soundSignatures.set(id, { ...sig });
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.upsertRow(
+        'sound_signatures',
+        {
+          id,
+          creator_id: canonicalizeCreatorId(String(sig.creatorId || 'creator_cern')),
+          name: String(sig.name || sig.displayCode || 'Sound Signature'),
+          category: String(sig.category || 'vocal_DNA'),
+          status: String(sig.status || 'awaiting_upload'),
+          r2_audio_key: String(sig.r2AudioKey || ''),
+          recipe_json: sig.recipe ?? {},
+          embedding_json: sig.embedding ?? [],
+          consent_at_iso: String(sig.consentAtIso || ''),
+          data_json: sig,
+          updated_at: Date.now(),
+        },
+        'id',
+      );
+    });
   }
 
   public getSoundSignatureById(sigId: string): Record<string, any> | null {
@@ -3767,7 +5198,13 @@ export class EdgeIsolateDatabaseEngine {
   }
 
   public deleteSoundSignature(sigId: string): boolean {
-    return this.soundSignatures.delete(sigId);
+    const deleted = this.soundSignatures.delete(sigId);
+    if (deleted) {
+      this.mirrorWriteThrough(async (driver) => {
+        await driver.deleteRows('sound_signatures', `id=eq.${encodeURIComponent(sigId)}`);
+      });
+    }
+    return deleted;
   }
 }
 
@@ -3781,6 +5218,21 @@ export function getEdgeIsolateDatabaseEngine(): EdgeIsolateDatabaseEngine {
 }
 
 export class EdgePersistenceBridge {
+  private static activeContext: Context | Record<string, unknown> | undefined;
+
+  public static setActiveContext(
+    cOrEnv?: Context | Record<string, unknown>,
+  ): void {
+    EdgePersistenceBridge.activeContext = cOrEnv;
+  }
+
+  public static getActiveContext():
+    | Context
+    | Record<string, unknown>
+    | undefined {
+    return EdgePersistenceBridge.activeContext;
+  }
+
   public static getCloudDriver(
     cOrEnv?: Context | Record<string, unknown>,
   ): SupabaseCloudDriver {

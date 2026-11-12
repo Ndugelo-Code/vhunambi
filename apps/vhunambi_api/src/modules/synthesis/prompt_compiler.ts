@@ -1,10 +1,14 @@
 import { getGenrePreset } from './constants.js';
-import { getLanguageContext } from '../bantu/language_context.js';
+import {
+  generateLocalMockLyrics,
+  planSonicArrangementFromPrompt,
+} from '../lyrics/llm_handler.js';
 import { MelodyPatternManifest } from '../melody/melody_types.js';
 import { renderMelodyReferencePayload } from '../melody/melody_presets.js';
 
 export interface SongSpecInput {
   trackTitle: string;
+  prompt?: string;
   genre: string;
   language: string;
   lyrics?: string;
@@ -25,6 +29,19 @@ export interface SongSpecInput {
 export interface CompiledSynthesisPrompt {
   caption: string;
   lyrics: string;
+  sonicTags?: string[];
+  arrangementStructure?: string[];
+  loras?: Array<{
+    loraId?: string;
+    path: string;
+    weight: number;
+  }>;
+  inferenceConfig?: {
+    precision: 'bf16' | 'fp16' | 'fp32';
+    inferSteps: number;
+    guidanceScale: number;
+    scheduler: 'euler' | 'heun';
+  };
   metadata: {
     bpm: number;
     key: string;
@@ -65,19 +82,31 @@ export interface CompiledSynthesisPrompt {
 
 export function compileSongSpec(input: SongSpecInput): CompiledSynthesisPrompt {
   const preset = getGenrePreset(input.genre);
-  const langCtx = getLanguageContext(input.language);
+  const promptSeed = (input.prompt || input.trackTitle || input.genre).trim();
 
   const bpm = input.tempoBpm || preset.defaultBpm;
   const key = input.musicalKey || preset.defaultKey;
   const durationSec = input.durationSec || 180;
 
-  // Build descriptive prompt caption
-  const instrumentation = preset.instruments.join(', ');
+  // Stage-1 Musical Planner: sonic tags, arrangement structure & LoRA pairing
+  const plan = planSonicArrangementFromPrompt(
+    promptSeed,
+    input.genre,
+    input.language,
+    bpm,
+    key,
+  );
+
   const vocalDescription = input.isInstrumental
     ? 'Instrumental only, no vocals, pure rhythm and melody'
-    : `Vocal delivery: ${langCtx.vocalStyleAdvice}`;
+    : `Vocals enabled`;
 
-  const caption = `${preset.characteristicStyle}. Instruments: ${instrumentation}. Tempo: ${bpm} BPM. Key: ${key}. ${vocalDescription}. High fidelity studio master, 320kbps production quality.`;
+  const caption = `${plan.expandedCaption} ${vocalDescription}.`;
+  const resolvedLyrics = input.isInstrumental
+    ? ''
+    : input.lyrics && input.lyrics.trim().length > 0
+      ? input.lyrics
+      : generateLocalMockLyrics(promptSeed, input.genre, input.language).rawLyrics;
 
   const svcConfig = input.clonedVoiceProfileId
     ? {
@@ -117,7 +146,22 @@ export function compileSongSpec(input: SongSpecInput): CompiledSynthesisPrompt {
 
   return {
     caption,
-    lyrics: input.isInstrumental ? '' : input.lyrics || '',
+    lyrics: resolvedLyrics,
+    sonicTags: plan.sonicTags,
+    arrangementStructure: plan.arrangementStructure,
+    loras: [
+      {
+        loraId: plan.recommendedLoRA.loraId,
+        path: plan.recommendedLoRA.r2Key,
+        weight: plan.recommendedLoRA.weight,
+      },
+    ],
+    inferenceConfig: {
+      precision: 'bf16',
+      inferSteps: 45,
+      guidanceScale: 15.0,
+      scheduler: 'euler',
+    },
     metadata: {
       bpm,
       key,

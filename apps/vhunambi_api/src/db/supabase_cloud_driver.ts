@@ -494,6 +494,32 @@ export class SupabaseCloudDriver {
     return (await res.json()) as GoTrueAuthResponse;
   }
 
+  public async goTrueAdminCreateUser(input: {
+    email: string;
+    password: string;
+    userMetadata?: Record<string, unknown>;
+  }): Promise<Record<string, unknown> | null> {
+    if (!this.isConfigured()) return null;
+    try {
+      const res = await fetch(`${this.supabaseUrl}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: this.buildRestHeaders(),
+        body: JSON.stringify({
+          email: input.email,
+          password: input.password,
+          email_confirm: true,
+          user_metadata: input.userMetadata ?? {},
+        }),
+      });
+      if (!res.ok) {
+        return null;
+      }
+      return (await res.json()) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
   public async goTrueSignInWithPassword(
     email: string,
     password: string,

@@ -48,6 +48,7 @@ class HttpGenerationSubmissionService {
   /// Submits the prompt, genre, and lyrics to `POST /v1/generations`.
   Future<Map<String, dynamic>> submitGeneration({
     required String trackTitle,
+    String? prompt,
     required String genre,
     required String language,
     String? lyrics,
@@ -70,10 +71,13 @@ class HttpGenerationSubmissionService {
     }
 
     try {
+      final trimmedPrompt = prompt?.trim();
       final response = await _dio.post<Map<String, dynamic>>(
         '$_baseUrl/generations',
         data: <String, dynamic>{
           'trackTitle': trackTitle,
+          if (trimmedPrompt != null && trimmedPrompt.isNotEmpty)
+            'prompt': trimmedPrompt,
           'genre': genre,
           'language': language,
           'lyrics': lyrics,
@@ -240,6 +244,11 @@ class HttpGenerationSubmissionService {
             stepIndex: stepIndex,
             progressPercent: progressPct,
             statusMessage: _statusMessageForStep(step),
+            generatedLyrics:
+                (data['generatedLyrics'] ??
+                        data['generated_lyrics'] ??
+                        data['lyrics'])
+                    as String?,
             completedTrack: completedTrack,
             error: data['errorMessage'] as String?,
           );

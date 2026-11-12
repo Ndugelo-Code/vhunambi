@@ -3,6 +3,7 @@ import { extractWorkerEnv, resolveRuntimeEnv } from '../config/env.js';
 import { EdgePersistenceBridge } from '../db/edge_persistence_bridge.js';
 import { isNodeSqliteAvailable } from '../db/vhunambi_db.js';
 import { sovereignAuthMiddleware } from '../middleware/auth_middleware.js';
+import { seedCoreCatalogMediaToR2 } from '../modules/synthesis/r2_media_synthesizer.js';
 import { hasR2Credentials } from '../modules/synthesis/r2_storage.js';
 import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
 
@@ -82,16 +83,20 @@ systemRoutes.get('/preflight', async (c) => {
       : 'Deterministic R2 cover/reel fallback active',
   };
 
-  // 5. PayFast ZAR Gateway, LLM & Durable Object WebSockets
+  // 5. PayFast ZAR Gateway, Open-Source RunPod LLM & Durable Object WebSockets
+  const hasRunpodLlm = Boolean(
+    runtimeEnv.RUNPOD_LLM_URL ||
+      (runtimeEnv.RUNPOD_API_KEY && runtimeEnv.RUNPOD_LLM_ENDPOINT_ID),
+  );
   const hasLlmKey = Boolean(
-    runtimeEnv.ANTHROPIC_API_KEY || runtimeEnv.GROK_API_KEY,
+    hasRunpodLlm || runtimeEnv.ANTHROPIC_API_KEY || runtimeEnv.GROK_API_KEY,
   );
   const hasDoBinding = Boolean(workerEnv?.GENERATION_DO);
   const paymentAndLlmPillar: PillarDiagnosticStatus = {
     status: 'healthy',
     mode: runtimeEnv.PAYFAST_SANDBOX ? 'payfast_sandbox' : 'payfast_live',
     latencyMs: 1,
-    summary: `PayFast (${runtimeEnv.PAYFAST_SANDBOX ? 'Sandbox' : 'Live'}) | LLM: ${runtimeEnv.ZR_LLM_PROVIDER}${hasLlmKey ? '' : ' (fallback)'} | DO WS: ${hasDoBinding ? 'bound' : 'http_fallback'}`,
+    summary: `PayFast (${runtimeEnv.PAYFAST_SANDBOX ? 'Sandbox' : 'Live'}) | LLM: ${runtimeEnv.ZR_LLM_PROVIDER} (${runtimeEnv.RUNPOD_LLM_MODEL})${hasLlmKey ? '' : ' (local composer)'} | DO WS: ${hasDoBinding ? 'bound' : 'http_fallback'}`,
   };
 
   // 6. Webhook Callback Loopback Reachability Check
@@ -135,6 +140,22 @@ systemRoutes.get('/preflight', async (c) => {
       paymentAndLlm: paymentAndLlmPillar,
       webhookCallback: webhookPillar,
     },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+systemRoutes.post('/seed-r2-media', async (c) => {
+  const rawLimit = Number.parseInt(c.req.query('limit') ?? '', 10);
+  const rawOffset = Number.parseInt(c.req.query('offset') ?? '0', 10);
+  const result = await seedCoreCatalogMediaToR2(c, {
+    offset: Number.isFinite(rawOffset) ? rawOffset : 0,
+    ...(Number.isFinite(rawLimit) && rawLimit > 0 ? { limit: rawLimit } : {}),
+  });
+  return c.json({
+    success: true,
+    bucket: resolveRuntimeEnv(c).R2_BUCKET,
+    mediaOrigin: resolveRuntimeEnv(c).R2_PUBLIC_BASE_URL,
+    ...result,
     timestamp: new Date().toISOString(),
   });
 });

@@ -101,6 +101,8 @@ class PipelineSocketEvent {
           'master_mp3_url': masterUrl,
           'stems_url': json['stemsZipUrl'] ?? json['stems_zip_url'],
           'stem_urls': json['stemUrls'] ?? json['stem_urls'],
+          'cover_url': json['coverUrl'] ?? json['cover_url'],
+          'lyrics': json['lyrics'],
           'duration_seconds': json['durationSec'] ?? 180,
         });
       }
@@ -113,7 +115,10 @@ class PipelineSocketEvent {
       progressPercent: progressPercent,
       statusMessage: statusMessage,
       generatedLyrics:
-          (json['generated_lyrics'] ?? json['generatedLyrics']) as String?,
+          (json['generated_lyrics'] ??
+                  json['generatedLyrics'] ??
+                  json['lyrics'])
+              as String?,
       completedTrack: completedTrack,
       error: explicitError,
     );

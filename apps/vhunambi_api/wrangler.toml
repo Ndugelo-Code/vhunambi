@@ -9,7 +9,8 @@ VHUNAMBI_AUTH_MODE = "strict"
 SUPABASE_URL = "https://cbnruevwrqwjnnoscgsz.supabase.co"
 R2_BUCKET = "zr-studio-audio"
 R2_PUBLIC_BASE_URL = "https://pub-d22409017abb4dd999327a092c5f06d3.r2.dev"
-ZR_LLM_PROVIDER = "claude"
+ZR_LLM_PROVIDER = "runpod_vllm"
+RUNPOD_LLM_MODEL = "Qwen/Qwen2.5-7B-Instruct"
 
 [[r2_buckets]]
 binding = "VHUNAMBI_VAULT"

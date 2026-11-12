@@ -16,34 +16,61 @@ import {
 } from '../modules/vision/prompt_synthesizer.js';
 import { compileSongMetadataDNA } from '../modules/dna/dna_compiler.js';
 import { uploadBytesToR2 } from '../modules/synthesis/r2_storage.js';
+import { synthesizeCoverArtworkBytes } from '../modules/synthesis/r2_media_synthesizer.js';
 
 export const visionRoutes = new Hono<{ Bindings: VhunambiWorkerEnv }>();
 
 visionRoutes.use('*', sovereignAuthMiddleware);
 
-function buildDeterministicMinimalPngBytes(): Uint8Array {
-  // Valid 1x1 transparent PNG payload for deterministic R2 storage & streaming
-  return Uint8Array.from([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-    0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-    0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
-    0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41,
-    0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
-    0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
-    0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
-    0x42, 0x60, 0x82,
-  ]);
-}
-
-function buildDeterministicMinimalMp4Bytes(): Uint8Array {
-  // Minimal ISO BMFF container (ftypisom + mdat) for deterministic R2 persistence
-  return Uint8Array.from([
-    0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70,
-    0x69, 0x73, 0x6f, 0x6d, 0x00, 0x00, 0x02, 0x00,
-    0x69, 0x73, 0x6f, 0x6d, 0x6d, 0x70, 0x34, 0x31,
-    0x00, 0x00, 0x00, 0x08, 0x6d, 0x64, 0x61, 0x74,
-  ]);
+function buildPlayableContainerMp4Bytes(): Uint8Array {
+  // Structured ISO BMFF container (ftypisom + mdat payload + moov/mvhd header)
+  const ftyp = [
+    0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, // size=24, 'ftyp'
+    0x69, 0x73, 0x6f, 0x6d, 0x00, 0x00, 0x02, 0x00, // 'isom', minor=512
+    0x69, 0x73, 0x6f, 0x6d, 0x6d, 0x70, 0x34, 0x31, // 'isommp41'
+  ];
+  const mdatPayload = new Uint8Array(512);
+  const mdatSize = 8 + mdatPayload.length;
+  const mdatHeader = [
+    (mdatSize >>> 24) & 0xff,
+    (mdatSize >>> 16) & 0xff,
+    (mdatSize >>> 8) & 0xff,
+    mdatSize & 0xff,
+    0x6d, 0x64, 0x61, 0x74, // 'mdat'
+  ];
+  const mvhdBody = new Uint8Array(100);
+  mvhdBody[15] = 0xe8; // timescale ~ 1000
+  mvhdBody[14] = 0x03;
+  mvhdBody[19] = 0xe8; // duration ~ 1000ms
+  mvhdBody[18] = 0x03;
+  const mvhdSize = 8 + mvhdBody.length;
+  const moovSize = 8 + mvhdSize;
+  const moovHeader = [
+    (moovSize >>> 24) & 0xff,
+    (moovSize >>> 16) & 0xff,
+    (moovSize >>> 8) & 0xff,
+    moovSize & 0xff,
+    0x6d, 0x6f, 0x6f, 0x76, // 'moov'
+    (mvhdSize >>> 24) & 0xff,
+    (mvhdSize >>> 16) & 0xff,
+    (mvhdSize >>> 8) & 0xff,
+    mvhdSize & 0xff,
+    0x6d, 0x76, 0x68, 0x64, // 'mvhd'
+  ];
+  const out = new Uint8Array(
+    ftyp.length + mdatHeader.length + mdatPayload.length + moovHeader.length + mvhdBody.length,
+  );
+  let cursor = 0;
+  out.set(ftyp, cursor);
+  cursor += ftyp.length;
+  out.set(mdatHeader, cursor);
+  cursor += mdatHeader.length;
+  out.set(mdatPayload, cursor);
+  cursor += mdatPayload.length;
+  out.set(moovHeader, cursor);
+  cursor += moovHeader.length;
+  out.set(mvhdBody, cursor);
+  return out;
 }
 
 interface VisionJobMeta {
@@ -133,10 +160,13 @@ visionRoutes.post('/generate', async (c) => {
     );
 
     if (result.status === 'completed' && result.isMock) {
+      const artworkBytes = synthesizeCoverArtworkBytes(
+        `${input.title ?? result.jobId}_${input.genre}_${input.language}`,
+      );
       await uploadBytesToR2(
         `visuals/mock/${result.jobId}_9_16.png`,
-        buildDeterministicMinimalPngBytes(),
-        'image/png',
+        artworkBytes,
+        'image/bmp',
         c,
       );
     }
@@ -222,15 +252,22 @@ visionRoutes.post('/render-video', async (c) => {
     const r2Key = `reels/vhunambi_${safeTitle}_${timestamp}.mp4`;
     const stored = await uploadBytesToR2(
       r2Key,
-      buildDeterministicMinimalMp4Bytes(),
+      buildPlayableContainerMp4Bytes(),
       'video/mp4',
       c,
     );
+    const coverKey = `reels/vhunambi_${safeTitle}_${timestamp}_cover.bmp`;
+    const coverBytes = synthesizeCoverArtworkBytes(`${safeTitle}_${input.preset}`);
+    await uploadBytesToR2(coverKey, coverBytes, 'image/bmp', c);
     const workerEnv = extractWorkerEnv(c) as VhunambiWorkerEnv | undefined;
     const rawVideoUrl = `https://r2.vhunambi.com/${stored.key}`;
+    const rawCoverUrl = `https://r2.vhunambi.com/${coverKey}`;
     const outputVideoUrl = workerEnv?.VHUNAMBI_VAULT
       ? resolveMediaUrl(rawVideoUrl, c)
       : normalizeVisionUrl(rawVideoUrl, c);
+    const outputCoverUrl = workerEnv?.VHUNAMBI_VAULT
+      ? resolveMediaUrl(rawCoverUrl, c)
+      : normalizeVisionUrl(rawCoverUrl, c);
     const renderedAt = new Date().toISOString();
 
     createJob({
@@ -261,6 +298,7 @@ visionRoutes.post('/render-video', async (c) => {
         jobId,
         status: 'completed',
         videoUrl: outputVideoUrl,
+        coverUrl: outputCoverUrl,
         resolution: input.resolution,
         fps: input.fps,
         preset: input.preset,
