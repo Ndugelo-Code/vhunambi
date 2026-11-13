@@ -1,6 +1,6 @@
-# Tier 2 Cloud GPU Worker: `ndugelo/zr-studio-gpu:v2`
+# Tier 2 Cloud GPU Worker: `ndugelo/zr-studio-gpu:vhunambi-v1`
 
-> **Role:** RunPod Serverless Audio Synthesis, Demucs 4-Stem Separation, and Measured MMO Manifest Generation.  
+> **Role:** RunPod Serverless Audio Synthesis (ACE-Step 1.5), Demucs 4-Stem Separation, 320 kbps MP3 Export, and Measured MMO Manifest Generation.  
 > **API Consumer:** `apps/vhunambi_api/src/routes/webhook_routes.ts`  
 > **Client Consumer:** `apps/vhunambi_client` (Pocket DAW `StemMixerDeck`, `JustAudioMultiStemEngine`, `KineticPreviewCanvas`).
 
@@ -32,9 +32,9 @@ Set these in your RunPod Endpoint Environment Variables:
 | `R2_BUCKET_NAME` | Active Cloudflare R2 bucket name | `zr-studio-audio` |
 | `R2_PUBLIC_BASE_URL` | Public CDN base URL for R2 bucket | `https://pub-d22409017abb4dd999327a092c5f06d3.r2.dev` |
 
-> **Current Endpoint Standings (2026-11-12):**
-> - Active RunPod Serverless Endpoint ID: `e7wt9pgo7djv55` (currently `0` online workers until scaled/enabled in RunPod Console).
-> - **Docker Build Note:** [`Dockerfile`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/Dockerfile#L21-L24) copies `mmo_extractor.py`, `stem_mastering_worker.py`, `seed_vc_worker.py`, and `handler.py`, but does not currently copy `model_utils.py`. Unless the active container image (`ndugelo/zr-studio-gpu:v2`) already packages `model_utils.py` and ACE-Step weights, Stage 1 catches the `ImportError` in [`handler.py`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/handler.py#L116-L129) and falls back to synthesizing a 55Hz/110Hz sine-wave carrier before running Demucs, mastering, and MMO extraction.
+> **Current Endpoint Standings (2026-11-13):**
+> - Active RunPod Serverless Endpoint ID: `e7wt9pgo7djv55` (Scale-to-Zero enabled: `Min Workers = 0`, woken automatically by `POST /v2/e7wt9pgo7djv55/run`).
+> - **Cloud Docker Build:** [`Dockerfile`](./Dockerfile) layers onto `ndugelo/zr-studio-gpu:latest`, copies `model_utils.py`, `mmo_extractor.py`, `stem_mastering_worker.py`, `seed_vc_worker.py`, and `handler.py`, and configures `HF_HOME` for `/runpod-volume/hf_cache` (with `/tmp/hf_cache` fallback). Built & pushed automatically to `ndugelo/zr-studio-gpu:vhunambi-v1` via [`push_gpu_worker.yml`](../../.github/workflows/push_gpu_worker.yml).
 
 ---
 
