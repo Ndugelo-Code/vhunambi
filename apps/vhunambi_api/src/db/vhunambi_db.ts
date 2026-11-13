@@ -3647,12 +3647,12 @@ export class VhunambiDatabase {
       .get(creatorId, canonical) as { password_hash?: string } | undefined;
     const sessionRow = sessionId
       ? (this.db
-          .prepare(
-            `SELECT refresh_token_hash, previous_token_hash FROM auth_sessions WHERE session_id = ? LIMIT 1`,
-          )
-          .get(sessionId) as
-          | { refresh_token_hash?: string; previous_token_hash?: string | null }
-          | undefined)
+        .prepare(
+          `SELECT refresh_token_hash, previous_token_hash FROM auth_sessions WHERE session_id = ? LIMIT 1`,
+        )
+        .get(sessionId) as
+        | { refresh_token_hash?: string; previous_token_hash?: string | null }
+        | undefined)
       : undefined;
     if (!userRow && !sessionRow) return null;
     return {
@@ -4242,6 +4242,13 @@ export class VhunambiDatabase {
     return row ? this.mapGenerationJobRow(row) : null;
   }
 
+  public async hydrateGenerationJobById(
+    generationId: string,
+    _cOrEnv?: unknown,
+  ): Promise<GenerationJob | null> {
+    return this.getGenerationJob(generationId);
+  }
+
   public updateGenerationJob(
     generationId: string,
     updates: Partial<GenerationJob>,
@@ -4726,17 +4733,6 @@ export class VhunambiDatabase {
         updatedAt: String(row.updated_at),
       };
     }
-  }
-
-  public async ensureColdStartHydrated(_cOrEnv?: unknown): Promise<void> {
-    // Node SQLite WAL is persisted locally on disk; no remote cold-start hydration needed.
-  }
-
-  public async hydrateGenerationJobById(
-    generationId: string,
-    _cOrEnv?: unknown,
-  ): Promise<GenerationJob | null> {
-    return this.getGenerationJob(generationId);
   }
 
   public deleteSoundSignature(sigId: string): boolean {

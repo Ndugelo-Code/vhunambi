@@ -215,9 +215,15 @@ generationRoutes.get('/:id', async (c) => {
       });
     } else if (liveStatus.status === 'IN_QUEUE') {
       const ageMs = Date.now() - job.createdAt.getTime();
-      if (ageMs > 8000) {
+      if (ageMs > 45000) {
         const health = await checkRunPodEndpointHealth(c);
-        if (health.workersKnown && health.activePlusIdle === 0) {
+        const noColdBootOrDisabled =
+          health.workersMax === 0 ||
+          (health.workersRunning === 0 &&
+            health.workersInitializing === 0 &&
+            health.workersIdle === 0 &&
+            health.workersReady === 0);
+        if (health.workersKnown && noColdBootOrDisabled) {
           setJobProviderTaskId(id, `mock_${id}`);
           updateJobProgress(id, {
             status: 'running',

@@ -1,5 +1,6 @@
 import '../../../creator_dna/domain/entities/creator_dna_profile.dart';
 import '../models/prompt_enhancement_result.dart';
+import '../models/studio_form_state.dart';
 
 /// Pure Dart, synchronous prompt intelligence service (M10 / REQ-PRI-05).
 ///
@@ -106,12 +107,10 @@ class StudioPromptIntelligence {
   static PromptEnhancementResult enhance(
     String rawPrompt, {
     CreatorDnaProfile? dna,
+    StudioFormState? currentForm,
   }) {
     if (rawPrompt.trim().isEmpty) {
-      return PromptEnhancementResult(
-        rawPrompt: rawPrompt,
-        enhancedPrompt: '',
-      );
+      return PromptEnhancementResult(rawPrompt: rawPrompt, enhancedPrompt: '');
     }
 
     final lower = rawPrompt.toLowerCase();
@@ -157,7 +156,34 @@ class StudioPromptIntelligence {
       overrides['mood'] = 'Peaceful';
     }
 
-    // Merge DNA signals for whatever the prompt left blank (REQ-PRI-06).
+    // Phase 65 (REQ-P65-L5-03): Active StudioFormState selections take
+    // priority over CreatorDnaProfile defaults whenever the prompt did not
+    // explicitly override them.
+    if (currentForm != null) {
+      if (currentForm.genre.trim().isNotEmpty) {
+        final rawGenre = currentForm.genre.trim();
+        final effectiveGenre = currentForm.era != ProductionEra.modern
+            ? (currentForm.era.label.toLowerCase().contains(
+                    rawGenre.toLowerCase(),
+                  )
+                  ? currentForm.era.label
+                  : '${currentForm.era.label} $rawGenre')
+            : rawGenre;
+        overrides.putIfAbsent('genre', () => effectiveGenre);
+      }
+      if (currentForm.language.trim().isNotEmpty) {
+        overrides.putIfAbsent('language', () => currentForm.language.trim());
+      }
+      if (currentForm.mood.trim().isNotEmpty) {
+        overrides.putIfAbsent('mood', () => currentForm.mood.trim());
+      }
+      overrides.putIfAbsent('vocalGender', () => currentForm.vocalGender.name);
+      if (currentForm.vocalMode != VocalMode.auto) {
+        overrides.putIfAbsent('vocalMode', () => currentForm.vocalMode.name);
+      }
+    }
+
+    // Merge DNA signals for whatever the prompt & form left blank (REQ-PRI-06).
     if (dna != null && dna.onboardingCompleted) {
       final ranked = dna.topGenres(1);
       if (ranked.isNotEmpty) {

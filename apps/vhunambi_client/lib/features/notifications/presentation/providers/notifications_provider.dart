@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/resilience/safe_notifier_mixin.dart';
 import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 import '../../data/repositories/notification_repository.dart';
@@ -131,7 +132,8 @@ List<NotificationEntity> get seededNotifications => [
 
 /// StateNotifier that manages in-app notifications (newest first) with
 /// Hive O(1) `notif_<id>` persistence.
-class NotificationsNotifier extends StateNotifier<List<NotificationEntity>> {
+class NotificationsNotifier extends StateNotifier<List<NotificationEntity>>
+    with SafeNotifierMixin<List<NotificationEntity>> {
   final NotificationRepository _repo;
   bool _autoSeedPending;
 

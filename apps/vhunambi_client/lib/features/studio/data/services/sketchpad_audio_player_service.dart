@@ -4,6 +4,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:vhunambi_client/core/resilience/safe_audio_orchestrator.dart';
 
 /// Contract for playing synthesized Sketchpad loops, single-note pad taps, and
 /// 24-Voice Regional Catalog vocal previews on hardware audio output.
@@ -26,10 +27,7 @@ abstract class ISketchpadAudioPlayerService {
   Future<void> playSingleNoteHit(Uint8List wavBytes);
 
   /// Plays a 1.8s formant-shaped vocal preview phrase for the 24 Regional Voice Catalog.
-  Future<void> playVocalPreview(
-    Uint8List wavBytes, {
-    VoidCallback? onComplete,
-  });
+  Future<void> playVocalPreview(Uint8List wavBytes, {VoidCallback? onComplete});
 
   /// Stops any active vocal preview.
   Future<void> stopVocalPreview();
@@ -43,8 +41,9 @@ abstract class ISketchpadAudioPlayerService {
 /// or leak periodic timers.
 class RealSketchpadAudioPlayerService implements ISketchpadAudioPlayerService {
   RealSketchpadAudioPlayerService({bool? forceHeadlessMode})
-      : _isHeadless = forceHeadlessMode ??
-            (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST'));
+    : _isHeadless =
+          forceHeadlessMode ??
+          (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST'));
 
   final bool _isHeadless;
   AudioPlayer? _loopPlayer;
@@ -106,23 +105,34 @@ class RealSketchpadAudioPlayerService implements ISketchpadAudioPlayerService {
     if (_isHeadless) return;
 
     await _ensureAudioSession();
-    try {
-      final player = _getLoopPlayer();
-      await player.stop();
-      await _loadWavIntoPlayer(player, wavBytes, 'vhunambi_skp_loop');
-      await player.setLoopMode(LoopMode.one);
-      await player.setVolume(1.0);
-      unawaited(player.play());
+    await SafeAudioOrchestrator.instance.acquireSlot(
+      AudioEngineSlot.sketchpad,
+      onPreemptPause: () async {
+        await stopLoopPlayback();
+        await stopVocalPreview();
+      },
+    );
+    await SafeAudioOrchestrator.guardAudioOp<void>(
+      source: 'sketchpad:startLoopPlayback',
+      action: () async {
+        final player = _getLoopPlayer();
+        await player.stop();
+        await _loadWavIntoPlayer(player, wavBytes, 'vhunambi_skp_loop');
+        await player.setLoopMode(LoopMode.one);
+        await player.setVolume(1.0);
+        unawaited(player.play());
 
-      final stepMs = (60000.0 / bpm.clamp(60, 180) / 4.0).round().clamp(75, 300);
-      _currentStep = 0;
-      _playheadTimer = Timer.periodic(Duration(milliseconds: stepMs), (_) {
-        _currentStep = (_currentStep + 1) % 16;
-        onStepTick(_currentStep);
-      });
-    } catch (_) {
-      // Prevent unhandled platform exceptions
-    }
+        final stepMs = (60000.0 / bpm.clamp(60, 180) / 4.0).round().clamp(
+          75,
+          300,
+        );
+        _currentStep = 0;
+        _playheadTimer = Timer.periodic(Duration(milliseconds: stepMs), (_) {
+          _currentStep = (_currentStep + 1) % 16;
+          onStepTick(_currentStep);
+        });
+      },
+    );
   }
 
   @override
@@ -176,25 +186,35 @@ class RealSketchpadAudioPlayerService implements ISketchpadAudioPlayerService {
     _vocalPreviewTimer?.cancel();
     if (_isHeadless) return;
     await _ensureAudioSession();
-    try {
-      final player = _getFxPlayer();
-      await player.stop();
-      _fxFileToggle = (_fxFileToggle + 1) % 2;
-      await _loadWavIntoPlayer(
-        player,
-        wavBytes,
-        'vhunambi_vox_preview_$_fxFileToggle',
-      );
-      await player.setLoopMode(LoopMode.off);
-      await player.setVolume(1.0);
-      unawaited(player.play());
+    await SafeAudioOrchestrator.instance.acquireSlot(
+      AudioEngineSlot.sketchpad,
+      onPreemptPause: () async {
+        await stopLoopPlayback();
+        await stopVocalPreview();
+      },
+    );
+    await SafeAudioOrchestrator.guardAudioOp<void>(
+      source: 'sketchpad:playVocalPreview',
+      action: () async {
+        final player = _getFxPlayer();
+        await player.stop();
+        _fxFileToggle = (_fxFileToggle + 1) % 2;
+        await _loadWavIntoPlayer(
+          player,
+          wavBytes,
+          'vhunambi_vox_preview_$_fxFileToggle',
+        );
+        await player.setLoopMode(LoopMode.off);
+        await player.setVolume(1.0);
+        unawaited(player.play());
 
-      if (onComplete != null) {
-        _vocalPreviewTimer = Timer(const Duration(milliseconds: 1850), () {
-          onComplete();
-        });
-      }
-    } catch (_) {}
+        if (onComplete != null) {
+          _vocalPreviewTimer = Timer(const Duration(milliseconds: 1850), () {
+            onComplete();
+          });
+        }
+      },
+    );
   }
 
   @override
@@ -211,6 +231,7 @@ class RealSketchpadAudioPlayerService implements ISketchpadAudioPlayerService {
   Future<void> dispose() async {
     _playheadTimer?.cancel();
     _vocalPreviewTimer?.cancel();
+    SafeAudioOrchestrator.instance.unregisterSlot(AudioEngineSlot.sketchpad);
     if (_isHeadless) return;
     try {
       await _loopPlayer?.dispose();
@@ -222,10 +243,9 @@ class RealSketchpadAudioPlayerService implements ISketchpadAudioPlayerService {
 /// Global Riverpod provider for the Sketchpad & Vocal Catalog hardware audio player service.
 final sketchpadAudioPlayerServiceProvider =
     Provider<ISketchpadAudioPlayerService>((ref) {
-  final service = RealSketchpadAudioPlayerService();
-  ref.onDispose(() {
-    unawaited(service.dispose());
-  });
-  return service;
-});
-
+      final service = RealSketchpadAudioPlayerService();
+      ref.onDispose(() {
+        unawaited(service.dispose());
+      });
+      return service;
+    });

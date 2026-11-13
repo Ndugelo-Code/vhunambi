@@ -153,6 +153,7 @@ class CreatorDnaNotifier extends StateNotifier<CreatorDnaProfile> {
   /// Erases on-device taste memory and resets profile to initial unseeded baseline.
   Future<void> resetDna() async {
     await _repo.clearAll();
+    if (!mounted) return;
     _eventLog = [];
     state = CreatorDnaProfile.initial();
   }

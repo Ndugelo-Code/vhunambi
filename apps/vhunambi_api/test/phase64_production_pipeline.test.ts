@@ -224,8 +224,17 @@ async function runPhase64Tests(): Promise<void> {
       r2Env as never,
     );
     assert.equal(coverRes.status, 200);
-    const bmpBytes = new Uint8Array(await coverRes.arrayBuffer());
-    assert.ok(bmpBytes.byteLength > 10000, 'Synthesized artwork must be high-resolution RGB bitmap');
+    const pngBytes = new Uint8Array(await coverRes.arrayBuffer());
+    assert.ok(pngBytes.byteLength > 128, 'Synthesized PNG artwork must be non-trivial');
+    assert.deepEqual(Array.from(pngBytes.slice(0, 4)), [137, 80, 78, 71]);
+
+    const bmpRes = await app.fetch(
+      new Request('http://localhost/r2/visuals/amapiano_cover.bmp'),
+      r2Env as never,
+    );
+    assert.equal(bmpRes.status, 200);
+    const bmpBytes = new Uint8Array(await bmpRes.arrayBuffer());
+    assert.ok(bmpBytes.byteLength > 10000, 'Synthesized BMP artwork must be high-resolution RGB bitmap');
     assert.equal(String.fromCharCode(bmpBytes[0], bmpBytes[1]), 'BM');
 
     const seedRes = await app.fetch(
@@ -319,20 +328,64 @@ async function runPhase64Tests(): Promise<void> {
     console.log('     ✅ G-64-04 Supabase cold-start hydration & write-through passed');
 
     // -------------------------------------------------------------------------
-    // 4. G-64-05: Queue-Zero Health Guard & 4-Stem R2 Synthesis
+    // 4. G-64-05: Disabled Endpoint Guard (max=0), Scale-to-Zero Wake & 4-Stem R2
     // -------------------------------------------------------------------------
-    console.log('  4. Testing G-64-05 RunPod Queue-Zero guard & 4-stem R2 synthesis...');
+    console.log('  4. Testing G-64-05 RunPod disabled guard (max=0), scale-to-zero wake & 4-stem R2...');
     const qzVault = createMemoryR2Vault();
     globalThis.fetch = (async (input: string | URL | Request) => {
       const url = input.toString();
       if (url.endsWith('/health')) {
         return new Response(
-          JSON.stringify({ workers: { idle: 0, running: 0, ready: 0, initializing: 0 } }),
+          JSON.stringify({ workers: { idle: 0, running: 0, ready: 0, initializing: 0, max: 0 } }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
       }
-      throw new Error(`Unexpected fetch to ${url} when workers == 0`);
+      throw new Error(`Unexpected fetch to ${url} when workers.max == 0`);
     }) as typeof fetch;
+
+    // Also verify scale-to-zero endpoint (idle=0, running=0, max=3) DOES wake via POST /run
+    const { dispatchSynthesisJob } = await import('../src/modules/synthesis/runpod_adapter.js');
+    const { compileSongSpec } = await import('../src/modules/synthesis/prompt_compiler.js');
+    const prevFetchBeforeWake = globalThis.fetch;
+    let wakeRunCalled = false;
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url = input.toString();
+      if (url.endsWith('/health')) {
+        return new Response(
+          JSON.stringify({ workers: { idle: 0, running: 0, ready: 0, initializing: 0, max: 3 } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.endsWith('/run')) {
+        wakeRunCalled = true;
+        return new Response(JSON.stringify({ id: 'rp_scale_to_zero_wake_1' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      throw new Error(`Unexpected wake fetch: ${url}`);
+    }) as typeof fetch;
+
+    const wakeCompiled = compileSongSpec({
+      trackTitle: 'Scale Wake Test',
+      prompt: 'Private school Amapiano',
+      genre: 'Amapiano',
+      language: 've',
+    });
+    const wakeDispatch = await dispatchSynthesisJob(
+      'gen_scale_to_zero_wake',
+      wakeCompiled,
+      'creator_wake',
+      {
+        RUNPOD_API_KEY: 'rp_test_wake_key',
+        RUNPOD_ENDPOINT_ID: 'ep_test_wake',
+        WEBHOOK_BASE_URL: 'https://worker.example',
+      },
+    );
+    assert.equal(wakeRunCalled, true, 'Min-workers=0 endpoint (max>0) must submit POST /run to wake GPU');
+    assert.equal(wakeDispatch.isMock, false);
+    assert.equal(wakeDispatch.jobId, 'rp_scale_to_zero_wake_1');
+    globalThis.fetch = prevFetchBeforeWake;
 
     const qzEnv = {
       NODE_ENV: 'test',
@@ -576,7 +629,7 @@ async function runPhase64Tests(): Promise<void> {
         imgEntry.bytes.byteLength > 16384,
         'Procedural vision cover artwork must exceed 16 KB (not 67-byte 1x1 PNG)',
       );
-      assert.equal(String.fromCharCode(imgEntry.bytes[0], imgEntry.bytes[1]), 'BM');
+      assert.deepEqual(Array.from(imgEntry.bytes.slice(0, 4)), [137, 80, 78, 71]);
 
       const vRenderRes = await app.fetch(
         new Request('http://localhost/v1/vision/render-video', {

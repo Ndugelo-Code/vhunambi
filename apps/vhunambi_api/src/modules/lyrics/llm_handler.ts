@@ -258,35 +258,35 @@ export function generateLocalMockLyrics(
     'syncopated percussion calling dancers into the circle',
   ];
   const grooveLine = grooveDescriptors[seed % grooveDescriptors.length];
-  const chorusRefrain = `${kw0} ${kw1} — let the ${genre} spirit rise tonight`;
+  const chorusRefrain = `${chosenIdiom} — ${kw0} & ${kw1} in the ${genre} groove`;
 
   const rawLyrics = `[INTRO]
 ${adLib0}
 ${adLib1}
-Vhunambi (${VENDA_MUSICAL_TERMS.ngoma}) — ${primaryPhrase}
+Vhunambi (${VENDA_MUSICAL_TERMS.ngoma}) — ${langCtx.nativeName} ${genre} Session
 
 [VERSE 1]
-Thinking of ${primaryPhrase}, carried on the ${preset.defaultBpm} BPM tide
-${kw0} and ${kw1} glowing side by side
+Step into the ${kw0} light, carried on a ${preset.defaultBpm} BPM tide
+${kw1} and ${kw2} moving side by side
 ${chosenIdiom}
 With ${grooveLine}
 
 [PRE-CHORUS]
 Feel ${kw2} rising in the chest, every heartbeat tuned in ${preset.defaultKey}
-Hold onto ${kw3} till the dawn breaks light and new
+Hold onto ${kw3} till the dawn breaks bright and new
 ${adLib2}
 
 [CHORUS]
 ${chorusRefrain}
-Every voice answering together: ${chosenIdiom}
-From ${kw0} to the stars, we move through ${primaryPhrase}
+Every voice answering together: ${secondaryIdiom}
+From ${kw0} to the stars, we lift the ${genre} crown
 Sing it in ${langCtx.nativeName}, let the ancestral groove stay deep
 
 [VERSE 2]
 Yesterday's echoes turn to ${kw2} gold inside the sound
 ${kw1} footsteps drumming sacred patterns on the ground
 ${secondaryIdiom}
-Nothing breaks a melody born from ${primaryPhrase}
+Voices woven strong in ${langCtx.nativeName} harmony
 
 [BRIDGE]
 Strip it back to breath and sub-bass pulse (${kw3})
@@ -295,7 +295,7 @@ ${adLib3}
 
 [OUTRO]
 ${adLib0} (${kw0} forever...)
-${primaryPhrase} — the song remains in motion.`;
+${chosenIdiom} — the rhythm remains in motion.`;
 
   return {
     rawLyrics,

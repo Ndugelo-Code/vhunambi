@@ -102,7 +102,7 @@ abstract final class AppConstants {
       return '$mediaBase/$key';
     }
     final legacyRegex = RegExp(
-      r'^https?:\/\/(?:r2\.vhunambi\.com|cdn\.vhunambi\.com|cdn\.vhunambi\.za|assets\.vhunambi\.com)\/(.+)$',
+      r'^https?:\/\/(?:r2\.vhunambi\.com|cdn\.vhunambi\.com|cdn\.vhunambi\.za|assets\.vhunambi\.com|cdn\.vhunambi\.co\.za|storage\.vhunambi\.dev|(?:www\.)?vhunambi\.com)\/(.+)$',
       caseSensitive: false,
     );
     final match = legacyRegex.firstMatch(trimmed);

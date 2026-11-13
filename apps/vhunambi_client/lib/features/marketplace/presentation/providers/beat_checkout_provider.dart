@@ -74,6 +74,7 @@ class LicenseCertificatesNotifier
 
   Future<void> recordCertificate(SovereignLicenseCertificate cert) async {
     await _repo.save(cert);
+    if (!mounted) return;
     state = [
       cert,
       ...state.where((c) => c.certificateId != cert.certificateId),

@@ -44,8 +44,7 @@ const Set<String> _anonymousAliasIds = <String>{
 String canonicalizeCreatorId(
   String? input, {
   String fallback = 'creator_cern',
-}) =>
-    _canonicalizeCreatorIdImpl(input, fallback: fallback);
+}) => _canonicalizeCreatorIdImpl(input, fallback: fallback);
 
 String _canonicalizeCreatorIdImpl(
   String? input, {
@@ -57,7 +56,9 @@ String _canonicalizeCreatorIdImpl(
   if (trimmed.startsWith('@')) {
     trimmed = trimmed.substring(1);
   }
-  final raw = extractRawCreatorId(trimmed).replaceAll(RegExp(r'[^a-z0-9_.-]'), '');
+  final raw = extractRawCreatorId(
+    trimmed,
+  ).replaceAll(RegExp(r'[^a-z0-9_.-]'), '');
   if (raw.isEmpty ||
       _anonymousAliasIds.contains(raw) ||
       _anonymousAliasIds.contains(trimmed)) {
@@ -87,8 +88,7 @@ abstract final class CreatorIdUtils {
   static String canonicalizeCreatorId(
     String? input, {
     String fallback = 'creator_cern',
-  }) =>
-      _canonicalizeCreatorIdImpl(input, fallback: fallback);
+  }) => _canonicalizeCreatorIdImpl(input, fallback: fallback);
   static String handleFromCreatorId(String creatorId) =>
       _handleFromCreatorIdImpl(creatorId);
 }

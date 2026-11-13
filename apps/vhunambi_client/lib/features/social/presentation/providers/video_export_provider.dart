@@ -5,14 +5,21 @@ import '../../domain/models/video_export_job.dart';
 
 /// State notifier managing native hardware video rendering and social sharing.
 class VideoExportNotifier extends StateNotifier<VideoExportState> {
-  final Future<String> Function(VideoExportJob job, void Function(double) onProgress)?
-      customMuxer;
+  final Future<String> Function(
+    VideoExportJob job,
+    void Function(double) onProgress,
+  )?
+  customMuxer;
 
   VideoExportNotifier({this.customMuxer}) : super(const VideoExportState());
 
   /// Prepares an export job with auto-generated viral caption metadata.
   void prepareJob(VideoExportJob job) {
-    final caption = generateViralCaption(job.title, job.creatorHandle, job.genre);
+    final caption = generateViralCaption(
+      job.title,
+      job.creatorHandle,
+      job.genre,
+    );
     state = state.copyWith(
       activeJob: job,
       status: VideoExportStatus.idle,
@@ -31,22 +38,27 @@ class VideoExportNotifier extends StateNotifier<VideoExportState> {
 
   void setFps(int fps) {
     if (state.activeJob == null) return;
-    state = state.copyWith(
-      activeJob: state.activeJob!.copyWith(fps: fps),
-    );
+    state = state.copyWith(activeJob: state.activeJob!.copyWith(fps: fps));
   }
 
   void toggleWatermark(bool enabled) {
     if (state.activeJob == null) return;
     state = state.copyWith(
-      activeJob: state.activeJob!.copyWith(includeHolographicWatermark: enabled),
+      activeJob: state.activeJob!.copyWith(
+        includeHolographicWatermark: enabled,
+      ),
     );
   }
 
   /// Synthesizes viral African music hashtags and creator attribution.
-  String generateViralCaption(String title, String creatorHandle, String genre) {
-    final normalizedHandle =
-        creatorHandle.startsWith('@') ? creatorHandle : '@$creatorHandle';
+  String generateViralCaption(
+    String title,
+    String creatorHandle,
+    String genre,
+  ) {
+    final normalizedHandle = creatorHandle.startsWith('@')
+        ? creatorHandle
+        : '@$creatorHandle';
     final genreTag = genre.replaceAll(' ', '');
 
     final tags = <String>[
@@ -121,9 +133,11 @@ class VideoExportNotifier extends StateNotifier<VideoExportState> {
 
   /// Triggers 1-tap direct sharing to external social platforms.
   Future<bool> shareTo(SocialShareTarget target) async {
-    if (state.outputPath == null && state.status != VideoExportStatus.completed) {
+    if (state.outputPath == null &&
+        state.status != VideoExportStatus.completed) {
       state = state.copyWith(
-        errorMessage: 'Please render the video before sharing to ${target.label}.',
+        errorMessage:
+            'Please render the video before sharing to ${target.label}.',
       );
       return false;
     }
@@ -139,5 +153,5 @@ class VideoExportNotifier extends StateNotifier<VideoExportState> {
 
 final videoExportProvider =
     StateNotifierProvider<VideoExportNotifier, VideoExportState>((ref) {
-  return VideoExportNotifier();
-});
+      return VideoExportNotifier();
+    });

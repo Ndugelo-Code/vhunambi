@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:just_audio/just_audio.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/resilience/safe_audio_orchestrator.dart';
 import '../../../../shared/models/track.dart';
 import '../../domain/models/player_state.dart';
 import 'audio_session_manager.dart';
@@ -110,33 +111,28 @@ MediaItem buildMediaItemForTrack(
 /// Vhunambi `PlaybackStatus` → `audio_service` processing state (blueprint §5.2).
 AudioProcessingState mapPlaybackStatusToProcessingState(
   PlaybackStatus status,
-) =>
-    switch (status) {
-      PlaybackStatus.idle => AudioProcessingState.idle,
-      PlaybackStatus.buffering => AudioProcessingState.buffering,
-      PlaybackStatus.playing ||
-      PlaybackStatus.paused =>
-        AudioProcessingState.ready,
-      PlaybackStatus.completed => AudioProcessingState.completed,
-      PlaybackStatus.error => AudioProcessingState.error,
-    };
+) => switch (status) {
+  PlaybackStatus.idle => AudioProcessingState.idle,
+  PlaybackStatus.buffering => AudioProcessingState.buffering,
+  PlaybackStatus.playing || PlaybackStatus.paused => AudioProcessingState.ready,
+  PlaybackStatus.completed => AudioProcessingState.completed,
+  PlaybackStatus.error => AudioProcessingState.error,
+};
 
 /// `audio_service` processing state → Vhunambi [PlaybackStatus]
 /// (reverse hardware→UI synchronization, REQ-AUD-10).
 PlaybackStatus mapProcessingStateToPlaybackStatus(
   AudioProcessingState state, {
   required bool playing,
-}) =>
-    switch (state) {
-      AudioProcessingState.idle => PlaybackStatus.idle,
-      AudioProcessingState.loading ||
-      AudioProcessingState.buffering =>
-        PlaybackStatus.buffering,
-      AudioProcessingState.ready =>
-        playing ? PlaybackStatus.playing : PlaybackStatus.paused,
-      AudioProcessingState.completed => PlaybackStatus.completed,
-      AudioProcessingState.error => PlaybackStatus.error,
-    };
+}) => switch (state) {
+  AudioProcessingState.idle => PlaybackStatus.idle,
+  AudioProcessingState.loading ||
+  AudioProcessingState.buffering => PlaybackStatus.buffering,
+  AudioProcessingState.ready =>
+    playing ? PlaybackStatus.playing : PlaybackStatus.paused,
+  AudioProcessingState.completed => PlaybackStatus.completed,
+  AudioProcessingState.error => PlaybackStatus.error,
+};
 
 /// Vhunambi repeat mode → `audio_service` repeat mode (REQ-AUD-05).
 AudioServiceRepeatMode mapAudioRepeatMode(AudioRepeatMode mode) =>
@@ -147,24 +143,20 @@ AudioServiceRepeatMode mapAudioRepeatMode(AudioRepeatMode mode) =>
     };
 
 /// `audio_service` repeat mode → Vhunambi repeat mode (reverse sync).
-AudioRepeatMode mapAudioServiceRepeatMode(
-  AudioServiceRepeatMode repeatMode,
-) =>
+AudioRepeatMode mapAudioServiceRepeatMode(AudioServiceRepeatMode repeatMode) =>
     switch (repeatMode) {
       AudioServiceRepeatMode.none => AudioRepeatMode.off,
       AudioServiceRepeatMode.all ||
-      AudioServiceRepeatMode.group =>
-        AudioRepeatMode.all,
+      AudioServiceRepeatMode.group => AudioRepeatMode.all,
       AudioServiceRepeatMode.one => AudioRepeatMode.one,
     };
 
 /// Vhunambi repeat mode → `just_audio` loop mode.
-LoopMode mapAudioRepeatModeToLoopMode(AudioRepeatMode mode) =>
-    switch (mode) {
-      AudioRepeatMode.off => LoopMode.off,
-      AudioRepeatMode.all => LoopMode.all,
-      AudioRepeatMode.one => LoopMode.one,
-    };
+LoopMode mapAudioRepeatModeToLoopMode(AudioRepeatMode mode) => switch (mode) {
+  AudioRepeatMode.off => LoopMode.off,
+  AudioRepeatMode.all => LoopMode.all,
+  AudioRepeatMode.one => LoopMode.one,
+};
 
 /// `just_audio` processing state → `audio_service` processing state.
 AudioProcessingState mapJustAudioProcessingState(ProcessingState state) =>
@@ -285,19 +277,21 @@ class TestVhunambiAudioHandler implements IVhunambiAudioHandler {
 
   /// Current Vhunambi playback status derived from the OS-facing state.
   PlaybackStatus get playbackStatus => mapProcessingStateToPlaybackStatus(
-        _playbackState.processingState,
-        playing: _playbackState.playing,
-      );
+    _playbackState.processingState,
+    playing: _playbackState.playing,
+  );
 
   @override
   Future<void> playTrack(Track track, {List<Track>? queue}) async {
     if (_disposed) return;
 
-    final effectiveQueue =
-        (queue != null && queue.isNotEmpty) ? queue : <Track>[track];
+    final effectiveQueue = (queue != null && queue.isNotEmpty)
+        ? queue
+        : <Track>[track];
     _tracks = List<Track>.unmodifiable(effectiveQueue);
-    _queueIndex =
-        effectiveQueue.indexWhere((candidate) => candidate.id == track.id);
+    _queueIndex = effectiveQueue.indexWhere(
+      (candidate) => candidate.id == track.id,
+    );
     if (_queueIndex < 0) _queueIndex = 0;
 
     var isOffline = false;
@@ -598,7 +592,12 @@ class VhunambiAudioHandler extends BaseAudioHandler
     _index = effectiveQueue.indexWhere((candidate) => candidate.id == track.id);
     if (_index < 0) _index = 0;
 
-    // Hardware focus must be configured and acquired before rendering audio.
+    // Hardware focus must be configured and acquired before rendering audio,
+    // and any competing audio engine slot (stemMixer/reelPool/sketchpad) paused.
+    await SafeAudioOrchestrator.instance.acquireSlot(
+      AudioEngineSlot.masterPlayer,
+      onPreemptPause: () => pause(),
+    );
     await sessionManager.configureSession();
     await sessionManager.activate();
 
@@ -621,22 +620,29 @@ class VhunambiAudioHandler extends BaseAudioHandler
           .toList(growable: false),
     );
 
-    final audioSource = resolved.streamSource ??
-        AudioSource.uri(normalizedUri, tag: item);
+    final audioSource =
+        resolved.streamSource ?? AudioSource.uri(normalizedUri, tag: item);
 
-    await player.setAudioSource(
-      audioSource,
-      initialIndex: 0,
-      initialPosition: Duration.zero,
+    await SafeAudioOrchestrator.guardAudioOp<void>(
+      source: 'vhunambi_audio_handler:setAudioSource',
+      action: () => player.setAudioSource(
+        audioSource,
+        initialIndex: _index,
+        initialPosition: Duration.zero,
+      ),
     );
-    unawaited(
-      player.play().catchError((Object error) {
-        debugPrint('VhunambiAudioHandler play error: $error');
-      }),
+    await SafeAudioOrchestrator.guardAudioOp<void>(
+      source: 'vhunambi_audio_handler:play',
+      action: () => player.play(),
     );
   }
 
   void _wirePlayerStreams() {
+    SafeAudioOrchestrator.instance.registerSlot(
+      AudioEngineSlot.masterPlayer,
+      () => pause(),
+    );
+
     _subscriptions.add(
       player.playbackEventStream.listen(
         _broadcastPlaybackEvent,
@@ -655,9 +661,31 @@ class VhunambiAudioHandler extends BaseAudioHandler
     );
 
     _subscriptions.add(
-      player.currentIndexStream.listen((index) {
-        if (index != null) _index = index;
-      }),
+      player.durationStream.listen(
+        (Duration? decodedDuration) {
+          if (decodedDuration == null || decodedDuration <= Duration.zero) {
+            return;
+          }
+          final currentItem = mediaItem.valueOrNull;
+          if (currentItem != null && currentItem.duration != decodedDuration) {
+            mediaItem.add(currentItem.copyWith(duration: decodedDuration));
+          }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint('VhunambiAudioHandler durationStream error: $error');
+        },
+      ),
+    );
+
+    _subscriptions.add(
+      player.currentIndexStream.listen(
+        (index) {
+          if (index != null) _index = index;
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint('VhunambiAudioHandler currentIndexStream error: $error');
+        },
+      ),
     );
   }
 
@@ -688,15 +716,35 @@ class VhunambiAudioHandler extends BaseAudioHandler
   }
 
   @override
-  Future<void> play() => player.play();
+  Future<void> play() async {
+    if (_disposed) return;
+    await SafeAudioOrchestrator.instance.acquireSlot(
+      AudioEngineSlot.masterPlayer,
+      onPreemptPause: () => pause(),
+    );
+    await SafeAudioOrchestrator.guardAudioOp<void>(
+      source: 'vhunambi_audio_handler:play',
+      action: () => player.play(),
+    );
+  }
 
   @override
-  Future<void> pause() => player.pause();
+  Future<void> pause() async {
+    if (_disposed) return;
+    await SafeAudioOrchestrator.guardAudioOp<void>(
+      source: 'vhunambi_audio_handler:pause',
+      action: () => player.pause(),
+    );
+  }
 
   @override
   Future<void> stop() async {
     if (_disposed) return;
-    await player.stop();
+    await SafeAudioOrchestrator.guardAudioOp<void>(
+      source: 'vhunambi_audio_handler:stop',
+      action: () => player.stop(),
+    );
+    SafeAudioOrchestrator.instance.releaseSlot(AudioEngineSlot.masterPlayer);
     _track = null;
     mediaItem.add(null);
     playbackState.add(
@@ -710,7 +758,10 @@ class VhunambiAudioHandler extends BaseAudioHandler
   @override
   Future<void> seek(Duration position) async {
     if (_disposed) return;
-    await player.seek(position);
+    await SafeAudioOrchestrator.guardAudioOp<void>(
+      source: 'vhunambi_audio_handler:seek',
+      action: () => player.seek(position),
+    );
     playbackState.add(
       buildOsPlaybackState(
         status: _statusFor(player.processingState),
@@ -767,46 +818,48 @@ class VhunambiAudioHandler extends BaseAudioHandler
   /// (REQ-AUD-07/08).
   void _wireSessionEvents() {
     _subscriptions.add(
-      sessionManager.interruptionStream.listen((event) {
-        unawaited(
-          sessionManager.handleInterruption(
-            event,
-            onPause: () => unawaited(player.pause()),
-            onResume: () => unawaited(player.play()),
-            isCurrentlyPlaying: player.playing,
-          ),
-        );
-      }),
+      sessionManager.interruptionStream.listen(
+        (event) {
+          unawaited(
+            sessionManager.handleInterruption(
+              event,
+              onPause: () => unawaited(pause()),
+              onResume: () => unawaited(play()),
+              isCurrentlyPlaying: player.playing,
+            ),
+          );
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint('VhunambiAudioHandler interruptionStream error: $error');
+        },
+      ),
     );
 
     _subscriptions.add(
-      sessionManager.becomingNoisyStream.listen((event) {
-        if (event.shouldPause) unawaited(player.pause());
-      }),
+      sessionManager.becomingNoisyStream.listen(
+        (event) {
+          if (event.shouldPause) unawaited(pause());
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint('VhunambiAudioHandler becomingNoisyStream error: $error');
+        },
+      ),
     );
   }
 
   @override
-  Future<void> dispose() => disposeResources();
-
-  Future<void> disposeResources({
-    bool disposeSession = true,
-    bool disposePlayer = true,
-  }) async {
+  Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    SafeAudioOrchestrator.instance.unregisterSlot(AudioEngineSlot.masterPlayer);
 
     for (final subscription in _subscriptions) {
       await subscription.cancel();
     }
     _subscriptions.clear();
 
-    if (disposeSession) {
-      sessionManager.dispose();
-    }
-    if (disposePlayer) {
-      await player.dispose();
-    }
+    sessionManager.dispose();
+    await player.dispose();
   }
 }
 
@@ -828,10 +881,7 @@ class _DefaultCloudAudioSourceResolver implements IAudioSourceResolver {
         ? track.audioUrl!.trim()
         : '${AppConstants.resolveMediaBaseUrl()}/audio/${track.id}.wav';
     final normalized = AppConstants.normalizeCloudMediaUrl(rawUrl);
-    return ResolvedAudioSource(
-      uri: Uri.parse(normalized),
-      isLocalFile: false,
-    );
+    return ResolvedAudioSource(uri: Uri.parse(normalized), isLocalFile: false);
   }
 }
 
@@ -869,13 +919,9 @@ Future<IVhunambiAudioHandler> bootstrapPlatformAudioHandler({
     );
   } on MissingPluginException catch (error) {
     debugPrint('AudioService unavailable, using headless handler: $error');
-    await handler.disposeResources(
-      disposeSession: sessionManager == null,
-      disposePlayer: player == null,
-    );
     return TestVhunambiAudioHandler(
       sourceResolver: effectiveResolver,
-      sessionManager: sessionManager ?? AudioSessionManager(),
+      sessionManager: effectiveSession,
     );
   } catch (error) {
     debugPrint(
@@ -884,4 +930,3 @@ Future<IVhunambiAudioHandler> bootstrapPlatformAudioHandler({
     return handler;
   }
 }
-

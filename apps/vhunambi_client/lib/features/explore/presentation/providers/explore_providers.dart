@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vhunambi_client/core/auth/auth_providers.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/resilience/safe_notifier_mixin.dart';
 import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import 'package:vhunambi_client/core/sync/sync_outbox_service.dart';
 import 'package:vhunambi_client/features/explore/data/repositories/http_explore_repository.dart';
@@ -196,7 +197,8 @@ final risingTracksProvider = Provider<List<Track>>((ref) {
   return List.unmodifiable(rising);
 });
 
-class ExploreTracksNotifier extends StateNotifier<List<Track>> {
+class ExploreTracksNotifier extends StateNotifier<List<Track>>
+    with SafeNotifierMixin<List<Track>> {
   final HttpExploreRepository? _repository;
   final SyncOutboxService? _outbox;
   Set<String> _likedTrackIds = <String>{};

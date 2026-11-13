@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:vhunambi_client/core/resilience/safe_audio_orchestrator.dart';
 import '../../domain/models/published_clip.dart';
 import '../../../studio/domain/services/melody_wav_synthesizer.dart';
 
@@ -69,11 +70,7 @@ class _ReelPlayerSlot {
   bool isPlaying = false;
   double positionSec = 0.0;
 
-  _ReelPlayerSlot({
-    required this.index,
-    required this.clip,
-    this.player,
-  });
+  _ReelPlayerSlot({required this.index, required this.clip, this.player});
 
   Future<void> dispose() async {
     isPlaying = false;
@@ -88,8 +85,9 @@ class _ReelPlayerSlot {
 /// synthesis fallback for seed/offline reels and headless `flutter test` safety.
 class RealReelAudioPoolService implements IReelAudioPoolService {
   RealReelAudioPoolService({bool? forceHeadlessMode})
-      : _isHeadless = forceHeadlessMode ??
-            (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST'));
+    : _isHeadless =
+          forceHeadlessMode ??
+          (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST'));
 
   final bool _isHeadless;
   final Map<int, _ReelPlayerSlot> _slots = <int, _ReelPlayerSlot>{};
@@ -169,8 +167,11 @@ class RealReelAudioPoolService implements IReelAudioPoolService {
 
     try {
       if (!isSeedOrPlaceholderUrl(url)) {
-        if (url.startsWith('file://') || (!url.startsWith('http') && File(url).existsSync())) {
-          final filePath = url.startsWith('file://') ? Uri.parse(url).toFilePath() : url;
+        if (url.startsWith('file://') ||
+            (!url.startsWith('http') && File(url).existsSync())) {
+          final filePath = url.startsWith('file://')
+              ? Uri.parse(url).toFilePath()
+              : url;
           await player.setFilePath(filePath);
           await player.setLoopMode(LoopMode.one);
           slot.isPrepared = true;
@@ -196,7 +197,9 @@ class RealReelAudioPoolService implements IReelAudioPoolService {
       );
       if (!kIsWeb) {
         final safeId = clip.id.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
-        final file = File('${Directory.systemTemp.path}/vhunambi_reel_$safeId.wav');
+        final file = File(
+          '${Directory.systemTemp.path}/vhunambi_reel_$safeId.wav',
+        );
         await file.writeAsBytes(wavBytes, flush: true);
         await player.setFilePath(file.path);
       } else {
@@ -285,16 +288,29 @@ class RealReelAudioPoolService implements IReelAudioPoolService {
     }
 
     await _ensureAudioSession();
+    SafeAudioOrchestrator.instance.registerSlot(
+      AudioEngineSlot.reelPool,
+      () => pause(),
+    );
+    if (autoPlay) {
+      await SafeAudioOrchestrator.instance.acquireSlot(
+        AudioEngineSlot.reelPool,
+        onPreemptPause: () => pause(),
+      );
+    }
 
     // Prepare and play the active slot immediately
     await _prepareSlot(currentSlot);
     if (_disposed || _activeIndex != clampedIndex) return;
 
     if (autoPlay) {
-      try {
-        await currentSlot.player?.seek(Duration.zero);
-        unawaited(currentSlot.player?.play());
-      } catch (_) {}
+      await SafeAudioOrchestrator.guardAudioOp<void>(
+        source: 'reel_pool:activateWindow_play',
+        action: () async {
+          await currentSlot.player?.seek(Duration.zero);
+          await currentSlot.player?.play();
+        },
+      );
       _startPositionTicker();
     } else {
       _positionTicker?.cancel();
@@ -343,9 +359,10 @@ class RealReelAudioPoolService implements IReelAudioPoolService {
     if (slot != null) {
       slot.isPlaying = false;
       if (!_isHeadless) {
-        try {
-          await slot.player?.pause();
-        } catch (_) {}
+        await SafeAudioOrchestrator.guardAudioOp<void>(
+          source: 'reel_pool:pause',
+          action: () async => slot.player?.pause(),
+        );
       }
     }
     _onStateTick?.call(_currentPositionSec, _isPlaying);
@@ -359,12 +376,19 @@ class RealReelAudioPoolService implements IReelAudioPoolService {
     if (slot != null) {
       slot.isPlaying = true;
       if (!_isHeadless) {
-        try {
-          if (!slot.isPrepared) {
-            await _prepareSlot(slot);
-          }
-          unawaited(slot.player?.play());
-        } catch (_) {}
+        await SafeAudioOrchestrator.instance.acquireSlot(
+          AudioEngineSlot.reelPool,
+          onPreemptPause: () => pause(),
+        );
+        await SafeAudioOrchestrator.guardAudioOp<void>(
+          source: 'reel_pool:resume',
+          action: () async {
+            if (!slot.isPrepared) {
+              await _prepareSlot(slot);
+            }
+            await slot.player?.play();
+          },
+        );
         _startPositionTicker();
       }
     }
@@ -409,7 +433,7 @@ class RealReelAudioPoolService implements IReelAudioPoolService {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    SafeAudioOrchestrator.instance.unregisterSlot(AudioEngineSlot.reelPool);
     await stopAll();
   }
 }
-

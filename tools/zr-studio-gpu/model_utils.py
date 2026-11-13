@@ -65,10 +65,26 @@ GENRE_LORA_REGISTRY: Dict[str, Dict[str, Any]] = {
 }
 
 
+def resolve_hf_home() -> str:
+    """Prefer RunPod Network Volume HF cache when mounted; fall back to /tmp/hf_cache."""
+    env_hf = os.environ.get("HF_HOME", "").strip()
+    if os.path.isdir("/runpod-volume"):
+        if not env_hf or env_hf == "/tmp/hf_cache":
+            return "/runpod-volume/hf_cache"
+        return env_hf
+    return env_hf or "/tmp/hf_cache"
+
+
 class ZRModelManager:
     _instance: Optional["ZRModelManager"] = None
 
     def __init__(self) -> None:
+        self.hf_home: str = resolve_hf_home()
+        os.environ["HF_HOME"] = self.hf_home
+        os.environ.setdefault("HUGGINGFACE_HUB_CACHE", os.path.join(self.hf_home, "hub"))
+        os.makedirs(self.hf_home, exist_ok=True)
+        print(f"[ZR-GPU] HuggingFace cache configured at HF_HOME={self.hf_home}", flush=True)
+
         self.precision: str = os.environ.get("ACE_STEP_PRECISION", "bf16")
         self.infer_steps: int = int(os.environ.get("ACE_STEP_INFER_STEPS", "45"))
         self.guidance_scale: float = float(os.environ.get("ACE_STEP_GUIDANCE_SCALE", "15.0"))
@@ -87,6 +103,9 @@ class ZRModelManager:
         return cls._instance
 
     def _try_load_ace_step_pipeline(self) -> None:
+        checkpoint_dir = os.environ.get(
+            "ACE_STEP_CHECKPOINT_DIR", "/models/ACE-Step-v1-3.5B"
+        )
         try:
             import torch
             from acestep.pipeline_ace_step import ACEStepPipeline  # type: ignore
@@ -96,14 +115,23 @@ class ZRModelManager:
                 if (torch.cuda.is_available() and self.precision == "bf16")
                 else torch.float32
             )
-            checkpoint_dir = os.environ.get(
-                "ACE_STEP_CHECKPOINT_DIR", "/models/ACE-Step-v1-3.5B"
+            source = (
+                checkpoint_dir
+                if os.path.exists(checkpoint_dir)
+                else os.environ.get("ACE_STEP_HF_REPO", "ACE-Step/ACE-Step-v1-3.5B")
             )
-            if os.path.exists(checkpoint_dir):
-                self._pipeline = ACEStepPipeline.from_pretrained(
-                    checkpoint_dir, torch_dtype=dtype
-                )
-        except Exception:
+            self._pipeline = ACEStepPipeline.from_pretrained(source, torch_dtype=dtype)
+            print(
+                f"[ZR-GPU] Loaded ACE-Step 1.5 neural pipeline in {self.precision} "
+                f"(source={source}, HF_HOME={self.hf_home})",
+                flush=True,
+            )
+        except Exception as exc:
+            print(
+                f"[ZR-WARN] ACEStepPipeline init failed ({checkpoint_dir}): {exc}; "
+                "using harmonic synthesizer fallback",
+                flush=True,
+            )
             self._pipeline = None
 
     def resolve_lora_specs(
@@ -147,8 +175,8 @@ class ZRModelManager:
                 if resp.status_code == 200 and len(resp.content) > 64:
                     with open(local_path, "wb") as f:
                         f.write(resp.content)
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"[ZR-WARN] LoRA download failed ({r2_key}): {exc}", flush=True)
 
         self._active_lora_key = r2_key
         self._active_lora_weight = weight
@@ -159,8 +187,8 @@ class ZRModelManager:
         ):
             try:
                 self._pipeline.load_lora(local_path, lora_weight=weight)
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"[ZR-WARN] LoRA load failed ({local_path}): {exc}", flush=True)
         return local_path
 
     def generate_audio(

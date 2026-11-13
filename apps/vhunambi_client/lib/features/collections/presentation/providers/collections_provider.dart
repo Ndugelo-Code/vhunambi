@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vhunambi_client/core/resilience/safe_notifier_mixin.dart';
 
 import '../../data/repositories/collection_repository.dart';
 import '../../data/repositories/in_memory_collection_repository.dart';
@@ -16,13 +17,16 @@ final collectionRepositoryProvider = Provider<ICollectionRepository>(
 /// The user's collection vault, newest first (REQ-COL-09).
 final collectionsProvider =
     StateNotifierProvider<CollectionsNotifier, List<CollectionEntity>>((ref) {
-  final notifier = CollectionsNotifier(ref.watch(collectionRepositoryProvider));
-  notifier.loadCollections();
-  return notifier;
-});
+      final notifier = CollectionsNotifier(
+        ref.watch(collectionRepositoryProvider),
+      );
+      notifier.loadCollections();
+      return notifier;
+    });
 
 /// Full collection CRUD engine backing the vault, detail view and split sheet.
-class CollectionsNotifier extends StateNotifier<List<CollectionEntity>> {
+class CollectionsNotifier extends StateNotifier<List<CollectionEntity>>
+    with SafeNotifierMixin<List<CollectionEntity>> {
   CollectionsNotifier(this._repository) : super(const <CollectionEntity>[]);
 
   final ICollectionRepository _repository;
@@ -118,10 +122,7 @@ class CollectionsNotifier extends StateNotifier<List<CollectionEntity>> {
   }
 
   /// Applies a drag-to-reorder result to the stored track list.
-  Future<void> reorderTracks(
-    String collectionId,
-    List<String> newOrder,
-  ) async {
+  Future<void> reorderTracks(String collectionId, List<String> newOrder) async {
     if (_find(collectionId) == null) return;
 
     await _repository.reorderTracks(collectionId, newOrder);
@@ -186,6 +187,6 @@ class CollectionsNotifier extends StateNotifier<List<CollectionEntity>> {
 
     final next = List<CollectionEntity>.of(state);
     next[index] = updated;
-    state = next;
+    setStateIfMounted(next);
   }
 }

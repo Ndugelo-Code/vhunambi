@@ -121,16 +121,17 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
   void _runPromptIntelligence(String rawPrompt) {
     if (!mounted) return;
     final dna = ref.read(creatorDnaProvider);
+    final form = ref.read(studioFormProvider);
     final result = StudioPromptIntelligence.enhance(
       rawPrompt,
       dna: dna.onboardingCompleted ? dna : null,
+      currentForm: form,
     );
     setState(() {
       _dismissedSuggestions.clear();
-      _intelligenceResult =
-          result.hasOverrides && rawPrompt.trim().length >= 10
-              ? result
-              : null;
+      _intelligenceResult = result.hasOverrides && rawPrompt.trim().length >= 10
+          ? result
+          : null;
     });
   }
 
@@ -179,7 +180,11 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
     final base = form.prompt.trim().isEmpty
         ? 'A soulful track that fits my sound'
         : form.prompt;
-    final result = StudioPromptIntelligence.enhance(base, dna: dna);
+    final result = StudioPromptIntelligence.enhance(
+      base,
+      dna: dna,
+      currentForm: form,
+    );
     for (final entry in result.suggestedOverrides.entries) {
       _applyOverride(entry.key, entry.value);
     }
@@ -243,10 +248,7 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
               color: AppColors.brandPrimary,
             ),
             const SizedBox(width: AppSpacing.xs),
-            Text(
-              'Describe your song',
-              style: AppTypography.titleMedium,
-            ),
+            Text('Describe your song', style: AppTypography.titleMedium),
             const Spacer(),
             // DNA pre-fill (M10 / REQ-PRI-02) — only once taste exists.
             if (dna.onboardingCompleted && dna.strengthPercent > 0)
@@ -290,7 +292,8 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
 
         // Multiline Input Box (breathing AI aura while refining — REQ-KIN-04)
         PulsingAuraContainer(
-          isPulsing: _intelligenceResult != null || (_enhanceTimer?.isActive ?? false),
+          isPulsing:
+              _intelligenceResult != null || (_enhanceTimer?.isActive ?? false),
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.surfaceElevated,
@@ -300,29 +303,29 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
             child: TextField(
               controller: _controller,
               onChanged: _onPromptChanged,
-            maxLines: 5,
-            minLines: 3,
-            style: AppTypography.bodyLarge,
-            cursorColor: AppColors.brandPrimary,
-            decoration: InputDecoration(
-              hintText:
-                  'A powerful anthem about rising from hardship, full of hope and energy...',
-              hintStyle: AppTypography.bodyMuted.copyWith(
-                color: AppColors.textTertiary,
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(AppSpacing.md),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: AppRadius.inputBorder,
-                borderSide: const BorderSide(
-                  color: AppColors.brandPrimary,
-                  width: 1.5,
+              maxLines: 5,
+              minLines: 3,
+              style: AppTypography.bodyLarge,
+              cursorColor: AppColors.brandPrimary,
+              decoration: InputDecoration(
+                hintText:
+                    'A powerful anthem about rising from hardship, full of hope and energy...',
+                hintStyle: AppTypography.bodyMuted.copyWith(
+                  color: AppColors.textTertiary,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.all(AppSpacing.md),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: AppRadius.inputBorder,
+                  borderSide: const BorderSide(
+                    color: AppColors.brandPrimary,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
 
         // AI refinement overlay (M10 / REQ-PRI-04) — appears after a
         // 1500ms typing pause when meaningful signals were detected.
@@ -349,15 +352,15 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             ..._visiblePresets(dna).asMap().entries.map(
-                  (entry) => InkWell(
-                    key: Key('studio_preset_chip_${entry.key}'),
-                    onTap: () {
-                      unawaited(StudioHaptics.chipSnap());
-                      ref
-                          .read(studioFormProvider.notifier)
-                          .applyPromptPreset(entry.value.fullPrompt);
-                    },
-                    borderRadius: AppRadius.pillBorder,
+              (entry) => InkWell(
+                key: Key('studio_preset_chip_${entry.key}'),
+                onTap: () {
+                  unawaited(StudioHaptics.chipSnap());
+                  ref
+                      .read(studioFormProvider.notifier)
+                      .applyPromptPreset(entry.value.fullPrompt);
+                },
+                borderRadius: AppRadius.pillBorder,
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 44),
                   alignment: Alignment.center,

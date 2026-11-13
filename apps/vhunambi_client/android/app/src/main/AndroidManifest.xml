@@ -40,6 +40,10 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Phase 65 (REQ-P65-L1-01): Default monochrome small notification icon -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_music" />
         <!-- Phase 9: native MediaSession + NotificationCompat.MediaStyle transport
              (docs/phases/phase_09_hardware_audio_bridge/blueprint.md §2.1). -->
         <service

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:vhunambi_client/core/resilience/safe_audio_orchestrator.dart';
 import '../../domain/models/stem_mixer_state.dart';
 import '../../domain/services/i_multi_stem_audio_engine.dart';
 import 'audio_session_manager.dart';
@@ -46,22 +47,31 @@ class JustAudioMultiStemEngine implements IMultiStemAudioEngine {
     AudioPlayer? bassPlayer,
     AudioPlayer? melodyPlayer,
     AudioPlayer? masterPlayer,
-  })  : _vocalsPlayer = vocalsPlayer ?? AudioPlayer(),
-        _drumsPlayer = drumsPlayer ?? AudioPlayer(),
-        _bassPlayer = bassPlayer ?? AudioPlayer(),
-        _melodyPlayer = melodyPlayer ?? AudioPlayer(),
-        _masterPlayer = masterPlayer ?? AudioPlayer() {
+  }) : _vocalsPlayer = vocalsPlayer ?? AudioPlayer(),
+       _drumsPlayer = drumsPlayer ?? AudioPlayer(),
+       _bassPlayer = bassPlayer ?? AudioPlayer(),
+       _melodyPlayer = melodyPlayer ?? AudioPlayer(),
+       _masterPlayer = masterPlayer ?? AudioPlayer() {
     _setupAudioSession();
   }
 
   void _setupAudioSession() {
+    SafeAudioOrchestrator.instance.registerSlot(
+      AudioEngineSlot.stemMixer,
+      () => pause(),
+    );
     final session = sessionManager;
     if (session == null) return;
-    _interruptionSub = session.interruptionStream.listen((event) {
-      if (event.isInterrupted && _isPlaying) {
-        pause();
-      }
-    });
+    _interruptionSub = session.interruptionStream.listen(
+      (event) {
+        if (event.isInterrupted && _isPlaying) {
+          unawaited(pause());
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('JustAudioMultiStemEngine interruptionStream error: $error');
+      },
+    );
   }
 
   @override
@@ -96,7 +106,8 @@ class JustAudioMultiStemEngine implements IMultiStemAudioEngine {
     await _posSub?.cancel();
     _currentPosition = Duration.zero;
 
-    final hasAllStems = stemUrls.containsKey(StemType.vocals) &&
+    final hasAllStems =
+        stemUrls.containsKey(StemType.vocals) &&
         stemUrls.containsKey(StemType.drums) &&
         stemUrls.containsKey(StemType.bass) &&
         stemUrls.containsKey(StemType.melody) &&
@@ -110,25 +121,36 @@ class JustAudioMultiStemEngine implements IMultiStemAudioEngine {
       _measuredDrift = Duration.zero;
 
       try {
-        final durations = await Future.wait([
-          _vocalsPlayer.setUrl(stemUrls[StemType.vocals]!),
-          _drumsPlayer.setUrl(stemUrls[StemType.drums]!),
-          _bassPlayer.setUrl(stemUrls[StemType.bass]!),
-          _melodyPlayer.setUrl(stemUrls[StemType.melody]!),
-        ]);
+        final durations =
+            await SafeAudioOrchestrator.guardAudioOp<List<Duration?>>(
+              source: 'multi_stem:setUrl_stems',
+              action: () => Future.wait([
+                _vocalsPlayer.setUrl(stemUrls[StemType.vocals]!),
+                _drumsPlayer.setUrl(stemUrls[StemType.drums]!),
+                _bassPlayer.setUrl(stemUrls[StemType.bass]!),
+                _melodyPlayer.setUrl(stemUrls[StemType.melody]!),
+              ]),
+            ) ??
+            const <Duration?>[];
 
         // Derive total duration from reference stem
         _totalDuration = durations.whereType<Duration>().isNotEmpty
             ? durations.whereType<Duration>().reduce((a, b) => a > b ? a : b)
-            : const Duration(seconds: 180);
+            : const Duration(seconds: 24);
 
-        _posSub = _drumsPlayer.positionStream.listen((pos) {
-          _currentPosition = pos;
-          if (!_isDisposed) _positionController.add(pos);
-        });
+        _posSub = _drumsPlayer.positionStream.listen(
+          (pos) {
+            _currentPosition = pos;
+            if (!_isDisposed) _positionController.add(pos);
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint('JustAudioMultiStemEngine positionStream error: $error');
+          },
+        );
       } catch (e) {
         debugPrint(
-            'JustAudioMultiStemEngine: error loading stems, falling back to master: $e');
+          'JustAudioMultiStemEngine: error loading stems, falling back to master: $e',
+        );
         _hasRealStems = false;
         _measuredDrift = null;
         await _loadMasterOnly(masterUrl);
@@ -143,12 +165,22 @@ class JustAudioMultiStemEngine implements IMultiStemAudioEngine {
   Future<void> _loadMasterOnly(String masterUrl) async {
     if (masterUrl.isEmpty) return;
     try {
-      final dur = await _masterPlayer.setUrl(masterUrl);
-      _totalDuration = dur ?? const Duration(seconds: 180);
-      _posSub = _masterPlayer.positionStream.listen((pos) {
-        _currentPosition = pos;
-        if (!_isDisposed) _positionController.add(pos);
-      });
+      final dur = await SafeAudioOrchestrator.guardAudioOp<Duration?>(
+        source: 'multi_stem:setUrl_master',
+        action: () => _masterPlayer.setUrl(masterUrl),
+      );
+      _totalDuration = dur ?? const Duration(seconds: 24);
+      _posSub = _masterPlayer.positionStream.listen(
+        (pos) {
+          _currentPosition = pos;
+          if (!_isDisposed) _positionController.add(pos);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint(
+            'JustAudioMultiStemEngine master positionStream error: $error',
+          );
+        },
+      );
     } catch (e) {
       debugPrint('JustAudioMultiStemEngine: error loading master audio: $e');
     }
@@ -158,17 +190,27 @@ class JustAudioMultiStemEngine implements IMultiStemAudioEngine {
   Future<void> play() async {
     if (_isDisposed || _isPlaying) return;
 
-    if (_hasRealStems) {
-      await Future.wait([
-        _vocalsPlayer.play(),
-        _drumsPlayer.play(),
-        _bassPlayer.play(),
-        _melodyPlayer.play(),
-      ]);
-      _startDriftMonitoring();
-    } else {
-      await _masterPlayer.play();
-    }
+    await SafeAudioOrchestrator.instance.acquireSlot(
+      AudioEngineSlot.stemMixer,
+      onPreemptPause: () => pause(),
+    );
+
+    await SafeAudioOrchestrator.guardAudioOp<void>(
+      source: 'multi_stem:play',
+      action: () async {
+        if (_hasRealStems) {
+          await Future.wait([
+            _vocalsPlayer.play(),
+            _drumsPlayer.play(),
+            _bassPlayer.play(),
+            _melodyPlayer.play(),
+          ]);
+          _startDriftMonitoring();
+        } else {
+          await _masterPlayer.play();
+        }
+      },
+    );
 
     _isPlaying = true;
     if (!_isDisposed) _isPlayingController.add(true);
@@ -179,16 +221,21 @@ class JustAudioMultiStemEngine implements IMultiStemAudioEngine {
     if (_isDisposed) return;
     _stopDriftMonitoring();
 
-    if (_hasRealStems) {
-      await Future.wait([
-        _vocalsPlayer.pause(),
-        _drumsPlayer.pause(),
-        _bassPlayer.pause(),
-        _melodyPlayer.pause(),
-      ]);
-    } else {
-      await _masterPlayer.pause();
-    }
+    await SafeAudioOrchestrator.guardAudioOp<void>(
+      source: 'multi_stem:pause',
+      action: () async {
+        if (_hasRealStems) {
+          await Future.wait([
+            _vocalsPlayer.pause(),
+            _drumsPlayer.pause(),
+            _bassPlayer.pause(),
+            _melodyPlayer.pause(),
+          ]);
+        } else {
+          await _masterPlayer.pause();
+        }
+      },
+    );
 
     _isPlaying = false;
     if (!_isDisposed) _isPlayingController.add(false);
@@ -198,16 +245,21 @@ class JustAudioMultiStemEngine implements IMultiStemAudioEngine {
   Future<void> seek(Duration position) async {
     if (_isDisposed) return;
 
-    if (_hasRealStems) {
-      await Future.wait([
-        _vocalsPlayer.seek(position),
-        _drumsPlayer.seek(position),
-        _bassPlayer.seek(position),
-        _melodyPlayer.seek(position),
-      ]);
-    } else {
-      await _masterPlayer.seek(position);
-    }
+    await SafeAudioOrchestrator.guardAudioOp<void>(
+      source: 'multi_stem:seek',
+      action: () async {
+        if (_hasRealStems) {
+          await Future.wait([
+            _vocalsPlayer.seek(position),
+            _drumsPlayer.seek(position),
+            _bassPlayer.seek(position),
+            _melodyPlayer.seek(position),
+          ]);
+        } else {
+          await _masterPlayer.seek(position);
+        }
+      },
+    );
 
     _currentPosition = position;
     if (!_isDisposed) _positionController.add(position);
@@ -222,16 +274,36 @@ class JustAudioMultiStemEngine implements IMultiStemAudioEngine {
       final vol = channel.effectiveVolume(anySolo);
       switch (channel.type) {
         case StemType.vocals:
-          _vocalsPlayer.setVolume(vol);
+          unawaited(
+            SafeAudioOrchestrator.guardAudioOp<void>(
+              source: 'multi_stem:setVolume_vocals',
+              action: () => _vocalsPlayer.setVolume(vol),
+            ),
+          );
           break;
         case StemType.drums:
-          _drumsPlayer.setVolume(vol);
+          unawaited(
+            SafeAudioOrchestrator.guardAudioOp<void>(
+              source: 'multi_stem:setVolume_drums',
+              action: () => _drumsPlayer.setVolume(vol),
+            ),
+          );
           break;
         case StemType.bass:
-          _bassPlayer.setVolume(vol);
+          unawaited(
+            SafeAudioOrchestrator.guardAudioOp<void>(
+              source: 'multi_stem:setVolume_bass',
+              action: () => _bassPlayer.setVolume(vol),
+            ),
+          );
           break;
         case StemType.melody:
-          _melodyPlayer.setVolume(vol);
+          unawaited(
+            SafeAudioOrchestrator.guardAudioOp<void>(
+              source: 'multi_stem:setVolume_melody',
+              action: () => _melodyPlayer.setVolume(vol),
+            ),
+          );
           break;
       }
       // Live stereo pan is omitted as just_audio does not support per-player pan.
@@ -273,6 +345,7 @@ class JustAudioMultiStemEngine implements IMultiStemAudioEngine {
   @override
   Future<void> dispose() async {
     _isDisposed = true;
+    SafeAudioOrchestrator.instance.unregisterSlot(AudioEngineSlot.stemMixer);
     _stopDriftMonitoring();
     await _posSub?.cancel();
     await _interruptionSub?.cancel();

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vhunambi_client/core/auth/auth_providers.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/resilience/safe_notifier_mixin.dart';
 
 import '../../../content_studio/domain/models/master_media_object.dart';
 import '../../../content_studio/presentation/providers/master_media_object_provider.dart';
@@ -14,7 +15,6 @@ import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../notifications/domain/models/notification_entity.dart';
 import '../../../player/domain/models/stem_mixer_state.dart';
-import '../../../player/presentation/providers/multi_stem_audio_provider.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../../player/presentation/providers/stem_mixer_provider.dart';
 import '../../../track/domain/models/track_entity.dart';
@@ -61,8 +61,8 @@ final generationProgressProvider =
     );
 
 /// Owns the live generation pipeline FSM for the Studio cockpit (T10.3).
-class GenerationPipelineNotifier
-    extends StateNotifier<GenerationProgressState?> {
+class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
+    with SafeNotifierMixin<GenerationProgressState?> {
   GenerationPipelineNotifier(this._ref) : super(null);
 
   final Ref _ref;
@@ -206,6 +206,7 @@ class GenerationPipelineNotifier
       referenceAudioUrl: resolvedRefAudioUrl,
       pregenStemLocks: resolvedStemLocks,
     );
+    if (!mounted) return;
 
     final realGenerationId =
         response['generationId'] as String? ?? optimisticId;
@@ -464,28 +465,9 @@ class GenerationPipelineNotifier
       debugPrint('GenerationPipelineNotifier stem mixer load failed: $error');
     }
 
-    if (normalizedTrack.stemUrls != null &&
-        normalizedTrack.stemUrls!.isNotEmpty) {
-      try {
-        final engine = _ref.read(multiStemAudioEngineProvider);
-        unawaited(
-          engine
-              .loadFromManifest(
-                stemUrls: normalizedTrack.stemUrls!,
-                masterUrl: normalizedTrack.masterMp3Url,
-              )
-              .catchError((Object error) {
-                debugPrint(
-                  'GenerationPipelineNotifier multi-stem load skipped: $error',
-                );
-              }),
-        );
-      } catch (error) {
-        debugPrint(
-          'GenerationPipelineNotifier multi-stem provider failed: $error',
-        );
-      }
-    }
+    // Phase 65 (REQ-P65-L2-02): Do NOT eagerly call multiStemAudioEngineProvider.loadFromManifest
+    // during _onGenerationComplete. Stem players are lazy-loaded only when the user opens
+    // the Stem Mixer deck, preventing 5-decoder contention with VhunambiAudioHandler.
 
     try {
       _ref

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/core/design_system/services/haptics_service.dart';
 import 'package:vhunambi_client/core/design_system/theme/vhunambi_theme_extension.dart';
 import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
@@ -105,14 +106,18 @@ class _PillFormState extends ConsumerState<PillForm>
   Future<void> _extractDominantColor() async {
     final playerState = ref.read(playerStateProvider);
     final track = playerState.currentTrack;
-    if (track == null || track.coverUrl == null) return;
+    final rawCover = track?.coverUrl?.trim() ?? '';
+    if (track == null || rawCover.isEmpty) return;
+
+    final normalizedUrl = AppConstants.normalizeCloudMediaUrl(rawCover);
+    if (normalizedUrl.isEmpty) return;
 
     try {
-      final provider = NetworkImage(track.coverUrl!);
+      final provider = NetworkImage(normalizedUrl);
       final palette = await PaletteGenerator.fromImageProvider(
         provider,
         size: const Size(32, 32),
-      );
+      ).timeout(const Duration(seconds: 4));
       if (mounted && palette.dominantColor != null) {
         setState(() => _dominantColor = palette.dominantColor!.color);
       }

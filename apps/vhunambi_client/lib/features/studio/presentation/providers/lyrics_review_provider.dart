@@ -21,8 +21,8 @@ final lyricsGenerationServiceProvider = Provider<ILyricsGenerationService>(
 /// `null` = no lyrics review in flight (the cockpit is closed).
 final lyricsReviewProvider =
     StateNotifierProvider<LyricsReviewNotifier, LyricsReviewDraft?>(
-  (ref) => LyricsReviewNotifier(ref.watch(lyricsGenerationServiceProvider)),
-);
+      (ref) => LyricsReviewNotifier(ref.watch(lyricsGenerationServiceProvider)),
+    );
 
 /// Owns the Studio lyrics review draft (T12.3).
 ///
@@ -72,6 +72,7 @@ class LyricsReviewNotifier extends StateNotifier<LyricsReviewDraft?> {
         genre: genre,
         language: language,
       );
+      if (!mounted) return;
       generationCount++;
       hasEdits = false;
       state = draft;
@@ -124,7 +125,9 @@ class LyricsReviewNotifier extends StateNotifier<LyricsReviewDraft?> {
         lines: <String>[],
       );
       final draft = current.copyWith(
-        sections: <LyricsSection>[section.copyWith(lines: <String>[phrase])],
+        sections: <LyricsSection>[
+          section.copyWith(lines: <String>[phrase]),
+        ],
       );
       state = draft.copyWith(rawText: draft.rebuildRawText());
       return;

@@ -280,7 +280,8 @@ def upload_artifacts_to_r2(
                 stderr=subprocess.DEVNULL,
             )
             encoded_mp3 = os.path.exists(master_mp3_local)
-        except Exception:
+        except Exception as exc:
+            print(f"[ZR-WARN] FFmpeg MP3 transcode fallback to WAV ({job_id}): {exc}", flush=True)
             master_mp3_local = master_wav_path
 
         mp3_r2_key = f"audio/{job_id}/master.mp3" if encoded_mp3 else f"audio/{job_id}/master.wav"

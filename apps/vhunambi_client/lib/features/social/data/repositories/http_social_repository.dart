@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/utils/json_safe.dart';
 import 'package:vhunambi_client/features/social/domain/models/creator_wallet.dart';
 import 'package:vhunambi_client/features/social/domain/models/cultural_gift.dart';
 import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
@@ -77,10 +78,19 @@ class HttpSocialRepository implements ISocialRepository {
         queryParameters: {'cursor': ?cursor, 'limit': limit},
       );
       if (response.statusCode == 200 && response.data != null) {
-        final list = response.data!['clips'] as List<dynamic>? ?? const [];
-        return list
-            .map((c) => PublishedClip.fromJson(c as Map<String, dynamic>))
-            .toList();
+        final list = JsonSafe.asList(response.data!['clips']);
+        final parsed = <PublishedClip>[];
+        for (final item in list) {
+          final map = JsonSafe.asMap(item);
+          if (map.isNotEmpty) {
+            try {
+              parsed.add(PublishedClip.fromJson(map));
+            } catch (e) {
+              debugPrint('[HttpSocialRepository] Skipping malformed clip: $e');
+            }
+          }
+        }
+        return parsed;
       }
     } catch (e) {
       debugPrint('[HttpSocialRepository] getFeed fallback: $e');
@@ -97,9 +107,10 @@ class HttpSocialRepository implements ISocialRepository {
         data: {},
       );
       if (response.statusCode == 200 && response.data != null) {
+        final data = JsonSafe.asMap(response.data);
         return (
-          liked: response.data!['liked'] as bool? ?? true,
-          likeCount: (response.data!['likeCount'] as num?)?.toInt() ?? 1,
+          liked: JsonSafe.asBool(data['liked'], true),
+          likeCount: JsonSafe.asInt(data['likeCount'], 1),
         );
       }
     } catch (e) {
@@ -129,10 +140,10 @@ class HttpSocialRepository implements ISocialRepository {
         data: {},
       );
       if (response.statusCode == 200 && response.data != null) {
+        final data = JsonSafe.asMap(response.data);
         return (
-          following: response.data!['following'] as bool? ?? true,
-          followerCount:
-              (response.data!['followerCount'] as num?)?.toInt() ?? 1,
+          following: JsonSafe.asBool(data['following'], true),
+          followerCount: JsonSafe.asInt(data['followerCount'], 1),
         );
       }
     } catch (e) {
@@ -165,10 +176,19 @@ class HttpSocialRepository implements ISocialRepository {
         '$_baseUrl/creators/$creatorId/clips',
       );
       if (response.statusCode == 200 && response.data != null) {
-        final list = response.data!['clips'] as List<dynamic>? ?? const [];
-        return list
-            .map((c) => PublishedClip.fromJson(c as Map<String, dynamic>))
-            .toList();
+        final list = JsonSafe.asList(response.data!['clips']);
+        final parsed = <PublishedClip>[];
+        for (final item in list) {
+          final map = JsonSafe.asMap(item);
+          if (map.isNotEmpty) {
+            try {
+              parsed.add(PublishedClip.fromJson(map));
+            } catch (e) {
+              debugPrint('[HttpSocialRepository] Skipping malformed clip: $e');
+            }
+          }
+        }
+        return parsed;
       }
     } catch (e) {
       debugPrint('[HttpSocialRepository] getCreatorClips fallback: $e');
@@ -184,29 +204,37 @@ class HttpSocialRepository implements ISocialRepository {
         '$_baseUrl/social/clips/$clipId/comments',
       );
       if (response.statusCode == 200 && response.data != null) {
-        final list = response.data!['comments'] as List<dynamic>? ?? const [];
-        return list
-            .map(
-              (c) => ReelComment(
-                id: c['id'] as String? ?? 'c_0',
-                clipId: c['clipId'] as String? ?? clipId,
-                userId: c['userId'] as String? ?? 'u_listener',
-                username: c['username'] as String? ?? 'listener',
-                displayName: c['displayName'] as String? ?? 'Listener',
-                avatarUrl: c['avatarUrl'] as String?,
-                isCreator: c['isCreator'] as bool? ?? false,
-                text: c['text'] as String? ?? '',
-                likeCount: (c['likeCount'] as num?)?.toInt() ?? 0,
-                isLikedByMe: c['isLikedByMe'] as bool? ?? false,
-                userReelLoves: (c['userReelLoves'] as num?)?.toInt() ?? 0,
-                giftEmoji: c['giftEmoji'] as String?,
-                giftName: c['giftName'] as String?,
-                createdAt:
-                    DateTime.tryParse(c['createdAt'] as String? ?? '') ??
-                    DateTime.now(),
-              ),
-            )
-            .toList();
+        final list = JsonSafe.asList(response.data!['comments']);
+        final parsed = <ReelComment>[];
+        for (final item in list) {
+          final map = JsonSafe.asMap(item);
+          if (map.isEmpty) continue;
+          final avatarRaw = JsonSafe.asString(map['avatarUrl']);
+          final emojiRaw = JsonSafe.asString(map['giftEmoji']);
+          final giftRaw = JsonSafe.asString(map['giftName']);
+          parsed.add(
+            ReelComment(
+              id: JsonSafe.asString(map['id'], 'c_0'),
+              clipId: JsonSafe.asString(map['clipId'], clipId),
+              userId: JsonSafe.asString(map['userId'], 'u_listener'),
+              username: JsonSafe.asString(map['username'], 'listener'),
+              displayName:
+                  JsonSafe.asString(map['displayName'], 'Listener'),
+              avatarUrl: avatarRaw.isEmpty ? null : avatarRaw,
+              isCreator: JsonSafe.asBool(map['isCreator']),
+              text: JsonSafe.asString(map['text']),
+              likeCount: JsonSafe.asInt(map['likeCount']),
+              isLikedByMe: JsonSafe.asBool(map['isLikedByMe']),
+              userReelLoves: JsonSafe.asInt(map['userReelLoves']),
+              giftEmoji: emojiRaw.isEmpty ? null : emojiRaw,
+              giftName: giftRaw.isEmpty ? null : giftRaw,
+              createdAt:
+                  DateTime.tryParse(JsonSafe.asString(map['createdAt'])) ??
+                  DateTime.now(),
+            ),
+          );
+        }
+        return parsed;
       }
     } catch (e) {
       debugPrint('[HttpSocialRepository] getComments fallback: $e');
@@ -331,9 +359,10 @@ class HttpSocialRepository implements ISocialRepository {
         data: {},
       );
       if (response.statusCode == 200 && response.data != null) {
+        final data = JsonSafe.asMap(response.data);
         return (
-          liked: response.data!['liked'] as bool? ?? true,
-          likeCount: (response.data!['likeCount'] as num?)?.toInt() ?? 1,
+          liked: JsonSafe.asBool(data['liked'], true),
+          likeCount: JsonSafe.asInt(data['likeCount'], 1),
         );
       }
     } catch (e) {

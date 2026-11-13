@@ -21,6 +21,7 @@ export interface RunPodEndpointHealth {
   workersRunning: number;
   workersInitializing: number;
   workersReady: number;
+  workersMax?: number;
   jobsInQueue: number;
   activePlusIdle: number;
 }
@@ -136,6 +137,7 @@ export async function checkRunPodEndpointHealth(
         running?: number;
         initializing?: number;
         ready?: number;
+        max?: number;
       };
       jobs?: {
         inQueue?: number;
@@ -158,6 +160,7 @@ export async function checkRunPodEndpointHealth(
     const workersRunning = Number(workers.running ?? 0);
     const workersInitializing = Number(workers.initializing ?? 0);
     const workersReady = Number(workers.ready ?? 0);
+    const workersMax = typeof workers.max === 'number' ? Number(workers.max) : undefined;
     const jobsInQueue = Number(json.jobs?.inQueue ?? 0);
     const activePlusIdle = workersIdle + workersRunning + workersReady;
 
@@ -167,6 +170,7 @@ export async function checkRunPodEndpointHealth(
       workersRunning,
       workersInitializing,
       workersReady,
+      workersMax,
       jobsInQueue,
       activePlusIdle,
     };
@@ -212,12 +216,13 @@ export async function dispatchSynthesisJob(
   const inferSteps = prompt.inferenceConfig?.inferSteps ?? 45;
   const precision = prompt.inferenceConfig?.precision ?? 'bf16';
 
-  // If RunPod credentials are configured, check endpoint worker availability then dispatch
+  // If RunPod credentials are configured, check endpoint state only to abort when max=0;
+  // scale-to-zero endpoints (Min Workers = 0) report idle=0/running=0 BEFORE /run wakes a GPU.
   if (runtimeEnv.RUNPOD_API_KEY && runtimeEnv.RUNPOD_ENDPOINT_ID) {
     const health = await checkRunPodEndpointHealth(cOrEnv);
-    if (health.workersKnown && health.activePlusIdle === 0) {
+    if (health.workersKnown && health.workersMax === 0) {
       console.warn(
-        `[RunPod] Queue-Zero Guard: endpoint ${runtimeEnv.RUNPOD_ENDPOINT_ID} has 0 active/idle workers (initializing=${health.workersInitializing}). Running real 4-stem R2 synthesis for ${generationId}.`,
+        `[RunPod] Endpoint ${runtimeEnv.RUNPOD_ENDPOINT_ID} has max=0 workers (disabled). Running real 4-stem R2 synthesis for ${generationId}.`,
       );
       void simulateSynthesisPipeline(generationId, cOrEnv);
       return { jobId: `mock_${generationId}`, isMock: true };

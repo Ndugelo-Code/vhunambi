@@ -313,3 +313,56 @@ app.route('/api/v1/sync', syncRoutes);
 app.route('/api/system', systemRoutes);
 app.route('/api/v1/system', systemRoutes);
 app.route('/v1/system', systemRoutes);
+
+// Phase 65 (REQ-P65-L5-01): Global JSON Error & NotFound Boundaries
+app.onError((err, c) => {
+  const statusCandidate =
+    (err as { status?: number; statusCode?: number })?.status ??
+    (err as { statusCode?: number })?.statusCode ??
+    500;
+  const status =
+    statusCandidate >= 400 && statusCandidate < 600 ? statusCandidate : 500;
+  const errorCode =
+    (err as { code?: string })?.code ??
+    (status === 400
+      ? 'BAD_REQUEST'
+      : status === 401
+        ? 'UNAUTHORIZED'
+        : status === 403
+          ? 'FORBIDDEN'
+          : status === 404
+            ? 'NOT_FOUND'
+            : 'INTERNAL_SERVER_ERROR');
+
+  c.header('Access-Control-Allow-Origin', '*');
+  return c.json(
+    {
+      success: false,
+      status: 'error',
+      code: errorCode,
+      error: err.message || 'Unhandled server error',
+      errorCode,
+      message: err.message || 'Unhandled server error',
+      path: c.req.path,
+      timestamp: new Date().toISOString(),
+    },
+    status as 500,
+  );
+});
+
+app.notFound((c) => {
+  c.header('Access-Control-Allow-Origin', '*');
+  return c.json(
+    {
+      success: false,
+      status: 'error',
+      code: 'NOT_FOUND',
+      error: `Route not found: ${c.req.method} ${c.req.path}`,
+      errorCode: 'NOT_FOUND',
+      message: `Route not found: ${c.req.method} ${c.req.path}`,
+      path: c.req.path,
+      timestamp: new Date().toISOString(),
+    },
+    404,
+  );
+});

@@ -8,6 +8,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/safe_network_avatar.dart';
 import '../../../profile/presentation/views/artist_profile_view.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../social/presentation/widgets/creator_tipping_sheet.dart';
@@ -389,23 +390,11 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
                   },
                   child: Row(
                     children: [
-                      CircleAvatar(
+                      SafeNetworkAvatar(
                         radius: 20,
                         backgroundColor: AppColors.surfaceSecondary,
-                        backgroundImage: post.creatorAvatarUrl != null
-                            ? NetworkImage(post.creatorAvatarUrl!)
-                            : null,
-                        child: post.creatorAvatarUrl == null
-                            ? Text(
-                                post.creatorName.isNotEmpty
-                                    ? post.creatorName[0].toUpperCase()
-                                    : '?',
-                                style: AppTypography.titleMedium.copyWith(
-                                  color: AppColors.brandPrimary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : null,
+                        imageUrl: post.creatorAvatarUrl,
+                        fallbackLabel: post.creatorName,
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(

@@ -16,7 +16,7 @@ import {
 } from '../modules/vision/prompt_synthesizer.js';
 import { compileSongMetadataDNA } from '../modules/dna/dna_compiler.js';
 import { uploadBytesToR2 } from '../modules/synthesis/r2_storage.js';
-import { synthesizeCoverArtworkBytes } from '../modules/synthesis/r2_media_synthesizer.js';
+import { synthesizeCoverPngBytes } from '../modules/synthesis/r2_media_synthesizer.js';
 
 export const visionRoutes = new Hono<{ Bindings: VhunambiWorkerEnv }>();
 
@@ -160,13 +160,13 @@ visionRoutes.post('/generate', async (c) => {
     );
 
     if (result.status === 'completed' && result.isMock) {
-      const artworkBytes = synthesizeCoverArtworkBytes(
+      const artworkBytes = synthesizeCoverPngBytes(
         `${input.title ?? result.jobId}_${input.genre}_${input.language}`,
       );
       await uploadBytesToR2(
         `visuals/mock/${result.jobId}_9_16.png`,
         artworkBytes,
-        'image/bmp',
+        'image/png',
         c,
       );
     }
@@ -256,9 +256,9 @@ visionRoutes.post('/render-video', async (c) => {
       'video/mp4',
       c,
     );
-    const coverKey = `reels/vhunambi_${safeTitle}_${timestamp}_cover.bmp`;
-    const coverBytes = synthesizeCoverArtworkBytes(`${safeTitle}_${input.preset}`);
-    await uploadBytesToR2(coverKey, coverBytes, 'image/bmp', c);
+    const coverKey = `reels/vhunambi_${safeTitle}_${timestamp}_cover.png`;
+    const coverBytes = synthesizeCoverPngBytes(`${safeTitle}_${input.preset}`);
+    await uploadBytesToR2(coverKey, coverBytes, 'image/png', c);
     const workerEnv = extractWorkerEnv(c) as VhunambiWorkerEnv | undefined;
     const rawVideoUrl = `https://r2.vhunambi.com/${stored.key}`;
     const rawCoverUrl = `https://r2.vhunambi.com/${coverKey}`;

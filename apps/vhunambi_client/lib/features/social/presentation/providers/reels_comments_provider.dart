@@ -71,6 +71,7 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
     if (_repo == null) return;
     try {
       final remote = await _repo.getComments(clipId);
+      if (!mounted) return;
       if (remote.isNotEmpty) {
         state = state.copyWith(
           commentsByClipId: {...state.commentsByClipId, clipId: remote},

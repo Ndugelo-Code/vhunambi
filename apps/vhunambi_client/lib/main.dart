@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/navigation/app_navigator.dart';
 import 'core/navigation/navigation_providers.dart';
+import 'core/resilience/vhunambi_crash_shield.dart';
 import 'core/storage/sovereign_hive_bootstrap_service.dart';
 import 'core/sync/edge_sync_coordinator.dart';
 import 'core/theme/app_colors.dart';
@@ -33,31 +34,45 @@ import 'features/player/presentation/widgets/expanded_cockpit_modal.dart';
 import 'features/studio/presentation/views/studio_view.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  VhunambiCrashShield.run(() async {
+    // Bootstrap the 26-Box Sovereign Hive Brain before initializing any Riverpod providers.
+    await VhunambiCrashShield.guardStartup<void>(
+      stepName: 'sovereign_hive_bootstrap',
+      action: () => SovereignHiveBootstrapService.ensureInitialized(),
+      fallback: () {},
+    );
 
-  // Bootstrap the 26-Box Sovereign Hive Brain before initializing any Riverpod providers.
-  await SovereignHiveBootstrapService.ensureInitialized();
+    // Initialize SharedPreferences for design system state persistence.
+    final prefs = await VhunambiCrashShield.guardStartup<SharedPreferences?>(
+      stepName: 'shared_preferences',
+      action: () => SharedPreferences.getInstance(),
+      fallback: () => null,
+    );
 
-  // Initialize SharedPreferences for design system state persistence.
-  final prefs = await SharedPreferences.getInstance();
+    // Register all genre and mood color tokens with the design system registry,
+    // then seal the registry to prevent late or duplicate registrations.
+    TokenRegistration.registerAllTokens();
+    DesignTokenRegistry.seal();
 
-  // Register all genre and mood color tokens with the design system registry,
-  // then seal the registry to prevent late or duplicate registrations.
-  TokenRegistration.registerAllTokens();
-  DesignTokenRegistry.seal();
+    // Bootstrap OS/hardware audio transport for speaker playback & media controls.
+    final audioHandler =
+        await VhunambiCrashShield.guardStartup<IVhunambiAudioHandler>(
+          stepName: 'platform_audio_handler',
+          action: () => bootstrapPlatformAudioHandler(),
+          fallback: () => TestVhunambiAudioHandler(),
+        );
 
-  // Bootstrap OS/hardware audio transport for speaker playback & media controls.
-  final audioHandler = await bootstrapPlatformAudioHandler();
-
-  runApp(
-    ProviderScope(
-      overrides: [
-        audioHandlerProvider.overrideWithValue(audioHandler),
-        sharedPreferencesProvider.overrideWithValue(prefs),
-      ],
-      child: const VhunambiApp(),
-    ),
-  );
+    runApp(
+      ProviderScope(
+        observers: const [VhunambiProviderObserver()],
+        overrides: [
+          audioHandlerProvider.overrideWithValue(audioHandler),
+          if (prefs != null) sharedPreferencesProvider.overrideWithValue(prefs),
+        ],
+        child: const VhunambiApp(),
+      ),
+    );
+  });
 }
 
 class VhunambiApp extends ConsumerStatefulWidget {
@@ -144,7 +159,12 @@ class _RootShellState extends ConsumerState<RootShell> {
   /// Switches the visible tab and records it in the back-history stack so a
   /// system-back gesture unwinds tab jumps (e.g. Home ➔ Studio ➔ back).
   void _switchTab(int index) {
-    if (index == _currentIndex) return;
+    if (index == _currentIndex) {
+      if (ref.read(appNavigationTabProvider) != index) {
+        ref.read(appNavigationTabProvider.notifier).state = index;
+      }
+      return;
+    }
     HapticsService().selectionClick();
     if (index == 1) {
       resetExploreTitleFade(ref);
@@ -159,6 +179,9 @@ class _RootShellState extends ConsumerState<RootShell> {
       _tabHistory.add(index);
       _currentIndex = index;
     });
+    if (ref.read(appNavigationTabProvider) != index) {
+      ref.read(appNavigationTabProvider.notifier).state = index;
+    }
   }
 
   /// Routes the vault `✨ Create` action into the Studio cockpit (tab index 2).
@@ -177,6 +200,9 @@ class _RootShellState extends ConsumerState<RootShell> {
       _tabHistory.removeLast();
       _currentIndex = _tabHistory.last;
     });
+    if (ref.read(appNavigationTabProvider) != _currentIndex) {
+      ref.read(appNavigationTabProvider.notifier).state = _currentIndex;
+    }
   }
 
   List<Widget> _buildPages() => [
@@ -224,7 +250,7 @@ class _RootShellState extends ConsumerState<RootShell> {
   }
 
   void _handleSearchShortcut() {
-    setState(() => _currentIndex = 1);
+    _switchTab(1);
   }
 
   @override

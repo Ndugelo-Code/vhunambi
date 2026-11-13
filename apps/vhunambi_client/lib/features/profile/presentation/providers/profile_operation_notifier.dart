@@ -39,6 +39,7 @@ class ProfileOperationNotifier extends StateNotifier<ProfileOperationState> {
   Future<void> _initializeProfile() async {
     // 1. Try cache first for instantaneous render
     final cached = await _cache.get(artistId);
+    if (!mounted) return;
     if (cached != null) {
       state = state.copyWith(
         cachedProfile: cached,
@@ -83,6 +84,7 @@ class ProfileOperationNotifier extends StateNotifier<ProfileOperationState> {
       execute: () => _repository.fetchProfile(artistId),
     );
     final result = await operation();
+    if (!mounted) return;
 
     if (result.isSuccess && result.data != null) {
       final entry = CacheEntry.now(result.data!);
@@ -92,6 +94,7 @@ class ProfileOperationNotifier extends StateNotifier<ProfileOperationState> {
       );
       _profileNotifier.seedFromCache(result.data!);
       await _cache.put(artistId, result.data!);
+      if (!mounted) return;
       _setLoading(ProfileOperationType.fetch, false);
     } else {
       _setError(
@@ -121,6 +124,7 @@ class ProfileOperationNotifier extends StateNotifier<ProfileOperationState> {
       execute: () => _repository.toggleFollow(artistId, !originalFollowing),
     );
     final result = await operation();
+    if (!mounted) return;
     _setLoading(ProfileOperationType.follow, false);
 
     if (result.isFailure) {
@@ -157,6 +161,7 @@ class ProfileOperationNotifier extends StateNotifier<ProfileOperationState> {
       execute: () => _repository.tipArtist(artistId, credits),
     );
     final result = await operation();
+    if (!mounted) return;
     _setLoading(ProfileOperationType.tip, false);
 
     if (result.isFailure) {
@@ -185,6 +190,7 @@ class ProfileOperationNotifier extends StateNotifier<ProfileOperationState> {
       execute: () => _repository.updateAvatar(artistId, url),
     );
     final result = await operation();
+    if (!mounted) return;
     _setLoading(ProfileOperationType.avatarUpdate, false);
 
     if (result.isFailure) {
@@ -213,6 +219,7 @@ class ProfileOperationNotifier extends StateNotifier<ProfileOperationState> {
       execute: () => _repository.toggleTipsEnabled(artistId, !originalState),
     );
     final result = await operation();
+    if (!mounted) return;
     _setLoading(ProfileOperationType.visibilityToggle, false);
 
     if (result.isFailure) {
@@ -241,6 +248,7 @@ class ProfileOperationNotifier extends StateNotifier<ProfileOperationState> {
       execute: () => _repository.addRelease(artistId, release),
     );
     final result = await operation();
+    if (!mounted) return;
     _setLoading(ProfileOperationType.createRelease, false);
 
     if (result.isFailure) {
@@ -258,6 +266,7 @@ class ProfileOperationNotifier extends StateNotifier<ProfileOperationState> {
   }
 
   void _setLoading(ProfileOperationType type, bool isLoading, {int? retryAttempt}) {
+    if (!mounted) return;
     state = state.withLoading(
       type,
       isLoading
@@ -267,6 +276,7 @@ class ProfileOperationNotifier extends StateNotifier<ProfileOperationState> {
   }
 
   void _setError(ProfileOperationType type, ErrorState error) {
+    if (!mounted) return;
     state = state.withError(type, error);
   }
 

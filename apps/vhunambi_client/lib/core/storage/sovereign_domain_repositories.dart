@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/core/storage/hive_compaction_scheduler.dart';
+import 'package:vhunambi_client/core/utils/json_safe.dart';
 
 /// Controls whether provider notifiers hydrate from L1 static memory when running
 /// inside `FLUTTER_TEST` without an open Hive box (disabled by default to keep
@@ -146,48 +147,46 @@ class WalletLedgerRepository {
   static Map<String, dynamic>? loadWalletSnapshot() {
     final box = _openDynamicBoxOrNull(AppConstants.walletLedgerBoxKey);
     if (box != null) {
-      final rawSnap = box.get(_snapshotKey);
-      if (rawSnap is String) {
-        try {
-          final snap = Map<String, dynamic>.from(
-            jsonDecode(rawSnap) as Map<dynamic, dynamic>,
-          );
-          final txs = <Map<String, dynamic>>[];
-          for (final rawKey in box.keys) {
-            final key = rawKey.toString();
-            if (key.startsWith(_txPrefix)) {
-              final rawTx = box.get(key);
-              if (rawTx is String) {
-                txs.add(
-                  Map<String, dynamic>.from(
-                    jsonDecode(rawTx) as Map<dynamic, dynamic>,
-                  ),
-                );
-              }
+      final snap = JsonSafe.decodeMap(
+        box.get(_snapshotKey),
+        source: 'wallet:snapshot',
+      );
+      if (snap != null) {
+        final copy = Map<String, dynamic>.from(snap);
+        final txs = <Map<String, dynamic>>[];
+        for (final rawKey in box.keys) {
+          final key = rawKey.toString();
+          if (key.startsWith(_txPrefix)) {
+            final parsedTx = JsonSafe.decodeMap(
+              box.get(key),
+              source: 'wallet:tx:$key',
+            );
+            if (parsedTx != null) {
+              txs.add(Map<String, dynamic>.from(parsedTx));
             }
           }
-          txs.sort((a, b) {
-            final da =
-                DateTime.tryParse(a['timestamp'] as String? ?? '') ??
-                DateTime.fromMillisecondsSinceEpoch(0);
-            final db =
-                DateTime.tryParse(b['timestamp'] as String? ?? '') ??
-                DateTime.fromMillisecondsSinceEpoch(0);
-            return db.compareTo(da);
-          });
-          snap['transactions'] = txs;
-          return snap;
-        } catch (_) {}
+        }
+        txs.sort((a, b) {
+          final da =
+              DateTime.tryParse(JsonSafe.asString(a['timestamp'])) ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+          final db =
+              DateTime.tryParse(JsonSafe.asString(b['timestamp'])) ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+          return db.compareTo(da);
+        });
+        copy['transactions'] = txs;
+        return copy;
       }
     }
     if (_memorySnapshot != null) {
       final txs = _memoryTransactions.values.toList()
         ..sort((a, b) {
           final da =
-              DateTime.tryParse(a['timestamp'] as String? ?? '') ??
+              DateTime.tryParse(JsonSafe.asString(a['timestamp'])) ??
               DateTime.fromMillisecondsSinceEpoch(0);
           final db =
-              DateTime.tryParse(b['timestamp'] as String? ?? '') ??
+              DateTime.tryParse(JsonSafe.asString(b['timestamp'])) ??
               DateTime.fromMillisecondsSinceEpoch(0);
           return db.compareTo(da);
         });
@@ -895,13 +894,19 @@ class SocialReelsCacheRepository {
     final key = '$_reelCommentsPrefix$reelId';
     final box = _openDynamicBoxOrNull(AppConstants.socialReelsBoxKey);
     if (box != null) {
-      final raw = box.get(key);
-      if (raw is String) {
-        try {
-          return (jsonDecode(raw) as List<dynamic>)
-              .map((e) => Map<String, dynamic>.from(e as Map<dynamic, dynamic>))
-              .toList();
-        } catch (_) {}
+      final list = JsonSafe.decodeList(
+        box.get(key),
+        source: 'reels:comments:$reelId',
+      );
+      if (list != null) {
+        final parsed = <Map<String, dynamic>>[];
+        for (final entry in list) {
+          final map = JsonSafe.decodeMap(entry, source: 'reels:comment_item');
+          if (map != null) {
+            parsed.add(Map<String, dynamic>.from(map));
+          }
+        }
+        return parsed;
       }
     }
     return _memoryReelComments[key];
@@ -1066,17 +1071,12 @@ class MarketplaceCatalogCacheRepository {
       for (final rawKey in box.keys) {
         final key = rawKey.toString();
         if (key.startsWith(_listingPrefix)) {
-          final raw = box.get(key);
-          if (raw is String) {
-            try {
-              result.add(
-                Map<String, dynamic>.from(
-                  jsonDecode(raw) as Map<dynamic, dynamic>,
-                ),
-              );
-            } catch (_) {}
-          } else if (raw is Map) {
-            result.add(Map<String, dynamic>.from(raw));
+          final parsed = JsonSafe.decodeMap(
+            box.get(key),
+            source: 'marketplace:listing:$key',
+          );
+          if (parsed != null) {
+            result.add(Map<String, dynamic>.from(parsed));
           }
         }
       }

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
+
 /// Custom API exception with an HTTP status code and message.
 class ApiException implements Exception {
   final int statusCode;
@@ -39,12 +41,37 @@ class NetworkErrorHandler {
   const NetworkErrorHandler();
 
   /// Classify error into categorized ErrorType.
-  ErrorType classify(Exception error) {
+  ErrorType classify(Object error) {
     if (error is TimeoutException) {
       return ErrorType.timeout;
     }
     if (error is SocketException) {
       return ErrorType.noConnection;
+    }
+    if (error is DioException) {
+      switch (error.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return ErrorType.timeout;
+        case DioExceptionType.connectionError:
+          return ErrorType.noConnection;
+        case DioExceptionType.badResponse:
+          final statusCode = error.response?.statusCode ?? 0;
+          if (statusCode >= 500) return ErrorType.serverError;
+          if (statusCode == 401) return ErrorType.unauthorized;
+          if (statusCode == 403) return ErrorType.forbidden;
+          if (statusCode == 404) return ErrorType.notFound;
+          if (statusCode >= 400 && statusCode < 500) return ErrorType.clientError;
+          return ErrorType.unknown;
+        case DioExceptionType.cancel:
+        case DioExceptionType.badCertificate:
+        case DioExceptionType.unknown:
+        default:
+          if (error.error is SocketException) return ErrorType.noConnection;
+          if (error.error is TimeoutException) return ErrorType.timeout;
+          return ErrorType.unknown;
+      }
     }
     if (error is ApiException) {
       final statusCode = error.statusCode;
@@ -66,8 +93,8 @@ class NetworkErrorHandler {
     return ErrorType.unknown;
   }
 
-  /// Convert exception to user-friendly message.
-  String toUserMessage(Exception error) {
+  /// Convert exception or error object to user-friendly message.
+  String toUserMessage(Object error) {
     final type = classify(error);
     return switch (type) {
       ErrorType.timeout =>

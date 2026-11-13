@@ -70,14 +70,15 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
              creatorName: 'Sigwa & Inaf',
              genre: 'Amapiano',
              language: 'English',
-             duration: Duration(minutes: 3, seconds: 29),
+             audioUrl: 'https://r2.vhunambi.com/explore/track_default_1.wav',
+             duration: Duration(seconds: 24),
              likeCount: 1002,
              playCount: 1200,
              isNew: true,
            ),
-           playbackStatus: PlaybackStatus.playing,
-           position: Duration(seconds: 13),
-           duration: Duration(minutes: 3, seconds: 29),
+           playbackStatus: PlaybackStatus.paused,
+           position: Duration.zero,
+           duration: Duration(seconds: 24),
          ),
        ) {
     _hydratePersistedSession();
@@ -179,9 +180,15 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   void _initHardwareSubscriptions() {
     _playbackStateSubscription = _audioHandler.playbackState.listen(
       _onHardwarePlaybackState,
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('PlayerNotifier playbackState stream error: $error');
+      },
     );
     _mediaItemSubscription = _audioHandler.mediaItem.listen(
       _onHardwareMediaItem,
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('PlayerNotifier mediaItem stream error: $error');
+      },
     );
   }
 
@@ -218,9 +225,13 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       playbackSpeed: playbackState.speed,
       errorMessage: playbackState.errorMessage,
     );
-    if (mappedStatus == PlaybackStatus.playing &&
-        (_positionTimer == null || !_positionTimer!.isActive)) {
-      _startPositionTicker();
+    if (mappedStatus == PlaybackStatus.playing) {
+      if (_positionTimer == null || !_positionTimer!.isActive) {
+        _startPositionTicker();
+      }
+    } else {
+      _positionTimer?.cancel();
+      _positionTimer = null;
     }
   }
 

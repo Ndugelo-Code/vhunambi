@@ -195,9 +195,9 @@ class StudioActionBar extends ConsumerWidget {
           : ((rawLyrics != null && rawLyrics.isNotEmpty) ? rawLyrics : null);
       final musicalKey =
           formState.referenceAudioPath?.startsWith('sketchpad://') == true
-              ? ref.read(melodySketchpadProvider).attachedPattern?.musicalKey ??
-                  formState.toSongMetadataDna().musical.key
-              : formState.toSongMetadataDna().musical.key;
+          ? ref.read(melodySketchpadProvider).attachedPattern?.musicalKey ??
+                formState.toSongMetadataDna().musical.key
+          : formState.toSongMetadataDna().musical.key;
       unawaited(
         ref
             .read(generationProgressProvider.notifier)
@@ -223,9 +223,9 @@ class StudioActionBar extends ConsumerWidget {
           genre: formState.genre,
           language: formState.language,
         );
+    if (!context.mounted) return;
     formNotifier.markReviewingLyrics();
 
-    if (!context.mounted) return;
     await LyricsReviewModal.show(context);
     if (context.mounted &&
         ref.read(studioFormProvider).phase == GenerationPhase.reviewingLyrics) {

@@ -403,6 +403,7 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
         state.calibrationScript ??
         PhoneticCalibrationExtractor.extractScript('', language: 'Tshivenḓa');
     await _recorder.startRecording(script);
+    if (!mounted) return;
     state = state.copyWith(isRecording: true, liveAmplitude: 0.68);
   }
 
@@ -438,6 +439,7 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
       signatureId: result.signature?.id,
     );
 
+    if (!mounted) return profile;
     final updatedList = [profile, ...state.clonedProfiles];
     state = state.copyWith(
       isRecording: false,

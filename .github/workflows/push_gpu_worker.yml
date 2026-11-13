@@ -1,0 +1,42 @@
+name: Build & Push RunPod GPU Worker
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+    paths:
+      - 'tools/zr-studio-gpu/**'
+      - '.github/workflows/push_gpu_worker.yml'
+
+jobs:
+  build-and-push:
+    name: Build & Push ndugelo/zr-studio-gpu:vhunambi-v1
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME || 'ndugelo' }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push RunPod GPU worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./tools/zr-studio-gpu
+          file: ./tools/zr-studio-gpu/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ndugelo/zr-studio-gpu:vhunambi-v1
+          cache-from: |
+            type=registry,ref=ndugelo/zr-studio-gpu:latest
+            type=registry,ref=ndugelo/zr-studio-gpu:vhunambi-v1
+

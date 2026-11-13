@@ -20,6 +20,7 @@ import '../../domain/services/i_generation_socket_service.dart';
 class GenerationSocketService implements IGenerationSocketService {
   static const String baseUrl = 'wss://api.vhunambi.com/ws/generation';
   static String get wsBaseUrl => AppConstants.resolveWsUrl();
+  static const Duration connectTimeout = Duration(seconds: 8);
   static const Duration pingInterval = Duration(seconds: 25);
   static const Duration pongTimeout = Duration(seconds: 10);
   static const int maxAttempts = 5;
@@ -65,9 +66,16 @@ class GenerationSocketService implements IGenerationSocketService {
   Future<void> _doConnect(String generationId) async {
     if (_disposed) return;
 
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    await _socketSubscription?.cancel();
+    _socketSubscription = null;
+
     try {
       final targetWsBase = wsUrl ?? wsBaseUrl;
-      final socket = await WebSocket.connect('$targetWsBase?id=$generationId');
+      final socket = await WebSocket.connect(
+        '$targetWsBase?id=$generationId',
+      ).timeout(connectTimeout);
       if (_disposed) {
         await socket.close(WebSocketStatus.normalClosure);
         return;
@@ -128,8 +136,16 @@ class GenerationSocketService implements IGenerationSocketService {
     _pingTimer?.cancel();
     _pingTimer = Timer.periodic(pingInterval, (_) {
       if (!isConnected) return;
-      socket.add(jsonEncode(<String, String>{'type': 'PING'}));
-      _resetPongTimer();
+      try {
+        socket.add(jsonEncode(<String, String>{'type': 'PING'}));
+        _resetPongTimer();
+      } catch (error) {
+        debugPrint('GenerationSocketService heartbeat send failed: $error');
+        final generationId = _activeGenerationId;
+        if (generationId != null) {
+          _scheduleReconnect(generationId);
+        }
+      }
     });
   }
 

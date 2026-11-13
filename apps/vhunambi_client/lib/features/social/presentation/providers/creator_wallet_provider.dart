@@ -230,6 +230,7 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
     if (_repo == null) return;
     try {
       final remoteWallet = await _repo.getCreatorWallet(_creatorId);
+      if (!mounted) return;
       state = state.copyWith(
         wallet: remoteWallet,
         userCoinsBalance: remoteWallet.balanceCoins ?? state.userCoinsBalance,

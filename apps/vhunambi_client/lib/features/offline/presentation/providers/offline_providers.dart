@@ -267,6 +267,7 @@ class DownloadManagerNotifier extends StateNotifier<Map<String, DownloadTask>> {
         remoteUrl: queuedTask.remoteAudioUrl,
         destinationPath: queuedTask.localFilePath,
         onProgress: (int received, int total, [dynamic speed]) {
+          if (!mounted) return;
           final current = state[trackId];
           if (current != null && current.status == DownloadStatus.downloading) {
             final progress = total > 0
@@ -287,6 +288,7 @@ class DownloadManagerNotifier extends StateNotifier<Map<String, DownloadTask>> {
           }
         },
       );
+      if (!mounted) return;
 
       final completedTask =
           state[trackId]?.copyWith(
@@ -337,6 +339,7 @@ class DownloadManagerNotifier extends StateNotifier<Map<String, DownloadTask>> {
       _completers[trackId]?.complete();
       _completers.remove(trackId);
     } catch (e) {
+      if (!mounted) return;
       final failedTask =
           state[trackId]?.copyWith(
             status: DownloadStatus.failed,
@@ -361,6 +364,7 @@ class DownloadManagerNotifier extends StateNotifier<Map<String, DownloadTask>> {
   /// Cancels an in-flight download and resets vault sync status back to cloudOnly.
   Future<void> cancelDownload(String trackId) async {
     await _downloadService.cancelDownload(trackId);
+    if (!mounted) return;
 
     final current = state[trackId];
     if (current != null) {
@@ -391,6 +395,7 @@ class DownloadManagerNotifier extends StateNotifier<Map<String, DownloadTask>> {
   /// and returns vault track back to cloudOnly status.
   Future<void> removeOfflineTrack(String trackId) async {
     await _storageService.removeTrackMetadata(trackId);
+    if (!mounted) return;
 
     final updated = Map<String, DownloadTask>.from(state)..remove(trackId);
     state = updated;
@@ -412,6 +417,7 @@ class DownloadManagerNotifier extends StateNotifier<Map<String, DownloadTask>> {
     }
 
     await _storageService.clearAllMetadata();
+    if (!mounted) return;
     state = const <String, DownloadTask>{};
 
     final tracks = _ref.read(libraryTracksProvider);

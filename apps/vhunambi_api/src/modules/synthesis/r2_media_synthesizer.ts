@@ -1,6 +1,37 @@
+import { deflateSync } from 'node:zlib';
 import type { Context } from 'hono';
 import { vhunambiDb } from '../../db/vhunambi_db.js';
 import { uploadBytesToR2 } from './r2_storage.js';
+
+const CRC32_TABLE = new Uint32Array(256);
+for (let n = 0; n < 256; n++) {
+  let c = n;
+  for (let k = 0; k < 8; k++) {
+    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  }
+  CRC32_TABLE[n] = c >>> 0;
+}
+
+function crc32(bytes: Uint8Array): number {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    c = CRC32_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function buildPngChunk(typeAscii: string, data: Uint8Array): Uint8Array {
+  const out = new Uint8Array(12 + data.length);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, data.length, false);
+  for (let i = 0; i < 4; i++) {
+    out[4 + i] = typeAscii.charCodeAt(i);
+  }
+  out.set(data, 8);
+  const crcVal = crc32(out.subarray(4, 8 + data.length));
+  view.setUint32(8 + data.length, crcVal, false);
+  return out;
+}
 
 export type SynthesizedStemRole =
   | 'drums'
@@ -328,8 +359,8 @@ export function synthesizeTrackStemPackWav(options: {
 } {
   const seed = hashSeed(options.seedKey);
   const sampleRate = options.sampleRate ?? 11025;
-  const stemDurationSec = Math.max(2, Math.min(24, options.stemDurationSec ?? 4));
-  const masterDurationSec = Math.max(2, Math.min(24, options.masterDurationSec ?? 6));
+  const stemDurationSec = Math.max(2, Math.min(32, options.stemDurationSec ?? 12));
+  const masterDurationSec = Math.max(2, Math.min(32, options.masterDurationSec ?? 24));
   const bpm = options.bpm ?? 110 + (seed % 16);
 
   const bDrums = initWavBuffer(sampleRate, stemDurationSec);
@@ -516,6 +547,81 @@ export function synthesizeCoverArtworkBytes(seedKey: string): Uint8Array {
 }
 
 /**
+ * Generates a genuine RFC-2083 64x64 24-bit RGB PNG image with African
+ * geometric ring gradients, compressed via zlib.deflateSync and CRC32 verified.
+ */
+export function synthesizeCoverPngBytes(seedKey: string): Uint8Array {
+  const seed = hashSeed(seedKey);
+  const width = 256;
+  const height = 256;
+  const palettes: Array<[number, number, number, number, number, number]> = [
+    [245, 158, 11, 16, 185, 129],
+    [139, 92, 246, 236, 72, 153],
+    [6, 182, 212, 59, 130, 246],
+    [234, 88, 12, 124, 58, 237],
+  ];
+  const [r1, g1, b1, r2, g2, b2] = palettes[seed % palettes.length];
+  const seedPhase = seed % 7;
+
+  const rowLen = 1 + width * 3;
+  const rawScanlines = new Uint8Array(height * rowLen);
+  let ptr = 0;
+  let grain = seed | 1;
+  for (let y = 0; y < height; y++) {
+    rawScanlines[ptr++] = 0; // Filter type 0 (None)
+    const ny = y / height;
+    const dy = ny - 0.5;
+    const dySq = dy * dy;
+    const baseGradY = ny * 0.4;
+    for (let x = 0; x < width; x++) {
+      const nx = x / width;
+      const dx = nx - 0.5;
+      const distSq = dx * dx + dySq;
+      const ring = 0.5 + 0.5 * fastSin(distSq * 64.0 - seedPhase);
+      let mix = 0.65 * (nx * 0.6 + baseGradY) + 0.35 * ring;
+      if (mix < 0) mix = 0;
+      if (mix > 1) mix = 1;
+      const invMix = 1 - mix;
+      grain = (Math.imul(grain, 1664525) + 1013904223) >>> 0;
+      const dither = ((grain >>> 28) & 3) - 1;
+      rawScanlines[ptr++] = Math.max(0, Math.min(255, ((r1 * invMix + r2 * mix + 0.5) | 0) + dither));
+      rawScanlines[ptr++] = Math.max(0, Math.min(255, ((g1 * invMix + g2 * mix + 0.5) | 0) + dither));
+      rawScanlines[ptr++] = Math.max(0, Math.min(255, ((b1 * invMix + b2 * mix + 0.5) | 0) + dither));
+    }
+  }
+
+  const ihdrData = new Uint8Array(13);
+  const ihdrView = new DataView(ihdrData.buffer);
+  ihdrView.setUint32(0, width, false);
+  ihdrView.setUint32(4, height, false);
+  ihdrData[8] = 8; // 8-bit depth
+  ihdrData[9] = 2; // Truecolor RGB
+  ihdrData[10] = 0;
+  ihdrData[11] = 0;
+  ihdrData[12] = 0;
+
+  const compressedIdat = new Uint8Array(deflateSync(rawScanlines, { level: 1 }));
+  const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdrChunk = buildPngChunk('IHDR', ihdrData);
+  const idatChunk = buildPngChunk('IDAT', compressedIdat);
+  const iendChunk = buildPngChunk('IEND', new Uint8Array(0));
+
+  const totalLen =
+    signature.length + ihdrChunk.length + idatChunk.length + iendChunk.length;
+  const pngOut = new Uint8Array(totalLen);
+  let offset = 0;
+  pngOut.set(signature, offset);
+  offset += signature.length;
+  pngOut.set(ihdrChunk, offset);
+  offset += ihdrChunk.length;
+  pngOut.set(idatChunk, offset);
+  offset += idatChunk.length;
+  pngOut.set(iendChunk, offset);
+
+  return pngOut;
+}
+
+/**
  * Extracts a canonical R2 object key from legacy CDN, mock-storage, or `/r2/` URLs.
  */
 export function extractR2ObjectKey(rawUrl: string): string | null {
@@ -559,16 +665,18 @@ export async function synthesizeAndCacheMissingR2Object(
   ) {
     bytes = synthesizeStereoWavBytes({
       seedKey: cleanKey,
-      durationSec: 4,
+      durationSec: 24,
       sampleRate: 11025,
     });
     contentType = 'audio/wav';
   } else if (
     lower.endsWith('.png') ||
     lower.endsWith('.jpg') ||
-    lower.endsWith('.jpeg') ||
-    lower.endsWith('.bmp')
+    lower.endsWith('.jpeg')
   ) {
+    bytes = synthesizeCoverPngBytes(cleanKey);
+    contentType = 'image/png';
+  } else if (lower.endsWith('.bmp')) {
     bytes = synthesizeCoverArtworkBytes(cleanKey);
     contentType = 'image/bmp';
   } else if (lower.endsWith('.json')) {
@@ -583,7 +691,7 @@ export async function synthesizeAndCacheMissingR2Object(
   } else {
     bytes = synthesizeStereoWavBytes({
       seedKey: cleanKey,
-      durationSec: 4,
+      durationSec: 24,
       sampleRate: 11025,
     });
     contentType = 'audio/wav';

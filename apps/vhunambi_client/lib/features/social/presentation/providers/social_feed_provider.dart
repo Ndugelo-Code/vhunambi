@@ -133,6 +133,7 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
     if (_repo == null) return;
     try {
       final remoteClips = await _repo.getFeed(limit: 20);
+      if (!mounted) return;
       if (remoteClips.isNotEmpty) {
         final existingIds = state.clips.map((c) => c.id).toSet();
         final newClips = remoteClips
@@ -210,6 +211,7 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
           cursor: state.clips.length.toString(),
           limit: 10,
         );
+        if (!mounted) return;
         if (nextClips.isEmpty) {
           state = state.copyWith(isLoading: false, hasReachedEnd: true);
         } else {
@@ -227,6 +229,7 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
       } catch (_) {}
     }
     await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!mounted) return;
     state = state.copyWith(isLoading: false, hasReachedEnd: true);
   }
 

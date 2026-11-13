@@ -160,9 +160,11 @@ class GenerationRequestNotifier extends StateNotifier<GenerationRequestState> {
   Future<void> _validateAndUpdate(GenerationRequestModel newModel) async {
     try {
       newModel.validate();
+      if (!mounted) return;
       state = GenerationRequestState(model: newModel, isValid: true);
       await _persistState();
     } on GenerationRequestValidationException catch (e) {
+      if (!mounted) return;
       state = GenerationRequestState(
         model: newModel,
         isValid: false,
