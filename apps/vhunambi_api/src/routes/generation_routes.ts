@@ -217,13 +217,14 @@ generationRoutes.get('/:id', async (c) => {
       const ageMs = Date.now() - job.createdAt.getTime();
       if (ageMs > 45000) {
         const health = await checkRunPodEndpointHealth(c);
-        const noColdBootOrDisabled =
-          health.workersMax === 0 ||
-          (health.workersRunning === 0 &&
-            health.workersInitializing === 0 &&
-            health.workersIdle === 0 &&
-            health.workersReady === 0);
-        if (health.workersKnown && noColdBootOrDisabled) {
+        const endpointDisabled = health.workersMax === 0;
+        const staleUnscheduled =
+          ageMs > 240000 &&
+          health.workersRunning === 0 &&
+          health.workersInitializing === 0 &&
+          health.workersIdle === 0 &&
+          health.workersReady === 0;
+        if (health.workersKnown && (endpointDisabled || staleUnscheduled)) {
           setJobProviderTaskId(id, `mock_${id}`);
           updateJobProgress(id, {
             status: 'running',

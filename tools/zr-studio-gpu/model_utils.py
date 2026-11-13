@@ -65,6 +65,45 @@ GENRE_LORA_REGISTRY: Dict[str, Dict[str, Any]] = {
 }
 
 
+def _install_torchaudio_soundfile_compat() -> None:
+    """Guard PyTorch 2.9+/2.10 torchaudio I/O against missing torchcodec backends."""
+    try:
+        import torch
+        import torchaudio
+
+        if getattr(torchaudio, "_zr_sf_patched", False):
+            return
+
+        orig_save = torchaudio.save
+        orig_load = getattr(torchaudio, "load", None)
+
+        def safe_save(uri: Any, src: Any, sample_rate: int, *args: Any, **kwargs: Any) -> Any:
+            try:
+                return orig_save(uri, src, sample_rate, *args, **kwargs)
+            except Exception:
+                arr = src.detach().cpu().float().numpy() if hasattr(src, "detach") else np.asarray(src, dtype=np.float32)
+                if arr.ndim == 2 and arr.shape[0] <= 8 and arr.shape[1] > arr.shape[0]:
+                    arr = arr.T
+                sf.write(str(uri), arr, int(sample_rate), subtype="PCM_24")
+                return None
+
+        def safe_load(uri: Any, *args: Any, **kwargs: Any) -> Any:
+            try:
+                if orig_load is not None:
+                    return orig_load(uri, *args, **kwargs)
+            except Exception:
+                pass
+            data, sr = sf.read(str(uri), dtype="float32", always_2d=True)
+            return torch.from_numpy(data.T.copy()), int(sr)
+
+        torchaudio.save = safe_save  # type: ignore[assignment]
+        if orig_load is not None:
+            torchaudio.load = safe_load  # type: ignore[assignment]
+        torchaudio._zr_sf_patched = True  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+
 def resolve_hf_home() -> str:
     """Prefer RunPod Network Volume HF cache when mounted; fall back to /tmp/hf_cache."""
     env_hf = os.environ.get("HF_HOME", "").strip()
@@ -103,27 +142,29 @@ class ZRModelManager:
         return cls._instance
 
     def _try_load_ace_step_pipeline(self) -> None:
-        checkpoint_dir = os.environ.get(
-            "ACE_STEP_CHECKPOINT_DIR", "/models/ACE-Step-v1-3.5B"
-        )
+        default_ckpt = os.path.join(self.hf_home, "ACE-Step-v1-3.5B")
+        env_ckpt = os.environ.get("ACE_STEP_CHECKPOINT_DIR", "").strip()
+        checkpoint_dir = env_ckpt if (env_ckpt and os.path.exists(env_ckpt)) else default_ckpt
         try:
+            _install_torchaudio_soundfile_compat()
             import torch
             from acestep.pipeline_ace_step import ACEStepPipeline  # type: ignore
 
-            dtype = (
-                torch.bfloat16
+            dtype_str = (
+                "bfloat16"
                 if (torch.cuda.is_available() and self.precision == "bf16")
-                else torch.float32
+                else "float32"
             )
-            source = (
-                checkpoint_dir
-                if os.path.exists(checkpoint_dir)
-                else os.environ.get("ACE_STEP_HF_REPO", "ACE-Step/ACE-Step-v1-3.5B")
+            pipe = ACEStepPipeline(
+                checkpoint_dir=checkpoint_dir,
+                dtype=dtype_str,
+                persistent_storage_path=self.hf_home,
             )
-            self._pipeline = ACEStepPipeline.from_pretrained(source, torch_dtype=dtype)
+            pipe.load_checkpoint(checkpoint_dir=checkpoint_dir)
+            self._pipeline = pipe
             print(
-                f"[ZR-GPU] Loaded ACE-Step 1.5 neural pipeline in {self.precision} "
-                f"(source={source}, HF_HOME={self.hf_home})",
+                f"[ZR-GPU] Loaded ACE-Step 1.5 neural pipeline in {dtype_str} "
+                f"(checkpoint_dir={checkpoint_dir}, HF_HOME={self.hf_home})",
                 flush=True,
             )
         except Exception as exc:

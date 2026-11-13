@@ -11,15 +11,15 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Ensure ffmpeg and libsndfile1 are present for 320 kbps MP3 encoding & audio I/O
 RUN if ! command -v ffmpeg >/dev/null 2>&1 || ! dpkg -s libsndfile1 >/dev/null 2>&1; then \
-        apt-get update && apt-get install -y --no-install-recommends \
-            ffmpeg \
-            libsndfile1 \
-            git \
-            curl \
-        && rm -rf /var/lib/apt/lists/*; \
+    apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsndfile1 \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*; \
     fi
 
-# Install lightweight delta DSP/audio/cloud dependencies without rebuilding PyTorch
+# Install lightweight delta DSP/audio/cloud & ACE-Step runtime deps without rebuilding PyTorch 2.10
 COPY requirements.txt .
 RUN pip install --no-cache-dir \
     "pedalboard>=0.9.0" \
@@ -29,10 +29,22 @@ RUN pip install --no-cache-dir \
     "requests>=2.31.0" \
     "soundfile>=0.12.1" \
     "librosa>=0.10.1" \
-    "demucs>=4.0.0"
+    "demucs>=4.0.0" \
+    "torchvision==0.25.0" \
+    "loguru>=0.7.3" \
+    "pypinyin>=0.53.0" \
+    "hangul-romanize>=0.1.0" \
+    "num2words>=0.5.14" \
+    "py3langid>=0.3.0" \
+    "spacy>=3.8.0" \
+    "cutlet>=0.4.0" \
+    "fugashi>=1.3.0" \
+    "unidic-lite>=1.0.8" \
+    && pip install --no-cache-dir --no-deps "git+https://github.com/ace-step/ACE-Step.git"
 
-# Pre-download Demucs htdemucs model weights if not already cached in base layers
-RUN python -c "from demucs.pretrained import get_model; get_model('htdemucs')"
+# Pre-download Demucs htdemucs model weights, pin py3langid==0.3.0 (required for LanguageIdentifier.from_pickled_model), and verify ACE-Step init path
+RUN pip install --no-cache-dir --force-reinstall "py3langid==0.3.0" && \
+    python -c "from demucs.pretrained import get_model; get_model('htdemucs'); from acestep.pipeline_ace_step import ACEStepPipeline; from acestep.language_segmentation.LangSegment import LangSegment; from acestep.language_segmentation import language_filters; ls = LangSegment(); ls.setfilters(language_filters.default); from acestep.models.lyrics_utils.lyric_tokenizer import VoiceBpeTokenizer; VoiceBpeTokenizer(); import pedalboard, pyloudnorm; print('ZR GPU dependencies & ACE-Step tokenizer verified')"
 
 # Copy Vhunambi Phase 25-66 Python worker modules
 COPY model_utils.py .
