@@ -1,25 +1,27 @@
-# ZR Studio GPU Worker (`ndugelo/zr-studio-gpu:vhunambi-v2`)
+# ZR Studio GPU Worker (`ndugelo/zr-studio-gpu:vhunambi-v3`)
 
 Containerized Runpod Serverless GPU worker executing the 5-stage ZR Studio neural audio & MMO telemetry pipeline:
 
-1. **Stage 1 (`ace_step_synthesis`)**: Neural music synthesis via **ACE-Step 1.5 (3.5B)** (`bf16` precision) with dynamic genre LoRA adapter hot-loading (`loras/*.safetensors` fetched from Cloudflare R2 to `/tmp/zr_lora_cache`) and deterministic harmonic multi-stem fallback (`zr_harmonic_multi_stem_synthesizer`) if weights are unavailable.
-2. **Stage 2 (`demucs_stem_separation`)**: 4-stem (`bass`, `drums`, `vocals`, `melodic`) separation via Hybrid Demucs (`htdemucs`) with zero-crossing phase alignment.
+1. **Stage 1 (`ace_step_synthesis`)**: Neural music synthesis via **ACE-Step 1.5 (3.5B)** (`bf16` precision) with dynamic genre LoRA adapter hot-loading (`loras/*.safetensors` fetched from Cloudflare R2 to `/tmp/zr_lora_cache`), Latin-script Bantu language guard (prevents `LangSegment` CJK misclassification), and ACE-Step lyric sanitizer (strips non-structural brackets). Fallback: `zr_harmonic_multi_stem_synthesizer`.
+2. **Stage 2 (`demucs_stem_separation`)**: 4-stem (`bass`, `drums`, `vocals`, `melodic`) separation via Hybrid Demucs (`htdemucs`) with zero-crossing phase alignment. **Used ONLY for Stem Mixer deck — NOT for master re-summing.**
 3. **Stage 3 (`seed_vc_voice_conversion`)**: Optional zero-shot vocal timbre transfer via Seed-VC when `voiceModelId` is requested (`executed: false` when omitted).
-4. **Stage 4 (`stem_mastering_dsp`)**: ITU-R BS.1770-4 loudness normalization (`pyloudnorm`) and soft-knee true-peak limiting (`-9.5 LUFS` integrated, `-0.8 dBTP` ceiling) plus 320 kbps CBR MP3 master encoding (`ffmpeg`) and multi-track `.stems.zip` packaging.
+4. **Stage 4 (`stem_mastering_dsp`)**: Two mastering paths — (a) **Gentle clean path** (`master_clean_stereo_gentle`): 28 Hz high-pass → `−14.0 LUFS` gain (max `+6 dB`) → soft-knee true-peak at `−1.0 dBTP` — applied directly to ACE-Step stereo output when no `user_recipe` is present; (b) **Mastering Studio path**: existing 4-stem EQ + user-recipe DSP chain when `user_recipe` is explicitly provided.
 5. **Stage 5 (`mmo_telemetry_extraction`)**: 60 Hz frame-by-frame vectorscope stereo correlation, 32-band FFT, sub-bass mono correlation, crest factor, and dynamic range telemetry uploaded to R2 as `manifests/{stem_prefix}_measured_mmo.json` (`schemaVersion: "2.0"`, `provenance: "measured"`).
+
+> **v3 Key Changes:** `infer_steps` raised to `60`, `guidance_scale` to `12.0`, `omega_scale=10.0`, master LUFS target changed from `−9.5` to `−14.0` (streaming standard), Bantu language guard eliminates Chinese vocal misclassification, lyric sanitizer prevents sung stage directions.
 
 ---
 
 ## Live Production Deployment (`zr-studio-prod`)
 
-- **Runpod Serverless Endpoint ID**: `e7wt9pgo7djv55` (Version `6`)
-- **Docker Hub Image**: `ndugelo/zr-studio-gpu:vhunambi-v2`
-- **Image Digest**: `sha256:c5f35636bee0f9a8283161a6ec868756160679deef1881d5c4a82025fe4cf442`
+- **Runpod Serverless Endpoint ID**: `e7wt9pgo7djv55` (Version `7` — updated to `vhunambi-v3`)
+- **Docker Hub Image**: `ndugelo/zr-studio-gpu:vhunambi-v3` (delta from `vhunambi-v2` via `Dockerfile.delta`)
+- **Previous Image**: `ndugelo/zr-studio-gpu:vhunambi-v2` (`sha256:c5f35636bee0f9a8283161a6ec868756160679deef1881d5c4a82025fe4cf442`)
 - **Container Disk**: `30 GB`
 - **Workers Configuration**: `min: 0`, `max: 1`, `idleTimeout: 5s`, `executionTimeoutMs: 600000`
 - **GPU Pools**: `ADA_24` (RTX 4090), `AMPERE_24` (RTX 3090 / A5000), `AMPERE_16` (RTX A4000 / A4500), `AMPERE_48` (A40 / RTX A6000), `ADA_48_PRO` (RTX 6000 Ada / L40 / L40S)
 - **Excluded GPU Types**: `NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb`, `NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 2g.48gb`
-- **Cloudflare API Worker**: `https://vhunambi-api.ndugelosigwadi.workers.dev` (Version `89d35faa-ad36-4fdc-843c-126b89f460d4`)
+- **Cloudflare API Worker**: `https://vhunambi-api.ndugelosigwadi.workers.dev` (Version `4c44f443-74c0-419a-8e37-e226918098f6`)
 
 ### Verified Live E2E Neural Benchmark (2026-11-13, NVIDIA GeForce RTX 4090)
 

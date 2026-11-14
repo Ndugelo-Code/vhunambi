@@ -1797,3 +1797,115 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
     - `mmo_telemetry_extraction`: `16,781 ms` (`schemaVersion: "2.0"`, `provenance: "measured"`, `sampleRateHz: 60`, `frameCount: 718`).
   - **Flutter Client Live Cloud Command:**
     - `flutter run -d windows --dart-define=API_BASE_URL=https://vhunambi-api.ndugelosigwadi.workers.dev`
+
+---
+
+## 42. Phase 66 — VH001–VH006 Studio Cockpit Bug Fixes & Audio Quality Hardening (`2026-11-14`)
+
+### 42.1 Summary
+
+4 critical audio and parameter defects were discovered in live RTX 4090 testing on Huawei `JNY_LX1` (`EPHUT20917014649`) and fixed across the Flutter client, Cloudflare Worker API, and GPU worker container.
+
+- **Git Commit:** `c70fcde` — `fix(studio): VH001-VH006 cockpit wiring, ACE-Step lyric sanitizer, Chinese vocal guard, gentle -14 LUFS mastering`
+- **Branch:** `fix/studio-cockpit-bugs-vh001-vh006`
+- **Cloudflare Worker Version:** `4c44f443-74c0-419a-8e37-e226918098f6` (live at `https://vhunambi-api.ndugelosigwadi.workers.dev`)
+- **GPU Container:** `ndugelo/zr-studio-gpu:vhunambi-v3` (delta from `vhunambi-v2` via `Dockerfile.delta`)
+- **Runpod Endpoint:** `e7wt9pgo7djv55` updated to `vhunambi-v3`
+- **APK:** `app-release.apk` rebuilt (42.9 MB ARM64) with Phase 66 client fixes
+- **Test Status:** 22/22 API suites passing; `flutter analyze lib/features/studio lib/core` → 0 issues; `flutter test test/features/studio` → 270+ tests passing
+
+### 42.2 Root Causes & Fixes
+
+#### Bug 1: Cockpit Selections Ignored / `FakeLyricsGenerationService` Triggered
+
+- **Root Cause:** `POST /v1/lyrics/generate` Zod schema required `prompt: z.string().min(1)`. When Flutter sent `prompt: ""`, the Worker returned `400`, causing `HttpLyricsGenerationService` to silently fall back to `FakeLyricsGenerationService` which emitted hardcoded English lyrics (`"Golden sun shining through the trees..."`).
+- **Fix:** `apps/vhunambi_api/src/routes/lyrics_routes.ts` — `prompt` field changed to optional with `.transform()` defaulting to `'Untitled song'`. Zod 400s eliminated.
+- **Fix:** `apps/vhunambi_api/src/modules/lyrics/llm_handler.ts` — `generateLocalMockLyrics()` cleaned: stage-direction section headers removed, output wrapped in `sanitizeLyricsForClient()`.
+- **Fix:** `apps/vhunambi_client/lib/features/studio/data/services/fake_lyrics_generation_service.dart` — Added `isixhosa` and `sesotho` phrase/chorus banks; added language aliases `xh`, `st`, `tn`, `setswana`.
+
+#### Bug 2: ACE-Step Sang Stage Directions Out Loud
+
+- **Root Cause:** Descriptive bracket text (e.g., `[Log drum drop: heavy sub-808 sidechain layering]`, `[Crisp soft shakers...]`) in the `lyrics` field was tokenized verbatim by `VoiceBpeTokenizer` and sung as lyrics.
+- **Fix:** New file `apps/vhunambi_api/src/modules/lyrics/lyrics_sanitizer.ts` exports:
+  - `sanitizeLyricsForAceStep(raw)` — strips all non-structural brackets/parens; keeps only `[intro]`, `[verse]`, `[verse 1/2]`, `[pre-chorus]`, `[chorus]`, `[bridge]`, `[outro]`, `[instrumental]`, `[hook]`.
+  - `sanitizeLyricsForClient(raw)` — same + uppercase headers for Flutter parser.
+- Applied in: `lyrics_routes.ts`, `llm_handler.ts`, `prompt_compiler.ts`, `runpod_adapter.ts`, and `model_utils.py` (Python equivalent).
+
+#### Bug 3: Chinese Vocal Accent (`LangSegment` / `py3langid` Misclassification)
+
+- **Root Cause:** `LangSegment` inside the GPU container uses `py3langid` to guess language and pick phoneme tokenizer. `py3langid` does not recognize Tshivenḓa (`ve`), isiZulu (`zu`), isiXhosa (`xh`), or Sesotho (`st`). Short open-vowel Bantu words mixed with bracket tags were classified as Mandarin Chinese (`zh`) or Japanese (`ja`), activating Chinese pop vocal weights.
+- **Fix:** `tools/zr-studio-gpu/model_utils.py`:
+  - Added `_install_latin_language_guard()` — monkeypatches `VoiceBpeTokenizer.encode` to intercept any Latin-script Bantu text routed to `zh`/`ja`/`ko` and reclassify to `en` (Latin phoneme tokenizer).
+  - Called automatically after `ACEStepPipeline` loads.
+  - Added `sanitize_lyrics_for_ace_step()` Python equivalent applied before every synthesis call.
+
+#### Bug 4: Harsh White-Noise Distortion (−9.5 LUFS Stem Re-Summing)
+
+- **Root Cause:** `handler.py` was routing clean ACE-Step stereo output through `htdemucs` (4-stem lossy separation), applying aggressive EQ boosts in `stem_mastering_worker.py`, re-summing stems, then brickwall normalizing to `−9.5 LUFS`. Quiet piano/pad intros boosted by +10–12 dB into digital clipping.
+- **Fix:** `tools/zr-studio-gpu/stem_mastering_worker.py` — Added `master_clean_stereo_gentle()`: 28 Hz high-pass → gentle `−14.0 LUFS` gain (max `+6 dB`) → soft-knee true-peak at `−1.0 dBTP`.
+- **Fix:** `tools/zr-studio-gpu/handler.py` — Stage 5 mastering path now:
+  - If `user_recipe` present (Mastering Studio mode): uses existing 4-stem mastering path.
+  - Otherwise: uses `master_clean_stereo_gentle()` directly on ACE-Step output — Demucs is ONLY used to save 4 separate stems for the Stem Mixer deck.
+
+### 42.3 Diffusion Parameter Improvements
+
+| Parameter | Before | After | Reason |
+|---|---|---|---|
+| `infer_steps` | 45 | 60 | Better melody coherence on 3-min tracks |
+| `guidance_scale` | 15.0 | 12.0 | Reduces over-saturation / harsh harmonics |
+| `omega_scale` | — | 10.0 | ACE-Step 1.5 recommended scale |
+| Master LUFS target | −9.5 | −14.0 | Streaming loudness standard; prevents clipping |
+| True-peak ceiling | −0.8 dBTP | −1.0 dBTP | Codec headroom |
+
+### 42.4 Prompt Compiler Upgrade (`prompt_compiler.ts`)
+
+- Added `buildAceStepStyleTags()`: builds **comma-separated acoustic tags** from exact cockpit selections (genre, bpm, key, mood, language) instead of prose sentences.
+- ACE-Step 1.5's `umt5-base` text encoder responds best to tags like: `"south african 90s kwaito, township house groove, 102 bpm, deep rolling bassline, classic 909 drum machine, warm vintage synth stabs, soulful african vocals, clear studio mix"`.
+- Fuzzy genre match in `llm_handler.ts`, `constants.ts`, `model_utils.py`, and `language_context.ts`: longest-substring match so `"90s Kwaito"` → `kwaito` LoRA and system prompt.
+- `mood` field added end-to-end: `generation_routes.ts` schema → `SongSpecInput.mood` → `buildAceStepStyleTags()` → RunPod payload → GPU `generate_audio()`.
+
+### 42.5 New & Modified Files
+
+**New Files:**
+- [`apps/vhunambi_api/src/modules/lyrics/lyrics_sanitizer.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/modules/lyrics/lyrics_sanitizer.ts)
+- [`apps/vhunambi_api/test/phase66_audio_prompt_hygiene.test.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/test/phase66_audio_prompt_hygiene.test.ts)
+- [`tools/zr-studio-gpu/Dockerfile.delta`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/Dockerfile.delta)
+
+**Modified Files (Backend API):**
+- [`apps/vhunambi_api/src/routes/lyrics_routes.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/routes/lyrics_routes.ts) — `prompt` optional, sanitizer applied
+- [`apps/vhunambi_api/src/routes/generation_routes.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/routes/generation_routes.ts) — `mood` field added
+- [`apps/vhunambi_api/src/modules/lyrics/llm_handler.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/modules/lyrics/llm_handler.ts) — sanitizer, fuzzy genre match
+- [`apps/vhunambi_api/src/modules/lyrics/system_prompts.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/modules/lyrics/system_prompts.ts) — fuzzy genre prompt match
+- [`apps/vhunambi_api/src/modules/synthesis/constants.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/modules/synthesis/constants.ts) — `hasGenrePreset()` exported, fuzzy match
+- [`apps/vhunambi_api/src/modules/synthesis/prompt_compiler.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/modules/synthesis/prompt_compiler.ts) — `buildAceStepStyleTags()`, sanitizer, `inferSteps=60`
+- [`apps/vhunambi_api/src/modules/synthesis/runpod_adapter.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/modules/synthesis/runpod_adapter.ts) — sanitizer, `guidance_scale=12.0`
+- [`apps/vhunambi_api/src/modules/bantu/language_context.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/modules/bantu/language_context.ts) — multi-field fuzzy match
+
+**Modified Files (Flutter Client):**
+- [`apps/vhunambi_client/lib/features/studio/data/services/fake_lyrics_generation_service.dart`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/studio/data/services/fake_lyrics_generation_service.dart) — isiXhosa + Sesotho banks
+- [`apps/vhunambi_client/lib/features/studio/data/services/http_generation_submission_service.dart`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/studio/data/services/http_generation_submission_service.dart) — `mood` parameter
+- [`apps/vhunambi_client/lib/features/studio/presentation/providers/generation_pipeline_providers.dart`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/studio/presentation/providers/generation_pipeline_providers.dart) — passes `mood` from `studioFormProvider`
+
+**Modified Files (GPU Worker):**
+- [`tools/zr-studio-gpu/model_utils.py`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/model_utils.py) — `_install_latin_language_guard()`, `sanitize_lyrics_for_ace_step()`, `guidance_scale` from spec
+- [`tools/zr-studio-gpu/stem_mastering_worker.py`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/stem_mastering_worker.py) — `master_clean_stereo_gentle()` at −14 LUFS
+- [`tools/zr-studio-gpu/handler.py`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/handler.py) — bypasses destructive stem re-sum for master
+
+### 42.6 Verification Gates
+
+```bash
+# API tests (run from apps/vhunambi_api)
+npm test  # → 22/22 suites passing
+
+# Flutter analysis
+flutter analyze lib/features/studio lib/core  # → No issues found
+
+# Flutter tests
+flutter test test/features/studio  # → 270+ tests passing
+
+# Live Worker test (Tshivenḓa + 90s Kwaito)
+curl -X POST https://vhunambi-api.ndugelosigwadi.workers.dev/v1/lyrics/generate \
+  -H "Content-Type: application/json" \
+  -d '{"genre":"90s Kwaito","language":"tshivenda","prompt":""}'
+# → Returns clean Tshivenḓa stanzas with [Verse]/[Chorus] headers, no stage directions
+```
