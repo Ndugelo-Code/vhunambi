@@ -64,5 +64,16 @@ export const GENRE_PRESETS: Record<string, GenreSynthesisSpec> = {
 
 export function getGenrePreset(genre: string): GenreSynthesisSpec {
   const key = genre.toLowerCase().replace(/[^a-z]/g, '');
-  return GENRE_PRESETS[key] || GENRE_PRESETS['amapiano'];
+  if (GENRE_PRESETS[key]) return GENRE_PRESETS[key];
+  // Fuzzy: cockpit labels like "90s Kwaito" / "Private School Amapiano" must not
+  // silently fall back to Amapiano.
+  const fuzzy = Object.keys(GENRE_PRESETS).find((k) => key.includes(k));
+  return GENRE_PRESETS[fuzzy ?? 'amapiano'];
 }
+
+/** True when the genre string maps to a known preset (exact or fuzzy). */
+export function hasGenrePreset(genre: string): boolean {
+  const key = genre.toLowerCase().replace(/[^a-z]/g, '');
+  return Object.keys(GENRE_PRESETS).some((k) => key === k || key.includes(k));
+}
+

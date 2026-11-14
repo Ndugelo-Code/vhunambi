@@ -150,3 +150,19 @@ When the generation payload includes `svc_config` (`mode: 'catalog_archetype' | 
 See [`tools/zr-studio-gpu/seed_vc_worker.py`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/seed_vc_worker.py) for the complete implementation.
 
 
+
+
+---
+
+## 7. Production Deployment & Verified Neural GPU Telemetry (`ndugelo/zr-studio-gpu:vhunambi-v2`)
+
+The Tier 2 Runpod Serverless worker is deployed in production on endpoint `e7wt9pgo7djv55` (`zr-studio-prod`, Version `6`):
+
+- **Container Image**: `ndugelo/zr-studio-gpu:vhunambi-v2` (`sha256:c5f35636bee0f9a8283161a6ec868756160679deef1881d5c4a82025fe4cf442`)
+- **Neural Pipeline Implementation (`tools/zr-studio-gpu/model_utils.py` & `handler.py`)**:
+  - `ZRModelManager` executes **ACE-Step 1.5 (3.5B)** (`bf16`), **Hybrid Demucs (`htdemucs`)** 4-stem separation, optional **Seed-VC** timbre conversion, ITU-R BS.1770-4 loudness normalization (`-9.5 LUFS` / `-0.8 dBTP`), and 60 Hz frame-by-frame MMO telemetry extraction (`schemaVersion: "2.0"`, `provenance: "measured"`).
+  - Includes pinned `py3langid==0.3.0` (`LangSegment` / `VoiceBpeTokenizer` compatibility) and `_install_torchaudio_soundfile_compat()` for PyTorch `2.10.0+cu128` headless WAV I/O without `torchcodec`.
+- **Verified Live RTX 4090 Run (`2026-11-13`)**:
+  - **Generation ID**: `gen_1794592961751_fYwxtuyf` (Runpod job `55e360e7-7b61-427e-af42-802613ca8a60-e2` on `NVIDIA GeForce RTX 4090` worker `cyzvw06ap66gbw`).
+  - **Timings**: `ace_step_synthesis`: `40,198 ms` (`engine: "ace_step_1_5_bf16"`, `active_lora: "loras/amapiano_logdrum_v1.safetensors"`, `lora_weight: 0.85`), `demucs_stem_separation`: `1,247 ms`, `stem_mastering_dsp`: `1,888 ms`, `mmo_telemetry_extraction`: `16,781 ms` (`76,372 ms` total GPU execution time).
+  - **R2 Artifacts Verified (`zr-studio-audio`)**: `master.mp3` (`481,741` bytes), `_stems.zip` (`11,668,980` bytes), 4 WAV stems, and `_measured_mmo.json` (`frameCount: 718`, `durationMs: 11981`).

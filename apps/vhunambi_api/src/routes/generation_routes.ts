@@ -5,6 +5,7 @@ import { resolveRuntimeEnv } from '../config/env.js';
 import { isNodeSqliteAvailable, vhunambiDb } from '../db/vhunambi_db.js';
 import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
 import { compileSongSpec } from '../modules/synthesis/prompt_compiler.js';
+import { sanitizeLyricsForClient } from '../modules/lyrics/lyrics_sanitizer.js';
 import {
   dispatchSynthesisJob,
   checkRunPodJobStatus,
@@ -51,7 +52,8 @@ const SubmitGenerationSchema = z.object({
   tempoBpm: z.number().optional(),
   bpm: z.number().optional(),
   musicalKey: z.string().optional(),
-  durationSec: z.number().default(180),
+  mood: z.string().optional(),
+  durationSec: z.number().default(90),
   /** Optional user identifier — forwarded to RunPod worker as user_id */
   userId: z.string().optional(),
   /** Phase 26: Optional Regional Voice Archetype ID */
@@ -107,7 +109,7 @@ generationRoutes.post('/', async (c) => {
       genre: input.genre,
       language: input.language,
       durationSec: input.durationSec,
-      ...(compiledPrompt.lyrics ? { lyrics: compiledPrompt.lyrics } : {}),
+      ...(compiledPrompt.lyrics ? { lyrics: sanitizeLyricsForClient(compiledPrompt.lyrics) } : {}),
     });
 
     // 3. Dispatch to RunPod Serverless GPU (or Queue-Zero 4-stem R2 synthesis fallback)
@@ -140,7 +142,7 @@ generationRoutes.post('/', async (c) => {
         providerTaskId: dispatchResult.jobId,
         pollUrl: `/v1/generations/${generationId}`,
         websocketUrl,
-        ...(compiledPrompt.lyrics ? { lyrics: compiledPrompt.lyrics } : {}),
+        ...(compiledPrompt.lyrics ? { lyrics: sanitizeLyricsForClient(compiledPrompt.lyrics) } : {}),
         sonicTags: compiledPrompt.sonicTags ?? [],
         loras: compiledPrompt.loras ?? [],
         vocalIdentity: {

@@ -199,6 +199,7 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
       isInstrumental: isInstrumental,
       tempoBpm: tempoBpm ?? formSnapshot?.tempo.defaultBpm,
       musicalKey: resolvedMusicalKey,
+      mood: formSnapshot?.mood,
       selectedVoiceId: resolvedVoiceId,
       clonedVoiceProfileId: resolvedCloneId,
       melodyPattern: resolvedMelodyPattern,

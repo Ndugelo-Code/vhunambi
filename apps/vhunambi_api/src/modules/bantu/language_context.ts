@@ -90,15 +90,33 @@ export const MUSIC_LANGUAGES: MusicLanguageContext[] = [
 ];
 
 export function getLanguageContext(langCode: string): MusicLanguageContext {
-  const code = langCode.toLowerCase().split('-')[0];
-  return (
-    MUSIC_LANGUAGES.find((l) => l.languageCode === code) || {
-      languageCode: code,
-      languageName: 'African Dialect',
-      nativeName: 'African Dialect',
-      vocalStyleAdvice: 'Soulful African vocal delivery with authentic rhythm and regional warmth.',
-      phoneticNotes: 'Natural speech rhythm adhering to authentic tone and cadence.',
-      adLibs: ['Yebo!', 'Woza!', 'Eish!'],
-    }
+  const raw = (langCode || 've').trim().toLowerCase();
+  const code = raw.split('-')[0]!;
+  const found = MUSIC_LANGUAGES.find(
+    (l) =>
+      l.languageCode === code ||
+      l.languageName.toLowerCase() === raw ||
+      l.nativeName.toLowerCase() === raw ||
+      raw.includes(l.languageCode) ||
+      raw.includes(l.languageName.toLowerCase()),
   );
+  if (found) return found;
+  if (raw === 'en' || raw === 'english') {
+    return {
+      languageCode: 'en',
+      languageName: 'English',
+      nativeName: 'English',
+      vocalStyleAdvice: 'Contemporary African English delivery with soulful tone and clear diction.',
+      phoneticNotes: 'Standard Latin phonetic delivery.',
+      adLibs: ['Yeah!', 'Come on!', 'Let us go!'],
+    };
+  }
+  return {
+    languageCode: code,
+    languageName: 'African Dialect',
+    nativeName: 'African Dialect',
+    vocalStyleAdvice: 'Soulful African vocal delivery with authentic rhythm and regional warmth.',
+    phoneticNotes: 'Natural speech rhythm adhering to authentic tone and cadence.',
+    adLibs: ['Yebo!', 'Woza!', 'Eish!'],
+  };
 }

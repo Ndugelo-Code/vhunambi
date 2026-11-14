@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getGenreSystemPrompt } from '../modules/lyrics/system_prompts.js';
 import { generateLyricsFromLLM, parseStanzas } from '../modules/lyrics/llm_handler.js';
 import { refineLyricsWithLLM } from '../modules/lyrics/llm_handler.js';
+import { sanitizeLyricsForClient } from '../modules/lyrics/lyrics_sanitizer.js';
 import { MUSIC_LANGUAGES } from '../modules/bantu/language_context.js';
 import { STORY_GENRES, normalizeGenre, transformStoryToLyrics } from '../modules/lyrics/story_transform.js';
 import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
@@ -10,7 +11,11 @@ import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
 export const lyricsRoutes = new Hono<{ Bindings: VhunambiWorkerEnv }>();
 
 const GenerateLyricsSchema = z.object({
-  prompt: z.string().min(1),
+  // An empty prompt used to 400 -> client silently fell back to canned lyrics.
+  prompt: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim().length > 0 ? v.trim() : 'Untitled song')),
   genre: z.string().default('Amapiano'),
   language: z.string().default('ve'),
 });
@@ -34,10 +39,13 @@ lyricsRoutes.post('/generate', async (c) => {
       c,
     );
 
+    // Strip stage directions ACE-Step would sing; keep UPPERCASE headers for the client parser.
+    const cleanLyrics = sanitizeLyricsForClient(result.rawLyrics);
+
     return c.json({
       success: true,
-      rawLyrics: result.rawLyrics,
-      stanzas: result.stanzas,
+      rawLyrics: cleanLyrics,
+      stanzas: parseStanzas(cleanLyrics),
       vocalInstructions: result.vocalInstructions,
       detectedLanguage: result.detectedLanguage,
       moodAnalysis: result.moodAnalysis,
@@ -45,7 +53,11 @@ lyricsRoutes.post('/generate', async (c) => {
     });
   } catch (error) {
     console.error('[Lyrics Route Error]', error);
-    return c.json({ error: 'SYNTHESIS_ERROR', message: 'Failed to generate lyrics' }, 500);
+    return c.json({
+      error: 'SYNTHESIS_ERROR',
+      message: 'Failed to generate lyrics',
+      details: error instanceof Error ? error.stack || error.message : String(error),
+    }, 500);
   }
 });
 

@@ -585,9 +585,9 @@ async function runPhase64Tests(): Promise<void> {
     assert.ok(compiledP64.loras && compiledP64.loras.length >= 1);
     assert.equal(compiledP64.loras[0].path, 'loras/amapiano_logdrum_v1.safetensors');
     assert.equal(compiledP64.inferenceConfig?.precision, 'bf16');
-    assert.equal(compiledP64.inferenceConfig?.inferSteps, 45);
+    assert.equal(compiledP64.inferenceConfig?.inferSteps, 60);
     assert.ok((compiledP64.sonicTags?.length ?? 0) >= 5);
-    assert.ok(compiledP64.lyrics.includes('[CHORUS]'));
+    assert.ok(compiledP64.lyrics.toLowerCase().includes('[chorus]'));
     console.log('     ✅ G-64-06 Open-Source RunPod LLM & Two-Stage compiler passed');
 
     // -------------------------------------------------------------------------

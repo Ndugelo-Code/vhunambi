@@ -2,7 +2,7 @@
 
 > **DOCUMENT PURPOSE:** This is the single, authoritative handoff document for the Vhunambi monorepo. Any AI agent (Antigravity, Cline, Cursor, Windsurf) or human engineer resuming work on this repository can read this document and resume seamlessly with zero loss of context.
 >
-> **Last Updated:** 2026-11-12T00:57:00+02:00
+> **Last Updated:** 2026-11-13T20:37:00+02:00
 > **Repository Root:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\`  
 > **Client Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_client\`  
 > **Backend Workspace:** `c:\Users\Ndugelo\VHUNAMBI\monorepo\apps\vhunambi_api\`  
@@ -1775,6 +1775,25 @@ Extracted and synthesized from the Zania Explore codebase (`C:\Users\Ndugelo\Zan
 
 ### 40.2 Verified Operational Truth vs. Remaining Live-Cloud Gaps (Full Evidence in [`FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md` Section 11](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md#11-post-phase-63-live-cloud-deployment--physical-device-gap-audit-2026-11-12))
 1. **Main MiniPlayer Audio Transport Missing Hardware Override ([`main.dart`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/main.dart#L47-L52)):** `ProviderScope` does not invoke [`bootstrapPlatformAudioHandler`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/player/data/services/vhunambi_audio_handler.dart#L797-L831), leaving [`audioHandlerProvider`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/player/presentation/providers/audio_bridge_providers.dart#L41-L50) on headless `TestVhunambiAudioHandler` (timer ticks without speaker output). Sketchpad/Vocal previews (`RealSketchpadAudioPlayerService`) and 4-Stem Pocket DAW (`JustAudioMultiStemEngine`) DO play hardware `just_audio` sound.
-2. **RunPod Audio Endpoint (`e7wt9pgo7djv55`) Idle & `model_utils.py` Omitted:** Live Worker secrets dispatch real RunPod jobs, but `0` workers are active on `e7wt9pgo7djv55` (jobs queue past [`pollGenerationProgress`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/features/studio/data/services/http_generation_submission_service.dart#L118-L135)'s 90s cap) and [`tools/zr-studio-gpu/Dockerfile`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/Dockerfile#L21-L24) does not copy `model_utils.py`, triggering a 55/110 Hz sine fallback in `handler.py` unless baked into the image.
-3. **Worker Non-Auth Routes Use In-Isolate RAM (`EdgeIsolateDatabaseEngine`):** Only `auth_routes.ts` talks to `SupabaseCloudDriver`; all other Worker routes still read/write per-isolate JS memory rather than Postgres tables (`HYPERDRIVE` commented out in `wrangler.toml`), causing isolate-hop `404` risk (`GET /v1/generations/:id`) and volatile writes across Worker restarts.
-4. **R2 Empty Catalog, Fallbacks & Strict Auth UX:** Seeded catalog MP3s/covers 404 until uploaded to `zr-studio-audio`; missing `ANTHROPIC_API_KEY`/`GROK_API_KEY` and `RUNPOD_COMFYUI_*` trigger template lyrics and 1x1 PNG / 32-byte empty `.mp4` R2 placeholders; `/v1/voices/signatures/:id/analyze` is an `enqueued` stub; PayFast runs in Sandbox; fresh installs require signing in via `ProfileSettingsDrawer` $\to$ `SovereignAuthSheet` due to `VHUNAMBI_AUTH_MODE = "strict"`.
+2. **Runpod Audio Endpoint (`e7wt9pgo7djv55`) — RESOLVED IN PHASE 64 (`2026-11-13`):** Built & deployed `ndugelo/zr-studio-gpu:vhunambi-v2` (with `model_utils.py`, `py3langid==0.3.0`, and PyTorch 2.10 `soundfile` I/O compat) to `e7wt9pgo7djv55` (version 6, `disk: 30` GB, `ADA_24`/`AMPERE_24`/`AMPERE_16`/`AMPERE_48`/`ADA_48_PRO` pools) and verified live neural `ace_step_1_5_bf16` execution on `NVIDIA GeForce RTX 4090` (`gen_1794592961751_fYwxtuyf`).
+3. **Worker Non-Auth Routes Persisted via `SupabaseCloudDriver` — RESOLVED IN PHASE 64:** Wired generations, library, marketplace, and wallet routes in `workerd` to persist through `SupabaseCloudDriver` + R2 objects (`80` pre-seeded catalog MP3s/covers/stems/LoRAs uploaded to `zr-studio-audio`).
+4. **Remaining Optional Keys & Sandbox Modes:** Missing `ANTHROPIC_API_KEY`/`GROK_API_KEY` and `RUNPOD_COMFYUI_*` fall back gracefully when unset; PayFast runs in Sandbox; fresh installs require signing in via `ProfileSettingsDrawer` $\to$ `SovereignAuthSheet` due to `VHUNAMBI_AUTH_MODE = "strict"`.
+
+---
+
+## 41. Phase 64 & Live Runpod Neural GPU Verification (`2026-11-13`)
+
+- **Location:** [`docs/phases/phase_64_full_production_pipeline_and_lora_gpu_activation/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_64_full_production_pipeline_and_lora_gpu_activation/blueprint.md) & [`tools/zr-studio-gpu/README.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/tools/zr-studio-gpu/README.md)
+- **Status:** Complete (`21/21` backend test suites passing; live Cloudflare Worker `89d35faa-ad36-4fdc-843c-126b89f460d4` & Runpod Serverless endpoint `e7wt9pgo7djv55` version `6` verified end-to-end on `NVIDIA GeForce RTX 4090`).
+- **Scope & Live Telemetry:**
+  - **Container Image (`ndugelo/zr-studio-gpu:vhunambi-v2`):** Digest `sha256:c5f35636bee0f9a8283161a6ec868756160679deef1881d5c4a82025fe4cf442`. Includes `handler.py`, `model_utils.py` (`ZRModelManager`), `r2_client.py`, `lora_trainer.py`, pinned `py3langid==0.3.0` (`VoiceBpeTokenizer` build-time smoke test), and `_install_torchaudio_soundfile_compat()` for PyTorch `2.10.0+cu128`.
+  - **Runpod Serverless Endpoint (`e7wt9pgo7djv55`, Version `6`):** Configured with `disk: 30` GB, `workers: { min: 0, max: 1, idleTimeout: 5 }`, GPU pools `["ADA_24", "AMPERE_24", "AMPERE_16", "AMPERE_48", "ADA_48_PRO"]`, and Blackwell MIG exclusions.
+  - **Cold-Start Queue Resilience ([`generation_routes.ts`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_api/src/routes/generation_routes.ts)):** Extended `IN_QUEUE` simulation fallback threshold from `45,000 ms` to `240,000 ms` when `workersMax > 0` so scale-from-zero GPU cold starts complete without premature simulation fallback.
+  - **Verified Live E2E Run (`gen_1794592961751_fYwxtuyf` / Job `55e360e7-7b61-427e-af42-802613ca8a60-e2`):**
+    - Executed on `cyzvw06ap66gbw` (`NVIDIA GeForce RTX 4090`, `US-TX-3`): `delayTime: 110,204 ms`, `executionTime: 76,372 ms`.
+    - `ace_step_synthesis`: `40,198 ms` (`engine: "ace_step_1_5_bf16"`, `precision: "bf16"`, `infer_steps: 45`, `active_lora: "loras/amapiano_logdrum_v1.safetensors"`, `lora_weight: 0.85`).
+    - `demucs_stem_separation`: `1,247 ms` (4 WAV stems uploaded to R2).
+    - `stem_mastering_dsp`: `1,888 ms` (`integrated_lufs: -9.5`, `true_peak_dbtp: -0.8`, `master.mp3`: `481,741` bytes, `stems.zip`: `11,668,980` bytes).
+    - `mmo_telemetry_extraction`: `16,781 ms` (`schemaVersion: "2.0"`, `provenance: "measured"`, `sampleRateHz: 60`, `frameCount: 718`).
+  - **Flutter Client Live Cloud Command:**
+    - `flutter run -d windows --dart-define=API_BASE_URL=https://vhunambi-api.ndugelosigwadi.workers.dev`

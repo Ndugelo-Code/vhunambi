@@ -85,8 +85,7 @@ CRITICAL RULES:
 
 export function getGenreSystemPrompt(genre: string): string {
   const normalized = genre.toLowerCase().replace(/[^a-z]/g, '');
-  return (
-    AFRICAN_GENRE_PROMPTS[normalized] ||
-    AFRICAN_GENRE_PROMPTS['amapiano']
-  );
+  if (AFRICAN_GENRE_PROMPTS[normalized]) return AFRICAN_GENRE_PROMPTS[normalized];
+  const fuzzy = Object.keys(AFRICAN_GENRE_PROMPTS).find((k) => normalized.includes(k));
+  return fuzzy ? AFRICAN_GENRE_PROMPTS[fuzzy]! : AFRICAN_GENRE_PROMPTS['amapiano']!;
 }

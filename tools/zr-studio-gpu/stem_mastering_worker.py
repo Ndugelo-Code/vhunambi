@@ -415,6 +415,75 @@ def master_stems_with_recipe(
     return master_out
 
 
+def master_clean_stereo_gentle(
+    audio: np.ndarray,
+    sr: int,
+    target_lufs: float = -14.0,
+    true_peak_db: float = -1.0,
+    highpass_hz: float = 28.0,
+    max_gain_db: float = 6.0,
+) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """
+    Gentle master for an already-mixed ACE-Step stereo waveform (shape: channels x samples).
+
+    The earlier pipeline re-summed Demucs stems, EQ-boosted them and slammed the result to
+    -9.5 LUFS, lifting the diffusion noise floor of quiet intros by +8..+12 dB. Here:
+      * 28 Hz high-pass (DC / sub-rumble only),
+      * loudness gain toward `target_lufs`, capped at `max_gain_db` of boost (never attenuation-limited),
+      * soft true-peak ceiling at `true_peak_db` (sample-peak safe, no brickwall pumping).
+    """
+    x = np.asarray(audio, dtype=np.float64)
+    if x.ndim == 1:
+        x = np.stack([x, x])
+
+    if signal is not None and highpass_hz > 0:
+        sos = signal.butter(2, highpass_hz, btype="highpass", fs=sr, output="sos")
+        x = np.stack([signal.sosfiltfilt(sos, ch) for ch in x])
+
+    measured = None
+    if pyln is not None:
+        try:
+            meter = pyln.Meter(sr)
+            measured = float(meter.integrated_loudness(x.T))
+        except Exception:
+            measured = None
+    if measured is None or not np.isfinite(measured):
+        rms = float(np.sqrt(np.mean(np.square(x)) + 1e-12))
+        measured = 20.0 * np.log10(rms + 1e-12) - 0.7
+
+    gain_db = float(np.clip(target_lufs - measured, -18.0, max_gain_db))
+    x = x * (10.0 ** (gain_db / 20.0))
+
+    ceiling = 10.0 ** (true_peak_db / 20.0)
+    peak = float(np.max(np.abs(x)) + 1e-12)
+    if peak > ceiling:
+        # soft-knee: tanh-style roll-off above 85% of the ceiling, then hard trim to ceiling
+        knee = 0.85 * ceiling
+        over = np.abs(x) > knee
+        sign = np.sign(x)
+        span = ceiling - knee
+        x = np.where(over, sign * (knee + span * np.tanh((np.abs(x) - knee) / span)), x)
+        x = np.clip(x, -ceiling, ceiling)
+
+    final_lufs = measured + gain_db
+    if pyln is not None:
+        try:
+            final_lufs = float(pyln.Meter(sr).integrated_loudness(x.T))
+        except Exception:
+            pass
+    final_peak_db = float(20.0 * np.log10(np.max(np.abs(x)) + 1e-12))
+    metrics = {
+        "mode": "gentle_direct_master",
+        "input_lufs": round(measured, 2),
+        "gain_db": round(gain_db, 2),
+        "integrated_lufs": round(final_lufs, 2),
+        "true_peak_dbtp": round(final_peak_db, 2),
+        "target_lufs": target_lufs,
+        "highpass_hz": highpass_hz,
+    }
+    return x.astype(np.float32), metrics
+
+
 def master_stems_to_commercial_target(
     stems: Dict[str, np.ndarray],
     sr: int,

@@ -93,13 +93,13 @@ async function runPhase16Tests() {
     assert.strictEqual(capturedHeaders['Authorization'], 'Bearer test_api_key');
     assert.strictEqual(capturedHeaders['Content-Type'], 'application/json');
 
-    // Validate handler.py schema compliance (Phase 64 bf16 / 45 steps / LoRA)
+    // Validate handler.py schema compliance (Phase 64 bf16 / 60 steps / LoRA)
     assert(capturedBody.input, 'Request must contain input object');
     assert.strictEqual(capturedBody.input.job_id, 'vhunambi_runpod_gen_99', 'job_id must be prefixed');
     assert.strictEqual(capturedBody.input.user_id, 'creator_ndugelo', 'user_id must match');
     assert.strictEqual(capturedBody.input.webhook_url, 'https://tunnel.example.com/v1/webhooks/ace-step');
     assert(Array.isArray(capturedBody.input.loras) && capturedBody.input.loras.length >= 1, 'Genre/vocal LoRA adapter must be attached');
-    assert.strictEqual(capturedBody.input.infer_steps, 45);
+    assert.strictEqual(capturedBody.input.infer_steps, 60);
     assert.strictEqual(capturedBody.input.precision, 'bf16');
 
     const songSpec = capturedBody.input.song_spec;

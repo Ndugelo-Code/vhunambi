@@ -1,3 +1,4 @@
+import { sanitizeLyricsForAceStep } from '../lyrics/lyrics_sanitizer.js';
 import type { Context } from 'hono';
 import { resolveRuntimeEnv } from '../../config/env.js';
 import type { VhunambiWorkerEnv } from '../../types/cloudflare_worker_types.js';
@@ -213,7 +214,7 @@ export async function dispatchSynthesisJob(
   const webhookUrl = `${runtimeEnv.WEBHOOK_BASE_URL.replace(/\/+$/, '')}/v1/webhooks/ace-step`;
   const jobId = `vhunambi_${generationId}`;
   const resolvedLoRAs = resolveGenreLoRAs(prompt.metadata.genre, prompt.loras);
-  const inferSteps = prompt.inferenceConfig?.inferSteps ?? 45;
+  const inferSteps = prompt.inferenceConfig?.inferSteps ?? 60;
   const precision = prompt.inferenceConfig?.precision ?? 'bf16';
 
   // If RunPod credentials are configured, check endpoint state only to abort when max=0;
@@ -246,10 +247,11 @@ export async function dispatchSynthesisJob(
                 tempo: prompt.metadata.bpm,
                 mood: prompt.metadata.mood,
                 duration: prompt.metadata.durationSec,
-                lyrics: prompt.lyrics,
+                lyrics: sanitizeLyricsForAceStep(prompt.lyrics),
                 language: prompt.metadata.language,
                 caption: prompt.caption,
                 infer_steps: inferSteps,
+                guidance_scale: prompt.inferenceConfig?.guidanceScale ?? 12.0,
                 ...(prompt.sonicTags ? { sonic_tags: prompt.sonicTags } : {}),
                 ...(prompt.metadata.title ? { title: prompt.metadata.title } : {}),
               },

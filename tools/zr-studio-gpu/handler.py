@@ -6,7 +6,7 @@ Sequential 5-Stage Orchestration:
   Stage 1: ACE-Step 1.5 Synthesis
   Stage 2: Demucs v4 4-Stem Separation
   Stage 3: Seed-VC Zero-Shot Voice Conversion (Bantu Tone / Depressor Preserved)
-  Stage 4: Phase 25 Stem Mastering DSP (-9.5 LUFS / -14.0 LUFS Target)
+  Stage 4: Gentle direct master of the clean ACE-Step waveform (-14 LUFS / -1 dBTP); Demucs stems exported untouched
   Stage 5: MMO v2.0 Measured 60Hz Telemetry Extraction
 """
 
@@ -30,7 +30,7 @@ from mmo_extractor import (
     STEM_ROLES,
 )
 from seed_vc_worker import convert_vocal_stem_with_seed_vc
-from stem_mastering_worker import master_stems_to_commercial_target
+from stem_mastering_worker import master_stems_to_commercial_target, master_clean_stereo_gentle
 
 WEBHOOK_SECRET = os.environ.get("ZR_WEBHOOK_SECRET", "")
 
@@ -88,7 +88,7 @@ def runpod_handler(job: dict) -> dict:
         song_spec["reference_audio_url"] = reference_audio_url
 
     bpm = float(song_spec.get("tempo", 112.0))
-    duration_sec = int(song_spec.get("duration", 30))
+    duration_sec = int(song_spec.get("duration", 90))
     title = song_spec.get("title", "Studio Master")
     genre = song_spec.get("genre", "Amapiano")
     language = song_spec.get("language", "English")
@@ -256,40 +256,62 @@ def runpod_handler(job: dict) -> dict:
                     except Exception as inj_err:
                         print(f"[GPU Worker] Warning: failed to inject locked stem {stem_name}: {inj_err}")
 
-        mastering_recipe = job_input.get("mastering_recipe") or {
-            "target_lufs": -9.5,
-            "true_peak_db": -0.8,
-            "log_drum_sub_boost": 1.25,
-            "sidechain_ducking": -2.5,
-        }
+        user_recipe = job_input.get("mastering_recipe")
+        if user_recipe:
+            # Explicit client-supplied 4-stem recipe (Mastering Studio): legacy stem path.
+            stems_for_mastering = {}
+            sr_mastering = 44100
+            for role, p in stem_paths.items():
+                data, read_sr = sf.read(p, dtype="float32")
+                sr_mastering = int(read_sr or sr_mastering)
+                stems_for_mastering[role] = data.T if data.ndim > 1 else data
 
-        stems_for_mastering = {}
-        sr_mastering = 44100
-        for role, p in stem_paths.items():
-            data, read_sr = sf.read(p, dtype="float32")
-            sr_mastering = int(read_sr or sr_mastering)
-            stems_for_mastering[role] = data.T if data.ndim > 1 else data
-
-        mastered_master, processed_stems, mastering_metrics = master_stems_to_commercial_target(
-            stems=stems_for_mastering,
-            sr=sr_mastering,
-            recipe=mastering_recipe,
-            transient_events=transient_events,
-        )
-        sf.write(
-            master_wav_path,
-            mastered_master.T if mastered_master.ndim > 1 else mastered_master,
-            sr_mastering,
-            subtype="PCM_24",
-        )
-        for role, stem_arr in processed_stems.items():
-            if role in stem_paths and os.path.exists(stem_paths[role]):
-                sf.write(
-                    stem_paths[role],
-                    stem_arr.T if stem_arr.ndim > 1 else stem_arr,
-                    sr_mastering,
-                    subtype="PCM_24",
-                )
+            mastered_master, processed_stems, mastering_metrics = master_stems_to_commercial_target(
+                stems=stems_for_mastering,
+                sr=sr_mastering,
+                recipe=user_recipe,
+                transient_events=transient_events,
+            )
+            sf.write(
+                master_wav_path,
+                mastered_master.T if mastered_master.ndim > 1 else mastered_master,
+                sr_mastering,
+                subtype="PCM_24",
+            )
+            for role, stem_arr in processed_stems.items():
+                if role in stem_paths and os.path.exists(stem_paths[role]):
+                    sf.write(
+                        stem_paths[role],
+                        stem_arr.T if stem_arr.ndim > 1 else stem_arr,
+                        sr_mastering,
+                        subtype="PCM_24",
+                    )
+        else:
+            # Default: master the CLEAN ACE-Step stereo waveform directly (no Demucs re-sum,
+            # no stem EQ boosts, no -9.5 LUFS brickwall). Demucs stems are exported untouched.
+            clean, sr_clean = sf.read(master_wav_path, dtype="float32", always_2d=True)
+            sr_clean = int(sr_clean or 44100)
+            clean = clean.T  # channels x samples
+            if svc_executed:
+                # Custom voice active: vocals were replaced, so the master must be rebuilt from stems.
+                summed = None
+                for role, p in stem_paths.items():
+                    s, s_sr = sf.read(p, dtype="float32", always_2d=True)
+                    s = s.T
+                    if summed is None:
+                        summed = s.copy()
+                    else:
+                        n = min(summed.shape[1], s.shape[1])
+                        summed = summed[:, :n] + s[:, :n]
+                if summed is not None:
+                    clean = summed
+            mastered_master, mastering_metrics = master_clean_stereo_gentle(
+                clean,
+                sr_clean,
+                target_lufs=float(job_input.get("target_lufs", -14.0)),
+                true_peak_db=-1.0,
+            )
+            sf.write(master_wav_path, mastered_master.T, sr_clean, subtype="PCM_24")
 
         stage_metrics.append({
             "name": "stem_mastering_dsp",

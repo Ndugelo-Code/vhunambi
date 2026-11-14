@@ -13,8 +13,8 @@ async function runTests() {
     genre: 'Amapiano',
     language: 've',
   });
-  assert(compiled.caption.includes('Amapiano'), 'Caption should contain Amapiano genre');
-  assert(compiled.caption.includes('112 BPM'), 'Caption should contain default 112 BPM');
+  assert(compiled.caption.toLowerCase().includes('amapiano'), 'Caption should contain Amapiano genre');
+  assert(compiled.caption.toLowerCase().includes('112 bpm'), 'Caption should contain default 112 BPM');
   assert(compiled.metadata.bpm === 112, 'Metadata BPM should be 112');
   console.log('     ✅ compileSongSpec passed');
 

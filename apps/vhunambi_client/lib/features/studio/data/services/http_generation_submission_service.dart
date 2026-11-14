@@ -55,6 +55,7 @@ class HttpGenerationSubmissionService {
     bool isInstrumental = false,
     int? tempoBpm,
     String? musicalKey,
+    String? mood,
     String? selectedVoiceId,
     String? clonedVoiceProfileId,
     Map<String, dynamic>? melodyPattern,
@@ -84,6 +85,7 @@ class HttpGenerationSubmissionService {
           'isInstrumental': isInstrumental,
           'tempoBpm': tempoBpm,
           'musicalKey': musicalKey,
+          if (mood != null && mood.trim().isNotEmpty) 'mood': mood.trim(),
           if (selectedVoiceId != null && selectedVoiceId.isNotEmpty)
             'selectedVoiceId': selectedVoiceId,
           if (clonedVoiceProfileId != null && clonedVoiceProfileId.isNotEmpty)

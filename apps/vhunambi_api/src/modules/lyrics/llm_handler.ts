@@ -2,8 +2,9 @@ import type { Context } from 'hono';
 import { resolveRuntimeEnv } from '../../config/env.js';
 import type { VhunambiWorkerEnv } from '../../types/cloudflare_worker_types.js';
 import { getLanguageContext } from '../bantu/language_context.js';
-import { VENDA_IDIOMS, VENDA_MUSICAL_TERMS } from '../bantu/tshi_venda.js';
+import { VENDA_IDIOMS } from '../bantu/tshi_venda.js';
 import { getGenrePreset } from '../synthesis/constants.js';
+import { sanitizeLyricsForClient } from './lyrics_sanitizer.js';
 
 export interface StanzaItem {
   type: string;
@@ -258,29 +259,29 @@ export function generateLocalMockLyrics(
     'syncopated percussion calling dancers into the circle',
   ];
   const grooveLine = grooveDescriptors[seed % grooveDescriptors.length];
-  const chorusRefrain = `${chosenIdiom} — ${kw0} & ${kw1} in the ${genre} groove`;
+  const chorusRefrain = `${chosenIdiom}, ${kw0} and ${kw1} tonight`;
 
-  const rawLyrics = `[INTRO]
+  const rawLyrics = sanitizeLyricsForClient(`[INTRO]
 ${adLib0}
 ${adLib1}
-Vhunambi (${VENDA_MUSICAL_TERMS.ngoma}) — ${langCtx.nativeName} ${genre} Session
+
 
 [VERSE 1]
-Step into the ${kw0} light, carried on a ${preset.defaultBpm} BPM tide
+Step into the ${kw0} light, carried on the evening tide
 ${kw1} and ${kw2} moving side by side
 ${chosenIdiom}
 With ${grooveLine}
 
 [PRE-CHORUS]
-Feel ${kw2} rising in the chest, every heartbeat tuned in ${preset.defaultKey}
+Feel ${kw2} rising in the chest, every heartbeat in time
 Hold onto ${kw3} till the dawn breaks bright and new
 ${adLib2}
 
 [CHORUS]
 ${chorusRefrain}
 Every voice answering together: ${secondaryIdiom}
-From ${kw0} to the stars, we lift the ${genre} crown
-Sing it in ${langCtx.nativeName}, let the ancestral groove stay deep
+From ${kw0} to the stars, we lift our voices high
+Let the ancestral rhythm stay deep
 
 [VERSE 2]
 Yesterday's echoes turn to ${kw2} gold inside the sound
@@ -289,13 +290,13 @@ ${secondaryIdiom}
 Voices woven strong in ${langCtx.nativeName} harmony
 
 [BRIDGE]
-Strip it back to breath and sub-bass pulse (${kw3})
+Strip it back to breath and pulse
 Hear ${kw0} whispering through the choir and the drums
 ${adLib3}
 
 [OUTRO]
-${adLib0} (${kw0} forever...)
-${chosenIdiom} — the rhythm remains in motion.`;
+${adLib0}, ${kw0} forever
+${chosenIdiom} — the rhythm remains in motion.`);
 
   return {
     rawLyrics,
@@ -379,7 +380,13 @@ export function planSonicArrangementFromPrompt(
       weight: 0.85,
     },
   };
-  const recommendedLoRA = loraMap[gNorm] ?? loraMap.amapiano;
+  const loraKey =
+    loraMap[gNorm] !== undefined
+      ? gNorm
+      : Object.keys(loraMap)
+        .filter((k) => gNorm.includes(k))
+        .sort((a, b) => b.length - a.length)[0];
+  const recommendedLoRA = (loraKey ? loraMap[loraKey] : undefined) ?? loraMap.amapiano;
 
   const sonicTags = [
     genre.toLowerCase(),

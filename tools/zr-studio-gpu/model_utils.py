@@ -10,6 +10,7 @@ Responsibilities:
 """
 
 import os
+import re
 import math
 import hashlib
 from typing import Any, Dict, List, Optional
@@ -63,6 +64,84 @@ GENRE_LORA_REGISTRY: Dict[str, Dict[str, Any]] = {
         "default_weight": 0.85,
     },
 }
+
+
+_CJK_RE = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af]")
+_ALLOWED_SECTION_RE = re.compile(
+    r"^(intro|verse(?:\s*\d+)?|pre-?chorus|chorus(?:\s*\d+)?|bridge|outro|instrumental|hook)$"
+)
+
+
+def sanitize_lyrics_for_ace_step(raw_lyrics: str) -> str:
+    """Keep only structural section tags; strip stage directions ACE-Step would sing aloud."""
+    if not raw_lyrics:
+        return ""
+    out: List[str] = []
+    for original in str(raw_lyrics).replace("\r", "").split("\n"):
+        line = original.strip()
+        if not line:
+            if out and out[-1] != "":
+                out.append("")
+            continue
+
+        def _label(raw: str) -> Optional[str]:
+            head = re.split(r"[:\-\u2013\u2014]", raw)[0].strip().lower()
+            head = re.sub(r"\s+", " ", head)
+            head = {"pre chorus": "pre-chorus", "prechorus": "pre-chorus"}.get(head, head)
+            return head if _ALLOWED_SECTION_RE.match(head) else None
+
+        whole = re.fullmatch(r"\[([^\]]*)\]", line)
+        if whole:
+            lab = _label(whole.group(1))
+            if lab:
+                out.append(f"[{lab}]")
+            continue
+        if re.fullmatch(r"\([^)]*\)", line):
+            continue
+        rest = line
+        lead = re.match(r"^\[([^\]]*)\]\s*(.*)$", rest)
+        if lead:
+            lab = _label(lead.group(1))
+            if lab:
+                out.append(f"[{lab}]")
+            rest = lead.group(2)
+        cleaned = re.sub(r"\s{2,}", " ", re.sub(r"\([^)]*\)", " ", re.sub(r"\[[^\]]*\]", " ", rest))).strip()
+        if cleaned:
+            out.append(cleaned)
+    while out and out[0] == "":
+        out.pop(0)
+    while out and out[-1] == "":
+        out.pop()
+    return "\n".join(out)
+
+
+def _install_latin_language_guard() -> bool:
+    """
+    ACE-Step's VoiceBpeTokenizer.encode(txt, "auto") runs LangSegment/py3langid, which
+    cannot identify Tshivenda/isiZulu/isiXhosa/Sesotho and misroutes short open-vowel
+    Latin-script Bantu words to Mandarin/Japanese (producing a Chinese vocal timbre).
+    Force Latin phoneme routing ("en") whenever the text contains no CJK characters.
+    """
+    try:
+        from acestep.models.lyrics_utils.lyric_tokenizer import VoiceBpeTokenizer  # type: ignore
+
+        if getattr(VoiceBpeTokenizer, "_zr_latin_guard", False):
+            return True
+        orig_encode = VoiceBpeTokenizer.encode
+
+        def guarded_encode(self: Any, txt: Any, lang: str = "en", *args: Any, **kwargs: Any) -> Any:
+            if isinstance(txt, str) and not _CJK_RE.search(txt):
+                if lang in ("auto", "zh", "zh-cn", "ja", "ko", "yue"):
+                    lang = "en"
+            return orig_encode(self, txt, lang, *args, **kwargs)
+
+        VoiceBpeTokenizer.encode = guarded_encode  # type: ignore[assignment]
+        VoiceBpeTokenizer._zr_latin_guard = True  # type: ignore[attr-defined]
+        print("[ZR-GPU] Latin-script language guard installed on VoiceBpeTokenizer.encode", flush=True)
+        return True
+    except Exception as exc:
+        print(f"[ZR-WARN] Latin language guard not installed: {exc}", flush=True)
+        return False
 
 
 def _install_torchaudio_soundfile_compat() -> None:
@@ -125,8 +204,8 @@ class ZRModelManager:
         print(f"[ZR-GPU] HuggingFace cache configured at HF_HOME={self.hf_home}", flush=True)
 
         self.precision: str = os.environ.get("ACE_STEP_PRECISION", "bf16")
-        self.infer_steps: int = int(os.environ.get("ACE_STEP_INFER_STEPS", "45"))
-        self.guidance_scale: float = float(os.environ.get("ACE_STEP_GUIDANCE_SCALE", "15.0"))
+        self.infer_steps: int = int(os.environ.get("ACE_STEP_INFER_STEPS", "60"))
+        self.guidance_scale: float = float(os.environ.get("ACE_STEP_GUIDANCE_SCALE", "12.0"))
         self.sample_rate: int = 44100
         self.lora_cache_dir: str = os.environ.get("ZR_LORA_CACHE_DIR", "/tmp/zr_lora_cache")
         os.makedirs(self.lora_cache_dir, exist_ok=True)
@@ -161,6 +240,7 @@ class ZRModelManager:
                 persistent_storage_path=self.hf_home,
             )
             pipe.load_checkpoint(checkpoint_dir=checkpoint_dir)
+            _install_latin_language_guard()
             self._pipeline = pipe
             print(
                 f"[ZR-GPU] Loaded ACE-Step 1.5 neural pipeline in {dtype_str} "
@@ -189,7 +269,11 @@ class ZRModelManager:
                     })
         if not resolved:
             g_key = (genre or "amapiano").strip().lower()
-            preset = GENRE_LORA_REGISTRY.get(g_key) or GENRE_LORA_REGISTRY["amapiano"]
+            preset = GENRE_LORA_REGISTRY.get(g_key)
+            if preset is None:
+                # Fuzzy: "90s Kwaito" -> kwaito (longest registry key contained in the label)
+                matches = [k for k in GENRE_LORA_REGISTRY if k in g_key]
+                preset = GENRE_LORA_REGISTRY[max(matches, key=len)] if matches else GENRE_LORA_REGISTRY["amapiano"]
             resolved.append({
                 "lora_id": preset["lora_id"],
                 "path": preset["r2_key"],
@@ -241,9 +325,11 @@ class ZRModelManager:
         genre = str(song_spec.get("genre", "Amapiano"))
         bpm = float(song_spec.get("tempo", 112.0))
         duration_sec = max(4, min(240, int(song_spec.get("duration", 30))))
-        lyrics = str(song_spec.get("lyrics", ""))
+        lyrics = sanitize_lyrics_for_ace_step(str(song_spec.get("lyrics", "")))
         caption = str(song_spec.get("caption") or f"{genre}, {bpm} BPM, studio master")
-        infer_steps = max(35, min(50, int(song_spec.get("infer_steps", self.infer_steps))))
+        infer_steps = max(35, min(60, int(song_spec.get("infer_steps", self.infer_steps))))
+        guidance_scale = float(song_spec.get("guidance_scale", self.guidance_scale))
+        guidance_scale = max(7.0, min(15.0, guidance_scale))
 
         resolved_loras = self.resolve_lora_specs(genre, loras)
         if resolved_loras:
@@ -256,7 +342,8 @@ class ZRModelManager:
                     lyrics=lyrics,
                     audio_duration=duration_sec,
                     infer_step=infer_steps,
-                    guidance_scale=self.guidance_scale,
+                    guidance_scale=guidance_scale,
+                    omega_scale=10.0,
                     save_path=output_path,
                 )
                 if os.path.exists(output_path):
