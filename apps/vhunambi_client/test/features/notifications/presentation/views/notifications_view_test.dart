@@ -57,7 +57,7 @@ void main() {
 
     expect(find.text('Notifications'), findsWidgets);
     expect(find.text('All'), findsOneWidget);
-    expect(find.text('Social'), findsOneWidget);
+    expect(find.byKey(const Key('category_chip_social')), findsOneWidget);
   });
 
   testWidgets('renders each seeded notification tile', (tester) async {
@@ -109,7 +109,7 @@ void main() {
       ],
     );
 
-    await tester.tap(find.text('System'));
+    await tester.tap(find.byKey(const Key('category_chip_system')));
     await tester.pumpAndSettle();
 
     expect(find.text('Alert system1'), findsOneWidget);

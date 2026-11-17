@@ -28,6 +28,18 @@ walletRoutes.get('/banks', (c) => {
   });
 });
 
+// GET /api/wallet/allowance — Creator 10 Free Monthly Song Allowance (Phase 67)
+// NOTE: Registered before /:creatorId so 'allowance' is never treated as a creatorId.
+walletRoutes.get('/allowance', (c) => {
+  const queryUser = c.req.query('userId');
+  const creatorId = resolveEffectiveCreatorId(c, queryUser, 'creator_cern');
+  const quota = vhunambiDb.getCreatorQuota(creatorId);
+  return c.json({
+    success: true,
+    ...quota,
+  });
+});
+
 // GET /api/wallet/:creatorId (REQ-P45-WAL-01 + Phase 61 Tenant Guard)
 walletRoutes.get('/:creatorId', (c) => {
   const creatorId = c.req.param('creatorId');

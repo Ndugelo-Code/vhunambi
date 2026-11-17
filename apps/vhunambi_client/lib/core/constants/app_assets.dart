@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import 'app_constants.dart';
 
 /// Centralized asset registry for all production branding marks, African voice
 /// timbre portraits, and crate artwork (REQ-BRD-01).
@@ -65,9 +66,92 @@ abstract final class AppAssets {
   /// 720x1280 mobile portrait hero backdrop (Music, Feel, Escape).
   static const String splashHero = '$artworkDir/splash_hero.png';
 
+  /// Phase 68: Additional studio artworks registered under assets/artwork/.
+  static const String sunsetMelodiesCover =
+      '$artworkDir/Vhunambi_ African Sunset Melodies.png';
+  static const String fiveVoicesCover =
+      '$artworkDir/Vhunambi_ Five Voices, One Vision.png';
+  static const String musicFeelEscapeCover =
+      '$artworkDir/Vhunambi_ Music, Feel, Escape.png';
+
+  /// Ordered rotation pool used when an unfamiliar genre/track has no explicit URL.
+  static const List<String> allBundledArtworkAssets = <String>[
+    sunsetMelodiesCover,
+    timbreProducer,
+    timbreCrooner,
+    timbreElder,
+    timbreCantor,
+    heritageCrateCover,
+    timbrePoet,
+    fiveVoicesCover,
+    musicFeelEscapeCover,
+    splashHero,
+  ];
+
   // ---------------------------------------------------------------------------
   // Profile & Timbre Lookup Bridges
   // ---------------------------------------------------------------------------
+
+  /// Deterministically resolves one of the 10 bundled artworks for [genre]
+  /// (and optional [seedId] to ensure distinct adjacent cards within the same genre).
+  static String resolveGenreCoverAsset(String genre, {String? seedId}) {
+    final g = genre.toLowerCase().trim();
+    if (g.contains('amapiano') ||
+        g.contains('afro house') ||
+        g.contains('private')) {
+      if (seedId != null && seedId.hashCode.isOdd) {
+        return musicFeelEscapeCover;
+      }
+      return sunsetMelodiesCover;
+    }
+    if (g.contains('gqom') || g.contains('bacardi') || g.contains('3-step')) {
+      return timbreProducer;
+    }
+    if (g.contains('maskandi') ||
+        g.contains('mbaqanga') ||
+        g.contains('isicathamiya')) {
+      return timbreElder;
+    }
+    if (g.contains('afrobeats') || g.contains('r&b') || g.contains('highlife')) {
+      return timbreCrooner;
+    }
+    if (g.contains('tshiven') || g.contains('shangaan') || g.contains('kwaito')) {
+      return timbreCantor;
+    }
+    if (g.contains('spoken') || g.contains('bongo') || g.contains('soul')) {
+      return timbrePoet;
+    }
+    if (g.contains('gospel') || g.contains('choir') || g.contains('ensemble')) {
+      return fiveVoicesCover;
+    }
+    if (g.contains('heritage')) {
+      return heritageCrateCover;
+    }
+    if (seedId != null && seedId.isNotEmpty) {
+      final index = seedId.hashCode.abs() % allBundledArtworkAssets.length;
+      return allBundledArtworkAssets[index];
+    }
+    return splashHero;
+  }
+
+  /// Resolves either a normalized remote HTTP URL, an `asset:` URI, a direct
+  /// `assets/` path, or falls back deterministically via [resolveGenreCoverAsset].
+  static String resolveTrackCoverSource({
+    String? coverUrl,
+    required String genre,
+    String? seedId,
+  }) {
+    final raw = (coverUrl ?? '').trim();
+    if (raw.startsWith('asset:')) {
+      final stripped = raw.substring('asset:'.length).trim();
+      if (stripped.isNotEmpty) return stripped;
+    }
+    if (raw.startsWith('assets/')) return raw;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      return AppConstants.normalizeCloudMediaUrl(raw);
+    }
+    return resolveGenreCoverAsset(genre, seedId: seedId);
+  }
 
   /// Maps a canonical Bantu voice profile ID to its 512x512 portrait asset.
   static String? voiceTimbreForId(String id) {

@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/storage/sovereign_domain_repositories.dart';
+import '../../../notifications/domain/models/notification_entity.dart';
+import '../../../notifications/domain/models/notification_enums.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../domain/models/reel_comment.dart';
 import '../../domain/repositories/i_social_repository.dart';
 import 'social_repository_provider.dart';
@@ -123,6 +126,27 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
       commentsByClipId: {...state.commentsByClipId, clipId: updatedList},
     );
     _persistCommentsForClip(clipId, updatedList);
+
+    if (giftName == null) {
+      try {
+        _ref
+            ?.read(notificationsProvider.notifier)
+            .addNotification(
+              NotificationEntity(
+                id: 'notif_comment_${newComment.id}',
+                title: 'Commented on Kinetic Reel',
+                message: '"${newComment.text}" posted to the reel thread.',
+                category: NotificationCategory.social,
+                priority: NotificationPriority.normal,
+                subtype: 'comment',
+                targetRoute: '/reel/$clipId',
+                targetEntityId: clipId,
+                ctaLabel: 'Watch Kinetic Reel',
+                createdAt: newComment.createdAt,
+              ),
+            );
+      } catch (_) {}
+    }
 
     if (_repo != null) {
       try {

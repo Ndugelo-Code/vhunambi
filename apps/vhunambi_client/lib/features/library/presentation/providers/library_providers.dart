@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vhunambi_client/core/auth/auth_providers.dart';
+import 'package:vhunambi_client/core/constants/app_assets.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import 'package:vhunambi_client/core/sync/sync_outbox_service.dart';
@@ -513,6 +514,7 @@ List<LibraryTrack> _seedTracks() {
       durationSeconds: 216,
       remoteAudioUrl: '$origin/audio/grateful-in-the-light.mp3',
       localAudioFilePath: '$vaultAudio/grateful-in-the-light.mp3',
+      coverImageUrl: 'asset:${AppAssets.sunsetMelodiesCover}',
       createdAt: now.subtract(const Duration(hours: 2)),
       syncStatus: TrackSyncStatus.cachedLocally,
       playCount: 0,
@@ -527,6 +529,7 @@ List<LibraryTrack> _seedTracks() {
       language: 'Tshivenḓa',
       durationSeconds: 198,
       remoteAudioUrl: '$origin/audio/ndo-mufuna-matibe.mp3',
+      coverImageUrl: 'asset:${AppAssets.timbreCantor}',
       createdAt: now.subtract(const Duration(hours: 26)),
     ),
     LibraryTrack(
@@ -537,6 +540,7 @@ List<LibraryTrack> _seedTracks() {
       language: 'Instrumental',
       durationSeconds: 180,
       remoteAudioUrl: '$origin/audio/township-log-drum-heat.mp3',
+      coverImageUrl: 'asset:${AppAssets.musicFeelEscapeCover}',
       createdAt: now.subtract(const Duration(days: 4)),
       isInstrumental: true,
     ),
@@ -548,6 +552,7 @@ List<LibraryTrack> _seedTracks() {
       language: 'Instrumental',
       durationSeconds: 150,
       remoteAudioUrl: '$origin/audio/durban-midnight-bass.mp3',
+      coverImageUrl: 'asset:${AppAssets.timbreProducer}',
       createdAt: now.subtract(const Duration(days: 9)),
       syncStatus: TrackSyncStatus.synced,
       isInstrumental: true,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/notifications/domain/models/notification_entity.dart';
 import 'package:vhunambi_client/features/notifications/presentation/providers/notifications_provider.dart';
@@ -21,21 +23,20 @@ NotificationEntity _alert(
   String id, {
   bool isRead = false,
   String? targetTrackId,
-}) =>
-    NotificationEntity(
-      id: id,
-      title: 'Your song "$id" is ready!',
-      message: 'Amapiano • 3:20',
-      targetTrackId: targetTrackId,
-      createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
-      isRead: isRead,
-    );
+}) => NotificationEntity(
+  id: id,
+  title: 'Your song "$id" is ready!',
+  message: 'Amapiano • 3:20',
+  targetTrackId: targetTrackId,
+  createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
+  isRead: isRead,
+);
 
 List<NotificationEntity> _seed() => <NotificationEntity>[
-      _alert('notif_a', targetTrackId: 'seed-01'),
-      _alert('notif_b'),
-      _alert('notif_c', isRead: true),
-    ];
+  _alert('notif_a', targetTrackId: 'seed-01'),
+  _alert('notif_b'),
+  _alert('notif_c', isRead: true),
+];
 
 /// Opens the notifications drawer.
 ///
@@ -85,8 +86,9 @@ Future<ProviderContainer> _openDrawer(
 }
 
 void main() {
-  testWidgets('renders every alert with its relative timestamp',
-      (tester) async {
+  testWidgets('renders every alert with its relative timestamp', (
+    tester,
+  ) async {
     await _openDrawer(tester);
 
     expect(find.text('Notifications'), findsOneWidget);
@@ -107,17 +109,19 @@ void main() {
     expect(find.text('Mark all read'), findsOneWidget);
   });
 
-  testWidgets('the empty state renders when the drawer has no alerts',
-      (tester) async {
+  testWidgets('the empty state renders when the drawer has no alerts', (
+    tester,
+  ) async {
     await _openDrawer(tester, seed: const <NotificationEntity>[]);
 
     expect(find.text('No notifications yet'), findsOneWidget);
-    expect(find.byIcon(Icons.notifications_off_outlined), findsOneWidget);
+    expect(find.byIcon(PhosphorIconsRegular.bellSlash), findsOneWidget);
     expect(find.text('Mark all read'), findsOneWidget);
   });
 
-  testWidgets('Mark all read clears the badge and marks every alert',
-      (tester) async {
+  testWidgets('Mark all read clears the badge and marks every alert', (
+    tester,
+  ) async {
     final container = await _openDrawer(tester);
 
     await tester.tap(find.text('Mark all read'));
@@ -139,8 +143,9 @@ void main() {
     expect(find.text('No notifications yet'), findsOneWidget);
   });
 
-  testWidgets('tapping an alert marks it read and deep-links to the track',
-      (tester) async {
+  testWidgets('tapping an alert marks it read and deep-links to the track', (
+    tester,
+  ) async {
     // autoDispose:false — we manually dispose the container at the end so
     // PlayerNotifier's periodic 1-second ticker is cancelled BEFORE the
     // framework's !timersPending check fires on widget-tree teardown.
@@ -158,8 +163,9 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('an alert without a target track only marks read and dismisses',
-      (tester) async {
+  testWidgets('an alert without a target track only marks read and dismisses', (
+    tester,
+  ) async {
     final container = await _openDrawer(tester, autoDispose: false);
 
     await tester.tap(find.text('Your song "notif_b" is ready!'));
@@ -173,11 +179,12 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('the per-alert dismiss control removes a single alert',
-      (tester) async {
+  testWidgets('the per-alert dismiss control removes a single alert', (
+    tester,
+  ) async {
     final container = await _openDrawer(tester);
 
-    await tester.tap(find.byIcon(Icons.close_rounded).first);
+    await tester.tap(find.byIcon(AppIcons.close).first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 

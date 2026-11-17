@@ -561,6 +561,24 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
           userReelLoves: 5,
         );
 
+    try {
+      _ref.read(notificationsProvider.notifier).addNotification(
+        NotificationEntity(
+          id: 'notif_gift_${tx.id}',
+          title: 'Sent ${gift.name}',
+          message:
+              'Gifted ${gift.coinPrice} Cultural Coins to $recipientCreatorId on kinetic reel.',
+          category: NotificationCategory.social,
+          priority: NotificationPriority.normal,
+          subtype: 'gift',
+          targetRoute: '/reel/$clipId',
+          targetEntityId: clipId,
+          ctaLabel: 'Watch Kinetic Reel',
+          createdAt: tx.timestamp,
+        ),
+      );
+    } catch (_) {}
+
     _repo?.sendTip(
       clipId: clipId,
       giftId: gift.id,
@@ -602,6 +620,24 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
       ],
     );
     _persistWallet();
+
+    try {
+      _ref.read(notificationsProvider.notifier).addNotification(
+        NotificationEntity(
+          id: 'notif_royalty_${DateTime.now().millisecondsSinceEpoch}',
+          title: '85% Royalty Credited: $assetTitle',
+          message:
+              '+$amountCoins Coins (R${netZar.toStringAsFixed(2)}) added from beat licensing.',
+          category: NotificationCategory.creatorActivity,
+          priority: NotificationPriority.high,
+          subtype: 'license_sold',
+          targetRoute: '/wallet',
+          targetEntityId: assetTitle,
+          ctaLabel: 'View Balance & Usage',
+          createdAt: DateTime.now(),
+        ),
+      );
+    } catch (_) {}
   }
 
   /// Requests a payout / royalty cashout (REQ-WAL-02).
@@ -696,6 +732,9 @@ class CreatorWalletNotifier extends StateNotifier<CreatorWalletState> {
             message: statusMsg,
             category: NotificationCategory.system,
             priority: NotificationPriority.high,
+            subtype: 'credits',
+            targetRoute: '/wallet',
+            ctaLabel: 'View Balance & Usage',
             createdAt: DateTime.now(),
           ),
         );

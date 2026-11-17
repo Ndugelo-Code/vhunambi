@@ -24,7 +24,8 @@ flutter analyze
 flutter test --timeout=60s
 ```
 
-## Current Runtime Standings (2026-11-12)
+## Current Runtime Standings (2026-11-17)
+- **Phases 0–68 Implemented:** Includes Phase 67 Notifications Center Two-Pass Overhaul + `10 Free Monthly Songs` quota engine and Phase 68 Home Dashboard "Main Room & Studio Utility" Overhaul (`NowPlayingHomeCard`, Tab-0 `MiniPlayerHost` suppression, 10 bundled artworks via `VhunambiTrackArtwork`, and live `/api/wallet/allowance` badge).
 - **Cloud Origin & Auth:** `SovereignApiClient` and all HTTP repositories resolve from `AppConstants.resolveApiRootUrl()` / `resolveMediaBaseUrl()`. Supabase GoTrue `ES256` JWTs are stored in AES-256 encrypted Tier-0 box `vhunambi_tokens`.
 - **On-Device Persistence:** `SovereignHiveBootstrapService` opens 26 Sovereign Hive boxes on boot (`lib/main.dart`).
 - **Audio Hardware Notes:**

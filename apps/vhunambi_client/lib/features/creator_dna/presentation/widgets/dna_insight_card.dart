@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -23,8 +24,8 @@ class DnaInsightCard extends ConsumerWidget {
     return switch (dna.lifecycleState) {
       DnaLifecycleState.seeded => 'Keep exploring to grow your DNA',
       DnaLifecycleState.learning => 'Play more $topGenre to strengthen your profile',
-      DnaLifecycleState.calibrated => 'Your DNA is shaping your studio defaults ✨',
-      DnaLifecycleState.attuned => 'Vhunambi knows your sound 🎯',
+      DnaLifecycleState.calibrated => 'Your DNA is shaping your studio defaults',
+      DnaLifecycleState.attuned => 'Vhunambi knows your sound',
       DnaLifecycleState.uninitialized => 'Complete onboarding to activate your DNA',
     };
   }
@@ -44,9 +45,9 @@ class DnaInsightCard extends ConsumerWidget {
       key: const Key('dna_insight_card'),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.surfaceElevatedOf(context),
         borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,12 +58,16 @@ class DnaInsightCard extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  const Text('🧬', style: TextStyle(fontSize: 18)),
+                  const PhosphorIcon(
+                    PhosphorIconsFill.dna,
+                    size: 18,
+                    color: AppColors.accentElectric,
+                  ),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
                     'Your Creator DNA',
                     style: AppTypography.titleMedium.copyWith(
-                      color: AppColors.textPrimary,
+                      color: AppColors.textPrimaryOf(context),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -70,8 +75,12 @@ class DnaInsightCard extends ConsumerWidget {
               ),
               IconButton(
                 key: const Key('dna_insight_card_dismiss_button'),
-                icon: Icon(Icons.close, size: 18, color: AppColors.textSecondary),
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                icon: PhosphorIcon(
+                  PhosphorIconsBold.x,
+                  size: 16,
+                  color: AppColors.textSecondaryOf(context),
+                ),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 padding: EdgeInsets.zero,
                 tooltip: 'Dismiss DNA Insight',
                 onPressed: () {

@@ -6,6 +6,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/social_music_post.dart';
+import '../../../notifications/domain/models/notification_entity.dart';
+import '../../../notifications/domain/models/notification_enums.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../providers/explore_providers.dart';
 import 'kinetic_post_sonic_pill.dart';
 
@@ -68,6 +71,22 @@ class _RepostKineticPostSheetState
     ref.read(socialFeedPostsProvider.notifier).repostPost(
           originalPostId: widget.originalPost.id,
           repostPost: repost,
+        );
+
+    ref.read(notificationsProvider.notifier).addNotification(
+          NotificationEntity(
+            id: 'notif_repost_${repost.id}',
+            title: 'Reposted ${widget.originalPost.creatorHandle}\'s Post',
+            message:
+                'Syndicated "${widget.originalPost.track.title}" to your creator feed.',
+            category: NotificationCategory.social,
+            priority: NotificationPriority.normal,
+            subtype: 'repost',
+            targetRoute: '/creator/${widget.originalPost.creatorId}',
+            targetEntityId: widget.originalPost.creatorId,
+            ctaLabel: 'View Creator Profile',
+            createdAt: now,
+          ),
         );
 
     Navigator.of(context).pop();

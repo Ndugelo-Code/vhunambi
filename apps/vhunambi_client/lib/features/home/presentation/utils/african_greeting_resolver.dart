@@ -1,9 +1,13 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+
+/// Semantic time-of-day icon discriminator replacing raw unicode emojis (`STD-UIUX-001`).
+enum GreetingIconType { morningSun, middaySun, eveningHorizon, nightMoon }
 
 /// Cultural African Greeting Resolver (Vhunambi Indigenous Identity).
 ///
 /// Resolves time-aware greetings in the creator's chosen home language
-/// with ZERO English translations or subtitles (REQ-HOME-01).
+/// with ZERO English translations or subtitles (REQ-HOME-01) and zero raw emojis.
 @immutable
 class AfricanGreetingResolver {
   const AfricanGreetingResolver._();
@@ -14,10 +18,7 @@ class AfricanGreetingResolver {
   /// - Morning: 04:00 - 11:59
   /// - Afternoon: 12:00 - 16:59
   /// - Evening / Night: 17:00 - 03:59
-  static String getGreeting({
-    required String language,
-    DateTime? now,
-  }) {
+  static String getGreeting({required String language, DateTime? now}) {
     final dateTime = now ?? DateTime.now();
     final hour = dateTime.hour;
 
@@ -97,16 +98,33 @@ class AfricanGreetingResolver {
     }
   }
 
-  /// Returns a subtle celestial glyph matching the time period.
-  static String getTimeGlyph({DateTime? now}) {
+  /// Returns a semantic [GreetingIconType] matching the current hour without raw emojis.
+  static GreetingIconType getGreetingIconType({DateTime? now}) {
     final hour = (now ?? DateTime.now()).hour;
-    if (hour >= 4 && hour < 12) {
-      return '✨'; // Morning fresh spark
-    } else if (hour >= 12 && hour < 17) {
-      return '☀️'; // Midday sun
-    } else {
-      return '🌙'; // Evening moon
-    }
+    if (hour >= 4 && hour < 11) return GreetingIconType.morningSun;
+    if (hour >= 11 && hour < 17) return GreetingIconType.middaySun;
+    if (hour >= 17 && hour < 21) return GreetingIconType.eveningHorizon;
+    return GreetingIconType.nightMoon;
+  }
+
+  /// Resolves the matching Phosphor glyph for [getGreetingIconType].
+  static IconData resolvePhosphorIcon({DateTime? now}) {
+    return switch (getGreetingIconType(now: now)) {
+      GreetingIconType.morningSun => PhosphorIconsFill.sunHorizon,
+      GreetingIconType.middaySun => PhosphorIconsFill.sun,
+      GreetingIconType.eveningHorizon => PhosphorIconsFill.sparkle,
+      GreetingIconType.nightMoon => PhosphorIconsFill.moonStars,
+    };
+  }
+
+  /// Human-readable time-of-day descriptor kept emoji-free for legacy callers (`STD-UIUX-001`).
+  static String getTimeGlyph({DateTime? now}) {
+    return switch (getGreetingIconType(now: now)) {
+      GreetingIconType.morningSun => 'Dawn Session',
+      GreetingIconType.middaySun => 'Daylight Session',
+      GreetingIconType.eveningHorizon => 'Sunset Session',
+      GreetingIconType.nightMoon => 'Night Session',
+    };
   }
 
   static String _normalizeLanguage(String lang) {

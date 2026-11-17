@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -17,8 +19,7 @@ class NotificationSearchBar extends ConsumerStatefulWidget {
       _NotificationSearchBarState();
 }
 
-class _NotificationSearchBarState
-    extends ConsumerState<NotificationSearchBar> {
+class _NotificationSearchBarState extends ConsumerState<NotificationSearchBar> {
   late final TextEditingController _controller;
   final FocusNode _focusNode = FocusNode();
   bool _hasFocus = false;
@@ -26,9 +27,7 @@ class _NotificationSearchBarState
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(
-      text: ref.read(searchQueryProvider),
-    );
+    _controller = TextEditingController(text: ref.read(searchQueryProvider));
     _focusNode.addListener(() {
       if (mounted) setState(() => _hasFocus = _focusNode.hasFocus);
     });
@@ -76,8 +75,8 @@ class _NotificationSearchBarState
         ),
         child: Row(
           children: <Widget>[
-            Icon(
-              Icons.search_rounded,
+            PhosphorIcon(
+              AppIcons.search,
               size: 18,
               color: AppColors.textSecondary,
             ),
@@ -88,6 +87,7 @@ class _NotificationSearchBarState
                 controller: _controller,
                 focusNode: _focusNode,
                 onChanged: _onChanged,
+                onSubmitted: (_) => _focusNode.unfocus(),
                 textInputAction: TextInputAction.search,
                 style: AppTypography.bodySmall.copyWith(
                   color: AppColors.textPrimary,
@@ -116,8 +116,8 @@ class _NotificationSearchBarState
                   onPressed: _clear,
                   splashRadius: 22,
                   padding: EdgeInsets.zero,
-                  icon: Icon(
-                    Icons.close_rounded,
+                  icon: PhosphorIcon(
+                    AppIcons.close,
                     size: 18,
                     color: AppColors.textSecondary,
                   ),

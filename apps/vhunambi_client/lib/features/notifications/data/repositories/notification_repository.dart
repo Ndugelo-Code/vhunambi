@@ -22,6 +22,14 @@ class NotificationRepository {
   /// Upper bound to keep the persisted store from growing unbounded.
   static const int maxNotifications = 500;
 
+  /// Returns true if [id] belongs to the retired Phase 10 / Phase 40 demo seeds
+  /// (`notif_p40_*` or `notif_seed_*`) that must be scrubbed from Hive on upgrade.
+  static bool isLegacyDemoMockId(String id) {
+    final trimmed = id.trim();
+    return trimmed.startsWith('notif_p40_') ||
+        trimmed.startsWith('notif_seed_');
+  }
+
   Box? _box;
   final Map<String, dynamic> _inMemoryStore = <String, dynamic>{};
   bool _initialized = false;
@@ -100,7 +108,9 @@ class NotificationRepository {
               final entity = NotificationEntity.fromJson(
                 Map<String, dynamic>.from(val),
               );
-              decodedById[entity.id] = entity;
+              if (entity.id.isNotEmpty && !isLegacyDemoMockId(entity.id)) {
+                decodedById[entity.id] = entity;
+              }
             }
           } else if (key == _legacyCollectionKey) {
             final raw = _box!.get(_legacyCollectionKey);
@@ -109,7 +119,9 @@ class NotificationRepository {
                 final entity = NotificationEntity.fromJson(
                   Map<String, dynamic>.from(item),
                 );
-                decodedById[entity.id] = entity;
+                if (entity.id.isNotEmpty && !isLegacyDemoMockId(entity.id)) {
+                  decodedById[entity.id] = entity;
+                }
               }
             }
           }
@@ -120,7 +132,9 @@ class NotificationRepository {
             final entity = NotificationEntity.fromJson(
               Map<String, dynamic>.from(entry.value as Map),
             );
-            decodedById[entity.id] = entity;
+            if (entity.id.isNotEmpty && !isLegacyDemoMockId(entity.id)) {
+              decodedById[entity.id] = entity;
+            }
           }
         }
       }
@@ -132,10 +146,43 @@ class NotificationRepository {
     }
   }
 
+  /// Deletes any persisted `notif_p40_*` or `notif_seed_*` demo mock keys
+  /// from the open Hive box so upgraded physical devices never resurrect old mocks.
+  Future<void> scrubLegacyDemoMocks() async {
+    await _ensureInit();
+    final box = _box;
+    if (box == null || !box.isOpen) {
+      _inMemoryStore.removeWhere(
+        (key, _) =>
+            key.startsWith('${_entityPrefix}notif_p40_') ||
+            key.startsWith('${_entityPrefix}notif_seed_') ||
+            key.startsWith('notif_p40_') ||
+            key.startsWith('notif_seed_'),
+      );
+      return;
+    }
+    try {
+      final staleKeys = <dynamic>[];
+      for (final rawKey in box.keys) {
+        final k = rawKey.toString();
+        if (k.startsWith('${_entityPrefix}notif_p40_') ||
+            k.startsWith('${_entityPrefix}notif_seed_') ||
+            k.startsWith('notif_p40_') ||
+            k.startsWith('notif_seed_')) {
+          staleKeys.add(rawKey);
+        }
+      }
+      if (staleKeys.isNotEmpty) {
+        await box.deleteAll(staleKeys);
+      }
+    } catch (_) {}
+  }
+
   /// Reads every stored notification, newest-first.
   Future<List<NotificationEntity>> getNotifications() async {
     await _ensureInit();
     await _migrateLegacyListIfPresent();
+    await scrubLegacyDemoMocks();
     return _readAllDecoded();
   }
 

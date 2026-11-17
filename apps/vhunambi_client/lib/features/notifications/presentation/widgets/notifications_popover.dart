@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -62,8 +64,8 @@ class NotificationsPopover extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
-                const Icon(
-                  Icons.notifications_outlined,
+                const PhosphorIcon(
+                  AppIcons.bell,
                   size: 20,
                   color: AppColors.brandPrimary,
                 ),
@@ -102,19 +104,19 @@ class NotificationsPopover extends ConsumerWidget {
                 TextButton.icon(
                   onPressed: notifier.markAllAsRead,
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  icon: Icon(
-                    Icons.check,
+                  icon: PhosphorIcon(
+                    AppIcons.check,
                     size: 14,
                     color: AppColors.textSecondary,
                   ),
-                  label: Text(
-                    'Mark all read',
-                    style: AppTypography.caption,
-                  ),
+                  label: Text('Mark all read', style: AppTypography.caption),
                 ),
               ],
             ),
@@ -272,8 +274,8 @@ class _NotificationCard extends StatelessWidget {
                 color: AppColors.surfaceSecondary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.music_note_rounded,
+              child: const PhosphorIcon(
+                AppIcons.songs,
                 color: AppColors.brandPrimary,
                 size: 18,
               ),
@@ -313,8 +315,8 @@ class _NotificationCard extends StatelessWidget {
             const SizedBox(width: 4),
             GestureDetector(
               onTap: onDismiss,
-              child: Icon(
-                Icons.close_rounded,
+              child: PhosphorIcon(
+                AppIcons.close,
                 size: 14,
                 color: AppColors.textTertiary,
               ),
@@ -336,8 +338,8 @@ class _EmptyNotificationsState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
       child: Column(
         children: [
-          Icon(
-            Icons.notifications_off_outlined,
+          PhosphorIcon(
+            PhosphorIconsRegular.bellSlash,
             size: 32,
             color: AppColors.textTertiary,
           ),

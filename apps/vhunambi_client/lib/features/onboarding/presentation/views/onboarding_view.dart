@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../main.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
+import '../../../notifications/domain/services/onboarding_notifications_service.dart';
 import '../providers/onboarding_providers.dart';
 import '../widgets/onboarding_procedural_canvas.dart';
 import '../widgets/onboarding_act1_showcase.dart';
@@ -68,7 +69,14 @@ class _OnboardingViewState extends ConsumerState<OnboardingView>
     HapticFeedback.mediumImpact();
     final state = ref.read(onboardingStateProvider);
 
-    // 1. Seed Creator DNA Profile in Hive
+    final starterCompleteness =
+        OnboardingNotificationsService.computeStarterCompleteness(
+          genreCount: state.selectedGenres.length,
+          languageCount: state.selectedLanguages.length,
+          moodCount: state.selectedMoods.length,
+        );
+
+    // 1. Seed Creator DNA Profile in Hive at natural 6%–10% starter strength
     ref
         .read(creatorDnaProvider.notifier)
         .seedFromOnboarding(
@@ -82,11 +90,17 @@ class _OnboardingViewState extends ConsumerState<OnboardingView>
           tempoPreference: state.tempoPreference,
           vocalEnergyPreference: state.vocalEnergyPreference,
           selectedMoods: state.selectedMoods,
-          completeness: 1.0,
+          completeness: starterCompleteness,
         );
 
     // 2. Mark onboarding state as completed
     ref.read(onboardingStateProvider.notifier).completeOnboarding();
+
+    // 3. Seed the 3 authentic beginner onboarding notifications idempotently
+    OnboardingNotificationsService.ensureSeededForActiveCreator(
+      ref,
+      force: true,
+    );
 
     if (widget.onFinish != null) {
       widget.onFinish!();

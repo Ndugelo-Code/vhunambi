@@ -15,8 +15,10 @@ import {
   SA_BANK_REGISTRY,
   type AuthTokenBundle,
   type BankPayoutRequest,
+  type CreatorQuotaRecord,
   type ExploreFeedOptions,
   type ExploreTrackRecord,
+  type NotificationRecord,
   type PaymentRailId,
   type PlaylistRecord,
   type SaBankMetadata,
@@ -24,6 +26,7 @@ import {
   type SovereignUserRecord,
   type SyncDeltaResult,
   type SyncMutationRecord,
+  type UpsertNotificationInput,
 } from './edge_persistence_bridge.js';
 
 export {
@@ -34,8 +37,10 @@ export {
   SA_BANK_REGISTRY,
   type AuthTokenBundle,
   type BankPayoutRequest,
+  type CreatorQuotaRecord,
   type ExploreFeedOptions,
   type ExploreTrackRecord,
+  type NotificationRecord,
   type PaymentRailId,
   type PlaylistRecord,
   type SaBankMetadata,
@@ -43,6 +48,7 @@ export {
   type SovereignUserRecord,
   type SyncDeltaResult,
   type SyncMutationRecord,
+  type UpsertNotificationInput,
 };
 
 type SqliteBuiltinModule = typeof import('node:sqlite');
@@ -540,6 +546,34 @@ export class VhunambiDatabase {
       );
       CREATE INDEX IF NOT EXISTS idx_payment_topups_creator
         ON payment_topups(creator_id, created_at DESC);
+
+      -- 20-21. Phase 67 Notifications & Monthly Song Quotas
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'creatorActivity',
+        subtype TEXT,
+        priority TEXT NOT NULL DEFAULT 'normal',
+        is_read INTEGER NOT NULL DEFAULT 0,
+        target_route TEXT,
+        target_entity_id TEXT,
+        cta_label TEXT,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_created
+        ON notifications(user_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS creator_quotas (
+        user_id TEXT PRIMARY KEY,
+        plan_tier TEXT NOT NULL DEFAULT 'free',
+        free_monthly_songs_limit INTEGER NOT NULL DEFAULT 10,
+        free_monthly_songs_used INTEGER NOT NULL DEFAULT 0,
+        cycle_reset_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
     `);
   }
 
@@ -4740,6 +4774,183 @@ export class VhunambiDatabase {
       .prepare('DELETE FROM sound_signatures WHERE id = ?')
       .run(sigId);
     return Number(res.changes ?? 0) > 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 67: Sovereign Notifications & 10 Free Monthly Songs Quota Engine
+  // ---------------------------------------------------------------------------
+
+  private mapNotificationRow(row: Record<string, any>): NotificationRecord {
+    let metadata: Record<string, any> = {};
+    try {
+      metadata = JSON.parse(String(row.metadata_json || '{}'));
+    } catch {
+      metadata = {};
+    }
+    return {
+      id: String(row.id),
+      userId: String(row.user_id),
+      title: String(row.title),
+      message: String(row.body ?? ''),
+      body: String(row.body ?? ''),
+      category: (String(row.category || 'creatorActivity') as NotificationRecord['category']),
+      subtype: row.subtype ? String(row.subtype) : null,
+      priority: (String(row.priority || 'normal') as NotificationRecord['priority']),
+      isRead: Number(row.is_read) === 1,
+      targetRoute: row.target_route ? String(row.target_route) : null,
+      targetEntityId: row.target_entity_id ? String(row.target_entity_id) : null,
+      ctaLabel: row.cta_label ? String(row.cta_label) : null,
+      metadata,
+      createdAt: String(row.created_at),
+    };
+  }
+
+  public listNotifications(userId: string): NotificationRecord[] {
+    const cid = canonicalizeCreatorId(userId);
+    const rows = this.db
+      .prepare(
+        'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 500',
+      )
+      .all(cid) as Array<Record<string, any>>;
+    return rows.map((r) => this.mapNotificationRow(r));
+  }
+
+  public upsertNotification(input: UpsertNotificationInput): NotificationRecord {
+    const cid = canonicalizeCreatorId(input.userId);
+    const existing = this.db
+      .prepare('SELECT is_read, created_at FROM notifications WHERE id = ?')
+      .get(input.id) as { is_read: number; created_at: string } | undefined;
+    const isReadVal = existing
+      ? Number(existing.is_read) === 1
+      : Boolean(input.isRead ?? false);
+    const createdAt = input.createdAt ?? existing?.created_at ?? new Date().toISOString();
+
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO notifications (
+          id, user_id, title, body, category, subtype, priority,
+          is_read, target_route, target_entity_id, cta_label, metadata_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        input.id,
+        cid,
+        input.title,
+        input.message,
+        input.category ?? 'creatorActivity',
+        input.subtype ?? null,
+        input.priority ?? 'normal',
+        isReadVal ? 1 : 0,
+        input.targetRoute ?? null,
+        input.targetEntityId ?? null,
+        input.ctaLabel ?? null,
+        JSON.stringify(input.metadata ?? {}),
+        createdAt,
+      );
+
+    const row = this.db
+      .prepare('SELECT * FROM notifications WHERE id = ?')
+      .get(input.id) as Record<string, any>;
+    return this.mapNotificationRow(row);
+  }
+
+  public markNotificationRead(
+    userId: string,
+    id: string,
+  ): NotificationRecord | null {
+    const cid = canonicalizeCreatorId(userId);
+    this.db
+      .prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?')
+      .run(id, cid);
+    const row = this.db
+      .prepare('SELECT * FROM notifications WHERE id = ? AND user_id = ?')
+      .get(id, cid) as Record<string, any> | undefined;
+    return row ? this.mapNotificationRow(row) : null;
+  }
+
+  public markAllNotificationsRead(userId: string): number {
+    const cid = canonicalizeCreatorId(userId);
+    const res = this.db
+      .prepare(
+        'UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0',
+      )
+      .run(cid);
+    return Number(res.changes ?? 0);
+  }
+
+  public deleteNotification(userId: string, id: string): boolean {
+    const cid = canonicalizeCreatorId(userId);
+    const res = this.db
+      .prepare('DELETE FROM notifications WHERE id = ? AND user_id = ?')
+      .run(id, cid);
+    return Number(res.changes ?? 0) > 0;
+  }
+
+  public getCreatorQuota(userId: string): CreatorQuotaRecord {
+    const cid = canonicalizeCreatorId(userId);
+    const now = Date.now();
+    const row = this.db
+      .prepare('SELECT * FROM creator_quotas WHERE user_id = ?')
+      .get(cid) as Record<string, any> | undefined;
+
+    const resetMs = row ? Date.parse(String(row.cycle_reset_at ?? '')) : 0;
+    if (!row || (Number.isFinite(resetMs) && resetMs > 0 && now >= resetMs)) {
+      const limit = Number(row?.free_monthly_songs_limit ?? 10);
+      const nextReset = new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const updatedAt = new Date(now).toISOString();
+      const planTier = String(row?.plan_tier ?? 'free');
+      this.db
+        .prepare(
+          `INSERT OR REPLACE INTO creator_quotas (
+            user_id, plan_tier, free_monthly_songs_limit, free_monthly_songs_used, cycle_reset_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?)`,
+        )
+        .run(cid, planTier, limit, 0, nextReset, updatedAt);
+      return {
+        userId: cid,
+        planTier,
+        freeMonthlySongsLimit: limit,
+        freeMonthlySongsUsed: 0,
+        freeMonthlySongsRemaining: limit,
+        cycleResetAt: nextReset,
+        updatedAt,
+      };
+    }
+
+    const limit = Number(row.free_monthly_songs_limit ?? 10);
+    const used = Number(row.free_monthly_songs_used ?? 0);
+    return {
+      userId: cid,
+      planTier: String(row.plan_tier ?? 'free'),
+      freeMonthlySongsLimit: limit,
+      freeMonthlySongsUsed: used,
+      freeMonthlySongsRemaining: Math.max(0, limit - used),
+      cycleResetAt: String(row.cycle_reset_at),
+      updatedAt: String(row.updated_at),
+    };
+  }
+
+  public consumeFreeMonthlySongQuota(userId: string): CreatorQuotaRecord {
+    const current = this.getCreatorQuota(userId);
+    const nextUsed = Math.min(
+      current.freeMonthlySongsLimit,
+      current.freeMonthlySongsUsed + 1,
+    );
+    const updatedAt = new Date().toISOString();
+    this.db
+      .prepare(
+        'UPDATE creator_quotas SET free_monthly_songs_used = ?, updated_at = ? WHERE user_id = ?',
+      )
+      .run(nextUsed, updatedAt, current.userId);
+    return {
+      ...current,
+      freeMonthlySongsUsed: nextUsed,
+      freeMonthlySongsRemaining: Math.max(
+        0,
+        current.freeMonthlySongsLimit - nextUsed,
+      ),
+      updatedAt,
+    };
   }
 }
 

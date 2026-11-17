@@ -30,7 +30,7 @@ import 'package:vhunambi_client/features/content_studio/presentation/views/conte
 import 'package:vhunambi_client/features/social/domain/models/video_export_job.dart';
 import 'package:vhunambi_client/features/social/presentation/widgets/video_export_modal.dart';
 import 'stem_mixer_deck.dart';
-import 'player_living_biome_hero_viewport.dart';
+
 import '../../../studio/domain/models/mycelium_biome_models.dart';
 import '../../../../core/navigation/navigation_providers.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
@@ -355,11 +355,6 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32),
                   child: switch (_heroMode) {
-                    PlayerHeroMode.biome3d => PlayerLivingBiomeHeroViewport(
-                      height: MediaQuery.sizeOf(context).height < 700
-                          ? 220
-                          : 270,
-                    ),
                     PlayerHeroMode.lyrics => SizedBox(
                       height: MediaQuery.sizeOf(context).height < 700
                           ? 200
@@ -721,15 +716,6 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                               ? PlayerHeroMode.artwork
                               : PlayerHeroMode.lyrics;
                         }),
-                      ),
-                      _UtilityItem(
-                        key: const Key('player_biome_btn'),
-                        icon: AppIcons.dna,
-                        label: '3D DNA',
-                        onTap: () {
-                          HapticsService().selectionClick();
-                          setState(() => _heroMode = PlayerHeroMode.biome3d);
-                        },
                       ),
                       _UtilityItem(
                         key: const Key('player_stems_btn'),

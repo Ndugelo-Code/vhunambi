@@ -119,7 +119,7 @@ void main() {
     );
 
     testWidgets(
-      'Finding HOME-003 & 004: Responsive 6-Tool Creation Hub mounts all tools with working navigation',
+      'Finding HOME-003 & 004: Main Room Direct Studio CTA & 4-Tool Launch Strip mount with working navigation',
       (tester) async {
         bool studioNavigated = false;
         bool marketNavigated = false;
@@ -137,11 +137,11 @@ void main() {
             ),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 250));
 
-        // Check all 6 tool keys and labels
-        expect(find.byKey(const Key('home_hub_ai_studio')), findsOneWidget);
-        expect(find.text('AI Studio'), findsOneWidget);
+        // Direct Studio CTA replaces duplicate AI Studio grid tile (Phase 68)
+        expect(find.byKey(const Key('home_create_studio_cta')), findsOneWidget);
+        expect(find.byKey(const Key('home_hub_ai_studio')), findsNothing);
 
         expect(find.byKey(const Key('home_hub_voice_clone')), findsOneWidget);
         expect(find.text('Voice Clone'), findsOneWidget);
@@ -152,39 +152,56 @@ void main() {
         );
         expect(find.text('Sketchpad'), findsOneWidget);
 
-        expect(find.byKey(const Key('home_hub_stem_master')), findsOneWidget);
-        expect(find.text('Stem Lab'), findsOneWidget);
-
         expect(find.byKey(const Key('home_hub_beats_market')), findsOneWidget);
         expect(find.text('Beats Market'), findsOneWidget);
 
         expect(find.byKey(const Key('home_hub_asset_vault')), findsOneWidget);
         expect(find.text('Asset Vault'), findsOneWidget);
 
-        // Tap AI Studio
-        await tester.tap(find.byKey(const Key('home_hub_ai_studio')));
+        // Tap direct Studio CTA
+        await tester.ensureVisible(
+          find.byKey(const Key('home_create_studio_cta')),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.tap(find.byKey(const Key('home_create_studio_cta')));
         expect(studioNavigated, isTrue);
 
         // Tap Beats Market
+        await tester.ensureVisible(
+          find.byKey(const Key('home_hub_beats_market')),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
         await tester.tap(find.byKey(const Key('home_hub_beats_market')));
         expect(marketNavigated, isTrue);
 
         // Tap Asset Vault
+        await tester.ensureVisible(
+          find.byKey(const Key('home_hub_asset_vault')),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
         await tester.tap(find.byKey(const Key('home_hub_asset_vault')));
         expect(libraryNavigated, isTrue);
 
         // Tap Voice Clone -> opens VocalIdentityPickerSheet
+        await tester.ensureVisible(
+          find.byKey(const Key('home_hub_voice_clone')),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
         await tester.tap(find.byKey(const Key('home_hub_voice_clone')));
-        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 300));
         expect(find.byType(VocalIdentityPickerSheet), findsOneWidget);
 
         // Dismiss modal
         await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 300));
 
         // Tap Melody Sketchpad -> opens MelodySketchpadModal
+        await tester.ensureVisible(
+          find.byKey(const Key('home_hub_melody_sketchpad')),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
         await tester.tap(find.byKey(const Key('home_hub_melody_sketchpad')));
-        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 300));
         expect(find.byType(MelodySketchpadModal), findsOneWidget);
       },
     );
@@ -279,7 +296,8 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Trending in Your Genres'), findsOneWidget);
-        expect(find.text('Gqom'), findsOneWidget);
+        expect(find.text('Gqom'), findsWidgets);
+        expect(find.text('Durban Midnight Bass'), findsOneWidget);
       },
     );
 

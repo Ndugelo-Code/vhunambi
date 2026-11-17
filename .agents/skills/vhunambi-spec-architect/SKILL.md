@@ -115,9 +115,9 @@ Before signing off on any specification suite, read and verify all 6 laws in [re
 
 ---
 
-## 5. Stage 4 Handoff to `vhunambi-executioner`
+## 5. Companion Skills in the Vhunambi Tri-Skill Ecosystem
 
-Once the 4-document specification suite passes Stage 3 Forensic Hardening, Stage 4 code execution is governed by the companion skill:
-- **[`vhunambi-executioner`](../vhunambi-executioner/SKILL.md)** (`/vhunambi-executioner`) — Enforces the 8 Non-Negotiable Stage 4 Execution Laws (4-Doc Cross-Read, Additive Surgical Editing vs. Destructive Replacement, Zero Lazy/Summary Code, Authentic Tokens, Anti-Hang `--timeout=60s` Widget Testing, and Milestone-by-Milestone Micro-Gating).
+- **Stage 1 Pre-Spec Discovery & Post-Deploy Auditing — [`vhunambi-forensic-auditor`](../vhunambi-forensic-auditor/SKILL.md)** (`/vhunambi-forensic-auditor`): Conducts zero-speculation codebase, runtime, UI/UX (`STD-UIUX-001`), and E2E cloud/GPU pipeline audits in [`docs/audits/`](../../../docs/audits/) with exact file-and-line proof, P0–P3 severity matrices, and ordered Milestone Plans (`MXX.1` – `MXX.N`) that feed directly into this skill.
+- **Stage 4 Deterministic Code Execution — [`vhunambi-executioner`](../vhunambi-executioner/SKILL.md)** (`/vhunambi-executioner`): Once the 4-document specification suite passes Stage 3 Forensic Hardening, enforces the 8 Non-Negotiable Stage 4 Execution Laws (4-Doc Cross-Read, Additive Surgical Editing vs. Destructive Replacement, Zero Lazy/Summary Code, Authentic Tokens, Anti-Hang `--timeout=60s` Widget Testing, and Milestone-by-Milestone Micro-Gating).
 
 

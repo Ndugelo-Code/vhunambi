@@ -1,23 +1,38 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../explore/presentation/providers/explore_providers.dart';
+import '../../../library/presentation/providers/library_providers.dart';
+import '../../../notifications/domain/models/notification_entity.dart';
+import '../../../notifications/domain/models/notification_enums.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../../player/domain/models/stem_mixer_state.dart';
 import '../../../player/presentation/providers/stem_mixer_provider.dart';
 import '../../domain/models/track_detail_models.dart';
 
 /// Track dissection record for `/track/:id` (REQ-TRK-01 … REQ-TRK-11).
-final trackDetailFamilyProvider = StateNotifierProvider.family<
-    TrackDetailNotifier, TrackDetailEntity, String>((ref, trackId) {
-  return TrackDetailNotifier(trackId, ref: ref);
-});
+final trackDetailFamilyProvider =
+    StateNotifierProvider.family<
+      TrackDetailNotifier,
+      TrackDetailEntity,
+      String
+    >((ref, trackId) {
+      return TrackDetailNotifier(trackId, ref: ref);
+    });
 
 /// Discussion thread for a track (REQ-TRK-11).
-final trackCommentsProvider = StateNotifierProvider.family<
-    TrackCommentsNotifier, List<CommentEntity>, String>((ref, trackId) {
-  return TrackCommentsNotifier(trackId);
-});
+final trackCommentsProvider =
+    StateNotifierProvider.family<
+      TrackCommentsNotifier,
+      List<CommentEntity>,
+      String
+    >((ref, trackId) {
+      return TrackCommentsNotifier(trackId, ref: ref);
+    });
 
 /// Genre recommendations shown in the `More Like This` shelf (REQ-TRK-11).
-final moreLikeThisProvider =
-    Provider.family<List<TrackDetailEntity>, String>((ref, trackId) {
+final moreLikeThisProvider = Provider.family<List<TrackDetailEntity>, String>((
+  ref,
+  trackId,
+) {
   final current = ref.watch(trackDetailFamilyProvider(trackId));
   return List.unmodifiable(
     seededTrackDetails
@@ -30,7 +45,8 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
   final String trackId;
   final Ref? ref;
 
-  TrackDetailNotifier(this.trackId, {this.ref}) : super(_lookupInitialTrack(trackId));
+  TrackDetailNotifier(this.trackId, {this.ref})
+    : super(_lookupInitialTrack(trackId, ref: ref));
 
   /// Optimistically toggles the like state and tally (REQ-TRK-04).
   void toggleLike() {
@@ -39,6 +55,27 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
       isLiked: newLiked,
       likesCount: state.likesCount + (newLiked ? 1 : -1),
     );
+    if (newLiked) {
+      try {
+        ref
+            ?.read(notificationsProvider.notifier)
+            .addNotification(
+              NotificationEntity(
+                id: 'notif_track_like_${state.id}',
+                title: 'Liked "${state.title}"',
+                message:
+                    'Hearted ${state.creatorHandle}\'s track in Track Cockpit.',
+                category: NotificationCategory.social,
+                priority: NotificationPriority.normal,
+                subtype: 'post_like',
+                targetRoute: '/track/${state.id}',
+                targetEntityId: state.id,
+                ctaLabel: 'Open Track Cockpit',
+                createdAt: DateTime.now(),
+              ),
+            );
+      } catch (_) {}
+    }
   }
 
   /// Toggles one of the 5 cultural emoji reactions (REQ-TRK-06).
@@ -55,10 +92,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
       reactions[reactionKey] = (reactions[reactionKey] ?? 0) + 1;
     }
 
-    state = state.copyWith(
-      userReactions: userReactions,
-      reactions: reactions,
-    );
+    state = state.copyWith(userReactions: userReactions, reactions: reactions);
   }
 
   /// Runs the 4-step stem isolation pipeline (REQ-TRK-09 / REQ-TRK-STEM-01).
@@ -66,15 +100,9 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
     if (state.stemState.isProcessing) return;
 
     /// Advances the FSM through the documented step ladder.
-    Future<void> advance(
-      StemSeparationStatus status,
-      double progress,
-    ) async {
+    Future<void> advance(StemSeparationStatus status, double progress) async {
       state = state.copyWith(
-        stemState: state.stemState.copyWith(
-          status: status,
-          progress: progress,
-        ),
+        stemState: state.stemState.copyWith(status: status, progress: progress),
       );
       await Future<void>.delayed(const Duration(milliseconds: 40));
     }
@@ -120,8 +148,10 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
 
   void toggleMuteStem(String stemId) {
     final stems = state.stemState.stems
-        .map((stem) =>
-            stem.id == stemId ? stem.copyWith(isMuted: !stem.isMuted) : stem)
+        .map(
+          (stem) =>
+              stem.id == stemId ? stem.copyWith(isMuted: !stem.isMuted) : stem,
+        )
         .toList();
     state = state.copyWith(stemState: state.stemState.copyWith(stems: stems));
 
@@ -135,8 +165,11 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
 
   void toggleSoloStem(String stemId) {
     final stems = state.stemState.stems
-        .map((stem) =>
-            stem.id == stemId ? stem.copyWith(isSoloed: !stem.isSoloed) : stem)
+        .map(
+          (stem) => stem.id == stemId
+              ? stem.copyWith(isSoloed: !stem.isSoloed)
+              : stem,
+        )
         .toList();
     state = state.copyWith(stemState: state.stemState.copyWith(stems: stems));
 
@@ -162,11 +195,16 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
 
 class TrackCommentsNotifier extends StateNotifier<List<CommentEntity>> {
   final String trackId;
+  final Ref? ref;
 
-  TrackCommentsNotifier(this.trackId)
-      : super(_lookupInitialComments(trackId));
+  TrackCommentsNotifier(this.trackId, {this.ref})
+    : super(_lookupInitialComments(trackId));
 
-  void addComment(String content, {String authorName = 'Ndugelo', String authorHandle = '@ndugelo'}) {
+  void addComment(
+    String content, {
+    String authorName = 'Ndugelo',
+    String authorHandle = '@ndugelo',
+  }) {
     if (content.trim().isEmpty) return;
     final newComment = CommentEntity(
       id: 'cmt_${DateTime.now().millisecondsSinceEpoch}',
@@ -177,6 +215,24 @@ class TrackCommentsNotifier extends StateNotifier<List<CommentEntity>> {
       createdAt: DateTime.now(),
     );
     state = [newComment, ...state];
+    try {
+      ref
+          ?.read(notificationsProvider.notifier)
+          .addNotification(
+            NotificationEntity(
+              id: 'notif_track_cmt_${newComment.id}',
+              title: 'Commented on Track',
+              message: '"${newComment.content}" added to track discussion.',
+              category: NotificationCategory.social,
+              priority: NotificationPriority.normal,
+              subtype: 'comment',
+              targetRoute: '/track/$trackId',
+              targetEntityId: trackId,
+              ctaLabel: 'Open Track Cockpit',
+              createdAt: newComment.createdAt,
+            ),
+          );
+    } catch (_) {}
   }
 
   void toggleLikeComment(String commentId) {
@@ -199,20 +255,80 @@ class TrackCommentsNotifier extends StateNotifier<List<CommentEntity>> {
   }
 }
 
-TrackDetailEntity _lookupInitialTrack(String trackId) {
+TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
+  if (ref != null) {
+    // 1. Check User Library Vault (real generated & saved tracks)
+    try {
+      final libraryTracks = ref.read(libraryTracksProvider);
+      for (final lt in libraryTracks) {
+        if (lt.id == trackId) {
+          final handleSlug = lt.creatorName.toLowerCase().replaceAll(
+            RegExp(r'[^a-z0-9]+'),
+            '_',
+          );
+          return TrackDetailEntity(
+            id: lt.id,
+            title: lt.title,
+            genre: lt.genre,
+            language: lt.language,
+            duration: Duration(
+              seconds: lt.durationSeconds > 0 ? lt.durationSeconds : 180,
+            ),
+            creatorId: 'creator_$handleSlug',
+            creatorName: lt.creatorName,
+            creatorHandle: '@$handleSlug',
+            playCount: lt.playCount,
+            lyrics: lt.lyrics ?? '[Instrumental / AI Studio Track]',
+            prompt:
+                'Synthesized in Vhunambi Studio (${lt.genre} • ${lt.language})',
+          );
+        }
+      }
+    } catch (_) {}
+
+    // 2. Check Explore Discovery Catalog
+    try {
+      final exploreTracks = ref.read(exploreTracksProvider);
+      for (final et in exploreTracks) {
+        if (et.id == trackId) {
+          final handleSlug = et.creatorName.toLowerCase().replaceAll(
+            RegExp(r'[^a-z0-9]+'),
+            '_',
+          );
+          return TrackDetailEntity(
+            id: et.id,
+            title: et.title,
+            genre: et.genre,
+            language: et.language,
+            duration: et.duration,
+            creatorId: 'creator_$handleSlug',
+            creatorName: et.creatorName,
+            creatorHandle: et.creatorHandle ?? '@$handleSlug',
+            playCount: et.playCount,
+            likesCount: et.likeCount,
+            lyrics: '[${et.title} • ${et.language}]',
+            prompt: 'Featured on Vhunambi Explore (${et.genre})',
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 3. Check Seeded Catalog with sovereign Studio fallback (never @fifi)
   final match = seededTrackDetails.firstWhere(
     (t) => t.id == trackId,
     orElse: () => TrackDetailEntity(
       id: trackId,
-      title: 'Unknown Melody',
+      title: 'Studio Track',
       genre: 'Amapiano',
       language: 'Tshivenḓa',
       duration: const Duration(minutes: 3, seconds: 18),
-      creatorId: 'creator_001',
-      creatorName: 'Fifi',
-      creatorHandle: '@fifi',
+      creatorId: 'creator_cern',
+      creatorName: 'Vhunambi Studio',
+      creatorHandle: '@vhunambi',
       prompt: 'African vocal rhythms with deep log drums',
-      lyrics: '[Verse 1]\nMelodies from the north...\n[Chorus]\nVhutsila ha u imba...',
+      lyrics:
+          '[Verse 1]\nMelodies from the north...\n[Chorus]\nVhutsila ha u imba...',
     ),
   );
   return match;
@@ -236,7 +352,8 @@ List<CommentEntity> _lookupInitialComments(String trackId) {
         trackId: trackId,
         authorName: 'Lerato K',
         authorHandle: '@lerato_k',
-        content: 'Tshivenḓa harmonies with amapiano piano chords hit different ❤️',
+        content:
+            'Tshivenḓa harmonies with amapiano piano chords hit different ❤️',
         createdAt: DateTime.now().subtract(const Duration(hours: 6)),
         likesCount: 2,
         isLiked: false,
@@ -261,15 +378,10 @@ final List<TrackDetailEntity> seededTrackDetails = [
     isLiked: true,
     likesCount: 1,
     playCount: 5,
-    reactions: {
-      'fire': 0,
-      'love': 1,
-      'rhythm': 0,
-      'hands': 0,
-      'globe': 0,
-    },
+    reactions: {'fire': 0, 'love': 1, 'rhythm': 0, 'hands': 0, 'globe': 0},
     userReactions: {'love'},
-    prompt: 'Ndo mufuna Matibe deep amapiano with atmospheric Rhodes and heavy log drums',
+    prompt:
+        'Ndo mufuna Matibe deep amapiano with atmospheric Rhodes and heavy log drums',
     lyrics: '''[Verse 1]
 Moonlight falls on your shoulder,
 Tshikona drums sound deep in the distance,
@@ -315,15 +427,10 @@ Tshikona sound...''',
     isLiked: false,
     likesCount: 1002,
     playCount: 1200,
-    reactions: {
-      'fire': 14,
-      'love': 42,
-      'rhythm': 28,
-      'hands': 8,
-      'globe': 19,
-    },
+    reactions: {'fire': 14, 'love': 42, 'rhythm': 28, 'hands': 8, 'globe': 19},
     userReactions: {},
-    prompt: 'Soulful amapiano with warm saxophone chords and uplifting choir vocals',
+    prompt:
+        'Soulful amapiano with warm saxophone chords and uplifting choir vocals',
     lyrics: '''[Verse 1]
 Waking up to the morning rays,
 Walking through the blessed days.
@@ -345,15 +452,10 @@ Everything is gonna be alright.''',
     isLiked: false,
     likesCount: 840,
     playCount: 920,
-    reactions: {
-      'fire': 25,
-      'love': 12,
-      'rhythm': 30,
-      'hands': 5,
-      'globe': 7,
-    },
+    reactions: {'fire': 25, 'love': 12, 'rhythm': 30, 'hands': 5, 'globe': 7},
     userReactions: {},
-    prompt: 'Mid-tempo Soweto kwaito groove with heavy 90s digital synths and chant vocals',
+    prompt:
+        'Mid-tempo Soweto kwaito groove with heavy 90s digital synths and chant vocals',
     lyrics: '''[Chorus]
 Asambeni sonke,
 Kwaito sound in the street!''',
@@ -371,15 +473,10 @@ Kwaito sound in the street!''',
     isLiked: false,
     likesCount: 450,
     playCount: 1800,
-    reactions: {
-      'fire': 40,
-      'love': 8,
-      'rhythm': 35,
-      'hands': 12,
-      'globe': 3,
-    },
+    reactions: {'fire': 40, 'love': 8, 'rhythm': 35, 'hands': 12, 'globe': 3},
     userReactions: {},
-    prompt: 'Dark minimalist Gqom beat with raw heavy kicks and Durban warehouse claps',
+    prompt:
+        'Dark minimalist Gqom beat with raw heavy kicks and Durban warehouse claps',
     lyrics: '[Instrumental Track]',
   ),
   const TrackDetailEntity(
@@ -395,15 +492,10 @@ Kwaito sound in the street!''',
     isLiked: false,
     likesCount: 310,
     playCount: 780,
-    reactions: {
-      'fire': 8,
-      'love': 15,
-      'rhythm': 10,
-      'hands': 18,
-      'globe': 6,
-    },
+    reactions: {'fire': 8, 'love': 15, 'rhythm': 10, 'hands': 18, 'globe': 6},
     userReactions: {},
-    prompt: 'Intricate finger-picking acoustic guitar with traditional storytelling vocals',
+    prompt:
+        'Intricate finger-picking acoustic guitar with traditional storytelling vocals',
     lyrics: '''[Verse 1]
 Intaba zase Zululand ziya khuluma,
 Indlela ende siyi hamba sonke.''',
@@ -421,15 +513,10 @@ Indlela ende siyi hamba sonke.''',
     isLiked: false,
     likesCount: 620,
     playCount: 2400,
-    reactions: {
-      'fire': 22,
-      'love': 30,
-      'rhythm': 45,
-      'hands': 14,
-      'globe': 20,
-    },
+    reactions: {'fire': 22, 'love': 30, 'rhythm': 45, 'hands': 14, 'globe': 20},
     userReactions: {},
-    prompt: 'Hypnotic 122 BPM Afro house percussion with African congas and soothing Rhodes',
+    prompt:
+        'Hypnotic 122 BPM Afro house percussion with African congas and soothing Rhodes',
     lyrics: '''[Chorus]
 Langa litshonile eSoweto,
 Siyavuma sonke emoyeni.''',

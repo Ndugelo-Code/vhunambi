@@ -574,12 +574,10 @@ class MusicalDnaGraph {
 /// The 3 hero visual surfaces in ExpandedCockpitModal (REQ-P55-HERO-01).
 enum PlayerHeroMode {
   artwork,
-  biome3d,
   lyrics;
 
   String get label => switch (this) {
     artwork => 'Artwork',
-    biome3d => '3D Biome',
     lyrics => 'Lyrics',
   };
 }

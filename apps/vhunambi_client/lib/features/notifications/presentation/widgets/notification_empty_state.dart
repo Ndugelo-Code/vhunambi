@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -34,8 +35,8 @@ class NotificationEmptyState extends StatelessWidget {
               color: AppColors.surfaceSecondary,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              Icons.notifications_off_outlined,
+            child: PhosphorIcon(
+              PhosphorIconsRegular.bellSlash,
               size: 32,
               color: AppColors.textTertiary,
             ),

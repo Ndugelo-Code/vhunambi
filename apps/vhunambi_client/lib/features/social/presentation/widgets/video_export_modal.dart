@@ -16,7 +16,10 @@ class VideoExportModal extends ConsumerStatefulWidget {
   final VideoExportJob job;
   const VideoExportModal({super.key, required this.job});
 
-  static Future<void> show(BuildContext context, {required VideoExportJob job}) {
+  static Future<void> show(
+    BuildContext context, {
+    required VideoExportJob job,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -68,25 +71,39 @@ class _VideoExportModalState extends ConsumerState<VideoExportModal> {
             const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
-                PhosphorIcon(PhosphorIconsFill.filmStrip, color: AppColors.brandPrimary),
+                PhosphorIcon(
+                  PhosphorIconsFill.filmStrip,
+                  color: AppColors.brandPrimary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('Native Video Muxer',
-                      style: AppTypography.titleMedium.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimaryOf(context),
-                      )),
+                  child: Text(
+                    'Native Video Muxer',
+                    style: AppTypography.titleMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimaryOf(context),
+                    ),
+                  ),
                 ),
                 Container(
                   key: const Key('export_badge'),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceSecondaryOf(context),
                     borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: AppColors.borderSubtleOf(context)),
+                    border: Border.all(
+                      color: AppColors.borderSubtleOf(context),
+                    ),
                   ),
-                  child: Text('1080p ${job.fps} FPS',
-                      style: AppTypography.caption.copyWith(color: AppColors.coinGold)),
+                  child: Text(
+                    '1080p ${job.fps} FPS',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.coinGold,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -121,8 +138,10 @@ class _VideoExportModalState extends ConsumerState<VideoExportModal> {
             const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
-                Text('Holographic Watermark',
-                    style: TextStyle(color: AppColors.textSecondaryOf(context))),
+                Text(
+                  'Holographic Watermark',
+                  style: TextStyle(color: AppColors.textSecondaryOf(context)),
+                ),
                 const Spacer(),
                 Switch(
                   key: const Key('watermark_switch'),
@@ -140,28 +159,42 @@ class _VideoExportModalState extends ConsumerState<VideoExportModal> {
                   : () async {
                       final path = await notifier.startMuxing();
                       if (path != null && mounted) {
-                        ref.read(notificationsProvider.notifier).addNotification(
-                          NotificationEntity(
-                            id: 'notif_vid_render_${DateTime.now().millisecondsSinceEpoch}',
-                            title: 'Reel Render Completed',
-                            message: 'Master reel "${job.title}" rendered at ${job.resolution.label}.',
-                            createdAt: DateTime.now(),
-                            category: NotificationCategory.creatorActivity,
-                            isRead: false,
-                          ),
-                        );
+                        ref
+                            .read(notificationsProvider.notifier)
+                            .addNotification(
+                              NotificationEntity(
+                                id: 'notif_vid_render_${DateTime.now().millisecondsSinceEpoch}',
+                                title: 'Reel Render Completed',
+                                message:
+                                    'Master reel "${job.title}" rendered at ${job.resolution.label}.',
+                                createdAt: DateTime.now(),
+                                category: NotificationCategory.creatorActivity,
+                                subtype: 'reel_render',
+                                targetRoute: '/reel/${job.id}',
+                                targetEntityId: job.id,
+                                ctaLabel: 'Watch Kinetic Reel',
+                                isRead: false,
+                              ),
+                            );
                       }
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.brandPrimary,
                 minimumSize: const Size.fromHeight(50),
-                shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBorder),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: AppRadius.inputBorder,
+                ),
               ),
-              icon: const PhosphorIcon(PhosphorIconsFill.lightning, color: AppColors.brandContrast),
+              icon: const PhosphorIcon(
+                PhosphorIconsFill.lightning,
+                color: AppColors.brandContrast,
+              ),
               label: Text(
                 state.isMuxing ? 'Muxing…' : 'Render MP4',
                 style: AppTypography.bodyLarge.copyWith(
-                    color: AppColors.brandContrast, fontWeight: FontWeight.bold),
+                  color: AppColors.brandContrast,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             if (state.isMuxing || state.isCompleted) ...[
@@ -174,9 +207,13 @@ class _VideoExportModalState extends ConsumerState<VideoExportModal> {
                 borderRadius: AppRadius.thumbBorder,
               ),
               const SizedBox(height: 4),
-              Text('${(state.progress * 100).round()}%',
-                  key: const Key('export_progress'),
-                  style: AppTypography.caption.copyWith(color: AppColors.textSecondaryOf(context))),
+              Text(
+                '${(state.progress * 100).round()}%',
+                key: const Key('export_progress'),
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondaryOf(context),
+                ),
+              ),
             ],
             if (state.isCompleted) ...[
               const SizedBox(height: AppSpacing.md),
@@ -189,11 +226,15 @@ class _VideoExportModalState extends ConsumerState<VideoExportModal> {
   }
 
   Widget _label(BuildContext context, String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(text,
-            style: AppTypography.caption.copyWith(
-                color: AppColors.textSecondaryOf(context), fontWeight: FontWeight.w600)),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      text,
+      style: AppTypography.caption.copyWith(
+        color: AppColors.textSecondaryOf(context),
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
 }
 
 class _ConfigChip extends StatelessWidget {
@@ -215,17 +256,25 @@ class _ConfigChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.brandPrimary : AppColors.surfaceSecondaryOf(context),
+          color: isActive
+              ? AppColors.brandPrimary
+              : AppColors.surfaceSecondaryOf(context),
           borderRadius: AppRadius.pillBorder,
           border: Border.all(
-            color: isActive ? AppColors.brandPrimary : AppColors.borderSubtleOf(context),
+            color: isActive
+                ? AppColors.brandPrimary
+                : AppColors.borderSubtleOf(context),
           ),
         ),
-        child: Text(label,
-            style: AppTypography.caption.copyWith(
-              color: isActive ? AppColors.brandContrast : AppColors.textSecondaryOf(context),
-              fontWeight: FontWeight.w600,
-            )),
+        child: Text(
+          label,
+          style: AppTypography.caption.copyWith(
+            color: isActive
+                ? AppColors.brandContrast
+                : AppColors.textSecondaryOf(context),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
@@ -250,21 +299,35 @@ class _SharePanel extends ConsumerWidget {
             borderRadius: AppRadius.inputBorder,
             border: Border.all(color: AppColors.borderSubtleOf(context)),
           ),
-          child: Text(state.generatedCaption ?? '',
-              style: AppTypography.caption.copyWith(color: AppColors.textPrimaryOf(context))),
+          child: Text(
+            state.generatedCaption ?? '',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textPrimaryOf(context),
+            ),
+          ),
         ),
         const SizedBox(height: AppSpacing.xs),
         OutlinedButton.icon(
           key: const Key('copy_caption_btn'),
           onPressed: () {
-            Clipboard.setData(ClipboardData(text: state.generatedCaption ?? ''));
+            Clipboard.setData(
+              ClipboardData(text: state.generatedCaption ?? ''),
+            );
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Caption copied to clipboard')),
             );
           },
-          icon: PhosphorIcon(PhosphorIconsRegular.copy, size: 16, color: AppColors.textSecondaryOf(context)),
-          label: Text('Copy Caption',
-              style: AppTypography.bodySmall.copyWith(color: AppColors.textPrimaryOf(context))),
+          icon: PhosphorIcon(
+            PhosphorIconsRegular.copy,
+            size: 16,
+            color: AppColors.textSecondaryOf(context),
+          ),
+          label: Text(
+            'Copy Caption',
+            style: AppTypography.bodySmall.copyWith(
+              color: AppColors.textPrimaryOf(context),
+            ),
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Row(
@@ -276,16 +339,19 @@ class _SharePanel extends ConsumerWidget {
                 onTap: () async {
                   final ok = await notifier.shareTo(target);
                   if (ok && context.mounted) {
-                    ref.read(notificationsProvider.notifier).addNotification(
-                      NotificationEntity(
-                        id: 'notif_vid_share_${DateTime.now().millisecondsSinceEpoch}',
-                        title: 'Video Export Shared',
-                        message: 'Shared "${job?.title ?? "Reel"}" to ${target.label}.',
-                        createdAt: DateTime.now(),
-                        category: NotificationCategory.creatorActivity,
-                        isRead: false,
-                      ),
-                    );
+                    ref
+                        .read(notificationsProvider.notifier)
+                        .addNotification(
+                          NotificationEntity(
+                            id: 'notif_vid_share_${DateTime.now().millisecondsSinceEpoch}',
+                            title: 'Video Export Shared',
+                            message:
+                                'Shared "${job?.title ?? "Reel"}" to ${target.label}.',
+                            createdAt: DateTime.now(),
+                            category: NotificationCategory.creatorActivity,
+                            isRead: false,
+                          ),
+                        );
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Shared to ${target.label}!')),
                     );
@@ -342,12 +408,16 @@ class _ShareButton extends StatelessWidget {
           const SizedBox(height: 4),
           SizedBox(
             width: 64,
-            child: Text(target.label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textSecondaryOf(context), fontSize: 9)),
+            child: Text(
+              target.label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textSecondaryOf(context),
+                fontSize: 9,
+              ),
+            ),
           ),
         ],
       ),

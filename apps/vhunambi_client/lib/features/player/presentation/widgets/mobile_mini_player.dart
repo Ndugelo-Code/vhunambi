@@ -11,16 +11,89 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../providers/player_provider.dart';
 
-class MobileMiniPlayer extends ConsumerWidget {
+class MobileMiniPlayer extends ConsumerStatefulWidget {
   final VoidCallback? onExpand;
 
-  const MobileMiniPlayer({
-    super.key,
-    this.onExpand,
-  });
+  const MobileMiniPlayer({super.key, this.onExpand});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MobileMiniPlayer> createState() => _MobileMiniPlayerState();
+}
+
+class _MobileMiniPlayerState extends ConsumerState<MobileMiniPlayer>
+    with TickerProviderStateMixin {
+  // Play/pause bounce controller
+  late final AnimationController _playBounce;
+  late final Animation<double> _playScale;
+
+  // Skip-prev bounce controller
+  late final AnimationController _prevBounce;
+  late final Animation<double> _prevScale;
+
+  // Skip-next bounce controller
+  late final AnimationController _nextBounce;
+  late final Animation<double> _nextScale;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _playBounce = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
+    _playScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.82), weight: 30),
+      TweenSequenceItem(
+        tween: Tween(
+          begin: 0.82,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 70,
+      ),
+    ]).animate(_playBounce);
+
+    _prevBounce = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 340),
+    );
+    _prevScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.75), weight: 30),
+      TweenSequenceItem(
+        tween: Tween(
+          begin: 0.75,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 70,
+      ),
+    ]).animate(_prevBounce);
+
+    _nextBounce = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 340),
+    );
+    _nextScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.75), weight: 30),
+      TweenSequenceItem(
+        tween: Tween(
+          begin: 0.75,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 70,
+      ),
+    ]).animate(_nextBounce);
+  }
+
+  @override
+  void dispose() {
+    _playBounce.dispose();
+    _prevBounce.dispose();
+    _nextBounce.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final playerState = ref.watch(playerStateProvider);
     final track = playerState.currentTrack;
 
@@ -33,11 +106,6 @@ class MobileMiniPlayer extends ConsumerWidget {
     final extension = VhunambiThemeExtension.of(context);
     final accent = extension.genreAccent(genre);
 
-    // Floating frosted "island" pill with an ambient glow sampled from the
-    // track's genre gradient. Dismiss is a swipe-down gesture (not a button),
-    // freeing horizontal room so every transport control keeps a 44x44 target.
-    // Hide the mini player when the keyboard is open to prevent layout
-    // collision on the Create screen (VH-001, REQ-RWD-03).
     final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
     if (keyboardOpen) return const SizedBox.shrink();
 
@@ -45,7 +113,7 @@ class MobileMiniPlayer extends ConsumerWidget {
       glow: accent,
       child: Column(
         children: [
-          // 2px progress line (non-interactive on mobile; scrub in the cockpit).
+          // 2 px tinted progress bar
           LinearProgressIndicator(
             value: playerState.progressRatio,
             minHeight: 2,
@@ -57,25 +125,22 @@ class MobileMiniPlayer extends ConsumerWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onHorizontalDragEnd: (details) {
-                // `primaryVelocity` is nullable on some drag terminations.
                 final velocity = details.primaryVelocity ?? 0;
                 if (velocity < -250) {
                   HapticsService().lightImpact();
+                  _nextBounce.forward(from: 0);
                   notifier.skipNext();
                 } else if (velocity > 250) {
                   HapticsService().lightImpact();
+                  _prevBounce.forward(from: 0);
                   notifier.skipPrevious();
                 }
               },
-              // Vertical fling → drag up to expand the cockpit, drag down to
-              // dismiss the player (replaces the old 28x28 dismiss button).
-              // The gesture arena disambiguates by dominant axis, so this does
-              // not conflict with the horizontal swipe-to-skip above.
               onVerticalDragEnd: (details) {
                 final velocity = details.primaryVelocity ?? 0;
                 if (velocity < -250) {
                   HapticsService().lightImpact();
-                  onExpand?.call();
+                  widget.onExpand?.call();
                 } else if (velocity > 250) {
                   HapticsService().lightImpact();
                   notifier.dismiss();
@@ -85,10 +150,10 @@ class MobileMiniPlayer extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
-                    // Leading 44x44 album art (tap to expand).
+                    // ── Album art ──────────────────────────────────────────
                     GestureDetector(
                       key: const Key('mini_player_art'),
-                      onTap: onExpand,
+                      onTap: widget.onExpand,
                       child: Hero(
                         tag: 'now_playing_art_${track.id}',
                         child: Container(
@@ -96,22 +161,29 @@ class MobileMiniPlayer extends ConsumerWidget {
                           height: 44,
                           decoration: BoxDecoration(
                             gradient: AppGradients.forGenre(track.genre),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accent.withValues(alpha: 0.28),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: const PhosphorIcon(
                             AppIcons.piano,
                             color: Colors.white,
-                            size: 22,
+                            size: 20,
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 10),
 
-                    // Metadata Stack
+                    // ── Metadata ───────────────────────────────────────────
                     Expanded(
                       child: GestureDetector(
-                        onTap: onExpand,
+                        onTap: widget.onExpand,
                         behavior: HitTestBehavior.opaque,
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -140,82 +212,69 @@ class MobileMiniPlayer extends ConsumerWidget {
                       ),
                     ),
 
-                    // Skip previous — 44x44 circular hit target.
+                    const SizedBox(width: 4),
+
+                    // ── Skip previous ──────────────────────────────────────
                     Semantics(
                       label: 'Skip previous track',
-                      child: IconButton(
-                        key: const Key('mini_player_prev'),
-                        style: IconButton.styleFrom(shape: const CircleBorder()),
-                        icon: const PhosphorIcon(
-                          AppIcons.skipBack,
-                          color: Colors.white,
-                          size: 22,
+                      child: ScaleTransition(
+                        scale: _prevScale,
+                        child: _SoftIconButton(
+                          key: const Key('mini_player_prev'),
+                          icon: AppIcons.skipBack,
+                          accent: accent,
+                          size: 44,
+                          onPressed: () {
+                            HapticsService().lightImpact();
+                            _prevBounce.forward(from: 0);
+                            notifier.skipPrevious();
+                          },
                         ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                        onPressed: () {
-                          HapticsService().lightImpact();
-                          notifier.skipPrevious();
-                        },
                       ),
                     ),
 
-                    // Play/Pause orb — 44x44 circular orb.
+                    const SizedBox(width: 4),
+
+                    // ── Play / Pause orb (larger, bouncy) ─────────────────
                     Semantics(
                       label: playerState.isPlaying ? 'Pause' : 'Play',
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: accent,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: accent.withValues(alpha: 0.35),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: IconButton(
+                      child: ScaleTransition(
+                        scale: _playScale,
+                        child: _PlayPauseOrb(
                           key: const Key('mini_player_play_pause'),
-                          style: IconButton.styleFrom(shape: const CircleBorder()),
-                          icon: PhosphorIcon(
-                            playerState.isPlaying
-                                ? AppIcons.pause
-                                : AppIcons.play,
-                            color: _contrastTextColor(accent),
-                            size: 22,
-                          ),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                          isPlaying: playerState.isPlaying,
+                          accent: accent,
                           onPressed: () {
                             HapticsService().mediumImpact();
+                            _playBounce.forward(from: 0);
                             notifier.togglePlayPause();
                           },
                         ),
                       ),
                     ),
 
-                    // Skip next — 44x44 circular hit target.
+                    const SizedBox(width: 4),
+
+                    // ── Skip next ──────────────────────────────────────────
                     Semantics(
                       label: 'Skip next track',
-                      child: IconButton(
-                        key: const Key('mini_player_next'),
-                        style: IconButton.styleFrom(shape: const CircleBorder()),
-                        icon: const PhosphorIcon(
-                          AppIcons.skipForward,
-                          color: Colors.white,
-                          size: 22,
+                      child: ScaleTransition(
+                        scale: _nextScale,
+                        child: _SoftIconButton(
+                          key: const Key('mini_player_next'),
+                          icon: AppIcons.skipForward,
+                          accent: accent,
+                          size: 44,
+                          onPressed: () {
+                            HapticsService().lightImpact();
+                            _nextBounce.forward(from: 0);
+                            notifier.skipNext();
+                          },
                         ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                        onPressed: () {
-                          HapticsService().lightImpact();
-                          notifier.skipNext();
-                        },
                       ),
                     ),
+
+                    const SizedBox(width: 4),
                   ],
                 ),
               ),
@@ -226,10 +285,6 @@ class MobileMiniPlayer extends ConsumerWidget {
     );
   }
 
-  /// Maps a free-form [genre] string from [Track] to a
-  /// [Genre] enum for the design system token registry.
-  ///
-  /// Unknown genres fall back to [Genre.amapiano].
   Genre _mapStringToGenre(String genre) {
     final normalized = genre.trim().toLowerCase();
     return switch (normalized) {
@@ -249,11 +304,98 @@ class MobileMiniPlayer extends ConsumerWidget {
       _ => Genre.amapiano,
     };
   }
+}
 
-  /// Returns a high-contrast text color (black or white) for [background]
-  /// based on its relative luminance, ensuring WCAG AA readability.
-  Color _contrastTextColor(Color background) {
-    final luminance = background.computeLuminance();
-    return luminance > 0.5 ? Colors.black : Colors.white;
+// ─────────────────────────────────────────────────────────────────────────────
+// Soft-rounded icon button for skip-prev / skip-next
+// ─────────────────────────────────────────────────────────────────────────────
+class _SoftIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color accent;
+  final double size;
+  final VoidCallback onPressed;
+
+  const _SoftIconButton({
+    super.key,
+    required this.icon,
+    required this.accent,
+    required this.size,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceModal.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.borderSubtle.withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
+        child: Center(child: PhosphorIcon(icon, color: Colors.white, size: 20)),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Play / Pause orb — 52×52 accent circle with glow
+// ─────────────────────────────────────────────────────────────────────────────
+class _PlayPauseOrb extends StatelessWidget {
+  final bool isPlaying;
+  final Color accent;
+  final VoidCallback onPressed;
+
+  const _PlayPauseOrb({
+    super.key,
+    required this.isPlaying,
+    required this.accent,
+    required this.onPressed,
+  });
+
+  Color _contrastColor(Color bg) {
+    return bg.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: accent,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: accent.withValues(alpha: 0.45),
+              blurRadius: 14,
+              spreadRadius: 1,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Center(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, animation) =>
+                ScaleTransition(scale: animation, child: child),
+            child: PhosphorIcon(
+              isPlaying ? AppIcons.pause : AppIcons.play,
+              key: ValueKey<bool>(isPlaying),
+              color: _contrastColor(accent),
+              size: 24,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

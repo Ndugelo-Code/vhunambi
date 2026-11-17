@@ -16,7 +16,7 @@ Where `vhunambi-spec-architect` turns architectural intent into an Argon-hardene
 
 | Stage | Role | Active Skill | Core Responsibility |
 | :--- | :--- | :--- | :--- |
-| **Stage 1** | External Strategic Architect (Gemini 4 Argon Browser) | — | Defines macro-system topology, phase roadmap, and strategic traps. |
+| **Stage 1** | Forensic Codebase & Runtime Auditor (Gemini 4 Argon) | [`vhunambi-forensic-auditor`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/skills/vhunambi-forensic-auditor/SKILL.md) | Audits codebase, E2E cloud/GPU pipelines, UI/UX surfaces, and physical device logs into `docs/audits/<NAME>_AUDIT.md`. |
 | **Stage 2** | Rapid Spec Drafter (Gemini 3.8 Flash) | [`vhunambi-spec-architect`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/skills/vhunambi-spec-architect/SKILL.md) | Scaffolds the 4-document phase suite (`blueprint.md`, `requirements.md`, `design.md`, `tasks.md`). |
 | **Stage 3** | Codebase Forensic Spec Auditor (Gemini 4 Argon High) | [`vhunambi-spec-architect`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/skills/vhunambi-spec-architect/SKILL.md) | Audits and hardens the 4-document suite against live monorepo symbols, schemas, and cross-phase invariants. |
 | **Stage 4** | **Deterministic Phase Executioner (Gemini 3.8 Flash / Argon)** | **`vhunambi-executioner` (THIS SKILL)** | Executes `tasks.md` milestone-by-milestone (`M1` $\to$ `MN`) by cross-reading all 4 spec documents, performing surgical additive edits, enforcing zero-lazy-code discipline, and passing all static analysis & bounded-timeout test gates. |

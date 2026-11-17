@@ -18,10 +18,7 @@ import '../providers/cross_module_synergy_provider.dart';
 ///
 /// Hides completely when no real measurements exist (no placeholder cards).
 class CrossModuleSynergyDeck extends ConsumerWidget {
-  const CrossModuleSynergyDeck({
-    super.key,
-    this.compact = false,
-  });
+  const CrossModuleSynergyDeck({super.key, this.compact = false});
 
   final bool compact;
 
@@ -43,8 +40,8 @@ class CrossModuleSynergyDeck extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                PhosphorIcons.sparkle(PhosphorIconsStyle.fill),
+              PhosphorIcon(
+                PhosphorIconsFill.sparkle,
                 size: 16,
                 color: AppColors.brandPrimary,
               ),
@@ -54,7 +51,7 @@ class CrossModuleSynergyDeck extends ConsumerWidget {
                 style: AppTypography.caption.copyWith(
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.1,
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryOf(context),
                 ),
               ),
               const Spacer(),
@@ -149,9 +146,9 @@ class _SynergyCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? AppSpacing.sm : AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.surfaceElevatedOf(context),
         borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,8 +161,8 @@ class _SynergyCard extends StatelessWidget {
                   color: AppColors.brandPrimary.withAlpha(25),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  PhosphorIcons.magicWand(PhosphorIconsStyle.regular),
+                child: const PhosphorIcon(
+                  PhosphorIconsRegular.magicWand,
                   size: 16,
                   color: AppColors.brandPrimary,
                 ),
@@ -175,6 +172,7 @@ class _SynergyCard extends StatelessWidget {
                 child: Text(
                   card.title,
                   style: AppTypography.titleSmall.copyWith(
+                    color: AppColors.textPrimaryOf(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -182,33 +180,36 @@ class _SynergyCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
+                  color: AppColors.surfaceSecondaryOf(context),
                   borderRadius: AppRadius.pillBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
+                  border: Border.all(color: AppColors.borderSubtleOf(context)),
                 ),
                 child: Text(
                   card.metricSummary,
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                 ),
               ),
               const SizedBox(width: AppSpacing.xxs),
-              // Dismiss touch target >= 44x44dp (STD-UIUX-001)
+              // Dismiss touch target >= 48x48dp (STD-UIUX-001)
               SizedBox(
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 child: IconButton(
                   key: Key('synergy_dismiss_${card.id}'),
                   tooltip: 'Dismiss suggestion',
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                  icon: Icon(
-                    PhosphorIcons.x(PhosphorIconsStyle.regular),
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
+                  icon: PhosphorIcon(
+                    PhosphorIconsRegular.x,
                     size: 16,
-                    color: AppColors.textTertiary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                   onPressed: onDismiss,
                 ),
@@ -219,27 +220,29 @@ class _SynergyCard extends StatelessWidget {
           Text(
             card.subtitle,
             style: AppTypography.bodySmall.copyWith(
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryOf(context),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
           Align(
             alignment: Alignment.centerRight,
             child: SizedBox(
-              height: 44,
+              height: 48,
               child: ElevatedButton.icon(
                 key: Key('synergy_action_${card.id}'),
                 onPressed: onAction,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandPrimary,
                   foregroundColor: AppColors.brandContrast,
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
                   shape: const RoundedRectangleBorder(
                     borderRadius: AppRadius.pillBorder,
                   ),
                 ),
-                icon: Icon(
-                  PhosphorIcons.arrowRight(PhosphorIconsStyle.bold),
+                icon: const PhosphorIcon(
+                  PhosphorIconsBold.arrowRight,
                   size: 16,
                   color: AppColors.brandContrast,
                 ),

@@ -6,6 +6,9 @@ import '../../../../core/cache/profile_cache.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/storage/sovereign_domain_repositories.dart';
 import '../../../../core/utils/creator_id_utils.dart';
+import '../../../notifications/domain/models/notification_entity.dart';
+import '../../../notifications/domain/models/notification_enums.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../data/repositories/profile_repository_impl.dart';
 import '../../domain/models/profile_models.dart';
 import '../../domain/models/profile_operation_state.dart';
@@ -19,7 +22,7 @@ final artistProfileFamilyProvider =
       ArtistProfileEntity,
       String
     >((ref, artistId) {
-      return ArtistProfileNotifier(artistId);
+      return ArtistProfileNotifier(artistId, ref: ref);
     });
 
 /// Account owner creator studio profile provider for `/profile/me` (REQ-TRK-15).
@@ -85,12 +88,16 @@ final ownerProfileOperationProvider =
 ///   and fallback scenarios.
 class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
   final String artistId;
+  final Ref? ref;
 
-  ArtistProfileNotifier(this.artistId) : super(_initialProfile(artistId));
+  ArtistProfileNotifier(this.artistId, {this.ref})
+    : super(_initialProfile(artistId));
 
-  ArtistProfileNotifier.forOwnerSession(SovereignAuthSession session)
-    : artistId = 'me',
-      super(_initialOwnerProfile(session));
+  ArtistProfileNotifier.forOwnerSession(
+    SovereignAuthSession session, {
+    this.ref,
+  }) : artistId = 'me',
+       super(_initialOwnerProfile(session));
 
   static ArtistProfileEntity _initialProfile(String artistId) {
     if (artistId == 'me' &&
@@ -147,6 +154,27 @@ class ArtistProfileNotifier extends StateNotifier<ArtistProfileEntity> {
       isFollowing: nextFollowing,
       followerCount: state.followerCount + (nextFollowing ? 1 : -1),
     );
+    if (nextFollowing) {
+      try {
+        ref
+            ?.read(notificationsProvider.notifier)
+            .addNotification(
+              NotificationEntity(
+                id: 'notif_follow_${state.id}_${DateTime.now().millisecondsSinceEpoch}',
+                title: 'Following ${state.displayName}',
+                message:
+                    'Subscribed to @${state.username}\'s releases and kinetic reels.',
+                category: NotificationCategory.social,
+                priority: NotificationPriority.normal,
+                subtype: 'follow',
+                targetRoute: '/creator/${state.id}',
+                targetEntityId: state.id,
+                ctaLabel: 'View Creator Profile',
+                createdAt: DateTime.now(),
+              ),
+            );
+      } catch (_) {}
+    }
   }
 
   /// Tips credits to the artist and adds a ledger entry (REQ-TRK-14).

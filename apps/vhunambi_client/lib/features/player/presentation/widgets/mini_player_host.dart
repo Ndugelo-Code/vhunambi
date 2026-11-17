@@ -168,6 +168,11 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     final activeTab = ref.watch(appNavigationTabProvider);
     if (activeTab == 2) return true;
 
+    // Phase 68 (REQ-P68-PLAYER-02): Suppress floating MiniPlayerHost on Home
+    // (Tab 0) when NowPlayingHomeCard renders inline playback controls.
+    final isHomeInlineMounted = ref.watch(homeInlineNowPlayingMountedProvider);
+    if (activeTab == 0 && isHomeInlineMounted) return true;
+
     // Hide when no active track or track is placeholder / 'Unknown' (REQ-P44-MINI-01).
     if (!playerState.hasActiveTrack) return true;
     final track = playerState.currentTrack;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/auth/auth_providers.dart';
 import 'core/navigation/app_navigator.dart';
 import 'core/navigation/navigation_providers.dart';
 import 'core/resilience/vhunambi_crash_shield.dart';
@@ -18,7 +19,7 @@ import 'core/widgets/vhunambi_mobile_bottom_nav.dart';
 import 'core/design_system/design_system.dart';
 import 'features/explore/presentation/providers/explore_providers.dart';
 import 'features/explore/presentation/views/explore_view.dart';
-import 'features/notifications/presentation/providers/notifications_provider.dart';
+import 'features/notifications/domain/services/onboarding_notifications_service.dart';
 import 'features/home/presentation/views/home_dashboard_view.dart';
 import 'features/library/presentation/providers/library_providers.dart';
 import 'features/library/presentation/views/library_view.dart';
@@ -146,7 +147,8 @@ class _RootShellState extends ConsumerState<RootShell> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(notificationsProvider.notifier).seedDemoAlerts();
+      if (!mounted) return;
+      OnboardingNotificationsService.ensureSeededForActiveCreator(ref);
     });
   }
 
@@ -208,6 +210,7 @@ class _RootShellState extends ConsumerState<RootShell> {
   List<Widget> _buildPages() => [
     HomeDashboardView(
       onNavigateToStudio: _openStudio,
+      onNavigateToExplore: () => _switchTab(1),
       onNavigateToMarket: _openMarket,
       onNavigateToLibrary: _openLibrary,
     ),
@@ -255,6 +258,15 @@ class _RootShellState extends ConsumerState<RootShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<String>(currentCreatorIdProvider, (previous, next) {
+      if (previous != next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          OnboardingNotificationsService.ensureSeededForActiveCreator(ref);
+        });
+      }
+    });
+
     ref.listen<int>(appNavigationTabProvider, (previous, next) {
       if (next != _currentIndex) {
         _switchTab(next);

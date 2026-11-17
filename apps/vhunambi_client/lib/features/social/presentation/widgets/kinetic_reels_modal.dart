@@ -30,6 +30,9 @@ import '../../../studio/domain/services/bantu_lyric_translation_service.dart';
 import '../../../explore/domain/models/explore_models.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
 import '../../../explore/presentation/views/explore_search_view.dart';
+import '../../../notifications/domain/models/notification_entity.dart';
+import '../../../notifications/domain/models/notification_enums.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../../profile/presentation/views/artist_profile_view.dart';
 
 /// Full-screen vertical "Kinetic Reels" feed (REQ-SOC-11, REQ-SOC-26, Phase A).
@@ -172,29 +175,29 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
       child: Scaffold(
         backgroundColor: Colors.black,
         body: PageView.builder(
-        controller: _pageController,
-        scrollDirection: Axis.vertical,
-        onPageChanged: (i) {
-          _onPageChanged(i);
-          unawaited(
-            ref
-                .read(reelAudioPoolProvider.notifier)
-                .onPageChanged(i, displayClips),
-          );
-        },
-        itemCount: displayClips.length,
-        itemBuilder: (context, i) {
-          final clip = displayClips[i];
-          return _ReelPage(
-            clip: clip,
-            isActive: i == _currentIndex,
-            onShare: () => _share(clip),
-            onSelectTab: _handleTabSelected,
-          );
-        },
+          controller: _pageController,
+          scrollDirection: Axis.vertical,
+          onPageChanged: (i) {
+            _onPageChanged(i);
+            unawaited(
+              ref
+                  .read(reelAudioPoolProvider.notifier)
+                  .onPageChanged(i, displayClips),
+            );
+          },
+          itemCount: displayClips.length,
+          itemBuilder: (context, i) {
+            final clip = displayClips[i];
+            return _ReelPage(
+              clip: clip,
+              isActive: i == _currentIndex,
+              onShare: () => _share(clip),
+              onSelectTab: _handleTabSelected,
+            );
+          },
+        ),
       ),
-    ),
-  );
+    );
   }
 }
 
@@ -284,7 +287,8 @@ class _ReelPageState extends ConsumerState<_ReelPage>
 
   void _handleDoubleTap(PublishedClip clip) {
     _triggerBurst(emoji: '❤️');
-    ref.read(socialFeedProvider.notifier).recordLove(clip.id);
+    final count = ref.read(socialFeedProvider.notifier).recordLove(clip.id);
+    _emitReelLoveNotification(ref, clip, count);
   }
 
   void _togglePlay() {
@@ -323,7 +327,10 @@ class _ReelPageState extends ConsumerState<_ReelPage>
     );
   }
 
-  Widget _buildVisionAnimatedStage(PublishedClip clip, FrameModulationSnapshot snapshot) {
+  Widget _buildVisionAnimatedStage(
+    PublishedClip clip,
+    FrameModulationSnapshot snapshot,
+  ) {
     final bassPulse = (snapshot.effectiveBassEnergy * 0.4).clamp(0.0, 0.6);
     return Stack(
       fit: StackFit.expand,
@@ -346,8 +353,12 @@ class _ReelPageState extends ConsumerState<_ReelPage>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  AppColors.brandPrimary.withValues(alpha: 0.18 + (bassPulse * 0.25)),
-                  AppColors.badgeCyan.withValues(alpha: 0.08 + (bassPulse * 0.15)),
+                  AppColors.brandPrimary.withValues(
+                    alpha: 0.18 + (bassPulse * 0.25),
+                  ),
+                  AppColors.badgeCyan.withValues(
+                    alpha: 0.08 + (bassPulse * 0.15),
+                  ),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.55, 1.0],
@@ -595,10 +606,13 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                   ),
                 ),
                 // 5.5 Split-Screen Open-Verse Duet Header (REQ-P46-REEL-04..06)
-                if (clip.isRemix || clip.parentCreatorHandle != null || clip.remixGenerationDepth > 0)
+                if (clip.isRemix ||
+                    clip.parentCreatorHandle != null ||
+                    clip.remixGenerationDepth > 0)
                   ReelDuetSplitStage(
                     clip: clip,
-                    pulseScale: (modulationSnapshot.effectiveBassEnergy * 0.5).clamp(0.0, 1.0),
+                    pulseScale: (modulationSnapshot.effectiveBassEnergy * 0.5)
+                        .clamp(0.0, 1.0),
                   ),
               ],
             ),
@@ -883,6 +897,7 @@ class _ActionRailState extends State<_ActionRail> {
     final count = ref
         .read(socialFeedProvider.notifier)
         .recordLove(widget.clip.id);
+    _emitReelLoveNotification(ref, widget.clip, count);
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
       SnackBar(
@@ -935,9 +950,7 @@ class _ActionRailState extends State<_ActionRail> {
             _RailButton(
               key: const Key('reel_like_btn'),
               icon: clip.isLikedByMe ? AppIcons.heart : AppIcons.heartOutline,
-              color: clip.isLikedByMe
-                  ? AppColors.brandPrimary
-                  : Colors.white,
+              color: clip.isLikedByMe ? AppColors.brandPrimary : Colors.white,
               label: formatLikes(clip.likeCount),
               onTap: () => _recordLove(context, ref),
               onLongPress: () {
@@ -982,9 +995,7 @@ class _ActionRailState extends State<_ActionRail> {
             _RailButton(
               key: const Key('reel_translate_lyrics_toggle'),
               icon: PhosphorIcons.translate(PhosphorIconsStyle.regular),
-              color: _translateActive
-                  ? AppColors.brandPrimary
-                  : Colors.white,
+              color: _translateActive ? AppColors.brandPrimary : Colors.white,
               label: 'Translate',
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -1054,9 +1065,7 @@ class _RailButton extends StatelessWidget {
           children: [
             Container(
               decoration: const BoxDecoration(
-                boxShadow: [
-                  BoxShadow(color: Colors.black54, blurRadius: 4),
-                ],
+                boxShadow: [BoxShadow(color: Colors.black54, blurRadius: 4)],
               ),
               child: PhosphorIcon(icon, color: color, size: 30),
             ),
@@ -1066,9 +1075,7 @@ class _RailButton extends StatelessWidget {
               style: AppTypography.caption.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                shadows: const [
-                  Shadow(color: Colors.black87, blurRadius: 4),
-                ],
+                shadows: const [Shadow(color: Colors.black87, blurRadius: 4)],
               ),
             ),
           ],
@@ -1111,9 +1118,7 @@ class _SoundPill extends StatelessWidget {
                 '$title • $artist',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.caption.copyWith(
-                  color: Colors.white,
-                ),
+                style: AppTypography.caption.copyWith(color: Colors.white),
               ),
             ),
             const SizedBox(width: 8),
@@ -1186,7 +1191,6 @@ class _ReelTopFilterTab extends ConsumerWidget {
     );
   }
 }
-
 
 /// Split-Screen Open-Verse Duet Stage displaying Originator x Remixer (REQ-P46-REEL-04..06).
 class ReelDuetSplitStage extends StatelessWidget {
@@ -1328,7 +1332,10 @@ class ReelDuetSplitStage extends StatelessWidget {
     );
   }
 
-  Widget _buildPulsingAvatar({required String label, required Color borderColor}) {
+  Widget _buildPulsingAvatar({
+    required String label,
+    required Color borderColor,
+  }) {
     final ringWidth = 2.0 + (pulseScale * 2.0);
     return Container(
       width: 34,
@@ -1473,4 +1480,26 @@ class ReelStemToggleBar extends ConsumerWidget {
       ),
     );
   }
+}
+
+void _emitReelLoveNotification(WidgetRef ref, PublishedClip clip, int count) {
+  if (count != 1 && count % 5 != 0) return;
+  try {
+    ref
+        .read(notificationsProvider.notifier)
+        .addNotification(
+          NotificationEntity(
+            id: 'notif_love_${clip.id}_$count',
+            title: 'Loved ${clip.creatorUsername}\'s Reel ($count×)',
+            message: 'You sent $count× love reactions on "${clip.title}".',
+            category: NotificationCategory.social,
+            priority: NotificationPriority.normal,
+            subtype: 'reel_love',
+            targetRoute: '/reel/${clip.id}',
+            targetEntityId: clip.id,
+            ctaLabel: 'Watch Kinetic Reel',
+            createdAt: DateTime.now(),
+          ),
+        );
+  } catch (_) {}
 }

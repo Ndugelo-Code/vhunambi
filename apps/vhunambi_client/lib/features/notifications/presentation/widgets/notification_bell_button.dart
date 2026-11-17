@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/notification_entity.dart';
 import '../providers/notifications_provider.dart';
@@ -34,8 +36,7 @@ class NotificationBellButton extends ConsumerStatefulWidget {
       _NotificationBellButtonState();
 }
 
-class _NotificationBellButtonState
-    extends ConsumerState<NotificationBellButton>
+class _NotificationBellButtonState extends ConsumerState<NotificationBellButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _wobbleController;
   int _lastEscalatedUnread = 0;
@@ -69,7 +70,9 @@ class _NotificationBellButtonState
     if (onPressed != null) {
       onPressed();
     } else {
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NotificationsView()));
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const NotificationsView()),
+      );
     }
   }
 
@@ -119,9 +122,9 @@ class _NotificationBellButtonState
                         horizontal: 4,
                         vertical: 1,
                       ),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.brandPrimary,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       constraints: const BoxConstraints(
                         minWidth: 14,
@@ -173,12 +176,7 @@ class WobblingNotificationBell extends AnimatedWidget {
     final angle = _maxAngle * math.sin(t * 3 * 2 * math.pi) * (1 - t);
     return Transform.rotate(
       angle: angle,
-      child: Icon(
-        Icons.notifications_none_rounded,
-        size: iconSize,
-        color: color,
-      ),
+      child: PhosphorIcon(AppIcons.bell, size: iconSize, color: color),
     );
   }
 }
-

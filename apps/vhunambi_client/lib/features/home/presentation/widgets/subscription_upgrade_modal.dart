@@ -11,7 +11,6 @@ import '../../../notifications/presentation/providers/notifications_provider.dar
 import '../../../notifications/domain/models/notification_entity.dart';
 import '../../../notifications/domain/models/notification_enums.dart';
 
-
 class SubscriptionUpgradeModal extends ConsumerWidget {
   const SubscriptionUpgradeModal({super.key});
 
@@ -78,7 +77,15 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded),
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
+                  icon: PhosphorIcon(
+                    PhosphorIconsBold.x,
+                    size: 18,
+                    color: AppColors.textPrimaryOf(context),
+                  ),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -90,9 +97,9 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: AppColors.surfaceSecondary,
+              color: AppColors.surfaceSecondaryOf(context),
               borderRadius: AppRadius.pillBorder,
-              border: Border.all(color: AppColors.borderSubtle),
+              border: Border.all(color: AppColors.borderSubtleOf(context)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -114,7 +121,6 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-
 
           // Instant Coin Top-Up Section (REQ-TOPUP-UI-01)
           Padding(
@@ -242,7 +248,6 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
     );
   }
 
-
   Widget _buildTopUpPack(
     BuildContext context,
     WidgetRef ref, {
@@ -258,20 +263,12 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
         final walletNotifier = ref.read(creatorWalletProvider.notifier);
         walletNotifier.topUpCoins(coins);
         walletNotifier.dispatchPayFastCheckoutNotice(packId);
-        ref.read(notificationsProvider.notifier).addNotification(
-          NotificationEntity(
-            id: 'notif_topup_${DateTime.now().millisecondsSinceEpoch}',
-            title: 'Coins Credited!',
-            message: 'Successfully topped up $coins Coins via PayFast ZAR / Instant EFT (R$priceZar).',
-            category: NotificationCategory.system,
-            priority: NotificationPriority.high,
-            createdAt: DateTime.now(),
-          ),
-        );
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully credited $coins Cultural Coins!'),
+            content: Text(
+              'Initiating PayFast checkout for $coins Cultural Coins (R$priceZar)...',
+            ),
             backgroundColor: AppColors.brandPrimary,
           ),
         );
@@ -283,7 +280,9 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
           color: AppColors.surfaceElevatedOf(context),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: badge != null ? AppColors.brandPrimary : AppColors.borderSubtleOf(context),
+            color: badge != null
+                ? AppColors.brandPrimary
+                : AppColors.borderSubtleOf(context),
             width: badge != null ? 1.2 : 0.8,
           ),
         ),
@@ -377,13 +376,18 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
                 tier.name,
                 style: AppTypography.titleMedium.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: isPopular ? AppColors.brandPrimary : AppColors.textPrimary,
+                  color: isPopular
+                      ? AppColors.brandPrimary
+                      : AppColors.textPrimary,
                 ),
               ),
               const Spacer(),
               if (isPopular)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.brandPrimary,
                     borderRadius: AppRadius.pillBorder,
@@ -430,34 +434,43 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
           const SizedBox(height: 12),
           Divider(color: AppColors.borderSubtle, height: 1),
           const SizedBox(height: 12),
-          ...tier.features.take(3).map((f) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle_rounded,
-                        color: AppColors.brandPrimary, size: 15),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        f,
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.textPrimary,
+          ...tier.features
+              .take(3)
+              .map(
+                (f) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      const PhosphorIcon(
+                        PhosphorIconsFill.checkCircle,
+                        color: AppColors.brandPrimary,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          f,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              )),
+              ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               key: const Key('upgrade_modal_confirm_btn'),
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    isPopular ? AppColors.brandPrimary : AppColors.surfaceElevated,
-                foregroundColor:
-                    isPopular ? AppColors.brandContrast : AppColors.textPrimary,
+                backgroundColor: isPopular
+                    ? AppColors.brandPrimary
+                    : AppColors.surfaceElevated,
+                foregroundColor: isPopular
+                    ? AppColors.brandContrast
+                    : AppColors.textPrimary,
                 shape: const RoundedRectangleBorder(
                   borderRadius: AppRadius.pillBorder,
                 ),
@@ -465,20 +478,25 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
               ),
               onPressed: () {
                 ref.read(creatorWalletProvider.notifier).topUpCoins(500);
-                ref.read(notificationsProvider.notifier).addNotification(
-                  NotificationEntity(
-                    id: 'notif_plan_${DateTime.now().millisecondsSinceEpoch}',
-                    title: '${tier.name} Plan Activated!',
-                    message: 'Your ${tier.name} subscription is active with full commercial ownership.',
-                    category: NotificationCategory.system,
-                    priority: NotificationPriority.high,
-                    createdAt: DateTime.now(),
-                  ),
-                );
+                ref
+                    .read(notificationsProvider.notifier)
+                    .addNotification(
+                      NotificationEntity(
+                        id: 'notif_plan_${DateTime.now().millisecondsSinceEpoch}',
+                        title: '${tier.name} Plan Activated!',
+                        message:
+                            'Your ${tier.name} subscription is active with full commercial ownership.',
+                        category: NotificationCategory.system,
+                        priority: NotificationPriority.high,
+                        createdAt: DateTime.now(),
+                      ),
+                    );
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Activated ${tier.name} plan! Credited 500 Coins.'),
+                    content: Text(
+                      'Activated ${tier.name} plan! Credited 500 Coins.',
+                    ),
                     backgroundColor: AppColors.brandPrimary,
                   ),
                 );

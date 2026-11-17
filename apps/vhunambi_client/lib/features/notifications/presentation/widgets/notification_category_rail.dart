@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -8,57 +9,93 @@ import '../providers/notifications_provider.dart';
 import '../utils/notification_category_style.dart';
 import '../utils/notifications_haptics.dart';
 
-/// Horizontally scrolling category filter rail for the Notifications Center.
-///
-/// Renders an "All" chip plus one chip per [NotificationCategory], each with a
-/// token-tinted glyph, a bouncing unread-count badge, and a guaranteed
-/// 44×44px touch target (WCAG 2.1 AA / Apple HIG).
-class NotificationCategoryRail extends ConsumerWidget {
+/// Horizontally scrolling category filter rail with right-edge fade affordance,
+/// auto-scroll-into-view, Phosphor icons, and automatic keyboard unfocus.
+class NotificationCategoryRail extends ConsumerStatefulWidget {
   const NotificationCategoryRail({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationCategoryRail> createState() =>
+      _NotificationCategoryRailState();
+}
+
+class _NotificationCategoryRailState
+    extends ConsumerState<NotificationCategoryRail> {
+  final Map<String, GlobalKey> _chipKeys = <String, GlobalKey>{
+    'all': GlobalKey(),
+    for (final c in NotificationCategory.values) c.name: GlobalKey(),
+  };
+
+  void _select(NotificationCategory? category) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    NotificationsHaptics.categorySwitch();
+    ref.read(selectedCategoryProvider.notifier).state = category;
+    final key = _chipKeys[category?.name ?? 'all'];
+    final ctx = key?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        alignment: 0.5,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final selected = ref.watch(selectedCategoryProvider);
     final unreadByCategory = ref.watch(unreadCountByCategoryProvider);
     final totalUnread = ref.watch(unreadNotificationsCountProvider);
 
-    void select(NotificationCategory? category) {
-      NotificationsHaptics.categorySwitch();
-      ref.read(selectedCategoryProvider.notifier).state = category;
-    }
-
     return SizedBox(
       height: 52,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        children: <Widget>[
-          _CategoryChip(
-            key: const Key('category_chip_all'),
-            label: 'All',
-            icon: Icons.inbox_rounded,
-            accent: AppColors.brandPrimary,
-            count: totalUnread,
-            isSelected: selected == null,
-            onTap: () => select(null),
-          ),
-          for (final category in NotificationCategory.values)
-            _CategoryChip(
-              key: Key('category_chip_${category.name}'),
-              label: NotificationCategoryStyle.label(category),
-              icon: NotificationCategoryStyle.icon(category),
-              accent: NotificationCategoryStyle.color(category),
-              count: unreadByCategory[category] ?? 0,
-              isSelected: selected == category,
-              onTap: () => select(category),
+      child: ShaderMask(
+        shaderCallback: (Rect bounds) {
+          return const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            stops: <double>[0.0, 0.92, 1.0],
+            colors: <Color>[Colors.white, Colors.white, Colors.transparent],
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstIn,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          children: <Widget>[
+            KeyedSubtree(
+              key: _chipKeys['all'],
+              child: _CategoryChip(
+                key: const Key('category_chip_all'),
+                label: 'All',
+                icon: PhosphorIconsRegular.tray,
+                accent: AppColors.brandPrimary,
+                count: totalUnread,
+                isSelected: selected == null,
+                onTap: () => _select(null),
+              ),
             ),
-        ],
+            for (final category in NotificationCategory.values)
+              KeyedSubtree(
+                key: _chipKeys[category.name],
+                child: _CategoryChip(
+                  key: Key('category_chip_${category.name}'),
+                  label: NotificationCategoryStyle.label(category),
+                  icon: NotificationCategoryStyle.icon(category),
+                  accent: NotificationCategoryStyle.color(category),
+                  count: unreadByCategory[category] ?? 0,
+                  isSelected: selected == category,
+                  onTap: () => _select(category),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// A single animated category pill: sliding indicator tint + bouncing badge.
 class _CategoryChip extends StatelessWidget {
   const _CategoryChip({
     super.key,
@@ -89,39 +126,44 @@ class _CategoryChip extends StatelessWidget {
           onTap: onTap,
           borderRadius: AppRadius.pillBorder,
           child: ConstrainedBox(
-            // Guaranteed 44×44px touch target.
             constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 240),
               curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: isSelected
                     ? accent.withValues(alpha: 0.18)
-                    : AppColors.surfaceSecondary,
+                    : AppColors.surfaceSecondaryOf(context),
                 borderRadius: AppRadius.pillBorder,
                 border: Border.all(
-                  color: isSelected ? accent : AppColors.borderSubtle,
+                  color: isSelected
+                      ? accent
+                      : AppColors.borderSubtleOf(context),
                   width: isSelected ? 1.5 : 1,
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  Icon(
+                  PhosphorIcon(
                     icon,
                     size: 16,
-                    color: isSelected ? accent : AppColors.textSecondary,
+                    color: isSelected
+                        ? accent
+                        : AppColors.textSecondaryOf(context),
                   ),
                   const SizedBox(width: 6),
                   Text(
                     label,
                     style: AppTypography.caption.copyWith(
                       color: isSelected
-                          ? AppColors.textPrimary
-                          : AppColors.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          ? AppColors.textPrimaryOf(context)
+                          : AppColors.textSecondaryOf(context),
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                     ),
                   ),
                   if (count > 0) ...<Widget>[
@@ -138,9 +180,6 @@ class _CategoryChip extends StatelessWidget {
   }
 }
 
-
-/// Unread-count pill that springs (`1.0 → 1.25 → 1.0`) whenever its [count]
-/// changes, giving the rail its tactile bounce.
 class _CountBadge extends StatelessWidget {
   const _CountBadge({required this.count, required this.accent});
 
@@ -150,13 +189,12 @@ class _CountBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
+      key: ValueKey<int>(count),
       tween: Tween<double>(begin: 1.25, end: 1),
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutBack,
-      builder: (context, scale, child) => Transform.scale(
-        scale: scale,
-        child: child,
-      ),
+      builder: (context, scale, child) =>
+          Transform.scale(scale: scale, child: child),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
         constraints: const BoxConstraints(minWidth: 18),

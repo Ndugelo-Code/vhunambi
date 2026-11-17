@@ -80,18 +80,46 @@ void main() {
       );
     });
 
-    test('returns accurate celestial time glyphs', () {
+    test('returns emoji-free time descriptors and typed Phosphor icons (STD-UIUX-001)', () {
       expect(
         AfricanGreetingResolver.getTimeGlyph(now: DateTime(2026, 10, 12, 8)),
-        equals('✨'),
+        equals('Dawn Session'),
+      );
+      expect(
+        AfricanGreetingResolver.getGreetingIconType(
+          now: DateTime(2026, 10, 12, 8),
+        ),
+        equals(GreetingIconType.morningSun),
       );
       expect(
         AfricanGreetingResolver.getTimeGlyph(now: DateTime(2026, 10, 12, 14)),
-        equals('☀️'),
+        equals('Daylight Session'),
+      );
+      expect(
+        AfricanGreetingResolver.getGreetingIconType(
+          now: DateTime(2026, 10, 12, 14),
+        ),
+        equals(GreetingIconType.middaySun),
+      );
+      expect(
+        AfricanGreetingResolver.getTimeGlyph(now: DateTime(2026, 10, 12, 19)),
+        equals('Sunset Session'),
+      );
+      expect(
+        AfricanGreetingResolver.getGreetingIconType(
+          now: DateTime(2026, 10, 12, 19),
+        ),
+        equals(GreetingIconType.eveningHorizon),
       );
       expect(
         AfricanGreetingResolver.getTimeGlyph(now: DateTime(2026, 10, 12, 22)),
-        equals('🌙'),
+        equals('Night Session'),
+      );
+      expect(
+        AfricanGreetingResolver.getGreetingIconType(
+          now: DateTime(2026, 10, 12, 22),
+        ),
+        equals(GreetingIconType.nightMoon),
       );
     });
   });

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vhunambi_client/core/auth/auth_providers.dart';
+import 'package:vhunambi_client/core/constants/app_assets.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/core/resilience/safe_notifier_mixin.dart';
 import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
@@ -9,6 +10,9 @@ import 'package:vhunambi_client/features/explore/data/repositories/http_explore_
 import 'package:vhunambi_client/features/explore/domain/models/explore_models.dart';
 import 'package:vhunambi_client/features/explore/domain/models/social_music_post.dart';
 import 'package:vhunambi_client/features/explore/domain/services/discovery_hierarchy_ranker.dart';
+import 'package:vhunambi_client/features/notifications/domain/models/notification_entity.dart';
+import 'package:vhunambi_client/features/notifications/domain/models/notification_enums.dart';
+import 'package:vhunambi_client/features/notifications/presentation/providers/notifications_provider.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
 import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
 import 'package:vhunambi_client/features/social/presentation/providers/trending_reels_provider.dart';
@@ -144,7 +148,11 @@ final exploreTracksProvider =
       ref.watch(currentCreatorIdProvider);
       final repo = ref.watch(exploreRepositoryProvider);
       final outbox = ref.watch(syncOutboxServiceProvider);
-      final notifier = ExploreTracksNotifier(repository: repo, outbox: outbox);
+      final notifier = ExploreTracksNotifier(
+        repository: repo,
+        outbox: outbox,
+        ref: ref,
+      );
       Future<void>.microtask(notifier.refreshFromCloud);
       return notifier;
     });
@@ -201,9 +209,10 @@ class ExploreTracksNotifier extends StateNotifier<List<Track>>
     with SafeNotifierMixin<List<Track>> {
   final HttpExploreRepository? _repository;
   final SyncOutboxService? _outbox;
+  final Ref? ref;
   Set<String> _likedTrackIds = <String>{};
 
-  ExploreTracksNotifier({this._repository, this._outbox})
+  ExploreTracksNotifier({this._repository, this._outbox, this.ref})
     : super(_initialTracks()) {
     if (SovereignDomainStorageMode.canHydrateFromStorage(
       AppConstants.tracksBoxKey,
@@ -238,17 +247,41 @@ class ExploreTracksNotifier extends StateNotifier<List<Track>>
     } else {
       _likedTrackIds.add(trackId);
     }
+    Track? likedTrack;
     state = [
       for (final track in state)
         if (track.id == trackId)
-          track.copyWith(
-            likeCount: alreadyLiked
-                ? (track.likeCount - 1).clamp(0, 9999999)
-                : track.likeCount + 1,
-          )
+          () {
+            final updated = track.copyWith(
+              likeCount: alreadyLiked
+                  ? (track.likeCount - 1).clamp(0, 9999999)
+                  : track.likeCount + 1,
+            );
+            if (!alreadyLiked) likedTrack = updated;
+            return updated;
+          }()
         else
           track,
     ];
+    if (likedTrack != null) {
+      final track = likedTrack!;
+      try {
+        ref?.read(notificationsProvider.notifier).addNotification(
+          NotificationEntity(
+            id: 'notif_exp_track_like_${track.id}',
+            title: 'Liked "${track.title}"',
+            message: 'Hearted ${track.creatorName}\'s track in Explore.',
+            category: NotificationCategory.social,
+            priority: NotificationPriority.normal,
+            subtype: 'post_like',
+            targetRoute: '/track/${track.id}',
+            targetEntityId: track.id,
+            ctaLabel: 'Open Track Cockpit',
+            createdAt: DateTime.now(),
+          ),
+        );
+      } catch (_) {}
+    }
     unawaited(ExploreCacheRepository.saveLikedTrackIds(_likedTrackIds));
     unawaited(
       ExploreCacheRepository.saveCachedTracks(
@@ -447,6 +480,7 @@ List<Track> _seedTracks() {
       language: 'English',
       duration: Duration(minutes: 3, seconds: 36),
       audioUrl: '$origin/grateful-in-the-light.mp3',
+      coverUrl: 'asset:${AppAssets.sunsetMelodiesCover}',
       likeCount: 1002,
       playCount: 3420,
       isNew: true,
@@ -461,6 +495,7 @@ List<Track> _seedTracks() {
       language: 'Tshivenḓa',
       duration: Duration(minutes: 3, seconds: 18),
       audioUrl: '$origin/ndo-mufuna-matibe.mp3',
+      coverUrl: 'asset:${AppAssets.timbreCantor}',
       likeCount: 840,
       playCount: 2800,
       trendingRank: 1,
@@ -475,6 +510,7 @@ List<Track> _seedTracks() {
       language: 'Instrumental',
       duration: Duration(minutes: 3),
       audioUrl: '$origin/township-log-drum-heat.mp3',
+      coverUrl: 'asset:${AppAssets.musicFeelEscapeCover}',
       likeCount: 620,
       playCount: 1950,
       trendingRank: 2,
@@ -489,6 +525,7 @@ List<Track> _seedTracks() {
       language: 'Instrumental',
       duration: Duration(minutes: 2, seconds: 30),
       audioUrl: '$origin/durban-midnight-bass.mp3',
+      coverUrl: 'asset:${AppAssets.timbreProducer}',
       likeCount: 950,
       playCount: 4100,
       trendingRank: 3,
@@ -503,6 +540,7 @@ List<Track> _seedTracks() {
       language: 'isiZulu',
       duration: Duration(minutes: 3, seconds: 30),
       audioUrl: '$origin/kwaito-renaissance.mp3',
+      coverUrl: 'asset:${AppAssets.heritageCrateCover}',
       likeCount: 430,
       playCount: 1200,
       mood: 'Party',
@@ -516,6 +554,7 @@ List<Track> _seedTracks() {
       language: 'isiZulu',
       duration: Duration(minutes: 4),
       audioUrl: '$origin/maskandi-strings-of-natal.mp3',
+      coverUrl: 'asset:${AppAssets.timbreElder}',
       likeCount: 780,
       playCount: 2600,
       mood: 'Peaceful',
@@ -529,6 +568,7 @@ List<Track> _seedTracks() {
       language: 'English',
       duration: Duration(minutes: 3, seconds: 45),
       audioUrl: '$origin/afro-sunset-melodies.mp3',
+      coverUrl: 'asset:${AppAssets.fiveVoicesCover}',
       likeCount: 890,
       playCount: 3100,
       mood: 'Romantic',
@@ -542,6 +582,7 @@ List<Track> _seedTracks() {
       language: 'Yoruba',
       duration: Duration(minutes: 3, seconds: 10),
       audioUrl: '$origin/lagos-pulse.mp3',
+      coverUrl: 'asset:${AppAssets.timbreCrooner}',
       likeCount: 1120,
       playCount: 4800,
       mood: 'Energetic',
@@ -586,11 +627,13 @@ final filteredReelsByTabProvider = Provider<List<PublishedClip>>((ref) {
 final followingCreatorIdsProvider =
     StateNotifierProvider<FollowingCreatorsNotifier, Set<String>>((ref) {
       ref.watch(currentCreatorIdProvider);
-      return FollowingCreatorsNotifier();
+      return FollowingCreatorsNotifier(ref);
     });
 
 class FollowingCreatorsNotifier extends StateNotifier<Set<String>> {
-  FollowingCreatorsNotifier() : super(_initialFollowing());
+  final Ref? _ref;
+
+  FollowingCreatorsNotifier([this._ref]) : super(_initialFollowing());
 
   static Set<String> _initialFollowing() {
     if (SovereignDomainStorageMode.canHydrateFromStorage(
@@ -603,10 +646,31 @@ class FollowingCreatorsNotifier extends StateNotifier<Set<String>> {
   }
 
   void toggleFollow(String creatorId) {
-    if (state.contains(creatorId)) {
+    final wasFollowing = state.contains(creatorId);
+    if (wasFollowing) {
       state = state.where((id) => id != creatorId).toSet();
     } else {
       state = {...state, creatorId};
+      try {
+        final display = creatorId.startsWith('@') ? creatorId : '@$creatorId';
+        _ref
+            ?.read(notificationsProvider.notifier)
+            .addNotification(
+              NotificationEntity(
+                id: 'notif_follow_${creatorId}_${DateTime.now().millisecondsSinceEpoch}',
+                title: 'Following $display',
+                message:
+                    'You will see new drops, posts, and reels from $display.',
+                category: NotificationCategory.social,
+                priority: NotificationPriority.normal,
+                subtype: 'follow',
+                targetRoute: '/creator/$creatorId',
+                targetEntityId: creatorId,
+                ctaLabel: 'View Creator Profile',
+                createdAt: DateTime.now(),
+              ),
+            );
+      } catch (_) {}
     }
     unawaited(ExploreCacheRepository.saveFollowingIds(state));
   }
@@ -628,14 +692,19 @@ final socialFeedPostsProvider =
       ref.watch(currentCreatorIdProvider);
       final outbox = ref.watch(syncOutboxServiceProvider);
       final repo = ref.watch(exploreRepositoryProvider);
-      return SocialFeedPostsNotifier(outbox: outbox, repository: repo);
+      return SocialFeedPostsNotifier(
+        outbox: outbox,
+        repository: repo,
+        ref: ref,
+      );
     });
 
 class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
   final SyncOutboxService? outbox;
   final HttpExploreRepository? repository;
+  final Ref? ref;
 
-  SocialFeedPostsNotifier({this.outbox, this.repository})
+  SocialFeedPostsNotifier({this.outbox, this.repository, this.ref})
     : super(_initialPosts());
 
   static List<SocialMusicPost> _initialPosts() {
@@ -794,18 +863,44 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
   }
 
   void toggleLike(String postId) {
+    SocialMusicPost? newlyLiked;
     state = [
       for (final post in state)
         if (post.id == postId)
-          post.copyWith(
-            isLikedByMe: !post.isLikedByMe,
-            likeCount: post.isLikedByMe
-                ? post.likeCount - 1
-                : post.likeCount + 1,
-          )
+          () {
+            final updated = post.copyWith(
+              isLikedByMe: !post.isLikedByMe,
+              likeCount: post.isLikedByMe
+                  ? post.likeCount - 1
+                  : post.likeCount + 1,
+            );
+            if (!post.isLikedByMe) newlyLiked = updated;
+            return updated;
+          }()
         else
           post,
     ];
+    if (newlyLiked != null) {
+      final post = newlyLiked!;
+      try {
+        ref
+            ?.read(notificationsProvider.notifier)
+            .addNotification(
+              NotificationEntity(
+                id: 'notif_post_like_${post.id}',
+                title: 'Liked ${post.creatorHandle}\'s Post',
+                message: 'You hearted "${post.track.title}" in Explore.',
+                category: NotificationCategory.social,
+                priority: NotificationPriority.normal,
+                subtype: 'post_like',
+                targetRoute: '/track/${post.track.id}',
+                targetEntityId: post.track.id,
+                ctaLabel: 'Open Track Cockpit',
+                createdAt: DateTime.now(),
+              ),
+            );
+      } catch (_) {}
+    }
     _persistLikesSnapshot();
     _outbox?.enqueue(
       SyncMutationRecord(
@@ -862,18 +957,45 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
 
   /// Toggles community A&R co-sign on a post and triggers live graduation (REQ-COSIGN-GRAD-02, REQ-P46-SYNC-01).
   void cosignPost(String postId) {
+    SocialMusicPost? newlyCosigned;
     state = [
       for (final post in state)
         if (post.id == postId)
-          post.copyWith(
-            cosignCount: post.isCosigned
-                ? (post.cosignCount - 1).clamp(0, 9999)
-                : post.cosignCount + 1,
-            isCosigned: !post.isCosigned,
-          )
+          () {
+            final updated = post.copyWith(
+              cosignCount: post.isCosigned
+                  ? (post.cosignCount - 1).clamp(0, 9999)
+                  : post.cosignCount + 1,
+              isCosigned: !post.isCosigned,
+            );
+            if (!post.isCosigned) newlyCosigned = updated;
+            return updated;
+          }()
         else
           post,
     ];
+    if (newlyCosigned != null) {
+      final post = newlyCosigned!;
+      try {
+        ref
+            ?.read(notificationsProvider.notifier)
+            .addNotification(
+              NotificationEntity(
+                id: 'notif_cosign_${post.id}',
+                title: 'A&R Co-Signed ${post.creatorHandle}',
+                message:
+                    'Backed "${post.track.title}" in Fresh Crate (${post.cosignCount}/25 votes).',
+                category: NotificationCategory.social,
+                priority: NotificationPriority.normal,
+                subtype: 'ar_cosign',
+                targetRoute: '/track/${post.track.id}',
+                targetEntityId: post.track.id,
+                ctaLabel: 'Open Track Cockpit',
+                createdAt: DateTime.now(),
+              ),
+            );
+      } catch (_) {}
+    }
     _persistCoSignSnapshot();
     _outbox?.enqueue(
       SyncMutationRecord(

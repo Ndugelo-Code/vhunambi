@@ -15,4 +15,9 @@ final appNavigationTabProvider = StateProvider<int>((ref) => 0);
 /// prevent awkward overlap with modal inputs and interactive buttons.
 final modalSheetOpenCountProvider = StateProvider<int>((ref) => 0);
 
+/// True while `NowPlayingHomeCard` is mounted in the Main Room tree (`Phase 68`).
+/// Combined with `appNavigationTabProvider == 0`, prevents floating [MiniPlayerHost]
+/// from duplicating playback controls on Home while preserving standalone tests.
+final homeInlineNowPlayingMountedProvider = StateProvider<bool>((ref) => false);
+
 

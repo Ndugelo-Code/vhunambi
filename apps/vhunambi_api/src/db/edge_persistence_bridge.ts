@@ -140,6 +140,49 @@ export interface ExploreFeedOptions {
   offset?: number;
 }
 
+export interface NotificationRecord {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  body: string;
+  category: 'social' | 'system' | 'creatorActivity' | 'algorithmic';
+  subtype: string | null;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  isRead: boolean;
+  targetRoute: string | null;
+  targetEntityId: string | null;
+  ctaLabel: string | null;
+  metadata: Record<string, any>;
+  createdAt: string;
+}
+
+export interface UpsertNotificationInput {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  category?: 'social' | 'system' | 'creatorActivity' | 'algorithmic';
+  subtype?: string | null;
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  isRead?: boolean;
+  targetRoute?: string | null;
+  targetEntityId?: string | null;
+  ctaLabel?: string | null;
+  metadata?: Record<string, any>;
+  createdAt?: string;
+}
+
+export interface CreatorQuotaRecord {
+  userId: string;
+  planTier: string;
+  freeMonthlySongsLimit: number;
+  freeMonthlySongsUsed: number;
+  freeMonthlySongsRemaining: number;
+  cycleResetAt: string;
+  updatedAt: string;
+}
+
 export interface SaBankMetadata {
   canonicalName: string;
   code: string;
@@ -364,6 +407,8 @@ export class EdgeIsolateDatabaseEngine {
   private readonly publishedClips = new Map<string, Record<string, any>>();
   private readonly reelComments = new Map<string, Record<string, any>>();
   private readonly socialInteractions = new Set<string>();
+  private readonly notifications = new Map<string, NotificationRecord>();
+  private readonly creatorQuotas = new Map<string, CreatorQuotaRecord>();
 
   constructor() {
     this.seedDefaults();
@@ -415,6 +460,8 @@ export class EdgeIsolateDatabaseEngine {
     this.publishedClips.clear();
     this.reelComments.clear();
     this.socialInteractions.clear();
+    this.notifications.clear();
+    this.creatorQuotas.clear();
     this.seedDefaults();
   }
 
@@ -527,6 +574,8 @@ export class EdgeIsolateDatabaseEngine {
           bankRows,
           topupRows,
           mutationRows,
+          notificationRows,
+          quotaRows,
         ] = await EdgeIsolateDatabaseEngine.withTimeout(
           Promise.all([
             driver.selectRows<Record<string, any>>('creators', 'select=*&limit=300').catch(() => []),
@@ -548,9 +597,11 @@ export class EdgeIsolateDatabaseEngine {
             driver.selectRows<Record<string, any>>('bank_accounts', 'select=*&limit=200').catch(() => []),
             driver.selectRows<Record<string, any>>('payment_topups', 'select=*&order=created_at.desc&limit=300').catch(() => []),
             driver.selectRows<Record<string, any>>('sync_mutation_log', 'select=*&order=seq.asc&limit=300').catch(() => []),
+            driver.selectRows<Record<string, any>>('notifications', 'select=*&order=created_at.desc&limit=500').catch(() => []),
+            driver.selectRows<Record<string, any>>('creator_quotas', 'select=*&limit=300').catch(() => []),
           ]),
           4500,
-          Array.from({ length: 19 }, () => [] as Record<string, any>[]),
+          Array.from({ length: 21 }, () => [] as Record<string, any>[]),
         );
 
         for (const cr of creatorsRows) {
@@ -948,6 +999,51 @@ export class EdgeIsolateDatabaseEngine {
             creatorId: String(norm.creatorId ?? 'system'),
             payload: (norm.payload as Record<string, any>) ?? {},
             createdAt: String(norm.createdAt ?? new Date().toISOString()),
+          });
+        }
+
+        for (const nr of notificationRows) {
+          if (!nr.id) continue;
+          const id = String(nr.id);
+          const cid = canonicalizeCreatorId(String(nr.user_id ?? 'creator_cern'));
+          const metaObj =
+            nr.metadata_json && typeof nr.metadata_json === 'object'
+              ? (nr.metadata_json as Record<string, any>)
+              : {};
+          this.notifications.set(id, {
+            id,
+            userId: cid,
+            title: String(nr.title ?? 'Notification'),
+            message: String(nr.body ?? nr.message ?? ''),
+            body: String(nr.body ?? nr.message ?? ''),
+            category: (nr.category as NotificationRecord['category']) ?? 'creatorActivity',
+            subtype: nr.subtype ? String(nr.subtype) : null,
+            priority: (nr.priority as NotificationRecord['priority']) ?? 'normal',
+            isRead: Boolean(nr.is_read),
+            targetRoute: nr.target_route ? String(nr.target_route) : null,
+            targetEntityId: nr.target_entity_id ? String(nr.target_entity_id) : null,
+            ctaLabel: nr.cta_label ? String(nr.cta_label) : null,
+            metadata: metaObj,
+            createdAt: String(nr.created_at ?? new Date().toISOString()),
+          });
+        }
+
+        for (const qr of quotaRows) {
+          if (!qr.user_id) continue;
+          const cid = canonicalizeCreatorId(String(qr.user_id));
+          const limit = Number(qr.free_monthly_songs_limit ?? 10);
+          const used = Number(qr.free_monthly_songs_used ?? 0);
+          this.creatorQuotas.set(cid, {
+            userId: cid,
+            planTier: String(qr.plan_tier ?? 'free'),
+            freeMonthlySongsLimit: limit,
+            freeMonthlySongsUsed: used,
+            freeMonthlySongsRemaining: Math.max(0, limit - used),
+            cycleResetAt: String(
+              qr.cycle_reset_at ??
+                new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            ),
+            updatedAt: String(qr.updated_at ?? new Date().toISOString()),
           });
         }
       } finally {
@@ -5205,6 +5301,195 @@ export class EdgeIsolateDatabaseEngine {
       });
     }
     return deleted;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 67: Sovereign Notifications & 10 Free Monthly Songs Quota Engine
+  // ---------------------------------------------------------------------------
+
+  public listNotifications(userId: string): NotificationRecord[] {
+    const cid = canonicalizeCreatorId(userId);
+    return Array.from(this.notifications.values())
+      .filter((n) => n.userId === cid)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  public upsertNotification(input: UpsertNotificationInput): NotificationRecord {
+    const cid = canonicalizeCreatorId(input.userId);
+    const existing = this.notifications.get(input.id);
+    const record: NotificationRecord = {
+      id: input.id,
+      userId: cid,
+      title: input.title,
+      message: input.message,
+      body: input.message,
+      category: input.category ?? existing?.category ?? 'creatorActivity',
+      subtype: input.subtype !== undefined ? input.subtype : (existing?.subtype ?? null),
+      priority: input.priority ?? existing?.priority ?? 'normal',
+      isRead: existing ? existing.isRead : Boolean(input.isRead ?? false),
+      targetRoute:
+        input.targetRoute !== undefined
+          ? input.targetRoute
+          : (existing?.targetRoute ?? null),
+      targetEntityId:
+        input.targetEntityId !== undefined
+          ? input.targetEntityId
+          : (existing?.targetEntityId ?? null),
+      ctaLabel:
+        input.ctaLabel !== undefined
+          ? input.ctaLabel
+          : (existing?.ctaLabel ?? null),
+      metadata: input.metadata ?? existing?.metadata ?? {},
+      createdAt: input.createdAt ?? existing?.createdAt ?? new Date().toISOString(),
+    };
+    this.notifications.set(record.id, record);
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.upsertRow(
+        'notifications',
+        {
+          id: record.id,
+          user_id: record.userId,
+          title: record.title,
+          body: record.body,
+          category: record.category,
+          subtype: record.subtype,
+          priority: record.priority,
+          is_read: record.isRead,
+          target_route: record.targetRoute,
+          target_entity_id: record.targetEntityId,
+          cta_label: record.ctaLabel,
+          metadata_json: record.metadata,
+          created_at: record.createdAt,
+        },
+        'id',
+      );
+    });
+    return record;
+  }
+
+  public markNotificationRead(userId: string, id: string): NotificationRecord | null {
+    const cid = canonicalizeCreatorId(userId);
+    const existing = this.notifications.get(id);
+    if (!existing || existing.userId !== cid) {
+      return null;
+    }
+    const updated: NotificationRecord = { ...existing, isRead: true };
+    this.notifications.set(id, updated);
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.patchRows(
+        'notifications',
+        `id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(cid)}`,
+        { is_read: true },
+      );
+    });
+    return updated;
+  }
+
+  public markAllNotificationsRead(userId: string): number {
+    const cid = canonicalizeCreatorId(userId);
+    let updatedCount = 0;
+    for (const [id, n] of this.notifications.entries()) {
+      if (n.userId === cid && !n.isRead) {
+        this.notifications.set(id, { ...n, isRead: true });
+        updatedCount += 1;
+      }
+    }
+    if (updatedCount > 0) {
+      this.mirrorWriteThrough(async (driver) => {
+        await driver.patchRows(
+          'notifications',
+          `user_id=eq.${encodeURIComponent(cid)}&is_read=eq.false`,
+          { is_read: true },
+        );
+      });
+    }
+    return updatedCount;
+  }
+
+  public deleteNotification(userId: string, id: string): boolean {
+    const cid = canonicalizeCreatorId(userId);
+    const existing = this.notifications.get(id);
+    if (!existing || existing.userId !== cid) {
+      return false;
+    }
+    this.notifications.delete(id);
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.deleteRows(
+        'notifications',
+        `id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(cid)}`,
+      );
+    });
+    return true;
+  }
+
+  public getCreatorQuota(userId: string): CreatorQuotaRecord {
+    const cid = canonicalizeCreatorId(userId);
+    const now = Date.now();
+    const existing = this.creatorQuotas.get(cid);
+    const resetAtMs = existing ? Date.parse(existing.cycleResetAt) : 0;
+
+    if (!existing || (Number.isFinite(resetAtMs) && resetAtMs > 0 && now >= resetAtMs)) {
+      const nextResetIso = new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const nowIso = new Date(now).toISOString();
+      const limit = existing?.freeMonthlySongsLimit ?? 10;
+      const fresh: CreatorQuotaRecord = {
+        userId: cid,
+        planTier: existing?.planTier ?? 'free',
+        freeMonthlySongsLimit: limit,
+        freeMonthlySongsUsed: 0,
+        freeMonthlySongsRemaining: limit,
+        cycleResetAt: nextResetIso,
+        updatedAt: nowIso,
+      };
+      this.creatorQuotas.set(cid, fresh);
+      this.mirrorWriteThrough(async (driver) => {
+        await driver.upsertRow(
+          'creator_quotas',
+          {
+            user_id: fresh.userId,
+            plan_tier: fresh.planTier,
+            free_monthly_songs_limit: fresh.freeMonthlySongsLimit,
+            free_monthly_songs_used: fresh.freeMonthlySongsUsed,
+            cycle_reset_at: fresh.cycleResetAt,
+            updated_at: fresh.updatedAt,
+          },
+          'user_id',
+        );
+      });
+      return fresh;
+    }
+    return existing;
+  }
+
+  public consumeFreeMonthlySongQuota(userId: string): CreatorQuotaRecord {
+    const current = this.getCreatorQuota(userId);
+    const nowIso = new Date().toISOString();
+    const nextUsed = Math.min(
+      current.freeMonthlySongsLimit,
+      current.freeMonthlySongsUsed + 1,
+    );
+    const updated: CreatorQuotaRecord = {
+      ...current,
+      freeMonthlySongsUsed: nextUsed,
+      freeMonthlySongsRemaining: Math.max(0, current.freeMonthlySongsLimit - nextUsed),
+      updatedAt: nowIso,
+    };
+    this.creatorQuotas.set(current.userId, updated);
+    this.mirrorWriteThrough(async (driver) => {
+      await driver.upsertRow(
+        'creator_quotas',
+        {
+          user_id: updated.userId,
+          plan_tier: updated.planTier,
+          free_monthly_songs_limit: updated.freeMonthlySongsLimit,
+          free_monthly_songs_used: updated.freeMonthlySongsUsed,
+          cycle_reset_at: updated.cycleResetAt,
+          updated_at: updated.updatedAt,
+        },
+        'user_id',
+      );
+    });
+    return updated;
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/notifications/domain/models/notification_entity.dart';
 import 'package:vhunambi_client/features/notifications/presentation/providers/notifications_provider.dart';
@@ -60,7 +61,7 @@ void main() {
   testWidgets('renders a clean bell when nothing is unread', (tester) async {
     await _pumpBell(tester);
 
-    expect(find.byIcon(Icons.notifications_none_rounded), findsOneWidget);
+    expect(find.byIcon(AppIcons.bell), findsOneWidget);
     expect(_badgeText(), findsNothing);
   });
 
