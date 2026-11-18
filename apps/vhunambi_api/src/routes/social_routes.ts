@@ -56,6 +56,8 @@ const CreateCommentSchema = z.object({
   userReelLoves: z.number().optional(),
   giftEmoji: z.string().optional(),
   giftName: z.string().optional(),
+  parentCommentId: z.string().optional(),
+  replyToHandle: z.string().optional(),
 });
 
 const TipSchema = z.object({

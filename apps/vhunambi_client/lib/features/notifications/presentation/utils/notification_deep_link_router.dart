@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/navigation/navigation_providers.dart';
+import '../../../explore/domain/models/social_music_post.dart';
+import '../../../explore/presentation/providers/explore_providers.dart';
+import '../../../explore/presentation/views/kinetic_post_focus_view.dart';
 import '../../../home/presentation/widgets/subscription_upgrade_modal.dart';
 import '../../../profile/presentation/views/artist_profile_view.dart';
 import '../../../profile/presentation/widgets/creator_dna_helix_lab_sheet.dart';
@@ -79,6 +82,26 @@ abstract final class NotificationDeepLinkRouter {
           context,
           clips: clips,
           initialClipId: clipId.isEmpty ? null : clipId,
+        );
+        return;
+      }
+    }
+
+    if (route.startsWith('/post/')) {
+      final postId = route.substring('/post/'.length).trim();
+      if (postId.isNotEmpty) {
+        final posts = ref.read(socialFeedPostsProvider);
+        SocialMusicPost? matched;
+        for (final p in posts) {
+          if (p.id == postId) {
+            matched = p;
+            break;
+          }
+        }
+        await KineticPostFocusView.show(
+          context,
+          postId: postId,
+          initialPost: matched,
         );
         return;
       }

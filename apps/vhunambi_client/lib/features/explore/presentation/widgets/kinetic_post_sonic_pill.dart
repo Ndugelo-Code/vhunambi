@@ -61,8 +61,7 @@ class _KineticPostSonicPillState extends ConsumerState<KineticPostSonicPill>
       final dur = audio.clipDurationSec.toInt();
       final mins = dur ~/ 60;
       final secs = dur % 60;
-      final timeStr =
-          '$mins:${secs.toString().padLeft(2, '0')}';
+      final timeStr = '$mins:${secs.toString().padLeft(2, '0')}';
       return audio.clipStartSec > 0 ? '$timeStr Hook' : '$timeStr Snippet';
     }
     return widget.post.track.formattedDuration;
@@ -86,8 +85,7 @@ class _KineticPostSonicPillState extends ConsumerState<KineticPostSonicPill>
       }
     }
 
-    final sourceLabel =
-        widget.post.audioAttachment?.sourceType.label ?? 'Song';
+    final sourceLabel = widget.post.audioAttachment?.sourceType.label ?? 'Song';
     final durationBadge = _formatDurationBadge();
 
     final pillContent = Row(
@@ -109,9 +107,7 @@ class _KineticPostSonicPillState extends ConsumerState<KineticPostSonicPill>
             ),
             alignment: Alignment.center,
             child: PhosphorIcon(
-              isPlayingThis
-                  ? PhosphorIconsFill.pause
-                  : PhosphorIconsFill.play,
+              isPlayingThis ? PhosphorIconsFill.pause : PhosphorIconsFill.play,
               size: 16,
               color: isOverlay
                   ? AppColors.brandContrast
@@ -138,7 +134,7 @@ class _KineticPostSonicPillState extends ConsumerState<KineticPostSonicPill>
                         fontWeight: FontWeight.bold,
                         color: isOverlay
                             ? Colors.white
-                            : AppColors.textPrimary,
+                            : AppColors.textPrimaryOf(context),
                         fontSize: 12,
                       ),
                     ),
@@ -146,17 +142,19 @@ class _KineticPostSonicPillState extends ConsumerState<KineticPostSonicPill>
                   const SizedBox(width: 6),
                   // Source Badge ('Song', 'Beat', 'Voice DNA', 'Groove')
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1.5,
+                    ),
                     decoration: BoxDecoration(
                       color: isOverlay
                           ? Colors.white.withValues(alpha: 0.2)
-                          : AppColors.surfaceElevated,
+                          : AppColors.surfaceElevatedOf(context),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
                         color: isOverlay
                             ? Colors.white.withValues(alpha: 0.3)
-                            : AppColors.borderSubtle,
+                            : AppColors.borderSubtleOf(context),
                         width: 0.5,
                       ),
                     ),
@@ -184,7 +182,7 @@ class _KineticPostSonicPillState extends ConsumerState<KineticPostSonicPill>
                       style: AppTypography.caption.copyWith(
                         color: isOverlay
                             ? Colors.white.withValues(alpha: 0.75)
-                            : AppColors.textSecondary,
+                            : AppColors.textSecondaryOf(context),
                         fontSize: 10.5,
                       ),
                     ),
@@ -246,9 +244,9 @@ class _KineticPostSonicPillState extends ConsumerState<KineticPostSonicPill>
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
+        color: AppColors.surfaceSecondaryOf(context),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
       ),
       child: pillContent,
     );
@@ -286,15 +284,17 @@ class _MicroEqualizerBars extends StatelessWidget {
                 width: 2.5,
                 height: isPlaying
                     ? (_baseHeights[i] *
-                            (0.4 + 0.6 * ((controller.value + (i * 0.25)) % 1.0)))
-                        .clamp(3.0, 18.0)
+                              (0.4 +
+                                  0.6 *
+                                      ((controller.value + (i * 0.25)) % 1.0)))
+                          .clamp(3.0, 18.0)
                     : 3.0,
                 decoration: BoxDecoration(
                   color: isPlaying
                       ? barColor
                       : (isOverlay
-                          ? Colors.white.withValues(alpha: 0.4)
-                          : AppColors.borderSubtle),
+                            ? Colors.white.withValues(alpha: 0.4)
+                            : AppColors.borderSubtleOf(context)),
                   borderRadius: BorderRadius.circular(1.25),
                 ),
               ),
@@ -306,4 +306,3 @@ class _MicroEqualizerBars extends StatelessWidget {
     );
   }
 }
-

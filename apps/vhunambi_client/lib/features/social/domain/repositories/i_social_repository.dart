@@ -24,7 +24,7 @@ abstract class ISocialRepository {
   /// Retrieves the community comment thread for a specific clip.
   Future<List<ReelComment>> getComments(String clipId);
 
-  /// Posts a new comment to a clip thread.
+  /// Posts a new comment or nested reply to a clip thread.
   Future<ReelComment> addComment({
     required String clipId,
     required String text,
@@ -33,6 +33,8 @@ abstract class ISocialRepository {
     int? userReelLoves,
     String? giftEmoji,
     String? giftName,
+    String? parentCommentId,
+    String? replyToHandle,
   });
 
   /// Toggles like state on an individual comment.

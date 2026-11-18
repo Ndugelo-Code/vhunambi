@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/features/social/domain/models/reel_comment.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
 
 /// Immutable cloud discovery bundle payload returned by `GET /api/explore`.
@@ -233,6 +234,136 @@ class HttpExploreRepository {
       }
     } catch (e) {
       debugPrint('[HttpExploreRepository] publishTrack fallback: $e');
+    }
+    return null;
+  }
+
+  /// Fetches a single Kinetic Post by [postId] via `GET /api/explore/posts/:id`.
+  Future<Map<String, dynamic>?> fetchPostById(String postId) async {
+    if (_shouldSkipNetwork) return null;
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/explore/posts/$postId',
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final raw = response.data!['post'];
+        if (raw is Map) {
+          return Map<String, dynamic>.from(raw);
+        }
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] fetchPostById fallback: $e');
+    }
+    return null;
+  }
+
+  /// Publishes or upserts a Kinetic Post via `POST /api/explore/posts`.
+  Future<Map<String, dynamic>?> publishPost(
+    Map<String, dynamic> postJson,
+  ) async {
+    if (_shouldSkipNetwork) return null;
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/explore/posts',
+        data: postJson,
+      );
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          response.data != null) {
+        final raw = response.data!['post'];
+        if (raw is Map) {
+          return Map<String, dynamic>.from(raw);
+        }
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] publishPost fallback: $e');
+    }
+    return null;
+  }
+
+  /// Toggles like state on a Kinetic Post via `POST /api/explore/posts/:id/like`.
+  Future<({bool liked, int likeCount})?> togglePostLike(String postId) async {
+    if (_shouldSkipNetwork) return null;
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/explore/posts/$postId/like',
+        data: const <String, dynamic>{},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data!;
+        return (
+          liked: (data['liked'] as bool?) ?? true,
+          likeCount: (data['likeCount'] as num?)?.toInt() ?? 0,
+        );
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] togglePostLike fallback: $e');
+    }
+    return null;
+  }
+
+  /// Fetches threaded comments for a Kinetic Post via `GET /api/explore/posts/:id/comments`.
+  Future<List<ReelComment>> fetchPostComments(
+    String postId, {
+    String sort = 'relevant',
+  }) async {
+    if (_shouldSkipNetwork) return const <ReelComment>[];
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/explore/posts/$postId/comments',
+        queryParameters: <String, dynamic>{'sort': sort},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final list =
+            response.data!['comments'] as List<dynamic>? ?? const <dynamic>[];
+        return list
+            .whereType<Map>()
+            .map((e) => ReelComment.fromJson(Map<String, dynamic>.from(e)))
+            .toList(growable: false);
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] fetchPostComments fallback: $e');
+    }
+    return const <ReelComment>[];
+  }
+
+  /// Adds a comment or nested reply to a Kinetic Post via `POST /api/explore/posts/:id/comments`.
+  Future<ReelComment?> addPostComment({
+    required String postId,
+    required String text,
+    String? userId,
+    String? username,
+    String? displayName,
+    String? avatarUrl,
+    int? userReelLoves,
+    String? parentCommentId,
+    String? replyToHandle,
+  }) async {
+    if (_shouldSkipNetwork) return null;
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/explore/posts/$postId/comments',
+        data: <String, dynamic>{
+          'text': text.trim(),
+          'userId': ?userId,
+          'username': ?username,
+          'displayName': ?displayName,
+          'avatarUrl': ?avatarUrl,
+          'userReelLoves': ?userReelLoves,
+          if (parentCommentId != null && parentCommentId.isNotEmpty)
+            'parentCommentId': parentCommentId,
+          if (replyToHandle != null && replyToHandle.isNotEmpty)
+            'replyToHandle': replyToHandle,
+        },
+      );
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          response.data != null) {
+        final raw = response.data!['comment'] is Map
+            ? Map<String, dynamic>.from(response.data!['comment'] as Map)
+            : response.data!;
+        return ReelComment.fromJson(raw);
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] addPostComment fallback: $e');
     }
     return null;
   }

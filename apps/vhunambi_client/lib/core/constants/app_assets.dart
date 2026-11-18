@@ -41,6 +41,18 @@ abstract final class AppAssets {
   static const String appMoodboard = '$brandingDir/Vhunambi Music App Moodboard.png';
 
   // ---------------------------------------------------------------------------
+  // Parent Company Attribution (assets/branding/madonisoftware/)
+  // ---------------------------------------------------------------------------
+  static const String madoniDir = '$brandingDir/madonisoftware';
+
+  /// Official Madoni Software silver bird lockup PNG with transparent background.
+  static const String madoniSoftwareLogo = '$madoniDir/madoni_logo.png';
+
+  /// Compact 192x192 Madoni Software parent emblem.
+  static const String madoniSoftwareIcon =
+      '$madoniDir/favicon_io-1/android-chrome-192x192.png';
+
+  // ---------------------------------------------------------------------------
   // Artwork & Voice Timbres (assets/artwork/)
   // ---------------------------------------------------------------------------
   static const String artworkDir = 'assets/artwork';

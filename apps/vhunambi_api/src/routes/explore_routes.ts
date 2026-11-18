@@ -104,13 +104,123 @@ exploreRoutes.post('/posts/:id/cosign', async (c) => {
   return c.json(result);
 });
 
-// POST /api/explore/posts/:id/repost (REQ-P45-EXP-06)
-exploreRoutes.post('/posts/:id/repost', (c) => {
+// POST /api/explore/posts/:id/repost (REQ-P45-EXP-06 + Phase 69 quote repost upsert)
+exploreRoutes.post('/posts/:id/repost', async (c) => {
   const postId = c.req.param('id');
-  const result = vhunambiDb.repostPost(postId);
+  let body: any = {};
+  try {
+    body = await c.req.json();
+  } catch (_) { }
+  const repostPayload =
+    body?.repost && typeof body.repost === 'object'
+      ? (body.repost as Record<string, any>)
+      : undefined;
+  const result = vhunambiDb.repostPost(postId, repostPayload);
   if (!result.success) {
     return c.json({ error: 'Post not found', postId }, 404);
   }
   return c.json(result);
+});
+
+// GET /api/explore/posts/:id — Single Kinetic Post lookup (Phase 69 REQ-P69-API-01)
+exploreRoutes.get('/posts/:id', (c) => {
+  const postId = c.req.param('id');
+  const post = vhunambiDb.getKineticPostById(postId);
+  if (!post) {
+    return c.json({ error: 'Post not found', postId }, 404);
+  }
+  return c.json({ success: true, post });
+});
+
+// POST /api/explore/posts — Publish or upsert a Kinetic Post (Phase 69 REQ-P69-API-01)
+exploreRoutes.post('/posts', async (c) => {
+  try {
+    const body = await c.req.json();
+    const forbidden = assertTenantCreatorAccess(c, body?.creatorId);
+    if (forbidden) return forbidden;
+    const authUser = c.get('authUser');
+    const post = vhunambiDb.upsertKineticPost({
+      ...body,
+      creatorId: authUser
+        ? resolveEffectiveCreatorId(c, body?.creatorId, authUser.creatorId)
+        : body?.creatorId,
+      creatorHandle:
+        body?.creatorHandle || (authUser ? authUser.handle : '@cern'),
+    });
+    return c.json({ success: true, post }, 201);
+  } catch (err: any) {
+    return c.json({ success: false, error: err?.message || 'Invalid JSON' }, 400);
+  }
+});
+
+// POST /api/explore/posts/:id/like — Optimistic post like toggle (Phase 69 REQ-P69-API-01)
+exploreRoutes.post('/posts/:id/like', async (c) => {
+  const postId = c.req.param('id');
+  let body: any = {};
+  try {
+    body = await c.req.json();
+  } catch (_) { }
+  const effectiveCreatorId = resolveEffectiveCreatorId(
+    c,
+    body?.creatorId,
+    'creator_cern',
+  );
+  const result = vhunambiDb.likeKineticPost(postId, effectiveCreatorId);
+  if (!result.success) {
+    return c.json({ error: 'Post not found', postId }, 404);
+  }
+  return c.json(result);
+});
+
+// GET /api/explore/posts/:id/comments — Threaded comments for a Kinetic Post (Phase 69 REQ-P69-API-01)
+exploreRoutes.get('/posts/:id/comments', (c) => {
+  const postId = c.req.param('id');
+  const sort = (c.req.query('sort') || 'relevant') as 'relevant' | 'newest';
+  const viewerId = c.get('authUser')?.creatorId ?? 'creator_cern';
+  const comments = vhunambiDb.getKineticPostComments(postId, viewerId, sort);
+  return c.json({ postId, comments, total: comments.length }, 200);
+});
+
+// POST /api/explore/posts/:id/comments — Add top-level comment or nested reply (Phase 69 REQ-P69-API-01)
+exploreRoutes.post('/posts/:id/comments', async (c) => {
+  const postId = c.req.param('id');
+  let body: any = {};
+  try {
+    body = await c.req.json();
+  } catch (_) {
+    return c.json({ error: 'INVALID_REQUEST' }, 400);
+  }
+  const text = String(body?.text ?? '').trim();
+  if (!text) {
+    return c.json({ error: 'INVALID_REQUEST', message: 'text is required' }, 400);
+  }
+  const authUser = c.get('authUser');
+  const comment = vhunambiDb.addKineticPostComment(postId, {
+    text,
+    userId: body?.userId ?? authUser?.creatorId ?? 'creator_cern',
+    username:
+      body?.username ?? authUser?.handle?.replace(/^@/, '') ?? 'cern',
+    displayName:
+      body?.displayName ?? authUser?.handle?.replace(/^@/, '') ?? 'Cern',
+    avatarUrl: body?.avatarUrl,
+    userReelLoves: Number(body?.userReelLoves ?? 0),
+    parentCommentId: body?.parentCommentId,
+    replyToHandle: body?.replyToHandle,
+  });
+  if (!comment) {
+    return c.json({ error: 'NOT_FOUND', message: `Post ${postId} not found` }, 404);
+  }
+  return c.json(comment, 201);
+});
+
+// POST /api/explore/comments/:id/like — Like a comment on Explore (Phase 69 REQ-P69-API-01)
+exploreRoutes.post('/comments/:id/like', (c) => {
+  const commentId = c.req.param('id');
+  const actorId = c.get('authUser')?.creatorId ?? 'creator_cern';
+  const result = vhunambiDb.likeCommentById(commentId, actorId);
+  if (!result) {
+    return c.json({ error: 'NOT_FOUND', message: `Comment ${commentId} not found` }, 404);
+  }
+  return c.json(result, 200);
 });
 

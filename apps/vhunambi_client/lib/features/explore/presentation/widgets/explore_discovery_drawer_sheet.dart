@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -19,7 +21,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -47,8 +49,8 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(
-                      Icons.explore_rounded,
+                    const PhosphorIcon(
+                      AppIcons.navExploreActive,
                       color: AppColors.brandPrimary,
                       size: 22,
                     ),
@@ -57,6 +59,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
                       'Discovery Hub',
                       style: AppTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimaryOf(context),
                       ),
                     ),
                   ],
@@ -65,9 +68,9 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
                   width: 44,
                   height: 44,
                   child: IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: AppColors.textSecondary,
+                    icon: PhosphorIcon(
+                      AppIcons.close,
+                      color: AppColors.textSecondaryOf(context),
                     ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -80,7 +83,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
             _buildDrawerTile(
               context: context,
               key: const Key('drawer_item_creator_studio'),
-              icon: Icons.person_rounded,
+              icon: AppIcons.user,
               iconColor: AppColors.brandPrimary,
               title: 'My Creator Studio',
               subtitle: 'Catalog, beatstore cockpit, sound DNA & royalties',
@@ -97,7 +100,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
             _buildDrawerTile(
               context: context,
               key: const Key('drawer_item_charts'),
-              icon: Icons.leaderboard_rounded,
+              icon: AppIcons.analytics,
               iconColor: AppColors.brandPrimary,
               title: 'African Music Charts',
               subtitle: 'Top 50 regional Amapiano, Gqom & Afrobeat hits',
@@ -110,7 +113,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
             _buildDrawerTile(
               context: context,
               key: const Key('drawer_item_radio'),
-              icon: Icons.radio_rounded,
+              icon: PhosphorIconsRegular.radio,
               iconColor: AppColors.badgeCyan,
               title: '12-Genre Radio Stations',
               subtitle: 'Continuous curated audio streams across Africa',
@@ -123,7 +126,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
             _buildDrawerTile(
               context: context,
               key: const Key('drawer_item_rising'),
-              icon: Icons.rocket_launch_rounded,
+              icon: PhosphorIconsFill.rocketLaunch,
               iconColor: AppColors.brandPrimary,
               title: 'Rising MP3 Tracks',
               subtitle: 'Fastest growing independent releases this week',
@@ -136,7 +139,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
             _buildDrawerTile(
               context: context,
               key: const Key('drawer_item_streak'),
-              icon: Icons.local_fire_department_rounded,
+              icon: AppIcons.flame,
               iconColor: AppColors.brandPrimary,
               title: 'Listening Streak & Taste DNA',
               subtitle: '3-day listening streak • Private School Amapiano archetype',
@@ -149,7 +152,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
             _buildDrawerTile(
               context: context,
               key: const Key('drawer_item_creators'),
-              icon: Icons.verified_user_rounded,
+              icon: AppIcons.verified,
               iconColor: AppColors.coinGold,
               title: 'Top Creators Directory',
               subtitle: 'Explore verified African producers & vocalists',
@@ -184,9 +187,9 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
           vertical: AppSpacing.sm,
         ),
         decoration: BoxDecoration(
-          color: AppColors.surfaceElevated,
+          color: AppColors.surfaceElevatedOf(context),
           borderRadius: AppRadius.cardBorder,
-          border: Border.all(color: AppColors.borderSubtle),
+          border: Border.all(color: AppColors.borderSubtleOf(context)),
         ),
         child: Row(
           children: [
@@ -197,7 +200,9 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
                 color: iconColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: iconColor, size: 20),
+              child: Center(
+                child: PhosphorIcon(icon, color: iconColor, size: 20),
+              ),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -208,14 +213,14 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
                     title,
                     style: AppTypography.bodyMedium.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                      color: AppColors.textPrimaryOf(context),
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: AppTypography.caption.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.textSecondaryOf(context),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -223,10 +228,10 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textSecondary,
-              size: 20,
+            PhosphorIcon(
+              AppIcons.caretRight,
+              color: AppColors.textSecondaryOf(context),
+              size: 18,
             ),
           ],
         ),
@@ -237,37 +242,70 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
   void _showChartsSheet(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => Padding(
+      builder: (ctx) => Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '📈 African Music Charts',
-              style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                const PhosphorIcon(
+                  AppIcons.analytics,
+                  color: AppColors.brandPrimary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'African Music Charts',
+                  style: AppTypography.titleLarge.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimaryOf(ctx),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Leaderboards update daily based on plays, likes, and studio remixes across southern and west Africa.',
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.textSecondaryOf(ctx),
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
-            ListTile(
-              leading: const Text('01', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.brandPrimary)),
-              title: const Text('Ndo Mufuna Matibe'),
-              subtitle: const Text('Makhadzi • 113 BPM • Amapiano'),
-              trailing: const Icon(Icons.play_circle_filled_rounded, color: AppColors.brandPrimary),
+            const ListTile(
+              leading: Text(
+                '01',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.brandPrimary,
+                ),
+              ),
+              title: Text('Ndo Mufuna Matibe'),
+              subtitle: Text('Makhadzi • 113 BPM • Amapiano'),
+              trailing: PhosphorIcon(
+                AppIcons.play,
+                color: AppColors.brandPrimary,
+              ),
             ),
-            ListTile(
-              leading: const Text('02', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.brandPrimary)),
-              title: const Text('Grateful in the Light'),
-              subtitle: const Text('Sigwa & Inaf • 112 BPM • Amapiano'),
-              trailing: const Icon(Icons.play_circle_filled_rounded, color: AppColors.brandPrimary),
+            const ListTile(
+              leading: Text(
+                '02',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.brandPrimary,
+                ),
+              ),
+              title: Text('Grateful in the Light'),
+              subtitle: Text('Sigwa & Inaf • 112 BPM • Amapiano'),
+              trailing: PhosphorIcon(
+                AppIcons.play,
+                color: AppColors.brandPrimary,
+              ),
             ),
           ],
         ),
@@ -278,24 +316,39 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
   void _showGenreRadioSheet(BuildContext context, WidgetRef ref) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => Padding(
+      builder: (ctx) => Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '📻 12-Genre Radio Stations',
-              style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                const PhosphorIcon(
+                  PhosphorIconsRegular.radio,
+                  color: AppColors.badgeCyan,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '12-Genre Radio Stations',
+                  style: AppTypography.titleLarge.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimaryOf(ctx),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'Tap a genre to start continuous station playback.',
-              style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.textSecondaryOf(ctx),
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
             Wrap(
@@ -305,9 +358,9 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
                 for (final genre in exploreGenreCatalog)
                   ActionChip(
                     label: Text(genre),
-                    backgroundColor: AppColors.surfaceElevated,
+                    backgroundColor: AppColors.surfaceElevatedOf(ctx),
                     onPressed: () {
-                      Navigator.of(context).pop();
+                      Navigator.of(ctx).pop();
                       playExploreGenreRadio(ref, genre);
                     },
                   ),
@@ -323,7 +376,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
     final rising = ref.read(risingTracksProvider);
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -340,23 +393,35 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
   void _showStreakDnaSheet(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => Padding(
+      builder: (ctx) => Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.local_fire_department_rounded, color: AppColors.brandPrimary, size: 48),
+            const PhosphorIcon(
+              AppIcons.flame,
+              color: AppColors.brandPrimary,
+              size: 48,
+            ),
             const SizedBox(height: AppSpacing.sm),
-            Text('3-Day Listening Streak!', style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              '3-Day Listening Streak!',
+              style: AppTypography.titleLarge.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimaryOf(ctx),
+              ),
+            ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'Your musical DNA leans 65% Private School Amapiano, 20% Gqom, and 15% Maskandi.',
               textAlign: TextAlign.center,
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.textSecondaryOf(ctx),
+              ),
             ),
           ],
         ),
@@ -368,7 +433,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
     final creators = ref.read(exploreCreatorsProvider);
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -380,15 +445,24 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
           return ListTile(
             leading: CircleAvatar(
               backgroundColor: AppColors.brandPrimary,
-              child: Text(c.initials, style: const TextStyle(color: AppColors.brandContrast)),
+              child: Text(
+                c.initials,
+                style: const TextStyle(color: AppColors.brandContrast),
+              ),
             ),
             title: Text(c.name),
             subtitle: Text('${c.handle} • ${c.primaryGenreLabel}'),
-            trailing: const Icon(Icons.chevron_right_rounded),
+            trailing: PhosphorIcon(
+              AppIcons.caretRight,
+              color: AppColors.textSecondaryOf(context),
+              size: 18,
+            ),
             onTap: () {
               Navigator.of(context).pop();
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => ArtistProfileView(artistId: c.id)),
+                MaterialPageRoute(
+                  builder: (_) => ArtistProfileView(artistId: c.id),
+                ),
               );
             },
           );

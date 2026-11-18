@@ -474,10 +474,25 @@ export class VhunambiDatabase {
       this.db.exec("ALTER TABLE reel_comments ADD COLUMN data_json TEXT NOT NULL DEFAULT '{}';");
     } catch (_) { }
     try {
+      this.db.exec('ALTER TABLE kinetic_posts ADD COLUMN like_count INTEGER DEFAULT 0;');
+    } catch (_) { }
+    try {
+      this.db.exec('ALTER TABLE kinetic_posts ADD COLUMN comment_count INTEGER DEFAULT 0;');
+    } catch (_) { }
+    try {
+      this.db.exec('ALTER TABLE reel_comments ADD COLUMN parent_comment_id TEXT;');
+    } catch (_) { }
+    try {
+      this.db.exec('ALTER TABLE reel_comments ADD COLUMN reply_to_handle TEXT;');
+    } catch (_) { }
+    try {
       this.db.exec('CREATE INDEX IF NOT EXISTS idx_published_clips_remix_parent ON published_clips(remixed_from_clip_id);');
     } catch (_) { }
     try {
       this.db.exec('CREATE INDEX IF NOT EXISTS idx_reel_comments_clip ON reel_comments(reel_id, created_at DESC);');
+    } catch (_) { }
+    try {
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_reel_comments_parent ON reel_comments(reel_id, parent_comment_id);');
     } catch (_) { }
 
     this.db.exec(`
@@ -1319,44 +1334,61 @@ export class VhunambiDatabase {
           continue;
         }
 
-        const entityId =
-          m.payload?.id || m.payload?.certificateId || `gen_${Date.now()}`;
+        const entityId = String(
+          m.payload?.id ||
+          m.payload?.postId ||
+          m.payload?.originalPostId ||
+          m.payload?.certificateId ||
+          `gen_${Date.now()}`,
+        );
         let shouldApply = true;
 
-        // Phase 48: Distinguish commutative counters from versioned entity edits.
+        // Phase 48 + Phase 69: Distinguish commutative counters from versioned entity edits.
         if (commutativeCounterActions.has(m.action)) {
-          // Atomic increment: SET count = count + 1 (never overwrite).
           if (m.entityType === 'post') {
-            this.db.prepare(
-              `UPDATE kinetic_posts SET cosign_count = cosign_count + 1 WHERE id = ?`
-            ).run(entityId);
+            if (m.action === 'like') {
+              this.db.prepare(
+                'UPDATE kinetic_posts SET like_count = COALESCE(like_count, 0) + 1, updated_at = ? WHERE id = ?',
+              ).run(new Date().toISOString(), entityId);
+            } else if (m.action === 'cosign') {
+              this.cosignPost(entityId, m.payload?.creatorId);
+            } else if (m.action === 'repost') {
+              const targetPostId = String(m.payload?.originalPostId || entityId);
+              const repostPayload =
+                m.payload?.repost && typeof m.payload.repost === 'object'
+                  ? (m.payload.repost as Record<string, any>)
+                  : undefined;
+              this.repostPost(targetPostId, repostPayload);
+            }
           } else if (m.entityType === 'track') {
             this.db.prepare(
-              `UPDATE explore_tracks SET like_count = like_count + 1 WHERE id = ?`
+              'UPDATE explore_tracks SET like_count = like_count + 1 WHERE id = ?',
             ).run(entityId);
           }
         } else if (m.entityType === 'post' && m.action === 'create') {
-          const insertPost = this.db.prepare(`
-            INSERT OR REPLACE INTO kinetic_posts (id, creator_id, creator_handle, creator_name, caption, media_type, cosign_count, cosign_target, repost_count, discovery_stage, data_json, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `);
-          insertPost.run(
-            entityId,
-            m.payload.creatorId || 'creator_cern',
-            m.payload.creatorHandle || '@cern',
-            m.payload.creatorName || 'Cern',
-            m.payload.caption || '',
-            m.payload.mediaType || 'audio_card',
-            m.payload.cosignCount || 0,
-            25,
-            0,
-            'freshCrate',
-            JSON.stringify(m.payload),
-            m.createdAt,
-            m.createdAt
-          );
+          this.upsertKineticPost({
+            ...(m.payload || {}),
+            id: entityId,
+            createdAt: m.payload?.createdAt || m.createdAt,
+          });
         } else if (m.entityType === 'cosign') {
           this.cosignPost(entityId, m.payload?.creatorId);
+        } else if (m.entityType === 'comment' && m.action === 'create') {
+          const targetId = String(m.payload?.postId || m.payload?.clipId || entityId);
+          const added = this.addKineticPostComment(targetId, {
+            ...(m.payload || {}),
+            id: m.payload?.id,
+            createdAt: m.payload?.createdAt || m.createdAt,
+          });
+          if (!added) {
+            this.insertReelComment({
+              ...(m.payload || {}),
+              id: String(m.payload?.id || `c_${Date.now()}`),
+              clipId: targetId,
+              createdAt: m.payload?.createdAt || m.createdAt,
+            });
+          }
+          shouldApply = true;
         } else if (m.entityType === 'tip') {
           const senderId = String(m.payload?.senderId || 'creator_cern');
           const recipientId = String(m.payload?.recipientId || 'creator_makhadzi');
@@ -1739,18 +1771,20 @@ export class VhunambiDatabase {
         data = JSON.parse(r.data_json);
       } catch (_) { }
       return {
+        ...data,
         id: r.id,
         creatorId: r.creator_id,
         creatorHandle: r.creator_handle,
         creatorName: r.creator_name,
         caption: r.caption,
         mediaType: r.media_type,
-        cosignCount: r.cosign_count,
-        cosignTarget: r.cosign_target,
-        repostCount: r.repost_count,
+        likeCount: Number(r.like_count ?? data.likeCount ?? 0),
+        commentCount: Number(r.comment_count ?? data.commentCount ?? 0),
+        cosignCount: Number(r.cosign_count ?? data.cosignCount ?? 0),
+        cosignTarget: Number(r.cosign_target ?? data.cosignTarget ?? 25),
+        repostCount: Number(r.repost_count ?? data.repostCount ?? 0),
         discoveryStage: r.discovery_stage,
         createdAt: r.created_at,
-        ...data,
       };
     });
 
@@ -2141,20 +2175,299 @@ export class VhunambiDatabase {
     };
   }
 
-  public repostPost(postId: string): { success: boolean; postId: string; repostCount: number } {
+  private mapKineticPostRow(r: Record<string, any>): Record<string, any> {
+    let data: Record<string, any> = {};
+    try {
+      data = JSON.parse(String(r.data_json || '{}'));
+    } catch {
+      data = {};
+    }
+    return {
+      ...data,
+      id: String(r.id),
+      creatorId: String(r.creator_id),
+      creatorHandle: String(r.creator_handle),
+      creatorName: String(r.creator_name),
+      caption: String(r.caption ?? ''),
+      mediaType: String(r.media_type ?? 'audio_card'),
+      likeCount: Number(r.like_count ?? data.likeCount ?? 0),
+      commentCount: Number(r.comment_count ?? data.commentCount ?? 0),
+      cosignCount: Number(r.cosign_count ?? data.cosignCount ?? 0),
+      cosignTarget: Number(r.cosign_target ?? data.cosignTarget ?? 25),
+      repostCount: Number(r.repost_count ?? data.repostCount ?? 0),
+      discoveryStage: String(r.discovery_stage ?? 'freshCrate'),
+      createdAt: String(r.created_at),
+      updatedAt: String(r.updated_at),
+    };
+  }
+
+  public getKineticPostById(postId: string): Record<string, any> | null {
+    const row = this.db
+      .prepare('SELECT * FROM kinetic_posts WHERE id = ?')
+      .get(postId) as Record<string, any> | undefined;
+    return row ? this.mapKineticPostRow(row) : null;
+  }
+
+  public upsertKineticPost(input: Record<string, any>): Record<string, any> {
+    const now = new Date().toISOString();
+    const id = String(input.id || `kpost_${Date.now()}_${randomUUID().slice(0, 6)}`);
+    const existing = this.getKineticPostById(id);
+    const creatorId = canonicalizeCreatorId(
+      String(input.creatorId || existing?.creatorId || 'creator_cern'),
+    );
+    const rawHandle = String(
+      input.creatorHandle || existing?.creatorHandle || `@${creatorId.replace(/^creator_/, '')}`,
+    );
+    const creatorHandle = rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`;
+    const creatorName = String(
+      input.creatorName || existing?.creatorName || creatorHandle.slice(1),
+    );
+    const caption = String(input.caption ?? existing?.caption ?? '');
+    const mediaType = String(input.mediaType ?? existing?.mediaType ?? 'audio_card');
+    const likeCount = Number(input.likeCount ?? existing?.likeCount ?? 0);
+    const commentCount = Number(input.commentCount ?? existing?.commentCount ?? 0);
+    const cosignCount = Number(input.cosignCount ?? existing?.cosignCount ?? 0);
+    const cosignTarget = Number(input.cosignTarget ?? existing?.cosignTarget ?? 25);
+    const repostCount = Number(input.repostCount ?? existing?.repostCount ?? 0);
+    const discoveryStage = String(
+      input.discoveryStage || existing?.discoveryStage || 'freshCrate',
+    );
+    const createdAt = String(input.publishedAt || input.createdAt || existing?.createdAt || now);
+    const mergedPayload = {
+      ...(existing ?? {}),
+      ...input,
+      id,
+      creatorId,
+      creatorHandle,
+      creatorName,
+      caption,
+      mediaType,
+      likeCount,
+      commentCount,
+      cosignCount,
+      cosignTarget,
+      repostCount,
+      discoveryStage,
+      createdAt,
+      updatedAt: now,
+    };
+
+    this.db
+      .prepare(
+        `INSERT INTO kinetic_posts (
+          id, creator_id, creator_handle, creator_name, caption, media_type,
+          attachment_id, like_count, comment_count, cosign_count, cosign_target,
+          repost_count, discovery_stage, data_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          caption = excluded.caption,
+          media_type = excluded.media_type,
+          like_count = excluded.like_count,
+          comment_count = excluded.comment_count,
+          cosign_count = excluded.cosign_count,
+          repost_count = excluded.repost_count,
+          discovery_stage = excluded.discovery_stage,
+          data_json = excluded.data_json,
+          updated_at = excluded.updated_at`,
+      )
+      .run(
+        id,
+        creatorId,
+        creatorHandle,
+        creatorName,
+        caption,
+        mediaType,
+        input.trackId ? String(input.trackId) : (existing?.attachment_id ?? null),
+        likeCount,
+        commentCount,
+        cosignCount,
+        cosignTarget,
+        repostCount,
+        discoveryStage,
+        JSON.stringify(mergedPayload),
+        createdAt,
+        now,
+      );
+
+    return this.getKineticPostById(id)!;
+  }
+
+  public likeKineticPost(
+    postId: string,
+    actorCreatorId = 'creator_cern',
+  ): { success: boolean; postId: string; liked: boolean; likeCount: number } {
+    const post = this.db
+      .prepare('SELECT like_count FROM kinetic_posts WHERE id = ?')
+      .get(postId) as { like_count?: number } | undefined;
+    if (!post) {
+      return { success: false, postId, liked: false, likeCount: 0 };
+    }
+    const actor = canonicalizeCreatorId(actorCreatorId);
+    const liked = this.toggleSocialInteraction('post_like', postId, actor);
+    const nextLikes = Math.max(0, Number(post.like_count ?? 0) + (liked ? 1 : -1));
+    this.db
+      .prepare('UPDATE kinetic_posts SET like_count = ?, updated_at = ? WHERE id = ?')
+      .run(nextLikes, new Date().toISOString(), postId);
+    return { success: true, postId, liked, likeCount: nextLikes };
+  }
+
+  public repostPost(
+    postId: string,
+    repostPayload?: Record<string, any>,
+  ): {
+    success: boolean;
+    postId: string;
+    repostCount: number;
+    repost?: Record<string, any>;
+  } {
     const post = this.db.prepare('SELECT repost_count FROM kinetic_posts WHERE id = ?').get(postId) as any;
     if (!post) {
       return { success: false, postId, repostCount: 0 };
     }
 
-    const newCount = (post.repost_count || 0) + 1;
+    const newCount = Number(post.repost_count || 0) + 1;
     this.db.prepare('UPDATE kinetic_posts SET repost_count = ?, updated_at = ? WHERE id = ?').run(
       newCount,
       new Date().toISOString(),
       postId
     );
 
-    return { success: true, postId, repostCount: newCount };
+    let createdRepost: Record<string, any> | undefined;
+    if (repostPayload && typeof repostPayload === 'object') {
+      createdRepost = this.upsertKineticPost({
+        ...repostPayload,
+        repostedFromPostId: repostPayload.repostedFromPostId ?? postId,
+      });
+    }
+
+    return {
+      success: true,
+      postId,
+      repostCount: newCount,
+      ...(createdRepost ? { repost: createdRepost } : {}),
+    };
+  }
+
+  public getKineticPostComments(
+    postId: string,
+    viewerCreatorId = 'creator_cern',
+    sort: 'relevant' | 'newest' = 'relevant',
+  ): Record<string, any>[] {
+    const likedComments = this.listSocialInteractionTargets(
+      'comment_like',
+      canonicalizeCreatorId(viewerCreatorId),
+    );
+    const comments: Record<string, any>[] = this.listReelCommentsByClip(postId).map(
+      (c): Record<string, any> => ({
+        ...c,
+        isLikedByMe: likedComments.has(String(c.id)),
+      }),
+    );
+    const replyCounts = new Map<string, number>();
+    for (const c of comments) {
+      if (c.parentCommentId) {
+        const pid = String(c.parentCommentId);
+        replyCounts.set(pid, (replyCounts.get(pid) ?? 0) + 1);
+      }
+    }
+    if (sort === 'newest') {
+      comments.sort((a, b) =>
+        String(b.createdAt).localeCompare(String(a.createdAt)),
+      );
+      return comments;
+    }
+    const nowMs = Date.now();
+    const scoreOf = (c: Record<string, any>): number => {
+      const createdMs = Date.parse(String(c.createdAt)) || nowMs;
+      const ageHours = Math.max(0, (nowMs - createdMs) / 3600000);
+      const recencyBonus = Math.max(0, 12.0 - 0.25 * ageHours);
+      const replies = replyCounts.get(String(c.id)) ?? 0;
+      const creatorBonus = c.isCreator ? 8.0 : 0.0;
+      return (
+        2.0 * Number(c.likeCount ?? 0) +
+        3.5 * replies +
+        creatorBonus +
+        1.5 * Number(c.userReelLoves ?? 0) +
+        recencyBonus
+      );
+    };
+    comments.sort((a, b) => {
+      const diff = scoreOf(b) - scoreOf(a);
+      if (diff !== 0) return diff;
+      return String(b.createdAt).localeCompare(String(a.createdAt));
+    });
+    return comments;
+  }
+
+  public addKineticPostComment(
+    postId: string,
+    input: Record<string, any>,
+  ): Record<string, any> | null {
+    const post = this.getKineticPostById(postId);
+    if (!post) return null;
+
+    const now = new Date().toISOString();
+    const commentId = String(input.id || `c_${randomUUID().slice(0, 8)}`);
+    const userId = canonicalizeCreatorId(String(input.userId || 'creator_cern'));
+    const rawUsername = String(
+      input.username || userId.replace(/^creator_/, ''),
+    ).replace(/^@+/, '');
+    const postCreatorHandle = String(post.creatorHandle || '')
+      .replace(/^@+/, '')
+      .toLowerCase();
+    const isCreator =
+      Boolean(input.isCreator) ||
+      userId === canonicalizeCreatorId(String(post.creatorId)) ||
+      (postCreatorHandle.length > 0 &&
+        postCreatorHandle === rawUsername.toLowerCase());
+
+    const parentCommentId = input.parentCommentId
+      ? String(input.parentCommentId).trim() || undefined
+      : undefined;
+    const replyToHandle = input.replyToHandle
+      ? String(input.replyToHandle).trim() || undefined
+      : undefined;
+
+    const comment: Record<string, any> = {
+      id: commentId,
+      clipId: postId,
+      postId,
+      userId,
+      username: rawUsername,
+      displayName: String(input.displayName || rawUsername),
+      avatarUrl: input.avatarUrl ? String(input.avatarUrl) : undefined,
+      isCreator,
+      text: String(input.text ?? input.content ?? '').trim(),
+      likeCount: Number(input.likeCount ?? 0),
+      isLikedByMe: false,
+      userReelLoves: Number(input.userReelLoves ?? 0),
+      ...(parentCommentId ? { parentCommentId } : {}),
+      ...(replyToHandle ? { replyToHandle } : {}),
+      createdAt: String(input.createdAt || now),
+    };
+
+    this.insertReelComment(comment);
+    const nextComments = Number(post.commentCount ?? 0) + 1;
+    this.db
+      .prepare('UPDATE kinetic_posts SET comment_count = ?, updated_at = ? WHERE id = ?')
+      .run(nextComments, now, postId);
+    return comment;
+  }
+
+  public likeCommentById(
+    commentId: string,
+    actorCreatorId = 'creator_cern',
+  ): { liked: boolean; likeCount: number } | null {
+    const comment = this.getReelCommentById(commentId);
+    if (!comment) return null;
+    const actor = canonicalizeCreatorId(actorCreatorId);
+    const liked = this.toggleSocialInteraction('comment_like', commentId, actor);
+    const likeCount = Math.max(0, Number(comment.likeCount ?? 0) + (liked ? 1 : -1));
+    this.insertReelComment({
+      ...comment,
+      likeCount,
+    });
+    return { liked, likeCount };
   }
 
   // ---------------------------------------------------------------------------
@@ -4553,16 +4866,22 @@ export class VhunambiDatabase {
 
   public insertReelComment(comment: Record<string, any>): void {
     const id = String(comment.id);
-    const reelId = String(comment.clipId || comment.reelId);
+    const reelId = String(comment.clipId || comment.postId || comment.reelId);
     const creatorId = String(comment.userId || comment.creatorId || 'creator_cern');
     const content = String(comment.text || comment.content || '');
+    const parentCommentId = comment.parentCommentId
+      ? String(comment.parentCommentId).trim() || null
+      : null;
+    const replyToHandle = comment.replyToHandle
+      ? String(comment.replyToHandle).trim() || null
+      : null;
     const createdAt = String(comment.createdAt || new Date().toISOString());
 
     this.db
       .prepare(
         `INSERT OR REPLACE INTO reel_comments (
-          id, reel_id, creator_id, content, language_code, data_json, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          id, reel_id, creator_id, content, language_code, parent_comment_id, reply_to_handle, data_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -4570,7 +4889,13 @@ export class VhunambiDatabase {
         creatorId,
         content,
         comment.languageCode ? String(comment.languageCode) : null,
-        JSON.stringify(comment),
+        parentCommentId,
+        replyToHandle,
+        JSON.stringify({
+          ...comment,
+          ...(parentCommentId ? { parentCommentId } : {}),
+          ...(replyToHandle ? { replyToHandle } : {}),
+        }),
         createdAt,
       );
   }
@@ -4582,6 +4907,10 @@ export class VhunambiDatabase {
     } catch {
       data = {};
     }
+    const parentCommentId =
+      data.parentCommentId ?? r.parent_comment_id ?? undefined;
+    const replyToHandle =
+      data.replyToHandle ?? r.reply_to_handle ?? undefined;
     return {
       ...data,
       id: String(r.id),
@@ -4589,6 +4918,8 @@ export class VhunambiDatabase {
       userId: String(data.userId ?? r.creator_id),
       text: String(data.text ?? r.content),
       likeCount: Number(data.likeCount ?? 0),
+      ...(parentCommentId ? { parentCommentId: String(parentCommentId) } : {}),
+      ...(replyToHandle ? { replyToHandle: String(replyToHandle) } : {}),
       createdAt: String(data.createdAt ?? r.created_at),
     };
   }

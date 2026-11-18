@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../domain/models/social_music_post.dart';
 import '../../../notifications/domain/models/notification_entity.dart';
 import '../../../notifications/domain/models/notification_enums.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../domain/models/social_music_post.dart';
 import '../providers/explore_providers.dart';
 import 'kinetic_post_sonic_pill.dart';
 
@@ -51,11 +53,30 @@ class _RepostKineticPostSheetState
     final quote = _commentController.text.trim();
     final now = DateTime.now();
 
+    final owner = ref.read(ownerProfileProvider);
+    final session = ref.read(authSessionProvider);
+    final resolvedCreatorId = owner.id.isNotEmpty && owner.id != 'me'
+        ? owner.id
+        : (session.canonicalCreatorId.isNotEmpty
+              ? session.canonicalCreatorId
+              : 'creator_cern');
+    final resolvedName = owner.displayName.isNotEmpty
+        ? owner.displayName
+        : (session.displayName.isNotEmpty ? session.displayName : 'Cern');
+    final rawHandle = owner.handle.isNotEmpty
+        ? owner.handle
+        : (session.rawUsername.isNotEmpty ? session.rawUsername : 'cern');
+    final resolvedHandle = rawHandle.startsWith('@')
+        ? rawHandle
+        : '@$rawHandle';
+
     final repost = SocialMusicPost(
       id: 'kpost_repost_${now.millisecondsSinceEpoch}',
-      creatorId: 'current_user',
-      creatorName: 'You',
-      creatorHandle: '@current_user',
+      creatorId: resolvedCreatorId,
+      creatorName: resolvedName,
+      creatorHandle: resolvedHandle,
+      creatorAvatarUrl: owner.avatarUrl,
+      isCreatorVerified: owner.isVerified,
       publishedAt: now,
       caption: quote,
       quoteComment: quote.isNotEmpty ? quote : null,
@@ -68,12 +89,13 @@ class _RepostKineticPostSheetState
       location: 'South Africa',
     );
 
-    ref.read(socialFeedPostsProvider.notifier).repostPost(
-          originalPostId: widget.originalPost.id,
-          repostPost: repost,
-        );
+    ref
+        .read(socialFeedPostsProvider.notifier)
+        .repostPost(originalPostId: widget.originalPost.id, repostPost: repost);
 
-    ref.read(notificationsProvider.notifier).addNotification(
+    ref
+        .read(notificationsProvider.notifier)
+        .addNotification(
           NotificationEntity(
             id: 'notif_repost_${repost.id}',
             title: 'Reposted ${widget.originalPost.creatorHandle}\'s Post',
@@ -235,7 +257,9 @@ class _RepostKineticPostSheetState
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.brandPrimary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
@@ -304,9 +328,7 @@ class _RepostKineticPostSheetState
               backgroundColor: AppColors.brandPrimary,
               foregroundColor: AppColors.brandContrast,
               minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.pillBorder,
-              ),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.pillBorder),
             ),
           ),
         ],
@@ -314,4 +336,3 @@ class _RepostKineticPostSheetState
     );
   }
 }
-

@@ -299,16 +299,22 @@ export function getComments(
   });
 }
 
-/** Appends a new comment to a reel thread and increments the clip's commentCount. */
+/** Appends a new comment or nested reply to a reel or Kinetic Post thread. */
 export function addComment(
   clipId: string,
   req: CreateCommentRequest,
 ): ReelCommentDto | null {
   seedSocialClips();
   const clip = vhunambiDb.getPublishedClipRow(clipId);
-  if (!clip) return null;
+  if (!clip) {
+    // Phase 69 REQ-P69-API-02: Transparently service Kinetic Posts via kinetic_posts fallback.
+    const postComment = vhunambiDb.addKineticPostComment(clipId, req);
+    return postComment ? (postComment as ReelCommentDto) : null;
+  }
 
   const commentId = `c_${nanoid(8)}`;
+  const parentCommentId = req.parentCommentId?.trim() || undefined;
+  const replyToHandle = req.replyToHandle?.trim() || undefined;
   const comment: ReelCommentDto = {
     id: commentId,
     clipId,
@@ -324,6 +330,8 @@ export function addComment(
     userReelLoves: req.userReelLoves ?? 0,
     giftEmoji: req.giftEmoji,
     giftName: req.giftName,
+    ...(parentCommentId ? { parentCommentId } : {}),
+    ...(replyToHandle ? { replyToHandle } : {}),
     createdAt: new Date().toISOString(),
   };
 

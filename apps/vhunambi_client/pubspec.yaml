@@ -90,6 +90,8 @@ flutter:
 
   assets:
     - assets/branding/
+    - assets/branding/madonisoftware/madoni_logo.png
+    - assets/branding/madonisoftware/favicon_io-1/android-chrome-192x192.png
     - assets/artwork/
 
   # An image asset can refer to one or more resolution-specific "variants", see

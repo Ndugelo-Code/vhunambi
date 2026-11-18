@@ -65,7 +65,7 @@ export interface ClipFeedPage {
   nextCursor: string | null;
 }
 
-/** Reel comment DTO (Phase C, mirrors `ReelComment.dart`). */
+/** Reel comment DTO (Phase C + Phase 69 Threading, mirrors `ReelComment.dart`). */
 export interface ReelCommentDto {
   id: string;
   clipId: string;
@@ -80,6 +80,8 @@ export interface ReelCommentDto {
   userReelLoves: number;
   giftEmoji?: string;
   giftName?: string;
+  parentCommentId?: string;
+  replyToHandle?: string;
   createdAt: string;
 }
 
@@ -93,6 +95,8 @@ export interface CreateCommentRequest {
   avatarUrl?: string;
   giftEmoji?: string;
   giftName?: string;
+  parentCommentId?: string;
+  replyToHandle?: string;
 }
 
 /** Cultural Gift payload. */

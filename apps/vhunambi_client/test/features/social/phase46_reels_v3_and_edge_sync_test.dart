@@ -110,8 +110,8 @@ void main() {
         // Verify Co-Sign button key exists
         final cosignBtn = find.byKey(Key('post_cosign_btn_${testPost.id}'));
         expect(cosignBtn, findsOneWidget);
-        // Verify full unclipped text renders
-        expect(find.text('🔥 Co-Sign · 18/25'), findsOneWidget);
+        // Verify full unclipped text renders without raw Unicode emoji
+        expect(find.text('Co-Sign · 18/25'), findsOneWidget);
         // Verify remix lineage pill also renders
         expect(
           find.byKey(Key('post_remix_tree_btn_${testPost.id}')),
@@ -246,7 +246,9 @@ void main() {
             overrides: [
               syncOutboxServiceProvider.overrideWithValue(mockOutbox),
             ],
-            child: const MaterialApp(home: Scaffold(body: ProfileSettingsDrawer())),
+            child: const MaterialApp(
+              home: Scaffold(body: ProfileSettingsDrawer()),
+            ),
           ),
         );
 

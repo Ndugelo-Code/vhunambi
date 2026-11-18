@@ -914,6 +914,20 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
     );
   }
 
+  /// Increments [commentCount] on [postId] when a comment or reply is added (`REQ-P69-THREAD-05`).
+  void incrementCommentCount(String postId, {int delta = 1}) {
+    state = [
+      for (final post in state)
+        if (post.id == postId)
+          post.copyWith(
+            commentCount: (post.commentCount + delta).clamp(0, 9999999),
+          )
+        else
+          post,
+    ];
+    _persistPostsSnapshot();
+  }
+
   void addPost(SocialMusicPost post) {
     state = [post, ...state];
     _persistPostsSnapshot();

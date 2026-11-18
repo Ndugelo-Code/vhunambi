@@ -212,6 +212,12 @@ class HttpSocialRepository implements ISocialRepository {
           final avatarRaw = JsonSafe.asString(map['avatarUrl']);
           final emojiRaw = JsonSafe.asString(map['giftEmoji']);
           final giftRaw = JsonSafe.asString(map['giftName']);
+          final parentRaw = JsonSafe.asString(
+            map['parentCommentId'] ?? map['parent_comment_id'],
+          );
+          final replyHandleRaw = JsonSafe.asString(
+            map['replyToHandle'] ?? map['reply_to_handle'],
+          );
           parsed.add(
             ReelComment(
               id: JsonSafe.asString(map['id'], 'c_0'),
@@ -228,6 +234,8 @@ class HttpSocialRepository implements ISocialRepository {
               userReelLoves: JsonSafe.asInt(map['userReelLoves']),
               giftEmoji: emojiRaw.isEmpty ? null : emojiRaw,
               giftName: giftRaw.isEmpty ? null : giftRaw,
+              parentCommentId: parentRaw.isEmpty ? null : parentRaw,
+              replyToHandle: replyHandleRaw.isEmpty ? null : replyHandleRaw,
               createdAt:
                   DateTime.tryParse(JsonSafe.asString(map['createdAt'])) ??
                   DateTime.now(),
@@ -252,6 +260,8 @@ class HttpSocialRepository implements ISocialRepository {
     int? userReelLoves,
     String? giftEmoji,
     String? giftName,
+    String? parentCommentId,
+    String? replyToHandle,
   }) async {
     if (_shouldSkipNetwork) {
       return _addCommentFallback(
@@ -262,6 +272,8 @@ class HttpSocialRepository implements ISocialRepository {
         userReelLoves: userReelLoves,
         giftEmoji: giftEmoji,
         giftName: giftName,
+        parentCommentId: parentCommentId,
+        replyToHandle: replyToHandle,
       );
     }
 
@@ -272,6 +284,10 @@ class HttpSocialRepository implements ISocialRepository {
       'userReelLoves': ?userReelLoves,
       'giftEmoji': ?giftEmoji,
       'giftName': ?giftName,
+      if (parentCommentId != null && parentCommentId.isNotEmpty)
+        'parentCommentId': parentCommentId,
+      if (replyToHandle != null && replyToHandle.isNotEmpty)
+        'replyToHandle': replyToHandle,
     };
 
     try {
@@ -299,6 +315,9 @@ class HttpSocialRepository implements ISocialRepository {
               (c['userReelLoves'] as num?)?.toInt() ?? userReelLoves ?? 0,
           giftEmoji: c['giftEmoji'] as String? ?? giftEmoji,
           giftName: c['giftName'] as String? ?? giftName,
+          parentCommentId:
+              c['parentCommentId'] as String? ?? parentCommentId,
+          replyToHandle: c['replyToHandle'] as String? ?? replyToHandle,
           createdAt:
               DateTime.tryParse(c['createdAt'] as String? ?? '') ??
               DateTime.now(),
@@ -319,6 +338,8 @@ class HttpSocialRepository implements ISocialRepository {
       userReelLoves: userReelLoves,
       giftEmoji: giftEmoji,
       giftName: giftName,
+      parentCommentId: parentCommentId,
+      replyToHandle: replyToHandle,
     );
   }
 
@@ -330,6 +351,8 @@ class HttpSocialRepository implements ISocialRepository {
     int? userReelLoves,
     String? giftEmoji,
     String? giftName,
+    String? parentCommentId,
+    String? replyToHandle,
   }) {
     final fallback = ReelComment(
       id: 'c_local_${DateTime.now().millisecondsSinceEpoch}',
@@ -341,6 +364,8 @@ class HttpSocialRepository implements ISocialRepository {
       userReelLoves: userReelLoves ?? 0,
       giftEmoji: giftEmoji,
       giftName: giftName,
+      parentCommentId: parentCommentId,
+      replyToHandle: replyToHandle,
       createdAt: DateTime.now(),
     );
     final list = _fallbackComments[clipId] ?? [];

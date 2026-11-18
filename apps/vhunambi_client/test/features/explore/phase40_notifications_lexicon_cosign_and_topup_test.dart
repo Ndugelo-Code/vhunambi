@@ -257,7 +257,7 @@ void main() {
         await tester.pump();
 
         expect(find.byKey(Key('post_cosign_btn_${post.id}')), findsOneWidget);
-        expect(find.text('🔥 Co-Sign · 18/25'), findsOneWidget);
+        expect(find.text('Co-Sign · 18/25'), findsOneWidget);
 
         await tester.tap(find.byKey(Key('post_cosign_btn_${post.id}')));
         await tester.pump();

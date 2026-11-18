@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -61,7 +63,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
         DiscoveryHierarchyRanker.filterByTier(rawPosts, selectedTier);
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.surfaceCanvasOf(context),
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(
           isDesktop
@@ -162,10 +164,10 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
                   child: Center(
                     child: Column(
                       children: [
-                        Icon(
-                          Icons.person_search_rounded,
+                        PhosphorIcon(
+                          AppIcons.search,
                           size: 48,
-                          color: AppColors.textSecondary,
+                          color: AppColors.textSecondaryOf(context),
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
@@ -173,7 +175,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
                               ? 'Not following any creators yet'
                               : 'No posts in feed',
                           style: AppTypography.titleMedium.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.textSecondaryOf(context),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -181,7 +183,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
                           'Follow creators or switch to "For You" to discover new music.',
                           textAlign: TextAlign.center,
                           style: AppTypography.caption.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.textSecondaryOf(context),
                           ),
                         ),
                       ],
@@ -281,15 +283,15 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
+                  color: AppColors.surfaceElevatedOf(context),
                   borderRadius: AppRadius.pillBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
+                  border: Border.all(color: AppColors.borderSubtleOf(context)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.explore_rounded,
+                    const PhosphorIcon(
+                      AppIcons.navExploreActive,
                       size: 14,
                       color: AppColors.brandPrimary,
                     ),
@@ -297,7 +299,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
                     Text(
                       'Hub',
                       style: AppTypography.caption.copyWith(
-                        color: AppColors.textPrimary,
+                        color: AppColors.textPrimaryOf(context),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -389,17 +391,17 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
           ),
           padding: const EdgeInsets.all(AppSpacing.sm),
           decoration: BoxDecoration(
-            color: AppColors.surfaceSecondary,
+            color: AppColors.surfaceSecondaryOf(context),
             borderRadius: AppRadius.cardBorder,
-            border: Border.all(color: AppColors.borderSubtle),
+            border: Border.all(color: AppColors.borderSubtleOf(context)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(
-                    Icons.radio_rounded,
+                  const PhosphorIcon(
+                    PhosphorIconsRegular.radio,
                     color: AppColors.badgeCyan,
                     size: 18,
                   ),
@@ -427,7 +429,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
                     final genre = exploreGenreCatalog[i];
                     return ActionChip(
                       label: Text(genre),
-                      backgroundColor: AppColors.surfaceElevated,
+                      backgroundColor: AppColors.surfaceElevatedOf(context),
                       onPressed: () => playExploreGenreRadio(ref, genre),
                     );
                   },
@@ -446,24 +448,24 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
           ),
           padding: const EdgeInsets.all(AppSpacing.sm),
           decoration: BoxDecoration(
-            color: AppColors.surfaceSecondary,
+            color: AppColors.surfaceSecondaryOf(context),
             borderRadius: AppRadius.cardBorder,
-            border: Border.all(color: AppColors.borderSubtle),
+            border: Border.all(color: AppColors.borderSubtleOf(context)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(
-                    Icons.rocket_launch_rounded,
+                  const PhosphorIcon(
+                    PhosphorIconsFill.rocketLaunch,
                     color: AppColors.brandPrimary,
                     size: 18,
                   ),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      'Fastest Growing Tracks 🚀',
+                      'Fastest Growing Tracks',
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.bold,
@@ -491,15 +493,18 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [AppColors.surfaceElevated, AppColors.surfaceSecondary],
+              colors: [
+                AppColors.surfaceElevatedOf(context),
+                AppColors.surfaceSecondaryOf(context),
+              ],
             ),
             borderRadius: AppRadius.cardBorder,
-            border: Border.all(color: AppColors.borderSubtle),
+            border: Border.all(color: AppColors.borderSubtleOf(context)),
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.leaderboard_rounded,
+              const PhosphorIcon(
+                AppIcons.analytics,
                 color: AppColors.brandPrimary,
                 size: 32,
               ),
@@ -517,7 +522,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
                     Text(
                       'See which songs are trending across SA & Nigeria',
                       style: AppTypography.caption.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.textSecondaryOf(context),
                       ),
                     ),
                   ],

@@ -295,7 +295,10 @@ void main() {
           find.byKey(const Key('explore_create_kinetic_post_bar')),
           findsOneWidget,
         );
-        expect(find.text('CE'), findsOneWidget);
+        expect(
+          find.byKey(const Key('kpost_composer_owner_avatar')),
+          findsOneWidget,
+        );
         expect(
           find.text('Drop a groove, voice take, or beat story...'),
           findsOneWidget,

@@ -5,7 +5,7 @@
 > **Target:** Cross-Platform Client (Flutter/Dart — Windows, macOS, Android, iOS) + Cloudflare Workers Edge API (`workerd`)  
 > **Architecture Standard:** All-Gemini Engineering Standard ([`docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md))  
 > **Specification Architect & Executioner Skills:** [`.agents/skills/vhunambi-spec-architect/SKILL.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/skills/vhunambi-spec-architect/SKILL.md) · [`.agents/skills/vhunambi-executioner/SKILL.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/skills/vhunambi-executioner/SKILL.md)  
-> **Current Status (2026-11-12):** Phases 0 – 63 Implemented · Live Cloudflare Worker (`https://vhunambi-api.ndugelosigwadi.workers.dev`) & R2 (`zr-studio-audio`) Deployed · Supabase GoTrue + 19-Table Schema Provisioned · `42.8 MB` Cloud-Wired ARM64 Release APK Installed on Huawei (`EPHUT20917014649`) (`20/20 API Test Suites Green · Phase 58–63 Convergence Shipped`)
+> **Current Status (2026-11-18):** Phases 0 – 69 Implemented · Live Cloudflare Worker (`https://vhunambi-api.ndugelosigwadi.workers.dev`) & R2 (`zr-studio-audio`) Deployed · Supabase GoTrue + 3 Migrations Provisioned · `43.2 MB` Cloud-Wired ARM64 Release APK Installed on Huawei `JNY_LX1` (`EPHUT20917014649`) (`23/23 API Test Suites Green · Phase 69 Kinetic Post Focus & Threading Overhaul Shipped`)
 
 ---
 
@@ -32,7 +32,9 @@ c:\Users\Ndugelo\VHUNAMBI\monorepo\
 │
 ├── supabase/
 │   └── migrations/
-│       └── 20261110000001_phase62_hybrid_cloud_schema.sql # 19-table Postgres schema & atomic RPCs
+│       ├── 20261110000001_phase62_hybrid_cloud_schema.sql # 19-table Postgres schema & atomic RPCs
+│       ├── 20261116000001_phase67_notifications_and_quotas.sql # Notifications & 10-song quota columns
+│       └── 20261118000001_phase69_kinetic_posts_and_threaded_comments.sql # Post like/comment counts & comment reply parenting
 │
 ├── tools/
 │   └── zr-studio-gpu/                     # Tier-2 RunPod Serverless GPU Worker (Demucs v4, Mastering, Seed-VC, MMO)
@@ -60,7 +62,7 @@ c:\Users\Ndugelo\VHUNAMBI\monorepo\
 │   │   │   ├── worker.ts                  # Cloudflare Worker entrypoint & Durable Object export
 │   │   │   ├── server.ts                  # Portless Hono app (`/r2/*`, `/ws/generation`, REST routes)
 │   │   │   └── index.ts                   # Node.js server entrypoint
-│   │   └── test/                          # 20 unit & integration test suites (`npm test` -> 20/20 passing)
+│   │   └── test/                          # 23 unit & integration test suites (`npm test` -> 23/23 passing)
 │   │
 │   └── vhunambi_client/                   # Production Flutter Cross-Platform Client
 │       ├── lib/
@@ -83,12 +85,12 @@ c:\Users\Ndugelo\VHUNAMBI\monorepo\
 │       └── test/                          # Comprehensive client unit & widget test suites
 │
 └── docs/
-    ├── AGENT_HANDOFF_BIBLE.md             # Authoritative monorepo handoff & phase history (Phases 0–63)
+    ├── AGENT_HANDOFF_BIBLE.md             # Authoritative monorepo handoff & phase history (Phases 0–69)
     ├── FLAWS_AND_UNFINISHED_FEATURES.md   # Index to live architecture, cloud & device gap audit
     ├── VHUNAMBI_AGENT_WORKFLOW_STANDARD.md# All-Gemini Engineering Standard
-    ├── audits/                            # Forensic audits (`FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md`, Phases 60–63)
+    ├── audits/                            # Forensic audits (`FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md`, Phases 60–69)
     ├── foundation_blueprints/             # Single Source of Truth (SSOT) Specifications (00 through 07)
-    └── phases/                            # Phases 03 through 63 specification suites (`blueprint/requirements/design/tasks`)
+    └── phases/                            # Phases 03 through 69 specification suites (`blueprint/requirements/design/tasks`)
 ```
 
 ---
@@ -114,16 +116,20 @@ c:\Users\Ndugelo\VHUNAMBI\monorepo\
 | **61** | **Sovereign Identity, Authentication & Multi-Tenant Security** | Complete | `/api/auth/*`, dual-gate `sovereignAuthMiddleware`, `BEGIN IMMEDIATE` payout lock, `402` zero-coin beat exploit closure, `SovereignAuthSheet`, and tenant Hive sanitizer. |
 | **62** | **Hybrid Cloud Stack Topology & Production Edge Convergence** | Complete | 19-table Supabase PostgreSQL migration (`supabase/migrations/`), Cloudflare `worker.ts` + `GenerationSessionDO`, `VHUNAMBI_VAULT` R2 streaming, `PayFast ITN`, and `tools/zr-studio-gpu` repairs. |
 | **63** | **E2E Studio-to-Cloud Execution Loop, `workerd` Bridge & 5-Pillar Preflight** | Complete (Code & Edge Deployed) | `EdgePersistenceBridge` (`workerd` compatibility), `PUT /r2/:key`, unified Studio submit, dual-dialect DO WebSockets, `CloudVideoExportService`, and `GET /api/system/preflight` + `CloudStackDiagnosticCard`. |
+| **64 – 66** | **Production Cloud Pipeline, Audio Prompt Hygiene & Mastering Studio** | Complete | Resilient Worker auth & R2 read-through cache, ACE-Step lyric sanitizer, Latin/Bantu language guard, gentle `-14.0 LUFS` mastering, and GPU `vhunambi-v3` updates. |
+| **67** | **Notifications Center Two-Pass Overhaul & 10 Free Monthly Songs Quota** | Complete | Purged demo mocks, directional glow notification tiles, `NotificationDetailBottomSheet` & `NotificationDeepLinkRouter`, `/api/notifications`, and `GET /api/wallet/allowance`. |
+| **68** | **Home Dashboard "Main Room & Studio Utility" Overhaul** | Complete | 10 bundled artworks (`VhunambiTrackArtwork`), live `10/10` quota pill, `NowPlayingHomeCard` + Tab-0 `MiniPlayerHost` suppression, and `STD-UIUX-001` token cleanup. |
+| **69** | **Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul** | Complete | Dedicated full-screen `< Post` `KineticPostFocusView`, reusable `ThreadedCommentsSection` + `StudioReactionComposerBar` (shared with `ReelsCommentSheet`), `ExploreSocialPostCard` Engagement Summary Strip & `ownerProfileProvider` repost identity, `/api/v1/explore/posts*` routes, `applyMutationsBatch` sync repair, and SQLite/Edge/Postgres schema migration. |
 
 ---
 
-## 4. Current Live Cloud Standings (Verified `2026-11-12`)
+## 4. Current Live Cloud Standings (Verified `2026-11-18`)
 
 ### Active Cloud Infrastructure
 - **Cloudflare Worker (`vhunambi-api`):** Deployed live at `https://vhunambi-api.ndugelosigwadi.workers.dev` (`GET /health` -> `200 OK`; `VHUNAMBI_AUTH_MODE = "strict"`, `GENERATION_DO` Durable Object bound).
 - **Cloudflare R2 (`zr-studio-audio`):** Bound as `VHUNAMBI_VAULT` with public origin `https://pub-d22409017abb4dd999327a092c5f06d3.r2.dev` (`PUT /r2/:key` and `GET /r2/:key` live). Bucket currently contains `0` seeded objects.
-- **Supabase Cloud (`cbnruevwrqwjnnoscgsz.supabase.co`):** 19-table migration applied; 7 seeded creator accounts provisioned in Supabase Auth (`@cern`, `@makhadzi`, `@sigwa`, `@kabza`, `@focalistic`, `@tyla`, `@blackcoffee`).
-- **Physical Android Client:** [`app-release.apk`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/build/app/outputs/flutter-apk/app-release.apk) (`44,887,831 bytes` / `42.8 MB` ARM64) compiled with live `API_BASE_URL` and `MEDIA_BASE_URL` overrides and installed on Huawei `JNY_LX1` (`EPHUT20917014649`).
+- **Supabase Cloud (`cbnruevwrqwjnnoscgsz.supabase.co`):** Base schema & Phase 67/69 migrations tracked in `supabase/migrations/`; 7 seeded creator accounts provisioned in Supabase Auth (`@cern`, `@makhadzi`, `@sigwa`, `@kabza`, `@focalistic`, `@tyla`, `@blackcoffee`).
+- **Physical Android Client:** [`app-release.apk`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/build/app/outputs/flutter-apk/app-release.apk) (`43.2 MB` ARM64) compiled with live `API_BASE_URL` and `MEDIA_BASE_URL` overrides and installed on Huawei `JNY_LX1` (`EPHUT20917014649`).
 
 ### Verified Operational Reality vs. Remaining Gaps
 - **Works Live Today:** Supabase `ES256` authentication, strict JWT gating, 5-Pillar Preflight probe (`GET /api/system/preflight`), real R2 WAV uploads from Sketchpad / Voice Clone / Sound Signatures, real on-device 44.1 kHz Sketchpad & Vocal Catalog audio playback, and 26-box AES-256/Hive local persistence.
@@ -158,7 +164,7 @@ adb -s EPHUT20917014649 install -r build/app/outputs/flutter-apk/app-release.apk
 ```powershell
 cd apps/vhunambi_api
 
-# 1. TypeScript Build Gate (0 errors) & All 20 Test Suites (20/20 green)
+# 1. TypeScript Build Gate (0 errors) & All 23 Test Suites (23/23 green)
 npm run build
 npm test
 
@@ -171,5 +177,5 @@ npm test
 ## 6. How to Resume Work
 
 1. Read [`docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/VHUNAMBI_AGENT_WORKFLOW_STANDARD.md) and [`.agents/skills/vhunambi-executioner/SKILL.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/skills/vhunambi-executioner/SKILL.md).
-2. Open [`docs/AGENT_HANDOFF_BIBLE.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/AGENT_HANDOFF_BIBLE.md) for the complete Phases 0–63 architecture record and live cloud status.
+2. Open [`docs/AGENT_HANDOFF_BIBLE.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/AGENT_HANDOFF_BIBLE.md) for the complete Phases 0–69 architecture record and live cloud status.
 3. Open [`docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/FLAWS_AND_UNFINISHED_FEATURES_AUDIT.md) (Section 11) for the exact prioritized next fixes across RunPod, `main.dart` audio transport, R2 asset seeding, and Supabase Postgres route wiring.
