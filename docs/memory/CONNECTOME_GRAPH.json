@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-11-20T03:41:08.746Z",
+  "generated_at": "2026-11-20T07:41:45.290Z",
   "latest_completed_phase": "P71",
   "latest_completed_order": 71,
   "stats": {
@@ -532,6 +532,12 @@
           "relation": "PROVIDES",
           "to": "EP-P71-EDGE-SWR-READTHROUGH",
           "note": "Awaits durable generation_jobs upsert on RunPod webhook completion so polling isolates see finished audio immediately"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/core/design_system/tokens/vhunambi_mood.dart",
+          "relation": "PROVIDES",
+          "to": "EP-P70-MOOD-TAXONOMY",
+          "note": "Adds VhunambiMood.tryNormalize(String? raw) so filterExploreTracks matches unmapped mood chips ('Angry', 'Mysterious') literally instead of aliasing to 'uplifting'"
         }
       ],
       "breakthroughs": [
@@ -544,7 +550,10 @@
         "Postgres explore_tracks uses likes_count (plural) while EdgeIsolateDatabaseEngine RAM rows use like_count (singular); always patch likes_count in PostgREST write-throughs.",
         "applyMutationsBatch previously ignored m.payload?.trackId and m.entityId when deriving entityId; include both so track like outbox syncs resolve and mirror to Supabase.",
         "GenerationPipelineNotifier.submitAndStartGeneration returns early when socket is! GenerationSocketService (test harness); invoke consumeOneSongOptimistically() in both the fake-socket and production-socket branches.",
-        "Pre-existing unrelated failure observed in apps/vhunambi_client/test/features/explore/explore_notifier_test.dart:163 (filterExploreTracks mood 'Energetic' returns 3 instead of 2 due to Phase 70 canonical VhunambiMood mapping)."
+        "VhunambiMood.normalize falls back to 'uplifting' for unrecognized strings; filterExploreTracks must call VhunambiMood.tryNormalize so unmapped exploreMoodCatalog chips ('Angry', 'Mysterious') return exact literal matches instead of uplifting tracks.",
+        "Every new Supabase public table or SECURITY DEFINER RPC must enable RLS (ENABLE ROW LEVEL SECURITY), pin SET search_path = public, pg_temp, and restrict server-only RPC EXECUTE grants to service_role (verified via supabase_mcp get_advisors). Note: 3 Phase 62 RPCs (execute_atomic_payout, record_beat_license_atomic, send_cultural_tip_atomic) still appear in security advisors for future hardening.",
+        "Always apply pending Supabase Cloud migrations via supabase_mcp BEFORE deploying vhunambi-api to Cloudflare Workers (ensureColdStartHydrated queries synced tables in Promise.all and selectRows throws on 404 PGRST205).",
+        "On Windows PowerShell in this workspace, npx wrangler and npx supabase can hang; invoke apps/vhunambi_api/node_modules/.bin/wrangler.cmd directly for Worker deploys and use supabase_mcp (list_migrations, apply_migration, execute_sql, get_advisors) for Supabase Cloud DDL and diagnostics."
       ]
     }
   ],
