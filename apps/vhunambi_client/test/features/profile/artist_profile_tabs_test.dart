@@ -41,43 +41,69 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('renders the tri-modal tab bar (Clips / Music / Beats)', (
-    tester,
-  ) async {
+  testWidgets(
+    'renders the 5-tab Facebook benchmark bar (Overview / Songs / Posts & Reels / Beats / About) defaulting to Overview',
+    (tester) async {
+      await pumpTabs(tester);
+
+      expect(find.byKey(const Key('visitor_tab_overview')), findsOneWidget);
+      expect(find.byKey(const Key('visitor_tab_songs')), findsOneWidget);
+      expect(find.byKey(const Key('visitor_tab_posts_reels')), findsOneWidget);
+      expect(find.byKey(const Key('visitor_tab_beats')), findsOneWidget);
+      expect(find.byKey(const Key('visitor_tab_about')), findsOneWidget);
+      expect(find.text('Artist Overview'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Posts & Reels tab shows the creator reel grid', (tester) async {
     await pumpTabs(tester);
 
-    expect(find.text('Clips'), findsOneWidget);
-    expect(find.text('Music'), findsOneWidget);
-    expect(find.text('Beats'), findsOneWidget);
-  });
-
-  testWidgets('Clips tab shows the creator reel grid', (tester) async {
-    await pumpTabs(tester);
+    await tester.tap(find.byKey(const Key('visitor_tab_posts_reels')));
+    await tester.pumpAndSettle();
 
     // Fifi has seeded clips under creator_fifi.
     expect(find.byType(CreatorReelThumbnailCard), findsWidgets);
   });
 
   testWidgets(
-    'Clips tab resolves creator_ prefix without double-prefix failure (Phase 30 REQ-PROF-REELS-01)',
+    'Posts & Reels tab resolves creator_ prefix without double-prefix failure (Phase 30 REQ-PROF-REELS-01)',
     (tester) async {
       await pumpTabs(tester, artistId: 'creator_fifi');
+
+      await tester.tap(find.byKey(const Key('visitor_tab_posts_reels')));
+      await tester.pumpAndSettle();
 
       expect(find.byType(CreatorReelThumbnailCard), findsWidgets);
     },
   );
 
   testWidgets(
-    'switching to Music tab reveals Voice Showcase, Creator DNA, Top Songs & Releases',
+    'Songs and About tabs conceal Voice Showcase & Creator DNA cards on public visitor profile',
     (tester) async {
       await pumpTabs(tester);
 
-      await tester.tap(find.text('Music'));
+      expect(find.text('Top Songs'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('visitor_tab_songs')));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ArtistVoiceShowcaseCard), findsOneWidget);
-      expect(find.byType(CreatorDnaProfileCard), findsOneWidget);
-      expect(find.text('Top Songs'), findsOneWidget);
+      expect(find.byType(ArtistVoiceShowcaseCard), findsNothing);
+      expect(find.byType(CreatorDnaProfileCard), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key as ValueKey<String>).value.startsWith(
+                'visitor_song_tile_',
+              ),
+        ),
+        findsWidgets,
+      );
+
+      await tester.tap(find.byKey(const Key('visitor_tab_about')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('About Fifi'), findsOneWidget);
       expect(find.text('Releases'), findsOneWidget);
     },
   );
@@ -87,7 +113,7 @@ void main() {
     (tester) async {
       await pumpTabs(tester, artistId: 'ndugelo');
 
-      await tester.tap(find.text('Beats'));
+      await tester.tap(find.byKey(const Key('visitor_tab_beats')));
       await tester.pumpAndSettle();
 
       expect(find.text('Beats & Stems'), findsOneWidget);

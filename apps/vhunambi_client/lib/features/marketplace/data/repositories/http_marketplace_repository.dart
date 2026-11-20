@@ -283,6 +283,41 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
   }
 
   @override
+  Future<List<BeatListingEntity>> getProducerBeats(String producerId) async {
+    final cleanId = producerId.trim();
+    if (cleanId.isEmpty) return const <BeatListingEntity>[];
+
+    if (!_shouldSkipNetwork) {
+      try {
+        final res = await _dio.get(
+          '$_baseUrl/producers/${Uri.encodeComponent(cleanId)}/beats',
+        );
+        if (res.statusCode == 200 && res.data is Map) {
+          final rawList = res.data['beats'] as List? ?? const <dynamic>[];
+          return rawList
+              .whereType<Map>()
+              .map((m) => _fromJson(Map<String, dynamic>.from(m)))
+              .map(_overlayPersistedBeatState)
+              .toList();
+        }
+      } catch (_) {}
+    }
+
+    final normalized = cleanId.toLowerCase().replaceFirst(
+      RegExp(r'^creator_'),
+      '',
+    );
+    return _fallbackBeats.values.map(_overlayPersistedBeatState).where((b) {
+      final pid = b.producerId.toLowerCase().replaceFirst(
+        RegExp(r'^creator_'),
+        '',
+      );
+      final handle = b.producerHandle.toLowerCase().replaceFirst('@', '');
+      return pid == normalized || handle == normalized;
+    }).toList();
+  }
+
+  @override
   Future<BeatListingEntity> publishBeat(BeatListingEntity beat) async {
     _fallbackBeats[beat.id] = beat;
     await MarketplaceCatalogCacheRepository.saveBeatListing(beat.toJson());

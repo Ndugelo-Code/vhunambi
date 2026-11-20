@@ -5,13 +5,15 @@ import {
   resolveEffectiveCreatorId,
   sovereignAuthMiddleware,
 } from '../middleware/auth_middleware.js';
+import { normalizeVhunambiMoodId } from '../utils/mood_taxonomy.js';
 
 export const exploreRoutes = new Hono();
 
 exploreRoutes.use('*', sovereignAuthMiddleware);
 
 // GET /api/explore — Unified Explore discovery bundle (tracks + kinetic posts + radio)
-exploreRoutes.get('/', (c) => {
+exploreRoutes.get('/', async (c) => {
+  await vhunambiDb.syncExploreFromCloud(false, c);
   const stage = c.req.query('stage') as any;
   const genre = c.req.query('genre');
   const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : 50;
@@ -22,18 +24,37 @@ exploreRoutes.get('/', (c) => {
 });
 
 // GET /api/explore/tracks — Dynamic African track catalog with stage & trending ranking
-exploreRoutes.get('/tracks', (c) => {
+exploreRoutes.get('/tracks', async (c) => {
+  await vhunambiDb.syncExploreFromCloud(false, c);
   const genre = c.req.query('genre');
   const stage = c.req.query('stage');
   const sort = (c.req.query('sort') as any) || 'trending';
   const search = c.req.query('search');
+  const rawMood = c.req.query('moodId') || c.req.query('mood');
+  const moodId =
+    rawMood && rawMood.trim() !== '' && rawMood.trim().toLowerCase() !== 'all'
+      ? normalizeVhunambiMoodId(rawMood)
+      : undefined;
   const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : 50;
 
-  const result = vhunambiDb.getExploreTracks({ genre, stage, sort, search, limit });
+  const result = vhunambiDb.getExploreTracks({
+    genre,
+    stage,
+    sort,
+    search,
+    moodId,
+    limit,
+  });
+  const normalizedItems = result.items.map((t) => ({
+    ...t,
+    moodId: normalizeVhunambiMoodId(t.moodId ?? t.mood),
+    description: t.description ?? '',
+    allowOpenStemsRemix: Boolean(t.allowOpenStemsRemix),
+  }));
   return c.json({
     success: true,
-    items: result.items,
-    tracks: result.items,
+    items: normalizedItems,
+    tracks: normalizedItems,
     total: result.total,
     serverSeq: result.serverSeq,
   });
@@ -71,7 +92,8 @@ exploreRoutes.get('/radio/:genre', (c) => {
 });
 
 // GET /api/explore/feed (REQ-P45-EXP-01..02)
-exploreRoutes.get('/feed', (c) => {
+exploreRoutes.get('/feed', async (c) => {
+  await vhunambiDb.syncExploreFromCloud(false, c);
   const stage = c.req.query('stage') as any;
   const genre = c.req.query('genre');
   const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : 20;
@@ -123,9 +145,14 @@ exploreRoutes.post('/posts/:id/repost', async (c) => {
 });
 
 // GET /api/explore/posts/:id — Single Kinetic Post lookup (Phase 69 REQ-P69-API-01)
-exploreRoutes.get('/posts/:id', (c) => {
+exploreRoutes.get('/posts/:id', async (c) => {
   const postId = c.req.param('id');
-  const post = vhunambiDb.getKineticPostById(postId);
+  await vhunambiDb.syncExploreFromCloud(false, c);
+  let post = vhunambiDb.getKineticPostById(postId);
+  if (!post) {
+    await vhunambiDb.syncExploreFromCloud(true, c);
+    post = vhunambiDb.getKineticPostById(postId);
+  }
   if (!post) {
     return c.json({ error: 'Post not found', postId }, 404);
   }
@@ -173,7 +200,8 @@ exploreRoutes.post('/posts/:id/like', async (c) => {
 });
 
 // GET /api/explore/posts/:id/comments — Threaded comments for a Kinetic Post (Phase 69 REQ-P69-API-01)
-exploreRoutes.get('/posts/:id/comments', (c) => {
+exploreRoutes.get('/posts/:id/comments', async (c) => {
+  await vhunambiDb.syncExploreFromCloud(false, c);
   const postId = c.req.param('id');
   const sort = (c.req.query('sort') || 'relevant') as 'relevant' | 'newest';
   const viewerId = c.get('authUser')?.creatorId ?? 'creator_cern';

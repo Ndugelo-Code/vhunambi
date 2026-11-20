@@ -4,8 +4,8 @@
 > **Source Origin:** Production Web Client (`https://vhunambi.com`) & Native Sovereign Mobile/Desktop App  
 > **Target:** Cross-Platform Client (Flutter/Dart — Android ARM64, iOS, Windows, macOS) & Node.js/Hono + RunPod Serverless GPU Gateway  
 > **Engineering Model:** All-Gemini Tri-Agent Symbiosis (Gemini 4 Argon Browser Vision Architect + Antigravity Gemini 3.8 Flash High-Velocity Author/Executor + Antigravity Gemini 4 Argon Codebase Forensic Auditor)  
-> **Companion Workspace Skill:** [`.agents/skills/vhunambi-spec-architect/SKILL.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/skills/vhunambi_spec_architect/SKILL.md)  
-> **Revision:** 4.0 (All-Gemini Architecture & Forensic Spec Hardening Standard)
+> **Companion Workspace Skills:** [`.agents/skills/vhunambi-spec-architect/SKILL.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/skills/vhunambi-spec-architect/SKILL.md) · [`.agents/skills/vhunambi-memory/SKILL.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/skills/vhunambi-memory/SKILL.md)  
+> **Revision:** 4.1 (All-Gemini 5-Document Standard & Codebase Brain Wake/Sleep Protocol)
 
 ---
 
@@ -36,9 +36,9 @@ flowchart TD
 
 ---
 
-## 2. The 4-Document Specification Suite Standard
+## 2. The 5-Document Specification Suite & Codebase Brain Standard
 
-Every engineering phase MUST be codified in a **4-Document Specification Suite** under `docs/phases/phase_XX_<name>/` before a single line of application code is written:
+Every engineering phase MUST be codified in a **5-Document Specification Suite** under `docs/phases/phase_XX_<name>/` (with quick un-spec'd sprints tracked in `docs/memory/sprints/P<id>_memory.md`):
 
 ```
 docs/phases/phase_XX_<name>/
@@ -48,9 +48,16 @@ docs/phases/phase_XX_<name>/
 │                      #                  explicit widget keys, error resilience & traceability matrix.
 ├── design.md          # [800–2,500+ lines] Complete mathematical equations, pure Dart domain models,
 │                      #                    projection & hit-test engines, full CustomPainters & HUD widgets.
-└── tasks.md           # [250–350+ lines] Milestones M1–M6 dependency roadmap, method signatures,
-                       #                  target file paths, test gates & 7-point execution checklist.
+├── tasks.md           # [250–350+ lines] Milestones M1–M6 dependency roadmap, method signatures,
+│                      #                  target file paths, test gates & execution verification checklist.
+└── memory.md          # [Hippocampus]    Fenced ```json vhunambi-memory``` metadata (status, concept_hubs,
+                       #                  consumes, endpoints, 1-hop edges, verified breakthroughs & gotchas).
 ```
+
+### Wake / Active / Sleep Lifecycle (`vhunambi-memory`)
+- **WAKE (Session Start):** Guided by [`.agents/rules/vhunambi-memory-steering.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/.agents/rules/vhunambi-memory-steering.md), agents read [`docs/memory/CORTEX_INDEX.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/memory/CORTEX_INDEX.md) and run `node .agents/skills/vhunambi-memory/scripts/query_connectome.mjs --hubs <hubs>` before scanning files.
+- **ACTIVE (Stages 2–4):** `vhunambi-spec-architect` drafts `memory.md` (`"status": "draft"`). `vhunambi-executioner` updates `memory.md` to `"status": "completed"` strictly after static analysis and tests pass.
+- **SLEEP & DREAM (Session Close):** Run `node .agents/skills/vhunambi-memory/scripts/consolidate_memory.mjs` to merge all `memory.md` files into [`docs/memory/CONNECTOME_GRAPH.json`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/memory/CONNECTOME_GRAPH.json), auto-promote claimed `OPEN` endpoints to `CONNECTED_EXTENSIBLE`, regenerate `CORTEX_INDEX.md`, and emit the Dream Ripple Report.
 
 ---
 

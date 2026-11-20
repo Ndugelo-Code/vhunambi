@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
-import '../../../../core/design_system/tokens/app_icons.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/utils/responsive_utils.dart';
-import '../../domain/models/profile_models.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
+import 'package:vhunambi_client/core/theme/app_colors.dart';
+import 'package:vhunambi_client/core/theme/app_dimensions.dart';
+import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/core/utils/responsive_utils.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
+import 'package:vhunambi_client/features/profile/domain/models/profile_models.dart';
 
-/// Top Supporters Leaderboard with 🥇 🥈 🥉 Badges (REQ-TRK-14).
+/// Top Supporters Leaderboard with Phosphor Medal Badges (`REQ-TRK-14`, `STD-UIUX-001`).
 class TopSupportersLeaderboard extends StatelessWidget {
   final List<SupporterEntity> supporters;
   final VoidCallback? onTipFirst;
@@ -18,9 +19,20 @@ class TopSupportersLeaderboard extends StatelessWidget {
     this.onTipFirst,
   });
 
+  Color _medalColor(int rank) {
+    return switch (rank) {
+      1 => AppColors.coinGold,
+      2 => const Color(0xFF94A3B8),
+      3 => const Color(0xFFD97706),
+      _ => AppColors.brandPrimary,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -29,15 +41,20 @@ class TopSupportersLeaderboard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children: <Widget>[
           Row(
-            children: [
-              const PhosphorIcon(AppIcons.trophy, color: AppColors.coinGold, size: 20),
+            children: <Widget>[
+              const PhosphorIcon(
+                AppIcons.trophy,
+                color: AppColors.coinGold,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Top Supporters',
                 style: AppTypography.titleMedium.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: textPrimary,
                 ),
               ),
             ],
@@ -45,18 +62,13 @@ class TopSupportersLeaderboard extends StatelessWidget {
           const SizedBox(height: 12),
 
           if (supporters.isEmpty)
-            Container(
+            VhunambiGlassSurface(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
-                borderRadius: AppRadius.cardBorder,
-                border: Border.all(color: AppColors.borderSubtle),
-              ),
               child: Column(
-                children: [
-                  Icon(
-                    Icons.military_tech_outlined,
+                children: <Widget>[
+                  PhosphorIcon(
+                    AppIcons.trophy,
                     size: 36,
                     color: AppColors.textTertiary,
                   ),
@@ -64,23 +76,24 @@ class TopSupportersLeaderboard extends StatelessWidget {
                   Text(
                     'No supporters yet — be the first to tip!',
                     style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
+                      color: textSecondary,
                     ),
                   ),
-                  if (onTipFirst != null) ...[
+                  if (onTipFirst != null) ...<Widget>[
                     const SizedBox(height: 12),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(0, 44),
                         backgroundColor: AppColors.brandPrimary,
                         foregroundColor: AppColors.brandContrast,
-                        shape: RoundedRectangleBorder(
+                        shape: const RoundedRectangleBorder(
                           borderRadius: AppRadius.pillBorder,
                         ),
                       ),
                       onPressed: onTipFirst,
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: [
+                        children: <Widget>[
                           Text('Tip Artist'),
                           SizedBox(width: 6),
                           PhosphorIcon(AppIcons.coin, size: 16),
@@ -99,45 +112,57 @@ class TopSupportersLeaderboard extends StatelessWidget {
                   spacing: 12,
                   runSpacing: 10,
                   children: supporters.map((supporter) {
-                    final width = isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth;
-                    return Container(
+                    final width = isWide
+                        ? (constraints.maxWidth - 24) / 3
+                        : constraints.maxWidth;
+                    final rankColor = _medalColor(supporter.rank);
+                    return VhunambiGlassSurface(
                       width: width,
+                      tintAccent: supporter.rank == 1
+                          ? AppColors.coinGold
+                          : null,
+                      borderColorOverride: supporter.rank == 1
+                          ? AppColors.coinGold.withValues(alpha: 0.45)
+                          : null,
                       padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: supporter.rank == 1
-                              ? AppColors.coinGold.withAlpha(90)
-                              : AppColors.borderSubtle,
-                        ),
-                      ),
                       child: Row(
-                        children: [
-                          Text(
-                            _getMedal(supporter.rank),
-                            style: const TextStyle(fontSize: 24),
+                        children: <Widget>[
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: rankColor.withValues(alpha: 0.16),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: PhosphorIcon(
+                                PhosphorIconsFill.medal,
+                                size: 20,
+                                color: rankColor,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                              children: <Widget>[
                                 Text(
                                   supporter.name,
                                   style: AppTypography.bodySmall.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
+                                    color: textPrimary,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(
-                                  supporter.handle,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: AppColors.textSecondary,
+                                  '${supporter.handle} · ${supporter.rankBadge}',
+                                  style: AppTypography.caption.copyWith(
+                                    color: textSecondary,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
@@ -148,16 +173,27 @@ class TopSupportersLeaderboard extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceSecondary,
+                              color: AppColors.surfaceSecondaryOf(context),
                               borderRadius: AppRadius.pillBorder,
                             ),
-                            child: Text(
-                              '⚡ ${supporter.totalCreditsTipped}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.coinGold,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                const PhosphorIcon(
+                                  AppIcons.lightning,
+                                  size: 12,
+                                  color: AppColors.coinGold,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${supporter.totalCreditsTipped}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.coinGold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -170,18 +206,5 @@ class TopSupportersLeaderboard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _getMedal(int rank) {
-    switch (rank) {
-      case 1:
-        return '🥇';
-      case 2:
-        return '🥈';
-      case 3:
-        return '🥉';
-      default:
-        return '🏅';
-    }
   }
 }

@@ -5,13 +5,16 @@ import '../../../playlists/presentation/widgets/add_to_playlist_sheet.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/auth/auth_providers.dart';
+import '../../../../core/auth/viewer_role.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
+import '../../../../core/navigation/navigation_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_ambient_mesh_backdrop.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
-import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../../collections/domain/models/collection_entity.dart';
 import '../../../collections/presentation/providers/collections_provider.dart';
@@ -26,11 +29,12 @@ import '../../../player/presentation/widgets/stem_mixer_deck.dart';
 import '../../../profile/presentation/views/artist_profile_view.dart';
 import '../../../social/domain/models/video_export_job.dart';
 import '../../../social/presentation/providers/creator_wallet_provider.dart';
+import '../../../social/presentation/providers/reels_comments_provider.dart';
+import '../../../social/presentation/widgets/threaded_comments_section.dart';
 import '../../../social/presentation/widgets/video_export_modal.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import '../../domain/models/track_detail_models.dart';
 import '../providers/track_providers.dart';
-import '../widgets/comments_section.dart';
 import '../widgets/emoji_reaction_deck.dart';
 import '../widgets/lyrics_teleprompter.dart';
 import '../widgets/more_like_this_shelf.dart';
@@ -39,6 +43,7 @@ import '../widgets/track_living_biome_preview_card.dart';
 import '../widgets/stem_separation_lab.dart';
 import '../widgets/track_actions_bar.dart';
 import '../widgets/track_hero_section.dart';
+import '../widgets/track_sonic_telemetry_card.dart';
 import '../widgets/utility_tool_dock.dart';
 import '../widgets/waveform_scrubber.dart';
 
@@ -62,11 +67,25 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
   final GlobalKey _lyricsKey = GlobalKey();
   final GlobalKey _commentsKey = GlobalKey();
   final ValueNotifier<bool> _showStickyTitle = ValueNotifier<bool>(false);
+  final TextEditingController _commentController = TextEditingController();
+  final FocusNode _composerFocusNode = FocusNode();
+  StateController<int>? _trackInlinePlayerCounter;
+  bool _didIncrementInlinePlayer = false;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final counter = ref.read(trackDetailInlinePlayerMountedProvider.notifier);
+      _trackInlinePlayerCounter = counter;
+      _didIncrementInlinePlayer = true;
+      counter.state++;
+      ref
+          .read(reelsCommentsProvider.notifier)
+          .syncCommentsForClip(widget.trackId);
+    });
   }
 
   /// Reveals the sticky app-bar title once the hero artwork scrolls away.
@@ -82,6 +101,17 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _showStickyTitle.dispose();
+    _commentController.dispose();
+    _composerFocusNode.dispose();
+    final counter = _trackInlinePlayerCounter;
+    if (_didIncrementInlinePlayer && counter != null) {
+      _didIncrementInlinePlayer = false;
+      Future<void>.microtask(() {
+        if (counter.mounted && counter.state > 0) {
+          counter.state = (counter.state - 1).clamp(0, 99);
+        }
+      });
+    }
     super.dispose();
   }
 
@@ -272,18 +302,24 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
   void _showDownloadDialog(TrackDetailEntity track) {
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogCtx) {
+        final textPrimary = AppColors.textPrimaryOf(dialogCtx);
+        final textSecondary = AppColors.textSecondaryOf(dialogCtx);
         return AlertDialog(
-          backgroundColor: AppColors.surfaceModal,
+          backgroundColor: AppColors.surfaceModalOf(dialogCtx),
           shape: RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
           title: Row(
             children: [
-              const Icon(Icons.download_rounded, color: AppColors.brandPrimary),
+              const PhosphorIcon(
+                AppIcons.download,
+                color: AppColors.brandPrimary,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Download Audio',
                 style: AppTypography.titleMedium.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: textPrimary,
                 ),
               ),
             ],
@@ -292,20 +328,20 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                title: const Text(
+                title: Text(
                   'MP3 (320 kbps)',
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: textPrimary),
                 ),
                 subtitle: Text(
                   'High-quality stereo stream',
-                  style: TextStyle(color: AppColors.textSecondary),
+                  style: TextStyle(color: textSecondary),
                 ),
-                trailing: const Icon(
-                  Icons.download_rounded,
+                trailing: const PhosphorIcon(
+                  AppIcons.download,
                   color: AppColors.brandPrimary,
                 ),
                 onTap: () {
-                  Navigator.of(context).pop();
+                  Navigator.of(dialogCtx).pop();
                   final libTrack = LibraryTrack(
                     id: track.id,
                     title: track.title,
@@ -331,20 +367,20 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                 },
               ),
               ListTile(
-                title: const Text(
+                title: Text(
                   'WAV (Lossless 24-bit)',
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: textPrimary),
                 ),
                 subtitle: Text(
                   'Studio master audio',
-                  style: TextStyle(color: AppColors.textSecondary),
+                  style: TextStyle(color: textSecondary),
                 ),
-                trailing: const Icon(
-                  Icons.download_rounded,
+                trailing: const PhosphorIcon(
+                  AppIcons.download,
                   color: AppColors.brandPrimary,
                 ),
                 onTap: () {
-                  Navigator.of(context).pop();
+                  Navigator.of(dialogCtx).pop();
                   final libTrack = LibraryTrack(
                     id: track.id,
                     title: track.title,
@@ -393,21 +429,52 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
         '<iframe src="https://vhunambi.com/embed/${track.id}" width="100%" height="160" frameborder="0"></iframe>';
     Clipboard.setData(ClipboardData(text: embed));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Embed snippet copied to clipboard! 📋')),
+      const SnackBar(content: Text('Embed snippet copied to clipboard!')),
     );
+  }
+
+  void _shareTrackLink(TrackDetailEntity track) {
+    Clipboard.setData(
+      ClipboardData(text: 'https://vhunambi.com/track/${track.id}'),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Track link copied to clipboard!')),
+    );
+  }
+
+  Future<void> _submitThreadedTrackComment(TrackDetailEntity track) async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty) return;
+    _commentController.clear();
+    await ref
+        .read(reelsCommentsProvider.notifier)
+        .addComment(
+          clipId: track.id,
+          text: text,
+          contentCreatorId: track.creatorId,
+          contentCreatorHandle: track.creatorHandle,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     final track = ref.watch(trackDetailFamilyProvider(widget.trackId));
-    final comments = ref.watch(trackCommentsProvider(widget.trackId));
     final recommendations = ref.watch(moreLikeThisProvider(widget.trackId));
     final playerState = ref.watch(playerStateProvider);
+    final activeCreatorId = ref.watch(currentCreatorIdProvider);
+    final activeHandle = ref.watch(currentCreatorHandleProvider);
+    final viewerRole = resolveViewerRole(
+      ownerCreatorId: track.creatorId,
+      ownerHandle: track.creatorHandle,
+      activeCreatorId: activeCreatorId,
+      activeHandle: activeHandle,
+    );
+    final isTrackOwner = viewerRole == ViewerRole.owner;
     final isPlayingThisTrack =
         playerState.isPlaying && playerState.currentTrack?.id == track.id;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.surfaceCanvasOf(context),
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(
           VhunambiTopBarMetrics.totalHeight(context),
@@ -415,67 +482,158 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
         child: _TrackDetailAppBar(
           track: track,
           showStickyTitle: _showStickyTitle,
+          onShare: () => _shareTrackLink(track),
         ),
       ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 860),
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              child: Column(
-                children: [
-                  // 1. Hero Artwork Showcase & Metadata
-                  TrackHeroSection(
-                    track: track,
-                    onTapCreator: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              ArtistProfileView(artistId: track.creatorId),
+      body: VhunambiAmbientMeshBackdrop.forGenre(
+        genre: track.genre,
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 860),
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                child: Column(
+                  children: [
+                    // 1. Role-Gated Hero Artwork Showcase & Provenance (`SC-01`, `SC-03`)
+                    TrackHeroSection(
+                      track: track,
+                      viewerRole: viewerRole,
+                      onTapCreator: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                ArtistProfileView(artistId: track.creatorId),
+                          ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // 2. High-Contrast Glass Action Bar (`SC-04`)
+                    TrackActionsBar(
+                      track: track,
+                      onToggleLike: () {
+                        ref
+                            .read(
+                              trackDetailFamilyProvider(
+                                widget.trackId,
+                              ).notifier,
+                            )
+                            .toggleLike();
+                      },
+                      onRemix: (isTrackOwner || track.allowOpenStemsRemix)
+                          ? () => _handleRemix(track)
+                          : null,
+                      onTip: () => _showTipModal(track),
+                      onShare: () => _shareTrackLink(track),
+                      onAddToPlaylist: () {
+                        AddToPlaylistSheet.show(
+                          context,
+                          Track(
+                            id: track.id,
+                            title: track.title,
+                            creatorName: track.creatorName,
+                            genre: track.genre,
+                            language: track.language,
+                            duration: track.duration,
+                            coverUrl: track.coverUrl,
+                          ),
+                        );
+                      },
+                    ),
+
+                    // 3. Compact Horizontal Vector Reaction Rail (`REQ-P70-SCUX-03`)
+                    EmojiReactionDeck(
+                      track: track,
+                      onToggleReaction: (key) {
+                        ref
+                            .read(
+                              trackDetailFamilyProvider(
+                                widget.trackId,
+                              ).notifier,
+                            )
+                            .toggleReaction(key);
+                      },
+                    ),
+
+                    // 4. Interactive Amplitude Waveform Scrubber
+                    WaveformScrubber(
+                      track: track,
+                      currentPosition: isPlayingThisTrack
+                          ? playerState.position
+                          : Duration.zero,
+                      isPlaying: isPlayingThisTrack,
+                      onTogglePlay: () {
+                        if (isPlayingThisTrack) {
+                          ref.read(playerStateProvider.notifier).pause();
+                        } else {
+                          ref
+                              .read(playerStateProvider.notifier)
+                              .playTrack(
+                                Track(
+                                  id: track.id,
+                                  title: track.title,
+                                  creatorName: track.creatorName,
+                                  genre: track.genre,
+                                  language: track.language,
+                                  duration: track.duration,
+                                  coverUrl: track.coverUrl,
+                                ),
+                              );
+                        }
+                      },
+                      onSeek: (pos) {
+                        ref.read(playerStateProvider.notifier).seek(pos);
+                      },
+                    ),
+
+                    // 5. Structured Song Description & Sonic Telemetry Glass Card (`SC-05`)
+                    TrackSonicTelemetryCard(track: track),
+
+                    // 6. Conditional Visitor Open-Stems Remix CTA (when creator opted in)
+                    if (!isTrackOwner && track.allowOpenStemsRemix)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                        child: OutlinedButton.icon(
+                          key: const Key('track_visitor_open_stems_remix_btn'),
+                          onPressed: () => _handleRemix(track),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            side: const BorderSide(
+                              color: AppColors.brandPrimary,
+                            ),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: AppRadius.pillBorder,
+                            ),
+                          ),
+                          icon: const PhosphorIcon(
+                            AppIcons.remix,
+                            size: 18,
+                            color: AppColors.brandPrimary,
+                          ),
+                          label: Text(
+                            'Remix Open Stems',
+                            style: AppTypography.titleSmall.copyWith(
+                              color: AppColors.brandPrimary,
+                            ),
+                          ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
 
-                  const SizedBox(height: 12),
+                    // 7. Synchronized Lyrics Teleprompter
+                    LyricsTeleprompter(key: _lyricsKey, track: track),
 
-                  // 2. Primary Social Action Row
-                  TrackActionsBar(
-                    track: track,
-                    onToggleLike: () {
-                      ref
-                          .read(
-                            trackDetailFamilyProvider(widget.trackId).notifier,
-                          )
-                          .toggleLike();
-                    },
-                    onRemix: () => _handleRemix(track),
-                    onTip: () => _showTipModal(track),
-                  ),
-
-                  // 3. Secondary Utility Dock
-                  UtilityToolDock(
-                    track: track,
-                    onDownload: () => _showDownloadDialog(track),
-                    onExportVideo: () => _openVideoExport(track),
-                    onAddToPlaylist: () {
-                      AddToPlaylistSheet.show(
-                        context,
-                        Track(
-                          id: track.id,
-                          title: track.title,
-                          creatorName: track.creatorName,
-                          genre: track.genre,
-                          language: track.language,
-                          duration: track.duration,
-                        ),
-                      );
-                    },
-                    onStartRadio: () {
-                      ref
-                          .read(playerStateProvider.notifier)
-                          .playTrack(
+                    // 8. Owner-Only Creator Studio Cockpit (`SC-02` Sovereignty Gate)
+                    if (isTrackOwner) ...[
+                      UtilityToolDock(
+                        track: track,
+                        onDownload: () => _showDownloadDialog(track),
+                        onExportVideo: () => _openVideoExport(track),
+                        onAddToPlaylist: () {
+                          AddToPlaylistSheet.show(
+                            context,
                             Track(
                               id: track.id,
                               title: track.title,
@@ -483,264 +641,250 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                               genre: track.genre,
                               language: track.language,
                               duration: track.duration,
+                              coverUrl: track.coverUrl,
                             ),
                           );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Radio station started: ${track.genre}',
+                        },
+                        onStartRadio: () {
+                          ref
+                              .read(playerStateProvider.notifier)
+                              .playTrack(
+                                Track(
+                                  id: track.id,
+                                  title: track.title,
+                                  creatorName: track.creatorName,
+                                  genre: track.genre,
+                                  language: track.language,
+                                  duration: track.duration,
+                                  coverUrl: track.coverUrl,
+                                ),
+                              );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Radio station started: ${track.genre}',
+                              ),
+                            ),
+                          );
+                        },
+                        onJumpToLyrics: () => _scrollToSection(_lyricsKey),
+                        onVariation: () => _handleRemix(track),
+                        onJumpToComments: () => _scrollToSection(_commentsKey),
+                        onEmbed: () => _copyEmbedCode(track),
+                      ),
+
+                      StemSeparationLab(
+                        stemState: track.stemState,
+                        onSeparateStems: () {
+                          ref
+                              .read(
+                                trackDetailFamilyProvider(
+                                  widget.trackId,
+                                ).notifier,
+                              )
+                              .separateStems();
+                        },
+                        onToggleMuteStem: (id) {
+                          ref
+                              .read(
+                                trackDetailFamilyProvider(
+                                  widget.trackId,
+                                ).notifier,
+                              )
+                              .toggleMuteStem(id);
+                        },
+                        onToggleSoloStem: (id) {
+                          ref
+                              .read(
+                                trackDetailFamilyProvider(
+                                  widget.trackId,
+                                ).notifier,
+                              )
+                              .toggleSoloStem(id);
+                        },
+                        onDownloadStem: (stem) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Downloading stem: "${stem.name}.wav"...',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+
+                      TrackLivingBiomePreviewCard(
+                        trackTitle: track.title,
+                        genre: track.genre,
+                      ),
+
+                      const SizedBox(height: AppSpacing.sm),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: OutlinedButton.icon(
+                          key: const Key('track_open_mixer_btn'),
+                          onPressed: () {
+                            showModalBottomSheet<void>(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (ctx) => FractionallySizedBox(
+                                heightFactor: 0.9,
+                                child: _FrostedStemMixerSheet(
+                                  title: track.title,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const PhosphorIcon(
+                            AppIcons.sliders,
+                            color: AppColors.brandPrimary,
+                            size: 20,
+                          ),
+                          label: Text(
+                            'Open Pocket Stem Mixer',
+                            style: AppTypography.bodyLarge.copyWith(
+                              color: AppColors.brandPrimary,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                              color: AppColors.brandPrimary,
+                            ),
+                            minimumSize: const Size.fromHeight(48),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: AppRadius.inputBorder,
+                            ),
                           ),
                         ),
-                      );
-                    },
-                    onJumpToLyrics: () => _scrollToSection(_lyricsKey),
-                    onVariation: () => _handleRemix(track),
-                    onJumpToComments: () => _scrollToSection(_commentsKey),
-                    onEmbed: () => _copyEmbedCode(track),
-                  ),
+                      ),
 
-                  // 4. Cultural Emoji Reaction Dock
-                  EmojiReactionDeck(
-                    track: track,
-                    onToggleReaction: (key) {
-                      ref
-                          .read(
-                            trackDetailFamilyProvider(widget.trackId).notifier,
-                          )
-                          .toggleReaction(key);
-                    },
-                  ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: OutlinedButton.icon(
+                          key: const Key('track_detail_open_mastering_btn'),
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            ref
+                                .read(masteringSessionProvider.notifier)
+                                .initializeForTrack(
+                                  trackId: track.id,
+                                  trackTitle: track.title,
+                                  genre: track.genre,
+                                );
+                            if (ResponsiveUtils.isDesktop(context)) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => DesktopMasteringStudioView(
+                                    trackId: track.id,
+                                    trackTitle: track.title,
+                                    genre: track.genre,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              showModalBottomSheet<void>(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (ctx) => FractionallySizedBox(
+                                  heightFactor: 0.9,
+                                  child: MobileQuickMasterSheet(
+                                    trackId: track.id,
+                                    trackTitle: track.title,
+                                    genre: track.genre,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const PhosphorIcon(
+                            AppIcons.sparkle,
+                            color: AppColors.brandPrimary,
+                          ),
+                          label: Text(
+                            'Master Track (Studio Polisher)',
+                            style: AppTypography.bodyLarge.copyWith(
+                              color: AppColors.brandPrimary,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                              color: AppColors.brandPrimary,
+                            ),
+                            minimumSize: const Size.fromHeight(48),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: AppRadius.inputBorder,
+                            ),
+                          ),
+                        ),
+                      ),
 
-                  // 5. Interactive Amplitude Waveform Scrubber
-                  WaveformScrubber(
-                    track: track,
-                    currentPosition: isPlayingThisTrack
-                        ? playerState.position
-                        : Duration.zero,
-                    isPlaying: isPlayingThisTrack,
-                    onTogglePlay: () {
-                      if (isPlayingThisTrack) {
-                        ref.read(playerStateProvider.notifier).pause();
-                      } else {
+                      PromptAttributionCard(
+                        track: track,
+                        onRemixPrompt: () => _handleRemix(track),
+                      ),
+                    ],
+
+                    // 9. Shared Threaded Discussion Thread (`EP-P69-THREADED-COMMENTS`)
+                    Padding(
+                      key: _commentsKey,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: ThreadedCommentsSection(
+                        clipOrPostId: track.id,
+                        contentCreatorId: track.creatorId,
+                        contentCreatorHandle: track.creatorHandle,
+                        onRequestReplyFocus: () =>
+                            _composerFocusNode.requestFocus(),
+                      ),
+                    ),
+
+                    // 10. "More Like This" Recommendations Shelf (`VhunambiTrackArtwork`)
+                    MoreLikeThisShelf(
+                      recommendations: recommendations,
+                      onSelectTrack: (selected) {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) => TrackDetailView(
+                              trackId: selected.id,
+                              onNavigateToStudio: widget.onNavigateToStudio,
+                            ),
+                          ),
+                        );
+                      },
+                      onAuditionTrack: (selected) {
                         ref
                             .read(playerStateProvider.notifier)
                             .playTrack(
                               Track(
-                                id: track.id,
-                                title: track.title,
-                                creatorName: track.creatorName,
-                                genre: track.genre,
-                                language: track.language,
-                                duration: track.duration,
+                                id: selected.id,
+                                title: selected.title,
+                                creatorName: selected.creatorName,
+                                genre: selected.genre,
+                                language: selected.language,
+                                duration: selected.duration,
+                                coverUrl: selected.coverUrl,
                               ),
                             );
-                      }
-                    },
-                    onSeek: (pos) {
-                      ref.read(playerStateProvider.notifier).seek(pos);
-                    },
-                  ),
-
-                  // 6. Synchronized Lyrics Teleprompter
-                  LyricsTeleprompter(key: _lyricsKey, track: track),
-
-                  // 7. 4-Stem Separation Lab
-                  StemSeparationLab(
-                    stemState: track.stemState,
-                    onSeparateStems: () {
-                      ref
-                          .read(
-                            trackDetailFamilyProvider(widget.trackId).notifier,
-                          )
-                          .separateStems();
-                    },
-                    onToggleMuteStem: (id) {
-                      ref
-                          .read(
-                            trackDetailFamilyProvider(widget.trackId).notifier,
-                          )
-                          .toggleMuteStem(id);
-                    },
-                    onToggleSoloStem: (id) {
-                      ref
-                          .read(
-                            trackDetailFamilyProvider(widget.trackId).notifier,
-                          )
-                          .toggleSoloStem(id);
-                    },
-                    onDownloadStem: (stem) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Downloading stem: "${stem.name}.wav"...',
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  // 7b. Living Song DNA Biome Preview (Phase 55 - REQ-P55-TRK-01)
-                  TrackLivingBiomePreviewCard(
-                    trackTitle: track.title,
-                    genre: track.genre,
-                  ),
-
-                  // 7c. Open Pocket Stem Mixer (Phase 21)
-                  const SizedBox(height: AppSpacing.sm),
-                  OutlinedButton.icon(
-                    key: const Key('track_open_mixer_btn'),
-                    onPressed: () {
-                      showModalBottomSheet<void>(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (ctx) => FractionallySizedBox(
-                          heightFactor: 0.9,
-                          child: _FrostedStemMixerSheet(title: track.title),
-                        ),
-                      );
-                    },
-                    icon: const PhosphorIcon(
-                      AppIcons.sliders,
-                      color: AppColors.brandPrimary,
-                      size: 20,
+                      },
                     ),
-                    label: Text(
-                      'Open Pocket Stem Mixer',
-                      style: AppTypography.bodyLarge.copyWith(
-                        color: AppColors.brandPrimary,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.brandPrimary),
-                      minimumSize: const Size.fromHeight(48),
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: AppRadius.inputBorder,
-                      ),
-                    ),
-                  ),
 
-                  // 7c. Open Studio Master Polisher (Phase 25)
-                  const SizedBox(height: AppSpacing.sm),
-                  OutlinedButton.icon(
-                    key: const Key('track_detail_open_mastering_btn'),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      ref
-                          .read(masteringSessionProvider.notifier)
-                          .initializeForTrack(
-                            trackId: track.id,
-                            trackTitle: track.title,
-                            genre: track.genre,
-                          );
-                      if (ResponsiveUtils.isDesktop(context)) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => DesktopMasteringStudioView(
-                              trackId: track.id,
-                              trackTitle: track.title,
-                              genre: track.genre,
-                            ),
-                          ),
-                        );
-                      } else {
-                        showModalBottomSheet<void>(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (ctx) => FractionallySizedBox(
-                            heightFactor: 0.9,
-                            child: MobileQuickMasterSheet(
-                              trackId: track.id,
-                              trackTitle: track.title,
-                              genre: track.genre,
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                    icon: const Icon(
-                      Icons.auto_awesome_rounded,
-                      color: AppColors.brandPrimary,
-                    ),
-                    label: Text(
-                      '✨ Master Track (Studio Polisher)',
-                      style: AppTypography.bodyLarge.copyWith(
-                        color: AppColors.brandPrimary,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.brandPrimary),
-                      minimumSize: const Size.fromHeight(48),
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: AppRadius.inputBorder,
-                      ),
-                    ),
-                  ),
-
-                  // 8. Generative Prompt Attribution Card
-                  PromptAttributionCard(
-                    track: track,
-                    onRemixPrompt: () => _handleRemix(track),
-                  ),
-
-                  // 9. Discussion Thread & Comment Composer
-                  CommentsSection(
-                    key: _commentsKey,
-                    comments: comments,
-                    onAddComment: (content) {
-                      ref
-                          .read(trackCommentsProvider(widget.trackId).notifier)
-                          .addComment(content);
-                    },
-                    onToggleLikeComment: (cmtId) {
-                      ref
-                          .read(trackCommentsProvider(widget.trackId).notifier)
-                          .toggleLikeComment(cmtId);
-                    },
-                  ),
-
-                  // 10. "More Like This" Recommendations Shelf
-                  MoreLikeThisShelf(
-                    recommendations: recommendations,
-                    onSelectTrack: (selected) {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => TrackDetailView(
-                            trackId: selected.id,
-                            onNavigateToStudio: widget.onNavigateToStudio,
-                          ),
-                        ),
-                      );
-                    },
-                    onAuditionTrack: (selected) {
-                      ref
-                          .read(playerStateProvider.notifier)
-                          .playTrack(
-                            Track(
-                              id: selected.id,
-                              title: selected.title,
-                              creatorName: selected.creatorName,
-                              genre: selected.genre,
-                              language: selected.language,
-                              duration: selected.duration,
-                            ),
-                          );
-                    },
-                  ),
-
-                  // Bottom dock clearance so the floating transport never
-                  // occludes the final recommendation cards.
-                  SizedBox(
-                    height: VhunambiBottomDockMetrics.scrollInset(
-                      hasActiveTrack: playerState.hasActiveTrack,
-                    ),
-                  ),
-                ],
+                    // Bottom clearance above sticky StudioReactionComposerBar
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
           ),
         ),
+      ),
+      bottomNavigationBar: StudioReactionComposerBar(
+        clipOrPostId: track.id,
+        creatorHandle: track.creatorHandle,
+        controller: _commentController,
+        focusNode: _composerFocusNode,
+        onSubmit: () => _submitThreadedTrackComment(track),
       ),
     );
   }
@@ -753,19 +897,22 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
 class _TrackDetailAppBar extends StatelessWidget {
   final TrackDetailEntity track;
   final ValueNotifier<bool> showStickyTitle;
+  final VoidCallback onShare;
 
   const _TrackDetailAppBar({
     required this.track,
     required this.showStickyTitle,
+    required this.onShare,
   });
 
   @override
   Widget build(BuildContext context) {
+    final textPrimary = AppColors.textPrimaryOf(context);
     return ClipRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
-          color: AppColors.surfaceCanvas.withAlpha(200),
+          color: AppColors.surfaceCanvasOf(context).withAlpha(200),
           child: Padding(
             padding: EdgeInsets.only(
               top: VhunambiTopBarMetrics.topInset(context),
@@ -776,7 +923,7 @@ class _TrackDetailAppBar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 child: Row(
                   children: [
-                    const VhunambiBackButton(color: Colors.white),
+                    VhunambiBackButton(color: textPrimary),
                     Expanded(
                       child: ValueListenableBuilder<bool>(
                         valueListenable: showStickyTitle,
@@ -794,23 +941,17 @@ class _TrackDetailAppBar extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(
-                        Icons.share_rounded,
-                        color: Colors.white,
+                      icon: PhosphorIcon(
+                        AppIcons.share,
+                        color: textPrimary,
+                        size: 20,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
                       ),
                       tooltip: 'Share',
-                      onPressed: () {
-                        Clipboard.setData(
-                          ClipboardData(
-                            text: 'https://vhunambi.com/track/${track.id}',
-                          ),
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Track link copied to clipboard! 🔗'),
-                          ),
-                        );
-                      },
+                      onPressed: onShare,
                     ),
                   ],
                 ),
@@ -831,8 +972,8 @@ class _BrandMark extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(
-          Icons.music_note_rounded,
+        const PhosphorIcon(
+          AppIcons.songs,
           color: AppColors.brandPrimary,
           size: 20,
         ),
@@ -842,6 +983,7 @@ class _BrandMark extends StatelessWidget {
           style: AppTypography.titleMedium.copyWith(
             fontWeight: FontWeight.bold,
             letterSpacing: 1.5,
+            color: AppColors.textPrimaryOf(context),
           ),
         ),
       ],

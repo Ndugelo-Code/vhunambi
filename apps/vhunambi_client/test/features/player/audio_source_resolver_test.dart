@@ -53,7 +53,9 @@ void main() {
       expect(resolved.localFilePath, isNull);
       expect(
         resolved.uri.toString(),
-        'https://vhunambi.com/audio/trk_cloud.mp3',
+        AppConstants.normalizeCloudMediaUrl(
+          'https://vhunambi.com/audio/trk_cloud.mp3',
+        ),
       );
       expect(resolved.sourceLabel, 'stream');
     });
@@ -64,7 +66,9 @@ void main() {
 
       expect(
         resolved.uri.toString(),
-        '${AppConstants.defaultOrigin}/audio/trk_no_url.mp3',
+        AppConstants.normalizeCloudMediaUrl(
+          '${AppConstants.defaultOrigin}/audio/trk_no_url.mp3',
+        ),
       );
       expect(resolved.isLocalFile, isFalse);
     });
@@ -79,7 +83,10 @@ void main() {
       final resolved = await resolver().resolveSource(_track(id: 'trk_stale'));
 
       expect(resolved.isLocalFile, isFalse);
-      expect(resolved.uri.scheme, 'https');
+      expect(
+        resolved.uri.scheme,
+        Uri.parse(AppConstants.resolveMediaBaseUrl()).scheme,
+      );
     });
 
     test('raises a clean AudioSourceException while offline mode is forced',

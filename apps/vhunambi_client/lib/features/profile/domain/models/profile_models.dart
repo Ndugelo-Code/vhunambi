@@ -21,9 +21,9 @@ class SupporterEntity {
 
   String get rankBadge {
     return switch (rank) {
-      1 => '🥇 Gold',
-      2 => '🥈 Silver',
-      3 => '🥉 Bronze',
+      1 => 'Gold',
+      2 => 'Silver',
+      3 => 'Bronze',
       _ => 'Fan',
     };
   }
@@ -70,7 +70,7 @@ class TipRecordEntity {
     required this.amountCredits,
     this.amountCoins = 0,
     this.amountZar = 0.0,
-    this.giftEmoji = '🪙',
+    this.giftEmoji = 'coin',
     this.giftName = 'Cultural Tip',
     required this.trackTitle,
     required this.timestamp,
@@ -79,9 +79,9 @@ class TipRecordEntity {
 
   String get amountLabel {
     if (amountCoins > 0) {
-      return '$giftEmoji $amountCoins Coins (R${amountZar.toStringAsFixed(0)})';
+      return '$amountCoins Coins (R${amountZar.toStringAsFixed(0)})';
     }
-    return '⚡ $amountCredits';
+    return '$amountCredits Credits';
   }
 
   Map<String, dynamic> toJson() => {
@@ -108,7 +108,7 @@ class TipRecordEntity {
         amountCredits: json['amountCredits'] as int? ?? 0,
         amountCoins: json['amountCoins'] as int? ?? 0,
         amountZar: (json['amountZar'] as num?)?.toDouble() ?? 0.0,
-        giftEmoji: json['giftEmoji'] as String? ?? '🪙',
+        giftEmoji: json['giftEmoji'] as String? ?? 'coin',
         giftName: json['giftName'] as String? ?? 'Cultural Tip',
         trackTitle: json['trackTitle'] as String? ?? '',
         timestamp:
@@ -281,7 +281,7 @@ class ArtistProfileEntity {
   /// Public referral URL copied by the referral card (REQ-TRK-16).
   String get profileUrl => 'https://vhunambi.com/profile/$username';
 
-  String get streakLabel => '🔥 $dayStreak';
+  String get streakLabel => '$dayStreak Days';
 
   List<TipRecordEntity> get receivedTips =>
       tipHistory.where((tip) => tip.isReceived).toList();

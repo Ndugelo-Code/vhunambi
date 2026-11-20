@@ -13,7 +13,7 @@ void main() {
         totalCreditsTipped: 100,
         rank: 1,
       );
-      expect(s1.rankBadge, '🥇 Gold');
+      expect(s1.rankBadge, 'Gold');
 
       const s2 = SupporterEntity(
         id: 's2',
@@ -22,7 +22,7 @@ void main() {
         totalCreditsTipped: 80,
         rank: 2,
       );
-      expect(s2.rankBadge, '🥈 Silver');
+      expect(s2.rankBadge, 'Silver');
 
       const s3 = SupporterEntity(
         id: 's3',
@@ -31,7 +31,7 @@ void main() {
         totalCreditsTipped: 50,
         rank: 3,
       );
-      expect(s3.rankBadge, '🥉 Bronze');
+      expect(s3.rankBadge, 'Bronze');
 
       const s4 = SupporterEntity(
         id: 's4',
@@ -111,7 +111,7 @@ void main() {
 
       expect(profile.handle, '@fifi');
       expect(profile.profileUrl, 'https://vhunambi.com/profile/fifi');
-      expect(profile.streakLabel, '🔥 7');
+      expect(profile.streakLabel, '7 Days');
       expect(profile.receivedTips.length, 1);
       expect(profile.sentTips.length, 1);
     });
@@ -147,58 +147,107 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final notifier = container.read(artistProfileFamilyProvider('fifi').notifier);
-      expect(container.read(artistProfileFamilyProvider('fifi')).isFollowing, isFalse);
-      expect(container.read(artistProfileFamilyProvider('fifi')).followerCount, 1820);
+      final notifier = container.read(
+        artistProfileFamilyProvider('fifi').notifier,
+      );
+      expect(
+        container.read(artistProfileFamilyProvider('fifi')).isFollowing,
+        isFalse,
+      );
+      expect(
+        container.read(artistProfileFamilyProvider('fifi')).followerCount,
+        1820,
+      );
 
       notifier.toggleFollow();
-      expect(container.read(artistProfileFamilyProvider('fifi')).isFollowing, isTrue);
-      expect(container.read(artistProfileFamilyProvider('fifi')).followerCount, 1821);
+      expect(
+        container.read(artistProfileFamilyProvider('fifi')).isFollowing,
+        isTrue,
+      );
+      expect(
+        container.read(artistProfileFamilyProvider('fifi')).followerCount,
+        1821,
+      );
 
       notifier.toggleFollow();
-      expect(container.read(artistProfileFamilyProvider('fifi')).isFollowing, isFalse);
-      expect(container.read(artistProfileFamilyProvider('fifi')).followerCount, 1820);
+      expect(
+        container.read(artistProfileFamilyProvider('fifi')).isFollowing,
+        isFalse,
+      );
+      expect(
+        container.read(artistProfileFamilyProvider('fifi')).followerCount,
+        1820,
+      );
     });
 
-    test('tipArtist adds a received tip record to history and ignores non-positive amounts', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+    test(
+      'tipArtist adds a received tip record to history and ignores non-positive amounts',
+      () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      final notifier = container.read(artistProfileFamilyProvider('fifi').notifier);
-      final initialTips = container.read(artistProfileFamilyProvider('fifi')).tipHistory.length;
+        final notifier = container.read(
+          artistProfileFamilyProvider('fifi').notifier,
+        );
+        final initialTips = container
+            .read(artistProfileFamilyProvider('fifi'))
+            .tipHistory
+            .length;
 
-      notifier.tipArtist(0);
-      notifier.tipArtist(-5);
-      expect(container.read(artistProfileFamilyProvider('fifi')).tipHistory.length, initialTips);
+        notifier.tipArtist(0);
+        notifier.tipArtist(-5);
+        expect(
+          container.read(artistProfileFamilyProvider('fifi')).tipHistory.length,
+          initialTips,
+        );
 
-      notifier.tipArtist(25, senderName: 'Cern', senderHandle: '@cern');
-      final updated = container.read(artistProfileFamilyProvider('fifi')).tipHistory;
-      expect(updated.length, initialTips + 1);
-      expect(updated.first.amountCredits, 25);
-      expect(updated.first.senderName, 'Cern');
-      expect(updated.first.isReceived, isTrue);
-    });
+        notifier.tipArtist(25, senderName: 'Cern', senderHandle: '@cern');
+        final updated = container
+            .read(artistProfileFamilyProvider('fifi'))
+            .tipHistory;
+        expect(updated.length, initialTips + 1);
+        expect(updated.first.amountCredits, 25);
+        expect(updated.first.senderName, 'Cern');
+        expect(updated.first.isReceived, isTrue);
+      },
+    );
 
     test('toggleTipsEnabled toggles state', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final notifier = container.read(artistProfileFamilyProvider('fifi').notifier);
-      expect(container.read(artistProfileFamilyProvider('fifi')).tipsEnabled, isTrue);
+      final notifier = container.read(
+        artistProfileFamilyProvider('fifi').notifier,
+      );
+      expect(
+        container.read(artistProfileFamilyProvider('fifi')).tipsEnabled,
+        isTrue,
+      );
 
       notifier.toggleTipsEnabled();
-      expect(container.read(artistProfileFamilyProvider('fifi')).tipsEnabled, isFalse);
+      expect(
+        container.read(artistProfileFamilyProvider('fifi')).tipsEnabled,
+        isFalse,
+      );
 
       notifier.toggleTipsEnabled();
-      expect(container.read(artistProfileFamilyProvider('fifi')).tipsEnabled, isTrue);
+      expect(
+        container.read(artistProfileFamilyProvider('fifi')).tipsEnabled,
+        isTrue,
+      );
     });
 
     test('addRelease adds new release to discography', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final notifier = container.read(artistProfileFamilyProvider('fifi').notifier);
-      final initialCount = container.read(artistProfileFamilyProvider('fifi')).releases.length;
+      final notifier = container.read(
+        artistProfileFamilyProvider('fifi').notifier,
+      );
+      final initialCount = container
+          .read(artistProfileFamilyProvider('fifi'))
+          .releases
+          .length;
 
       final newRelease = MusicReleaseEntity(
         id: 'rel_test',
@@ -210,7 +259,9 @@ void main() {
       );
 
       notifier.addRelease(newRelease);
-      final updated = container.read(artistProfileFamilyProvider('fifi')).releases;
+      final updated = container
+          .read(artistProfileFamilyProvider('fifi'))
+          .releases;
       expect(updated.length, initialCount + 1);
       expect(updated.first.title, 'New Wave Single');
     });

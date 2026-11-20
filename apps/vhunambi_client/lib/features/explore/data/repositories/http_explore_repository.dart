@@ -90,6 +90,8 @@ class HttpExploreRepository {
     }
   }
 
+  bool get shouldSkipNetwork => _shouldSkipNetwork;
+
   bool get _shouldSkipNetwork => isTestMode && !_hasCustomDio;
 
   static bool _detectTestMode() {
@@ -364,6 +366,127 @@ class HttpExploreRepository {
       }
     } catch (e) {
       debugPrint('[HttpExploreRepository] addPostComment fallback: $e');
+    }
+    return null;
+  }
+
+  /// Fetches paginated Kinetic Posts feed via `GET /api/explore/feed`.
+  Future<List<Map<String, dynamic>>> fetchExploreFeed({
+    String? stage,
+    String? genre,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    if (_shouldSkipNetwork) return const <Map<String, dynamic>>[];
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/explore/feed',
+        queryParameters: <String, dynamic>{
+          if (stage != null && stage.isNotEmpty) 'stage': stage,
+          if (genre != null && genre.isNotEmpty && genre != 'All')
+            'genre': genre,
+          'limit': limit,
+          'offset': offset,
+        },
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final raw =
+            (response.data!['posts'] ?? response.data!['items'])
+                as List<dynamic>? ??
+            const <dynamic>[];
+        return raw
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList(growable: false);
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] fetchExploreFeed fallback: $e');
+    }
+    return const <Map<String, dynamic>>[];
+  }
+
+  /// Co-signs a Kinetic Post via `POST /api/explore/posts/:id/cosign`.
+  Future<({int cosignCount, String? discoveryStage, bool graduated})?>
+  cosignPost(String postId, {String? creatorId}) async {
+    if (_shouldSkipNetwork) return null;
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/explore/posts/$postId/cosign',
+        data: <String, dynamic>{
+          if (creatorId != null && creatorId.isNotEmpty) 'creatorId': creatorId,
+        },
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data!;
+        final postMap = data['post'] is Map
+            ? Map<String, dynamic>.from(data['post'] as Map)
+            : null;
+        return (
+          cosignCount:
+              (data['cosignCount'] as num?)?.toInt() ??
+              (postMap?['cosignCount'] as num?)?.toInt() ??
+              0,
+          discoveryStage:
+              (data['discoveryStage'] ?? postMap?['discoveryStage'])
+                  ?.toString(),
+          graduated: (data['graduated'] as bool?) ?? false,
+        );
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] cosignPost fallback: $e');
+    }
+    return null;
+  }
+
+  /// Reposts or quote-reposts a Kinetic Post via `POST /api/explore/posts/:id/repost`.
+  Future<({int repostCount, Map<String, dynamic>? repost})?> repostPost(
+    String postId, {
+    Map<String, dynamic>? repost,
+  }) async {
+    if (_shouldSkipNetwork) return null;
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/explore/posts/$postId/repost',
+        data: <String, dynamic>{'repost': ?repost},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data!;
+        final postMap = data['post'] is Map
+            ? Map<String, dynamic>.from(data['post'] as Map)
+            : null;
+        return (
+          repostCount:
+              (data['repostCount'] as num?)?.toInt() ??
+              (postMap?['repostCount'] as num?)?.toInt() ??
+              0,
+          repost: data['repost'] is Map
+              ? Map<String, dynamic>.from(data['repost'] as Map)
+              : null,
+        );
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] repostPost fallback: $e');
+    }
+    return null;
+  }
+
+  /// Likes a Kinetic Post comment via `POST /api/explore/comments/:id/like`.
+  Future<({bool liked, int likeCount})?> likeComment(String commentId) async {
+    if (_shouldSkipNetwork) return null;
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/explore/comments/$commentId/like',
+        data: const <String, dynamic>{},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data!;
+        return (
+          liked: (data['liked'] as bool?) ?? true,
+          likeCount: (data['likeCount'] as num?)?.toInt() ?? 0,
+        );
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] likeComment fallback: $e');
     }
     return null;
   }

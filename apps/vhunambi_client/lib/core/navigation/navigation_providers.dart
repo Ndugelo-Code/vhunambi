@@ -20,4 +20,15 @@ final modalSheetOpenCountProvider = StateProvider<int>((ref) => 0);
 /// from duplicating playback controls on Home while preserving standalone tests.
 final homeInlineNowPlayingMountedProvider = StateProvider<bool>((ref) => false);
 
+/// Reference-counted tracker for mounted `TrackDetailView` routes that already
+/// render an inline `WaveformScrubber` (`Phase 70`, `REQ-P70-MINI-01`).
+/// When > 0, `MiniPlayerHost` suppresses itself to avoid duplicate audio bars.
+final trackDetailInlinePlayerMountedProvider = StateProvider<int>((ref) => 0);
+
+/// Reference-counted tracker for pushed full-screen routes rendered outside
+/// `RootShell`'s 56dp bottom navigation bar (`ArtistProfileView`, etc.)
+/// (`Phase 70`, `REQ-P70-MINI-02`).
+final pushedFullScreenOverlayCountProvider = StateProvider<int>((ref) => 0);
+
+
 

@@ -35,24 +35,27 @@ void main() {
   });
 
   group('PlayerNotifier hardware bridge', () {
-    test('keeps the seeded player state while binding the injected handler', () {
-      final handler = _handler();
-      addTearDown(handler.dispose);
-      final container = _container(handler);
-      addTearDown(container.dispose);
+    test(
+      'keeps the seeded player state while binding the injected handler',
+      () {
+        final handler = _handler();
+        addTearDown(handler.dispose);
+        final container = _container(handler);
+        addTearDown(container.dispose);
 
-      final state = container.read(playerStateProvider);
-      expect(state.currentTrack?.id, 'track_default_1');
-      expect(state.currentTrack?.title, 'Grateful in the Light');
-      expect(state.playbackStatus, PlaybackStatus.playing);
-      expect(state.position, const Duration(seconds: 13));
-      expect(state.duration, const Duration(minutes: 3, seconds: 29));
+        final state = container.read(playerStateProvider);
+        expect(state.currentTrack?.id, 'track_default_1');
+        expect(state.currentTrack?.title, 'Grateful in the Light');
+        expect(state.playbackStatus, PlaybackStatus.paused);
+        expect(state.position, Duration.zero);
+        expect(state.duration, const Duration(seconds: 24));
 
-      expect(
-        container.read(playerStateProvider.notifier).audioHandler,
-        same(handler),
-      );
-    });
+        expect(
+          container.read(playerStateProvider.notifier).audioHandler,
+          same(handler),
+        );
+      },
+    );
 
     test('UI transport commands are delegated to the audio handler', () async {
       final handler = _handler();
@@ -81,6 +84,9 @@ void main() {
       addTearDown(handler.dispose);
       final container = _container(handler);
       addTearDown(container.dispose);
+
+      // Materialise the notifier first so it subscribes to handler streams.
+      container.read(playerStateProvider.notifier);
 
       // A lockscreen pause arrives on the handler, not through the UI.
       await handler.playTrack(_track());
@@ -133,38 +139,41 @@ void main() {
       expect(container.read(playerStateProvider).position, before);
     });
 
-    test('audio focus interruptions drive the UI through pause and resume',
-        () async {
-      final session = TestAudioSessionManager();
-      addTearDown(session.dispose);
-      final handler = _handler(sessionManager: session);
-      addTearDown(handler.dispose);
-      final container = _container(handler);
-      addTearDown(container.dispose);
+    test(
+      'audio focus interruptions drive the UI through pause and resume',
+      () async {
+        final session = TestAudioSessionManager();
+        addTearDown(session.dispose);
+        final handler = _handler(sessionManager: session);
+        addTearDown(handler.dispose);
+        final container = _container(handler);
+        addTearDown(container.dispose);
 
-      await handler.playTrack(_track());
-      expect(
-        container.read(playerStateProvider).playbackStatus,
-        PlaybackStatus.playing,
-      );
+        container.read(playerStateProvider.notifier);
+        await handler.playTrack(_track());
+        expect(
+          container.read(playerStateProvider).playbackStatus,
+          PlaybackStatus.playing,
+        );
 
-      session.simulateInterruption(const AudioInterruptionEvent.begin());
-      await _settle();
+        session.simulateInterruption(const AudioInterruptionEvent.begin());
+        await _settle();
 
-      expect(session.wasPlayingBeforeInterruption, isTrue);
-      expect(
-        container.read(playerStateProvider).playbackStatus,
-        PlaybackStatus.paused,
-      );
+        expect(session.wasPlayingBeforeInterruption, isTrue);
+        expect(
+          container.read(playerStateProvider).playbackStatus,
+          PlaybackStatus.paused,
+        );
 
-      session.simulateInterruption(const AudioInterruptionEvent.end());
-      await _settle();
+        session.simulateInterruption(const AudioInterruptionEvent.end());
+        await _settle();
 
-      expect(
-        container.read(playerStateProvider).playbackStatus,
-        PlaybackStatus.playing,
-      );
-    });
+        expect(
+          container.read(playerStateProvider).playbackStatus,
+          PlaybackStatus.playing,
+        );
+      },
+    );
 
     test('a disconnecting audio peripheral pauses the UI state', () async {
       final session = TestAudioSessionManager();

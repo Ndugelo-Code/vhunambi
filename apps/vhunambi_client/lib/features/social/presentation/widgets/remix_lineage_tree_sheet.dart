@@ -38,7 +38,14 @@ class RemixLineageTreeSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final rootNode = ref.watch(remixLineageTreeProvider(trackOrClipId));
+    final baseRootNode = ref.watch(remixLineageTreeProvider(trackOrClipId));
+    final remoteChildrenAsync = ref.watch(
+      remixLineageRemoteChildrenProvider(trackOrClipId),
+    );
+    final rootNode = mergeRemoteRemixChildren(
+      baseRootNode,
+      remoteChildrenAsync.valueOrNull ?? const <PublishedClip>[],
+    );
 
     return Container(
       decoration: BoxDecoration(

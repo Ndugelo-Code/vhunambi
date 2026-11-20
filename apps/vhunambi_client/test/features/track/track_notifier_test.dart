@@ -21,7 +21,7 @@ void main() {
       expect(track.formattedDuration, '3:18');
       expect(track.metadataLabel, 'Amapiano • Tshivenḓa • 3:18');
       expect(track.isCommercial, isFalse);
-      expect(track.licenseBadge, '🛡️ Personal Use');
+      expect(track.licenseBadge, 'Personal Use');
       expect(TrackDetailEntity.ownershipNotice, contains('100% royalty-free'));
     });
 
@@ -40,7 +40,7 @@ void main() {
 
       expect(track.formattedDuration, '4:05');
       expect(track.isCommercial, isTrue);
-      expect(track.licenseBadge, '⚖️ Commercial Use');
+      expect(track.licenseBadge, 'Commercial License');
     });
 
     test('StemTrackEntity and StemSeparationState behave correctly', () {
@@ -131,7 +131,7 @@ void main() {
 
       final track = container.read(trackDetailFamilyProvider('custom-unknown-99'));
       expect(track.id, 'custom-unknown-99');
-      expect(track.title, 'Unknown Melody');
+      expect(track.title, 'Studio Track');
     });
 
     test('toggleLike updates like status and tally', () {

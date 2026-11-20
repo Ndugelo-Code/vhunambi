@@ -9,6 +9,8 @@ import '../../../../core/design_system/tokens/design_enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../home/presentation/providers/creator_allowance_provider.dart';
+import '../../../home/presentation/widgets/subscription_upgrade_modal.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../providers/generation_pipeline_providers.dart';
 import '../providers/lyrics_review_provider.dart';
@@ -23,6 +25,7 @@ class StudioActionBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(studioFormProvider);
     final notifier = ref.read(studioFormProvider.notifier);
+    final allowance = ref.watch(creatorAllowanceProvider);
     final genre = _mapStringToGenre(state.genre);
     final extension = VhunambiThemeExtension.of(context);
     final accent = extension.genreAccent(genre);
@@ -37,6 +40,82 @@ class StudioActionBar extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Phase 71 (CON-04): Live Monthly Free Song Allowance Chip
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Semantics(
+            button: true,
+            label: allowance.isPaidUnlimited
+                ? 'Pro Unlimited Songs. Tap to view creator plans.'
+                : '${allowance.freeMonthlySongsRemaining} of ${allowance.freeMonthlySongsLimit} free monthly songs remaining. Tap to upgrade.',
+            child: InkWell(
+              key: const Key('studio_allowance_chip'),
+              onTap: () {
+                HapticsService().selectionClick();
+                SubscriptionUpgradeModal.show(context);
+              },
+              borderRadius: AppRadius.pillBorder,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 36),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: allowance.isExhausted
+                        ? AppColors.error.withValues(alpha: 0.14)
+                        : allowance.isLowQuota
+                        ? AppColors.coinGold.withValues(alpha: 0.14)
+                        : AppColors.surfaceSecondaryOf(context),
+                    borderRadius: AppRadius.pillBorder,
+                    border: Border.all(
+                      color: allowance.isExhausted
+                          ? AppColors.error
+                          : allowance.isLowQuota
+                          ? AppColors.coinGold
+                          : AppColors.borderSubtleOf(context),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PhosphorIcon(
+                        allowance.isPaidUnlimited
+                            ? PhosphorIconsFill.crown
+                            : PhosphorIconsFill.musicNotes,
+                        size: 14,
+                        color: allowance.isExhausted
+                            ? AppColors.error
+                            : allowance.isLowQuota
+                            ? AppColors.coinGold
+                            : AppColors.brandPrimary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        allowance.isPaidUnlimited
+                            ? 'Pro Unlimited'
+                            : '${allowance.freeMonthlySongsRemaining}/${allowance.freeMonthlySongsLimit} Free Songs',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textPrimaryOf(context),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      PhosphorIcon(
+                        PhosphorIconsBold.caretRight,
+                        size: 12,
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+
         // Sleek Single-Row Action Deck: Compact Visibility Pill + Un-truncated CTA
         Row(
           children: [
@@ -166,9 +245,10 @@ class StudioActionBar extends ConsumerWidget {
         backgroundColor: AppColors.surfaceModal,
         content: Row(
           children: [
-            const Icon(
-              Icons.check_circle_rounded,
+            const PhosphorIcon(
+              PhosphorIconsFill.checkCircle,
               color: AppColors.brandPrimary,
+              size: 18,
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(

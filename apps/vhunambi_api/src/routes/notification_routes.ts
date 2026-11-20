@@ -32,11 +32,11 @@ const UpsertNotificationSchema = z.object({
 });
 
 // GET /api/notifications
-notificationRoutes.get('/', (c) => {
+notificationRoutes.get('/', async (c) => {
   const queryUser = c.req.query('userId');
   const creatorId = resolveEffectiveCreatorId(c, queryUser, 'creator_cern');
-  const notifications = vhunambiDb.listNotifications(creatorId);
-  const quota = vhunambiDb.getCreatorQuota(creatorId);
+  const notifications = await vhunambiDb.syncNotificationsFromCloud(creatorId, c);
+  const quota = await vhunambiDb.syncCreatorQuotaFromCloud(creatorId, c);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   return c.json({
     success: true,
@@ -59,21 +59,24 @@ notificationRoutes.post('/', async (c) => {
   }
   const data = parsed.data;
   const creatorId = resolveEffectiveCreatorId(c, data.userId, 'creator_cern');
-  const saved = vhunambiDb.upsertNotification({
-    id: data.id,
-    userId: creatorId,
-    title: data.title,
-    message: data.body ?? data.message,
-    category: data.category,
-    subtype: data.subtype ?? null,
-    priority: data.priority,
-    isRead: data.isRead,
-    targetRoute: data.targetRoute ?? null,
-    targetEntityId: data.targetEntityId ?? data.targetTrackId ?? null,
-    ctaLabel: data.ctaLabel ?? null,
-    metadata: data.metadata,
-    createdAt: data.createdAt ?? new Date().toISOString(),
-  });
+  const saved = await vhunambiDb.upsertNotificationAsync(
+    {
+      id: data.id,
+      userId: creatorId,
+      title: data.title,
+      message: data.body ?? data.message,
+      category: data.category,
+      subtype: data.subtype ?? null,
+      priority: data.priority,
+      isRead: data.isRead,
+      targetRoute: data.targetRoute ?? null,
+      targetEntityId: data.targetEntityId ?? data.targetTrackId ?? null,
+      ctaLabel: data.ctaLabel ?? null,
+      metadata: data.metadata,
+      createdAt: data.createdAt ?? new Date().toISOString(),
+    },
+    c,
+  );
   return c.json({ success: true, notification: saved }, 201);
 });
 

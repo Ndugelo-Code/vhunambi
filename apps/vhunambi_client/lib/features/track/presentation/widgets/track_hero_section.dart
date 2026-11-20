@@ -1,97 +1,84 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_gradients.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/utils/responsive_utils.dart';
-import '../../domain/models/track_detail_models.dart';
+import 'package:vhunambi_client/core/auth/viewer_role.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
+import 'package:vhunambi_client/core/theme/app_colors.dart';
+import 'package:vhunambi_client/core/theme/app_dimensions.dart';
+import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/core/utils/responsive_utils.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_track_artwork.dart';
+import 'package:vhunambi_client/features/track/domain/models/track_detail_models.dart';
 
-/// 1:1 Cover Art Showcase, Metadata & Ownership Callout (REQ-TRK-02, REQ-TRK-03).
+/// 1:1 Cover Art Showcase, Metadata & Role-Gated Ownership Callout
+/// (`REQ-TRK-02`, `REQ-TRK-03`, `REQ-P70-GATE-01`, `REQ-P70-SCUX-01`).
 class TrackHeroSection extends StatelessWidget {
   final TrackDetailEntity track;
+  final ViewerRole viewerRole;
   final VoidCallback? onTapCreator;
 
-  const TrackHeroSection({super.key, required this.track, this.onTapCreator});
+  const TrackHeroSection({
+    super.key,
+    required this.track,
+    this.viewerRole = ViewerRole.visitor,
+    this.onTapCreator,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
     final artSize = isDesktop ? 280.0 : 220.0;
+    final isOwner = viewerRole == ViewerRole.owner;
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
+      children: <Widget>[
         const SizedBox(height: 16),
 
-        // 1:1 Cover Art Card with Ambient Amber Glow
+        // 1:1 Unified Track Artwork with Ambient Glow (`EP-P68-TRACK-ARTWORK`)
         Container(
-          width: artSize,
-          height: artSize,
           decoration: BoxDecoration(
-            gradient: AppGradients.forGenre(track.genre),
-            borderRadius: AppRadius.cardBorder,
-            border: Border.all(color: AppColors.borderSubtle, width: 1.5),
-            boxShadow: const [
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: <BoxShadow>[
               BoxShadow(
-                color: Color(0x3DF97316),
-                blurRadius: 40,
-                spreadRadius: -8,
-                offset: Offset(0, 12),
+                color: AppColors.brandPrimary.withValues(alpha: 0.22),
+                blurRadius: 36,
+                spreadRadius: -6,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
-          child: Stack(
-            children: [
-              Center(
-                child: PhosphorIcon(
-                  _getGenreIcon(track.genre),
-                  color: Colors.white.withAlpha(220),
-                  size: artSize * 0.35,
-                ),
-              ),
-              Positioned(
-                bottom: 12,
-                left: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(160),
-                    borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: Colors.white.withAlpha(40)),
-                  ),
-                  child: Text(
-                    track.genre.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          child: VhunambiTrackArtwork(
+            key: const Key('track_hero_artwork'),
+            coverUrl: track.coverUrl,
+            genre: track.genre,
+            trackId: track.id,
+            width: artSize,
+            height: artSize,
+            borderRadius: BorderRadius.circular(24),
+            badgeIconSize: 44,
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 22),
 
         // Track Title
-        Text(
-          track.title,
-          style:
-              (isDesktop
-                      ? AppTypography.displayMedium
-                      : AppTypography.titleLarge)
-                  .copyWith(fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            track.title,
+            style:
+                (isDesktop
+                        ? AppTypography.displayMedium
+                        : AppTypography.titleLarge)
+                    .copyWith(fontWeight: FontWeight.bold, color: textPrimary),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
 
         const SizedBox(height: 6),
@@ -100,7 +87,7 @@ class TrackHeroSection extends StatelessWidget {
         Text(
           track.metadataLabel,
           style: AppTypography.bodySmall.copyWith(
-            color: AppColors.textSecondary,
+            color: textSecondary,
             fontWeight: FontWeight.w500,
           ),
           textAlign: TextAlign.center,
@@ -108,59 +95,16 @@ class TrackHeroSection extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // License Pill Badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceSecondary,
-            borderRadius: AppRadius.pillBorder,
-            border: Border.all(
-              color: track.isCommercial
-                  ? AppColors.brandPrimary.withAlpha(80)
-                  : AppColors.borderSubtle,
-            ),
-          ),
-          child: Text(
-            track.licenseBadge,
-            style: AppTypography.caption.copyWith(
-              color: track.isCommercial
-                  ? AppColors.brandPrimary
-                  : AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        // Royalty-Free Legal Notice Callout
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text(
-              TrackDetailEntity.ownershipNotice,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.4,
-                color: AppColors.textTertiary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 14),
-
         // Creator Link Byline
         InkWell(
+          key: const Key('track_hero_creator_link'),
           onTap: onTapCreator,
           borderRadius: AppRadius.pillBorder,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
+              children: <Widget>[
                 Container(
                   width: 26,
                   height: 26,
@@ -187,39 +131,102 @@ class TrackHeroSection extends StatelessWidget {
                   track.creatorName,
                   style: AppTypography.bodySmall.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: textPrimary,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
                   track.creatorHandle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
+                  style: AppTypography.caption.copyWith(color: textSecondary),
+                ),
+                const SizedBox(width: 4),
+                const PhosphorIcon(
+                  AppIcons.verified,
+                  size: 14,
+                  color: AppColors.brandPrimary,
                 ),
               ],
             ),
           ),
         ),
+
+        const SizedBox(height: 10),
+
+        // Strict Role-Gated Ownership Deed vs Visitor Provenance Pill (`SC-01`)
+        if (isOwner)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: VhunambiGlassSurface(
+              key: const Key('track_owner_deed_card'),
+              variant: VhunambiGlassVariant.card,
+              tintAccent: AppColors.success,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const PhosphorIcon(
+                    PhosphorIconsFill.shieldCheck,
+                    size: 18,
+                    color: AppColors.success,
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Created by you · ${track.licenseBadge}',
+                          style: AppTypography.titleSmall.copyWith(
+                            color: textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          TrackDetailEntity.ownershipNotice,
+                          style: AppTypography.caption.copyWith(
+                            color: textSecondary,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          VhunambiGlassSurface(
+            key: const Key('track_visitor_provenance_pill'),
+            variant: VhunambiGlassVariant.pill,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                PhosphorIcon(
+                  track.allowOpenStemsRemix
+                      ? PhosphorIconsFill.sparkle
+                      : PhosphorIconsFill.lockSimple,
+                  size: 15,
+                  color: track.allowOpenStemsRemix
+                      ? AppColors.brandPrimary
+                      : textSecondary,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    track.visitorProvenanceNotice,
+                    style: AppTypography.caption.copyWith(
+                      color: textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
-  }
-
-  IconData _getGenreIcon(String genre) {
-    switch (genre.toLowerCase()) {
-      case 'amapiano':
-        return PhosphorIconsRegular.pianoKeys;
-      case 'gqom':
-        return PhosphorIconsRegular.disc;
-      case 'maskandi':
-        return PhosphorIconsRegular.guitar;
-      case 'kwaito':
-        return PhosphorIconsRegular.speakerHigh;
-      case 'afro house':
-        return PhosphorIconsRegular.waveSine;
-      default:
-        return PhosphorIconsRegular.headphones;
-    }
   }
 }

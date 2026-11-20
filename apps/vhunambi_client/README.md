@@ -30,6 +30,6 @@ flutter test --timeout=60s
 - **On-Device Persistence:** `SovereignHiveBootstrapService` opens 26 Sovereign Hive boxes on boot (`lib/main.dart`).
 - **Audio Hardware Notes:**
   - **Sketchpad / Vocal Previews** (`RealSketchpadAudioPlayerService`) and **4-Stem Pocket DAW** (`JustAudioMultiStemEngine`) drive `just_audio` speaker playback.
-  - **Global MiniPlayer (`audioHandlerProvider`):** Currently defaults to headless `TestVhunambiAudioHandler` because `bootstrapPlatformAudioHandler` is not overridden inside `ProviderScope` in `lib/main.dart`.
+  - **Global MiniPlayer (`audioHandlerProvider`):** Bootstrapped via `bootstrapPlatformAudioHandler()` inside `VhunambiCrashShield.guardStartup` in [`lib/main.dart#L60-L70`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/apps/vhunambi_client/lib/main.dart#L60-L70), overriding `audioHandlerProvider` in `ProviderScope` with automatic fallback to `TestVhunambiAudioHandler` if hardware audio initialization fails.
 
 See [`../../README.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/README.md) and [`../../docs/AGENT_HANDOFF_BIBLE.md`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/AGENT_HANDOFF_BIBLE.md) for full architecture and roadmap documentation.

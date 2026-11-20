@@ -160,9 +160,10 @@ void main() {
     });
 
     test('mood filter scopes to a single mood chip', () {
+      // Phase 70 canonical VhunambiMood maps both 'Energetic' and 'Party' to energetic (3 tracks).
       expect(
         filterExploreTracks(tracks: tracks, mood: 'Energetic').length,
-        2,
+        3,
       );
       expect(
         filterExploreTracks(tracks: tracks, mood: 'Dark').single.title,

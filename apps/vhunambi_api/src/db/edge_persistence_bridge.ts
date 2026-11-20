@@ -9,6 +9,10 @@ import {
   verifyPassword,
 } from '../security/crypto_token.js';
 import {
+  normalizeVhunambiMoodId,
+  type VhunambiMoodId,
+} from '../utils/mood_taxonomy.js';
+import {
   SupabaseCloudDriver,
   computeWalletTotalsFromLedgerRows,
   normalizeBeatLicenseRow,
@@ -183,6 +187,17 @@ export interface CreatorQuotaRecord {
   updatedAt: string;
 }
 
+export interface WriteThroughFailureRecord {
+  id: string;
+  label: string;
+  error: string;
+  timestamp: string;
+}
+
+export interface AtomicQuotaConsumeResult extends CreatorQuotaRecord {
+  allowed: boolean;
+}
+
 export interface SaBankMetadata {
   canonicalName: string;
   code: string;
@@ -299,6 +314,9 @@ export interface ExploreTrackRecord {
   language: string;
   province: string;
   mood: string;
+  moodId: VhunambiMoodId;
+  description: string;
+  allowOpenStemsRemix: boolean;
   bpm: number;
   musicalKey: string;
   audioUrl: string;
@@ -382,8 +400,14 @@ export class EdgeIsolateDatabaseEngine {
     'scrypt$1024$8$1$7668756e616d62695f736565645f3631$46240025478633eac29c8dfe3e22f42a40290ce0a444edc4ab2a67d8a6ac2b873e16373cafdfce184ddeecfde7362ab15cd8db9dbba51ae9089941ab19440b52';
   private static cachedDefaultSeedHash: string | null = null;
 
-  private coldStartHydrated = false;
+  public static readonly DEFAULT_SWR_TTL_MS = 12_000;
+  private static readonly MAX_WRITE_THROUGH_FAILURES = 100;
+
+  private readonly domainHydratedAtMs = new Map<string, number>();
+  private readonly domainInFlightPromises = new Map<string, Promise<boolean>>();
+  private readonly writeThroughFailures: WriteThroughFailureRecord[] = [];
   private coldStartHydrationPromise: Promise<void> | null = null;
+  private readonly injectedDriver: SupabaseCloudDriver | null;
 
   private seqCounter = 0;
   private readonly creators = new Map<string, Record<string, any>>();
@@ -410,8 +434,49 @@ export class EdgeIsolateDatabaseEngine {
   private readonly notifications = new Map<string, NotificationRecord>();
   private readonly creatorQuotas = new Map<string, CreatorQuotaRecord>();
 
-  constructor() {
+  constructor(injectedDriver?: SupabaseCloudDriver) {
+    this.injectedDriver = injectedDriver ?? null;
     this.seedDefaults();
+  }
+
+  private resolveCloudDriver(cOrEnv?: unknown): SupabaseCloudDriver {
+    if (this.injectedDriver) {
+      return this.injectedDriver;
+    }
+    const resolvedCtx = cOrEnv ?? EdgePersistenceBridge.getActiveContext();
+    return EdgePersistenceBridge.getCloudDriver(
+      resolvedCtx as Context | Record<string, unknown> | undefined,
+    );
+  }
+
+  public getWriteThroughFailures(): WriteThroughFailureRecord[] {
+    return [...this.writeThroughFailures];
+  }
+
+  public getDomainHydratedAt(domainKey: string): number | undefined {
+    return this.domainHydratedAtMs.get(domainKey);
+  }
+
+  private recordWriteThroughFailure(label: string, err: unknown): void {
+    const message = err instanceof Error ? err.message : String(err);
+    const entry: WriteThroughFailureRecord = {
+      id: `wtf_${Date.now()}_${this.writeThroughFailures.length + 1}`,
+      label,
+      error: message,
+      timestamp: new Date().toISOString(),
+    };
+    this.writeThroughFailures.push(entry);
+    if (
+      this.writeThroughFailures.length >
+      EdgeIsolateDatabaseEngine.MAX_WRITE_THROUGH_FAILURES
+    ) {
+      this.writeThroughFailures.splice(
+        0,
+        this.writeThroughFailures.length -
+        EdgeIsolateDatabaseEngine.MAX_WRITE_THROUGH_FAILURES,
+      );
+    }
+    console.error(`[EdgeWriteThroughError] label=${label} error=${message}`);
   }
 
   private static getDefaultSeedPasswordHash(): string {
@@ -436,7 +501,9 @@ export class EdgeIsolateDatabaseEngine {
   }
 
   public resetForTesting(): void {
-    this.coldStartHydrated = false;
+    this.domainHydratedAtMs.clear();
+    this.domainInFlightPromises.clear();
+    this.writeThroughFailures.length = 0;
     this.coldStartHydrationPromise = null;
     this.seqCounter = 0;
     this.creators.clear();
@@ -483,17 +550,45 @@ export class EdgeIsolateDatabaseEngine {
     }
   }
 
+  private static async withTimeoutResult<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+  ): Promise<
+    { ok: true; value: T } | { ok: false; timedOut: boolean; error?: unknown }
+  > {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const result = await Promise.race([
+        promise.then(
+          (value) => ({ ok: true as const, value }),
+          (error) => ({ ok: false as const, timedOut: false, error }),
+        ),
+        new Promise<{ ok: false; timedOut: true }>((resolve) => {
+          timer = setTimeout(() => resolve({ ok: false, timedOut: true }), timeoutMs);
+        }),
+      ]);
+      return result;
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
   private mirrorWriteThrough(
-    op: (driver: SupabaseCloudDriver) => Promise<unknown>,
+    opOrLabel: string | ((driver: SupabaseCloudDriver) => Promise<unknown>),
+    maybeOp?: (driver: SupabaseCloudDriver) => Promise<unknown>,
   ): void {
+    const label = typeof opOrLabel === 'string' ? opOrLabel : 'anonymous_write_through';
+    const op = typeof opOrLabel === 'function' ? opOrLabel : maybeOp;
+    if (!op) return;
+
     const activeCtx = EdgePersistenceBridge.getActiveContext();
-    const driver = EdgePersistenceBridge.getCloudDriver(activeCtx);
+    const driver = this.resolveCloudDriver(activeCtx);
     if (!driver.isConfigured()) return;
 
     const task = Promise.resolve()
       .then(() => op(driver))
-      .catch(() => {
-        // Non-blocking PostgREST background mirror; isolate state is already committed
+      .catch((err) => {
+        this.recordWriteThroughFailure(label, err);
       });
 
     try {
@@ -503,6 +598,22 @@ export class EdgeIsolateDatabaseEngine {
       }
     } catch {
       // Hono executionCtx getter throws outside Cloudflare Workers runtime
+    }
+  }
+
+  public async awaitWriteThrough(
+    label: string,
+    op: (driver: SupabaseCloudDriver) => Promise<unknown>,
+    cOrEnv?: unknown,
+  ): Promise<boolean> {
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) return false;
+    try {
+      await op(driver);
+      return true;
+    } catch (err) {
+      this.recordWriteThroughFailure(label, err);
+      return false;
     }
   }
 
@@ -541,19 +652,45 @@ export class EdgeIsolateDatabaseEngine {
   }
 
   public async ensureColdStartHydrated(cOrEnv?: unknown): Promise<void> {
-    if (this.coldStartHydrated) return;
+    if (this.domainHydratedAtMs.has('cold_start:core')) return;
     if (this.coldStartHydrationPromise) return this.coldStartHydrationPromise;
 
-    const resolvedCtx = cOrEnv ?? EdgePersistenceBridge.getActiveContext();
-    const driver = EdgePersistenceBridge.getCloudDriver(
-      resolvedCtx as Context | Record<string, unknown> | undefined,
-    );
+    const driver = this.resolveCloudDriver(cOrEnv);
     if (!driver.isConfigured()) {
       return;
     }
 
     const hydrateTask = (async () => {
       try {
+        const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+          Promise.all([
+            driver.selectRows<Record<string, any>>('creators', 'select=*&limit=300'),
+            driver.selectRows<Record<string, any>>('users', 'select=*&limit=300'),
+            driver.selectRows<Record<string, any>>('auth_sessions', 'select=*&revoked=eq.false&order=rotated_at.desc&limit=300'),
+            driver.selectRows<Record<string, any>>('explore_tracks', 'select=*&limit=200'),
+            driver.selectRows<Record<string, any>>('kinetic_posts', 'select=*&order=created_at.desc&limit=200'),
+            driver.selectRows<Record<string, any>>('published_clips', 'select=*&order=created_at.desc&limit=200'),
+            driver.selectRows<Record<string, any>>('reel_comments', 'select=*&order=timestamp_ms.desc&limit=400'),
+            driver.selectRows<Record<string, any>>('marketplace_assets', 'select=*&limit=200'),
+            driver.selectRows<Record<string, any>>('beat_licenses', 'select=*&order=purchased_at.desc&limit=300'),
+            driver.selectRows<Record<string, any>>('sound_signatures', 'select=*&limit=200'),
+            driver.selectRows<Record<string, any>>('user_library_sync', 'select=*&limit=500'),
+            driver.selectRows<Record<string, any>>('playlists', 'select=*&limit=200'),
+            driver.selectRows<Record<string, any>>('generation_jobs', 'select=*&order=updated_at.desc&limit=200'),
+            driver.selectRows<Record<string, any>>('voice_clones', 'select=*&limit=200'),
+            driver.selectRows<Record<string, any>>('social_interactions', 'select=*&limit=1000'),
+            driver.selectRows<Record<string, any>>('wallet_ledger', 'select=*&order=created_at.desc&limit=500'),
+            driver.selectRows<Record<string, any>>('bank_accounts', 'select=*&limit=200'),
+            driver.selectRows<Record<string, any>>('payment_topups', 'select=*&order=created_at.desc&limit=300'),
+            driver.selectRows<Record<string, any>>('sync_mutation_log', 'select=*&order=seq.asc&limit=300'),
+            driver.selectRows<Record<string, any>>('notifications', 'select=*&order=created_at.desc&limit=500'),
+            driver.selectRows<Record<string, any>>('creator_quotas', 'select=*&limit=300'),
+          ]),
+          4500,
+        );
+        if (!res.ok) {
+          return;
+        }
         const [
           creatorsRows,
           usersRows,
@@ -576,33 +713,7 @@ export class EdgeIsolateDatabaseEngine {
           mutationRows,
           notificationRows,
           quotaRows,
-        ] = await EdgeIsolateDatabaseEngine.withTimeout(
-          Promise.all([
-            driver.selectRows<Record<string, any>>('creators', 'select=*&limit=300').catch(() => []),
-            driver.selectRows<Record<string, any>>('users', 'select=*&limit=300').catch(() => []),
-            driver.selectRows<Record<string, any>>('auth_sessions', 'select=*&revoked=eq.false&order=rotated_at.desc&limit=300').catch(() => []),
-            driver.selectRows<Record<string, any>>('explore_tracks', 'select=*&limit=200').catch(() => []),
-            driver.selectRows<Record<string, any>>('kinetic_posts', 'select=*&order=created_at.desc&limit=200').catch(() => []),
-            driver.selectRows<Record<string, any>>('published_clips', 'select=*&order=created_at.desc&limit=200').catch(() => []),
-            driver.selectRows<Record<string, any>>('reel_comments', 'select=*&order=timestamp_ms.desc&limit=400').catch(() => []),
-            driver.selectRows<Record<string, any>>('marketplace_assets', 'select=*&limit=200').catch(() => []),
-            driver.selectRows<Record<string, any>>('beat_licenses', 'select=*&order=purchased_at.desc&limit=300').catch(() => []),
-            driver.selectRows<Record<string, any>>('sound_signatures', 'select=*&limit=200').catch(() => []),
-            driver.selectRows<Record<string, any>>('user_library_sync', 'select=*&limit=500').catch(() => []),
-            driver.selectRows<Record<string, any>>('playlists', 'select=*&limit=200').catch(() => []),
-            driver.selectRows<Record<string, any>>('generation_jobs', 'select=*&order=updated_at.desc&limit=200').catch(() => []),
-            driver.selectRows<Record<string, any>>('voice_clones', 'select=*&limit=200').catch(() => []),
-            driver.selectRows<Record<string, any>>('social_interactions', 'select=*&limit=1000').catch(() => []),
-            driver.selectRows<Record<string, any>>('wallet_ledger', 'select=*&order=created_at.desc&limit=500').catch(() => []),
-            driver.selectRows<Record<string, any>>('bank_accounts', 'select=*&limit=200').catch(() => []),
-            driver.selectRows<Record<string, any>>('payment_topups', 'select=*&order=created_at.desc&limit=300').catch(() => []),
-            driver.selectRows<Record<string, any>>('sync_mutation_log', 'select=*&order=seq.asc&limit=300').catch(() => []),
-            driver.selectRows<Record<string, any>>('notifications', 'select=*&order=created_at.desc&limit=500').catch(() => []),
-            driver.selectRows<Record<string, any>>('creator_quotas', 'select=*&limit=300').catch(() => []),
-          ]),
-          4500,
-          Array.from({ length: 21 }, () => [] as Record<string, any>[]),
-        );
+        ] = res.value;
 
         for (const cr of creatorsRows) {
           const cid = canonicalizeCreatorId(String(cr.id ?? ''));
@@ -658,69 +769,8 @@ export class EdgeIsolateDatabaseEngine {
           });
         }
 
-        for (const t of exploreRows) {
-          if (!t.id) continue;
-          const id = String(t.id);
-          const stems = t.stems_json && typeof t.stems_json === 'object' ? t.stems_json : {};
-          const updatedIso = new Date(Number(t.updated_at || Date.now())).toISOString();
-          this.exploreTracks.set(id, {
-            id,
-            title: String(t.title ?? 'Untitled Track'),
-            artist_id: String(t.creator_id ?? 'creator_cern'),
-            artist_name: String(t.artist ?? 'Vhunambi Creator'),
-            genre: String(t.genre ?? 'Amapiano'),
-            audio_url: String(t.audio_url ?? ''),
-            bpm: Number(t.bpm ?? 113),
-            play_count: Number(t.plays_count ?? 0),
-            like_count: Number(t.likes_count ?? 0),
-            cosign_count: Number(t.cosigns_count ?? 0),
-            discovery_stage:
-              Number(t.plays_count ?? 0) >= 8000
-                ? 'mainstage'
-                : Number(t.plays_count ?? 0) >= 1500
-                  ? 'risingBreakout'
-                  : 'freshCrate',
-            data_json: JSON.stringify({
-              subGenre: t.sub_genre ?? '',
-              province: t.region ?? 'South Africa',
-              musicalKey: t.musical_key ?? 'Am',
-              coverUrl: t.cover_url ?? '',
-              durationMs: Number(t.duration_sec ?? 180) * 1000,
-              stemsAvailable: Object.keys(stems).length > 0,
-              isNew: Boolean(t.is_featured ?? false),
-            }),
-            created_at: updatedIso,
-            updated_at: updatedIso,
-          });
-        }
-
-        for (const kp of postsRows) {
-          if (!kp.id) continue;
-          const dataObj =
-            kp.data_json && typeof kp.data_json === 'object'
-              ? kp.data_json
-              : {};
-          this.kineticPosts.set(String(kp.id), {
-            id: String(kp.id),
-            creator_id: String(kp.creator_id ?? 'creator_cern'),
-            creator_handle: String(kp.creator_handle ?? '@cern'),
-            creator_name: String(kp.creator_name ?? 'Cern'),
-            caption: String(kp.caption ?? ''),
-            media_type: String((dataObj as Record<string, unknown>).mediaType ?? 'audio_card'),
-            like_count: Number(kp.like_count ?? (dataObj as Record<string, unknown>).likeCount ?? 0),
-            comment_count: Number(kp.comment_count ?? (dataObj as Record<string, unknown>).commentCount ?? 0),
-            cosign_count: Number(kp.cosign_count ?? 0),
-            cosign_target: Number((dataObj as Record<string, unknown>).cosignTarget ?? 25),
-            repost_count: Number(kp.repost_count ?? 0),
-            discovery_stage: String(kp.discovery_stage ?? 'freshCrate'),
-            data_json:
-              typeof kp.data_json === 'string'
-                ? kp.data_json
-                : JSON.stringify(dataObj),
-            created_at: new Date(Number(kp.created_at || Date.now())).toISOString(),
-            updated_at: new Date(Number(kp.updated_at || Date.now())).toISOString(),
-          });
-        }
+        this.hydrateExploreTrackRows(exploreRows);
+        this.hydrateKineticPostRows(postsRows);
 
         for (const pc of clipsRows) {
           if (!pc.id) continue;
@@ -756,36 +806,7 @@ export class EdgeIsolateDatabaseEngine {
           });
         }
 
-        for (const rc of commentsRows) {
-          if (!rc.id) continue;
-          const parsed =
-            rc.data_json && typeof rc.data_json === 'object'
-              ? (rc.data_json as Record<string, any>)
-              : {};
-          const createdIso = new Date(Number(rc.timestamp_ms || Date.now())).toISOString();
-          const parentCommentId = rc.parent_comment_id ?? parsed.parentCommentId ?? null;
-          const replyToHandle = rc.reply_to_handle ?? parsed.replyToHandle ?? null;
-          this.reelComments.set(String(rc.id), {
-            id: String(rc.id),
-            reel_id: String(rc.clip_id),
-            creator_id: String(rc.user_id),
-            content: String(rc.text ?? ''),
-            language_code: parsed.languageCode ? String(parsed.languageCode) : null,
-            parent_comment_id: parentCommentId,
-            reply_to_handle: replyToHandle,
-            data_json: JSON.stringify({
-              ...parsed,
-              id: String(rc.id),
-              clipId: String(rc.clip_id),
-              userId: String(rc.user_id),
-              text: String(rc.text ?? ''),
-              ...(parentCommentId ? { parentCommentId: String(parentCommentId) } : {}),
-              ...(replyToHandle ? { replyToHandle: String(replyToHandle) } : {}),
-              createdAt: parsed.createdAt ?? createdIso,
-            }),
-            created_at: createdIso,
-          });
-        }
+        this.hydrateReelCommentRows(commentsRows);
 
         for (const ma of assetsRows) {
           if (!ma.id) continue;
@@ -1010,58 +1031,485 @@ export class EdgeIsolateDatabaseEngine {
           });
         }
 
-        for (const nr of notificationRows) {
-          if (!nr.id) continue;
-          const id = String(nr.id);
-          const cid = canonicalizeCreatorId(String(nr.user_id ?? 'creator_cern'));
-          const metaObj =
-            nr.metadata_json && typeof nr.metadata_json === 'object'
-              ? (nr.metadata_json as Record<string, any>)
-              : {};
-          this.notifications.set(id, {
-            id,
-            userId: cid,
-            title: String(nr.title ?? 'Notification'),
-            message: String(nr.body ?? nr.message ?? ''),
-            body: String(nr.body ?? nr.message ?? ''),
-            category: (nr.category as NotificationRecord['category']) ?? 'creatorActivity',
-            subtype: nr.subtype ? String(nr.subtype) : null,
-            priority: (nr.priority as NotificationRecord['priority']) ?? 'normal',
-            isRead: Boolean(nr.is_read),
-            targetRoute: nr.target_route ? String(nr.target_route) : null,
-            targetEntityId: nr.target_entity_id ? String(nr.target_entity_id) : null,
-            ctaLabel: nr.cta_label ? String(nr.cta_label) : null,
-            metadata: metaObj,
-            createdAt: String(nr.created_at ?? new Date().toISOString()),
-          });
-        }
+        this.hydrateNotificationRows(notificationRows);
+        this.hydrateCreatorQuotaRows(quotaRows);
 
-        for (const qr of quotaRows) {
-          if (!qr.user_id) continue;
-          const cid = canonicalizeCreatorId(String(qr.user_id));
-          const limit = Number(qr.free_monthly_songs_limit ?? 10);
-          const used = Number(qr.free_monthly_songs_used ?? 0);
-          this.creatorQuotas.set(cid, {
-            userId: cid,
-            planTier: String(qr.plan_tier ?? 'free'),
-            freeMonthlySongsLimit: limit,
-            freeMonthlySongsUsed: used,
-            freeMonthlySongsRemaining: Math.max(0, limit - used),
-            cycleResetAt: String(
-              qr.cycle_reset_at ??
-              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            ),
-            updatedAt: String(qr.updated_at ?? new Date().toISOString()),
-          });
-        }
+        const nowMs = Date.now();
+        this.domainHydratedAtMs.set('cold_start:core', nowMs);
+        this.domainHydratedAtMs.set('explore:global', nowMs);
       } finally {
-        this.coldStartHydrated = true;
         this.coldStartHydrationPromise = null;
       }
     })();
 
     this.coldStartHydrationPromise = hydrateTask;
     return hydrateTask;
+  }
+
+  private hydrateExploreTrackRows(exploreRows: Array<Record<string, any>>): void {
+    for (const t of exploreRows) {
+      if (!t.id) continue;
+      const updatedIso = new Date(Number(t.updated_at || Date.now())).toISOString();
+      const createdIso = new Date(
+        Number(t.created_at || t.updated_at || Date.now()),
+      ).toISOString();
+      const stems =
+        t.stems_json && typeof t.stems_json === 'object' ? t.stems_json : {};
+      const parsedData =
+        t.data_json && typeof t.data_json === 'object'
+          ? (t.data_json as Record<string, any>)
+          : {};
+      const normalizedMoodId = normalizeVhunambiMoodId(
+        t.mood_id ?? parsedData.moodId ?? t.mood ?? parsedData.mood,
+      );
+      const description = String(t.description ?? parsedData.description ?? '');
+      const allowOpenStemsRemix = Boolean(
+        t.allow_open_stems_remix ??
+        parsedData.allowOpenStemsRemix ??
+        Object.keys(stems).length > 0,
+      );
+      const playsCount = Number(t.plays_count ?? parsedData.playCount ?? 0);
+      const discoveryStage = String(
+        t.discovery_stage ??
+        parsedData.discoveryStage ??
+        (playsCount >= 8000
+          ? 'mainstage'
+          : playsCount >= 1500
+            ? 'risingBreakout'
+            : 'freshCrate'),
+      );
+      const moodLabel = String(t.mood ?? parsedData.mood ?? 'Vibrant');
+      const languageLabel = String(t.language ?? parsedData.language ?? 'isiZulu');
+
+      this.exploreTracks.set(String(t.id), {
+        id: String(t.id),
+        title: String(t.title ?? 'Untitled Track'),
+        artist_name: String(t.artist ?? 'Vhunambi Creator'),
+        artist_id: canonicalizeCreatorId(String(t.creator_id ?? 'creator_cern')),
+        genre: String(t.genre ?? 'Amapiano'),
+        language: languageLabel,
+        audio_url: String(t.audio_url ?? ''),
+        bpm: Number(t.bpm ?? 113),
+        play_count: playsCount,
+        like_count: Number(t.likes_count ?? parsedData.likeCount ?? 0),
+        cosign_count: Number(t.cosigns_count ?? parsedData.cosignCount ?? 0),
+        discovery_stage: discoveryStage,
+        mood_id: normalizedMoodId,
+        description,
+        allow_open_stems_remix: allowOpenStemsRemix ? 1 : 0,
+        data_json: JSON.stringify({
+          ...parsedData,
+          subGenre: t.sub_genre ?? parsedData.subGenre ?? '',
+          province: t.region ?? parsedData.province ?? 'South Africa',
+          mood: moodLabel,
+          moodId: normalizedMoodId,
+          language: languageLabel,
+          description,
+          allowOpenStemsRemix,
+          musicalKey: t.musical_key ?? parsedData.musicalKey ?? 'Am',
+          coverUrl: t.cover_url ?? parsedData.coverUrl ?? '',
+          durationMs: Number(t.duration_sec ?? 180) * 1000,
+          stemsAvailable: Object.keys(stems).length > 0,
+          isNew: Boolean(t.is_featured ?? parsedData.isNew ?? false),
+        }),
+        created_at: createdIso,
+        updated_at: updatedIso,
+      });
+    }
+  }
+
+  private hydrateKineticPostRows(postsRows: Array<Record<string, any>>): void {
+    for (const kp of postsRows) {
+      if (!kp.id) continue;
+      const dataObj =
+        kp.data_json && typeof kp.data_json === 'object'
+          ? (kp.data_json as Record<string, any>)
+          : {};
+      this.kineticPosts.set(String(kp.id), {
+        id: String(kp.id),
+        creator_id: String(kp.creator_id ?? 'creator_cern'),
+        creator_handle: String(kp.creator_handle ?? '@cern'),
+        creator_name: String(kp.creator_name ?? 'Cern'),
+        caption: String(kp.caption ?? ''),
+        media_type: String(dataObj.mediaType ?? 'audio_card'),
+        like_count: Number(kp.like_count ?? dataObj.likeCount ?? 0),
+        comment_count: Number(kp.comment_count ?? dataObj.commentCount ?? 0),
+        cosign_count: Number(kp.cosign_count ?? 0),
+        cosign_target: Number(dataObj.cosignTarget ?? 25),
+        repost_count: Number(kp.repost_count ?? 0),
+        discovery_stage: String(kp.discovery_stage ?? 'freshCrate'),
+        data_json:
+          typeof kp.data_json === 'string' ? kp.data_json : JSON.stringify(dataObj),
+        created_at: new Date(Number(kp.created_at || Date.now())).toISOString(),
+        updated_at: new Date(Number(kp.updated_at || Date.now())).toISOString(),
+      });
+    }
+  }
+
+  private hydrateReelCommentRows(commentsRows: Array<Record<string, any>>): void {
+    for (const rc of commentsRows) {
+      if (!rc.id) continue;
+      const parsed =
+        rc.data_json && typeof rc.data_json === 'object'
+          ? (rc.data_json as Record<string, any>)
+          : {};
+      const createdIso = new Date(Number(rc.timestamp_ms || Date.now())).toISOString();
+      const parentCommentId = rc.parent_comment_id ?? parsed.parentCommentId ?? null;
+      const replyToHandle = rc.reply_to_handle ?? parsed.replyToHandle ?? null;
+      const likesCount = Number(rc.likes_count ?? parsed.likeCount ?? 0);
+      const userId = String(rc.user_id ?? parsed.userId ?? 'creator_cern');
+      const username = String(
+        rc.username ?? parsed.username ?? `@${userId.replace(/^creator_/, '')}`,
+      );
+      const displayName = String(
+        rc.display_name ?? parsed.displayName ?? parsed.creatorName ?? 'Creator',
+      );
+      const avatarUrl = String(rc.avatar_url ?? parsed.avatarUrl ?? '');
+      const isCreator = Boolean(rc.is_creator ?? parsed.isCreator ?? false);
+
+      this.reelComments.set(String(rc.id), {
+        id: String(rc.id),
+        reel_id: String(rc.clip_id),
+        creator_id: userId,
+        username,
+        display_name: displayName,
+        avatar_url: avatarUrl,
+        is_creator: isCreator,
+        likes_count: likesCount,
+        content: String(rc.text ?? ''),
+        language_code: parsed.languageCode ? String(parsed.languageCode) : null,
+        parent_comment_id: parentCommentId,
+        reply_to_handle: replyToHandle,
+        data_json: JSON.stringify({
+          ...parsed,
+          id: String(rc.id),
+          clipId: String(rc.clip_id),
+          userId,
+          username,
+          displayName,
+          avatarUrl,
+          isCreator,
+          text: String(rc.text ?? ''),
+          likeCount: likesCount,
+          userReelLoves: Number(rc.user_reel_loves ?? parsed.userReelLoves ?? 0),
+          ...(rc.gift_emoji ? { giftEmoji: String(rc.gift_emoji) } : {}),
+          ...(rc.gift_name ? { giftName: String(rc.gift_name) } : {}),
+          ...(parentCommentId ? { parentCommentId: String(parentCommentId) } : {}),
+          ...(replyToHandle ? { replyToHandle: String(replyToHandle) } : {}),
+          createdAt: parsed.createdAt ?? createdIso,
+        }),
+        created_at: createdIso,
+      });
+    }
+  }
+
+  private hydrateNotificationRows(notificationRows: Array<Record<string, any>>): void {
+    for (const nr of notificationRows) {
+      if (!nr.id) continue;
+      const id = String(nr.id);
+      const cid = canonicalizeCreatorId(String(nr.user_id ?? 'creator_cern'));
+      const metaObj =
+        nr.metadata_json && typeof nr.metadata_json === 'object'
+          ? (nr.metadata_json as Record<string, any>)
+          : {};
+      this.notifications.set(id, {
+        id,
+        userId: cid,
+        title: String(nr.title ?? 'Notification'),
+        message: String(nr.body ?? nr.message ?? ''),
+        body: String(nr.body ?? nr.message ?? ''),
+        category: (nr.category as NotificationRecord['category']) ?? 'creatorActivity',
+        subtype: nr.subtype ? String(nr.subtype) : null,
+        priority: (nr.priority as NotificationRecord['priority']) ?? 'normal',
+        isRead: Boolean(nr.is_read),
+        targetRoute: nr.target_route ? String(nr.target_route) : null,
+        targetEntityId: nr.target_entity_id ? String(nr.target_entity_id) : null,
+        ctaLabel: nr.cta_label ? String(nr.cta_label) : null,
+        metadata: metaObj,
+        createdAt: String(nr.created_at ?? new Date().toISOString()),
+      });
+    }
+  }
+
+  private hydrateCreatorQuotaRows(quotaRows: Array<Record<string, any>>): void {
+    for (const qr of quotaRows) {
+      if (!qr.user_id) continue;
+      const cid = canonicalizeCreatorId(String(qr.user_id));
+      const limit = Number(qr.free_monthly_songs_limit ?? 10);
+      const used = Number(qr.free_monthly_songs_used ?? 0);
+      this.creatorQuotas.set(cid, {
+        userId: cid,
+        planTier: String(qr.plan_tier ?? 'free'),
+        freeMonthlySongsLimit: limit,
+        freeMonthlySongsUsed: used,
+        freeMonthlySongsRemaining: Math.max(0, limit - used),
+        cycleResetAt: String(
+          qr.cycle_reset_at ??
+          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        ),
+        updatedAt: String(qr.updated_at ?? new Date().toISOString()),
+      });
+    }
+  }
+
+  public async syncNotificationsFromCloud(
+    userId: string,
+    cOrEnv?: unknown,
+  ): Promise<NotificationRecord[]> {
+    const cid = canonicalizeCreatorId(userId);
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) {
+      return this.listNotifications(cid);
+    }
+    const domainKey = `notifications:${cid}`;
+    const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+      driver.selectRows<Record<string, any>>(
+        'notifications',
+        `select=*&user_id=eq.${encodeURIComponent(cid)}&order=created_at.desc&limit=500`,
+      ),
+      3500,
+    );
+    if (res.ok) {
+      this.hydrateNotificationRows(res.value);
+      this.domainHydratedAtMs.set(domainKey, Date.now());
+    }
+    return this.listNotifications(cid);
+  }
+
+  public async syncCreatorQuotaFromCloud(
+    userId: string,
+    cOrEnv?: unknown,
+  ): Promise<CreatorQuotaRecord> {
+    const cid = canonicalizeCreatorId(userId);
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) {
+      return this.getCreatorQuota(cid);
+    }
+    const domainKey = `quota:${cid}`;
+    const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+      driver.selectRows<Record<string, any>>(
+        'creator_quotas',
+        `select=*&user_id=eq.${encodeURIComponent(cid)}&limit=1`,
+      ),
+      3000,
+    );
+    if (res.ok) {
+      this.hydrateCreatorQuotaRows(res.value);
+      this.domainHydratedAtMs.set(domainKey, Date.now());
+    }
+    return this.getCreatorQuota(cid);
+  }
+
+  public async syncGenerationJobFromCloud(
+    genId: string,
+    cOrEnv?: unknown,
+  ): Promise<GenerationJob | null> {
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) {
+      return this.getGenerationJob(genId);
+    }
+    const domainKey = `generation:${genId}`;
+    const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+      driver.selectRows<Record<string, any>>(
+        'generation_jobs',
+        `select=*&generation_id=eq.${encodeURIComponent(genId)}&limit=1`,
+      ),
+      3000,
+    );
+    if (res.ok) {
+      this.domainHydratedAtMs.set(domainKey, Date.now());
+      const gj = res.value[0];
+      if (gj && gj.generation_id) {
+        const existing = this.generationJobs.get(genId);
+        const remoteStatus = String(gj.status ?? 'queued');
+        const remoteUpdatedMs = Number(gj.updated_at || 0);
+        const existingUpdatedMs = existing?.job.updatedAt.getTime() ?? 0;
+        if (
+          !existing ||
+          (remoteStatus === 'succeeded' && existing.job.status !== 'succeeded') ||
+          (remoteStatus === 'failed' && existing.job.status !== 'failed') ||
+          remoteUpdatedMs >= existingUpdatedMs
+        ) {
+          const mapped = this.mapSupabaseGenerationJobRow(gj, existing?.job);
+          this.generationJobs.set(mapped.generationId, {
+            job: mapped,
+            creatorId: canonicalizeCreatorId(
+              String(gj.creator_id ?? existing?.creatorId ?? 'creator_cern'),
+            ),
+            jobKind: String(gj.job_kind ?? existing?.jobKind ?? 'audio_synthesis'),
+          });
+          return mapped;
+        }
+      }
+    }
+    return this.getGenerationJob(genId);
+  }
+
+  public async syncExploreFromCloud(
+    force = false,
+    cOrEnv?: unknown,
+  ): Promise<boolean> {
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) return false;
+
+    const domainKey = 'explore:global';
+    const lastHydrated = this.domainHydratedAtMs.get(domainKey) ?? 0;
+    if (
+      !force &&
+      lastHydrated > 0 &&
+      Date.now() - lastHydrated < EdgeIsolateDatabaseEngine.DEFAULT_SWR_TTL_MS
+    ) {
+      return true;
+    }
+
+    const existingFlight = this.domainInFlightPromises.get(domainKey);
+    if (existingFlight && !force) {
+      return existingFlight;
+    }
+
+    const syncPromise = (async (): Promise<boolean> => {
+      const [tracksRes, postsRes, commentsRes] = await Promise.all([
+        EdgeIsolateDatabaseEngine.withTimeoutResult(
+          driver.selectRows<Record<string, any>>(
+            'explore_tracks',
+            'select=*&order=updated_at.desc&limit=200',
+          ),
+          3500,
+        ),
+        EdgeIsolateDatabaseEngine.withTimeoutResult(
+          driver.selectRows<Record<string, any>>(
+            'kinetic_posts',
+            'select=*&order=created_at.desc&limit=200',
+          ),
+          3500,
+        ),
+        EdgeIsolateDatabaseEngine.withTimeoutResult(
+          driver.selectRows<Record<string, any>>(
+            'reel_comments',
+            'select=*&order=timestamp_ms.desc&limit=400',
+          ),
+          3500,
+        ),
+      ]);
+
+      if (tracksRes.ok) this.hydrateExploreTrackRows(tracksRes.value);
+      if (postsRes.ok) this.hydrateKineticPostRows(postsRes.value);
+      if (commentsRes.ok) this.hydrateReelCommentRows(commentsRes.value);
+
+      const allSucceeded = tracksRes.ok && postsRes.ok && commentsRes.ok;
+      if (allSucceeded) {
+        this.domainHydratedAtMs.set(domainKey, Date.now());
+      }
+      return allSucceeded;
+    })().finally(() => {
+      if (this.domainInFlightPromises.get(domainKey) === syncPromise) {
+        this.domainInFlightPromises.delete(domainKey);
+      }
+    });
+
+    this.domainInFlightPromises.set(domainKey, syncPromise);
+    return syncPromise;
+  }
+
+  public async syncCreatorWalletFromCloud(
+    creatorId: string,
+    cOrEnv?: unknown,
+  ): Promise<boolean> {
+    const cid = canonicalizeCreatorId(creatorId);
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) return false;
+
+    const domainKey = `wallet:${cid}`;
+    const [walletRes, bankRes, topupRes] = await Promise.all([
+      EdgeIsolateDatabaseEngine.withTimeoutResult(
+        driver.selectRows<Record<string, any>>(
+          'wallet_ledger',
+          `select=*&creator_id=eq.${encodeURIComponent(cid)}&order=created_at.desc&limit=500`,
+        ),
+        3500,
+      ),
+      EdgeIsolateDatabaseEngine.withTimeoutResult(
+        driver.selectRows<Record<string, any>>(
+          'bank_accounts',
+          `select=*&creator_id=eq.${encodeURIComponent(cid)}&limit=50`,
+        ),
+        3500,
+      ),
+      EdgeIsolateDatabaseEngine.withTimeoutResult(
+        driver.selectRows<Record<string, any>>(
+          'payment_topups',
+          `select=*&creator_id=eq.${encodeURIComponent(cid)}&order=created_at.desc&limit=100`,
+        ),
+        3500,
+      ),
+    ]);
+
+    if (walletRes.ok) {
+      const mapped = walletRes.value
+        .filter((wl) => Boolean(wl.id))
+        .map((wl) => ({
+          id: String(wl.id),
+          creator_id: cid,
+          type: String(wl.type ?? 'topup'),
+          amount_zar: Number(wl.amount_zar ?? 0),
+          amount_coins: Number(wl.amount_coins ?? 0),
+          status: String(wl.status ?? 'completed'),
+          reference: String(wl.reference ?? ''),
+          data_json:
+            typeof wl.metadata_json === 'string'
+              ? wl.metadata_json
+              : JSON.stringify(wl.metadata_json ?? {}),
+          created_at: String(wl.created_at ?? new Date().toISOString()),
+        }));
+      const existingList = this.walletLedger.get(cid) ?? [];
+      const seenIds = new Set(mapped.map((r) => String(r.id)));
+      this.walletLedger.set(cid, [
+        ...mapped,
+        ...existingList.filter((r) => !seenIds.has(String(r.id))),
+      ]);
+    }
+    if (bankRes.ok) {
+      for (const ba of bankRes.value) {
+        if (!ba.id) continue;
+        this.bankAccounts.set(String(ba.id), {
+          id: String(ba.id),
+          creatorId: cid,
+          bankName: String(ba.bank_name ?? ''),
+          branchCode: String(ba.branch_code ?? ''),
+          maskedAccount: String(ba.account_number_masked ?? ''),
+          paymentRail: String(ba.payout_rail ?? 'payfast'),
+          accountHolder: ba.account_holder ? String(ba.account_holder) : null,
+          updatedAt: String(ba.updated_at ?? new Date().toISOString()),
+        });
+      }
+    }
+    if (topupRes.ok) {
+      for (const pt of topupRes.value) {
+        if (!pt.checkout_id) continue;
+        this.payfastCheckouts.set(String(pt.checkout_id), {
+          checkoutId: String(pt.checkout_id),
+          creatorId: cid,
+          provider: String(pt.provider ?? 'payfast'),
+          providerPaymentId: pt.provider_payment_id ? String(pt.provider_payment_id) : null,
+          packId: String(pt.pack_id ?? 'pack_producer_1500'),
+          amountZar: Number(pt.amount_zar ?? 0),
+          coinsGranted: Number(pt.coins_granted ?? 0),
+          status: String(pt.status ?? 'pending'),
+          signatureMd5: String(pt.signature_md5 ?? ''),
+          verifiedAt: pt.verified_at ? String(pt.verified_at) : null,
+          createdAt: String(pt.created_at ?? new Date().toISOString()),
+        });
+        if (pt.provider_payment_id) {
+          this.payfastByPfId.set(String(pt.provider_payment_id), String(pt.checkout_id));
+        }
+      }
+    }
+
+    const allOk = walletRes.ok && bankRes.ok && topupRes.ok;
+    if (allOk) {
+      this.domainHydratedAtMs.set(domainKey, Date.now());
+    }
+    return allOk;
   }
 
   private appendMutation(entry: {
@@ -1522,6 +1970,7 @@ export class EdgeIsolateDatabaseEngine {
           : t.plays >= 1500 || t.cosigns >= 60
             ? 'risingBreakout'
             : 'freshCrate';
+      const normalizedMoodId = normalizeVhunambiMoodId(t.mood);
       this.exploreTracks.set(t.id, {
         id: t.id,
         title: t.title,
@@ -1534,11 +1983,17 @@ export class EdgeIsolateDatabaseEngine {
         like_count: t.likes,
         cosign_count: t.cosigns,
         discovery_stage: stage,
+        mood_id: normalizedMoodId,
+        description: '',
+        allow_open_stems_remix: t.stemsAvailable ? 1 : 0,
         data_json: JSON.stringify({
           subGenre: t.subGenre,
           language: t.language,
           province: t.province,
           mood: t.mood,
+          moodId: normalizedMoodId,
+          description: '',
+          allowOpenStemsRemix: t.stemsAvailable,
           musicalKey: t.musicalKey,
           coverUrl: t.coverUrl,
           durationMs: t.durationMs,
@@ -1714,9 +2169,11 @@ export class EdgeIsolateDatabaseEngine {
 
         const entityId = String(
           m.payload?.id ||
+          m.payload?.trackId ||
           m.payload?.postId ||
           m.payload?.originalPostId ||
           m.payload?.certificateId ||
+          (m as { entityId?: string }).entityId ||
           `gen_${Date.now()}`,
         );
         let shouldApply = true;
@@ -1748,7 +2205,17 @@ export class EdgeIsolateDatabaseEngine {
             }
           } else if (m.entityType === 'track') {
             const t = this.exploreTracks.get(entityId);
-            if (t) t.like_count = Number(t.like_count ?? 0) + 1;
+            if (t) {
+              t.like_count = Number(t.like_count ?? 0) + 1;
+              t.updated_at = new Date().toISOString();
+              this.mirrorWriteThrough('explore_tracks.like', async (driver) => {
+                await driver.patchRows(
+                  'explore_tracks',
+                  `id=eq.${encodeURIComponent(entityId)}`,
+                  { likes_count: t.like_count, updated_at: Date.now() },
+                );
+              });
+            }
           }
         } else if (m.entityType === 'post' && m.action === 'create') {
           this.upsertKineticPost({
@@ -2194,6 +2661,15 @@ export class EdgeIsolateDatabaseEngine {
       language: String(data.language ?? 'isiZulu'),
       province: String(data.province ?? 'Gauteng'),
       mood: String(data.mood ?? 'Vibrant'),
+      moodId: normalizeVhunambiMoodId(
+        (r.mood_id as string | undefined) ??
+        (data.moodId as string | undefined) ??
+        (data.mood as string | undefined),
+      ),
+      description: String(r.description ?? data.description ?? ''),
+      allowOpenStemsRemix: Boolean(
+        r.allow_open_stems_remix ?? data.allowOpenStemsRemix ?? false,
+      ),
       bpm: Number(r.bpm ?? 113),
       musicalKey: String(data.musicalKey ?? 'Am'),
       audioUrl: String(r.audio_url ?? ''),
@@ -2230,6 +2706,8 @@ export class EdgeIsolateDatabaseEngine {
     options: {
       genre?: string;
       stage?: string;
+      moodId?: string;
+      mood?: string;
       sort?: 'trending' | 'newest' | 'likes' | 'plays';
       search?: string;
       limit?: number;
@@ -2261,6 +2739,14 @@ export class EdgeIsolateDatabaseEngine {
     ) {
       const st = options.stage.trim().toLowerCase();
       mapped = mapped.filter((t) => t.discoveryStage.toLowerCase() === st);
+    }
+
+    const rawMood = options.moodId ?? options.mood;
+    if (rawMood && rawMood.trim() !== '' && rawMood.toLowerCase() !== 'all') {
+      const targetMoodId = normalizeVhunambiMoodId(rawMood);
+      mapped = mapped.filter(
+        (t) => normalizeVhunambiMoodId(t.moodId ?? t.mood) === targetMoodId,
+      );
     }
 
     if (options.search && options.search.trim() !== '') {
@@ -2375,11 +2861,21 @@ export class EdgeIsolateDatabaseEngine {
           ? 'risingBreakout'
           : 'freshCrate'),
     );
+    const normalizedMoodId = normalizeVhunambiMoodId(
+      (input.moodId as string | undefined) ?? (input.mood as string | undefined),
+    );
+    const description = String(input.description ?? '');
+    const allowOpenStemsRemix = Boolean(
+      input.allowOpenStemsRemix ?? input.stemsAvailable ?? false,
+    );
     const dataJson = {
       subGenre: input.subGenre ?? 'Sgija',
       language: input.language ?? 'isiZulu',
       province: input.province ?? 'Gauteng',
       mood: input.mood ?? 'Vibrant',
+      moodId: normalizedMoodId,
+      description,
+      allowOpenStemsRemix,
       musicalKey: input.musicalKey ?? 'Am',
       coverUrl: input.coverUrl ?? '',
       durationMs: Number(input.durationMs ?? input.duration ?? 180000),
@@ -2405,13 +2901,16 @@ export class EdgeIsolateDatabaseEngine {
       like_count: likeCount,
       cosign_count: cosignCount,
       discovery_stage: stage,
+      mood_id: normalizedMoodId,
+      description,
+      allow_open_stems_remix: allowOpenStemsRemix ? 1 : 0,
       data_json: JSON.stringify(dataJson),
       created_at: String(existing?.created_at || input.createdAt || now),
       updated_at: now,
     };
     this.exploreTracks.set(id, row);
 
-    this.mirrorWriteThrough(async (driver) => {
+    this.mirrorWriteThrough('explore_tracks.upsert', async (driver) => {
       await driver.upsertRow(
         'explore_tracks',
         {
@@ -2422,6 +2921,9 @@ export class EdgeIsolateDatabaseEngine {
           genre,
           sub_genre: String(dataJson.subGenre ?? ''),
           region: String(dataJson.province ?? 'South Africa'),
+          mood: String(dataJson.mood ?? 'Vibrant'),
+          language: String(dataJson.language ?? 'isiZulu'),
+          discovery_stage: stage,
           bpm: Math.round(bpm),
           musical_key: String(dataJson.musicalKey ?? 'Am'),
           duration_sec: Math.max(1, Math.round(dataJson.durationMs / 1000)),
@@ -2432,6 +2934,11 @@ export class EdgeIsolateDatabaseEngine {
           likes_count: likeCount,
           cosigns_count: cosignCount,
           is_featured: Boolean(dataJson.isNew),
+          mood_id: normalizedMoodId,
+          description,
+          allow_open_stems_remix: allowOpenStemsRemix,
+          data_json: dataJson,
+          created_at: Date.parse(row.created_at) || Date.now(),
           updated_at: Date.now(),
         },
         'id',
@@ -3028,12 +3535,13 @@ export class EdgeIsolateDatabaseEngine {
         updated_at: updatedAtIso,
       });
 
-      this.mirrorWriteThrough(async (driver) => {
+      this.mirrorWriteThrough('user_library_sync.upsert', async (driver) => {
         await driver.upsertRow(
           'user_library_sync',
           {
             id,
             creator_id: effectiveCreator,
+            item_type: itemType,
             title,
             artist: String(merged.artistName || merged.artist || 'Vhunambi Creator'),
             genre: String(merged.genre || 'Amapiano'),
@@ -3051,6 +3559,7 @@ export class EdgeIsolateDatabaseEngine {
             master_file_sha256: merged.masterFileSha256 ? String(merged.masterFileSha256) : null,
             stems_json: merged.stemFilesJson ?? merged.stems ?? {},
             data_json: merged,
+            created_at: Date.parse(createdAt) || incomingUpdatedAtMs,
             updated_at: incomingUpdatedAtMs,
           },
           'id,creator_id',
@@ -4917,14 +5426,22 @@ export class EdgeIsolateDatabaseEngine {
     gj: Record<string, any>,
     existingJob?: GenerationJob,
   ): GenerationJob {
-    const manifest =
+    const rawManifestObj =
       gj.manifest_json && typeof gj.manifest_json === 'object'
-        ? (gj.manifest_json as GenerationJob['manifest'])
-        : existingJob?.manifest;
+        ? (gj.manifest_json as Record<string, any>)
+        : undefined;
+    const manifest = rawManifestObj
+      ? (rawManifestObj as GenerationJob['manifest'])
+      : existingJob?.manifest;
+    const visionMeta =
+      rawManifestObj?.visionMeta && typeof rawManifestObj.visionMeta === 'object'
+        ? (rawManifestObj.visionMeta as Record<string, unknown>)
+        : existingJob?.visionMeta;
     const resolvedCoverUrl =
       existingJob?.coverUrl ??
       manifest?.assets?.coverArt1x1Url ??
-      manifest?.assets?.coverArt9x16Url;
+      manifest?.assets?.coverArt9x16Url ??
+      (typeof visionMeta?.coverUrl === 'string' ? visionMeta.coverUrl : undefined);
     const rawStemUrls = gj.stem_urls_json;
     const hasRemoteStems =
       rawStemUrls &&
@@ -4951,6 +5468,7 @@ export class EdgeIsolateDatabaseEngine {
         ? String(gj.manifest_url)
         : existingJob?.manifestUrl,
       manifest,
+      visionMeta,
       coverUrl: resolvedCoverUrl,
       lyrics: existingJob?.lyrics,
       durationSec: Number(gj.duration_sec ?? existingJob?.durationSec ?? 180),
@@ -4973,64 +5491,24 @@ export class EdgeIsolateDatabaseEngine {
     generationId: string,
     cOrEnv?: unknown,
   ): Promise<GenerationJob | null> {
-    const existing = this.generationJobs.get(generationId);
-    const resolvedCtx = cOrEnv ?? EdgePersistenceBridge.getActiveContext();
-    const driver = EdgePersistenceBridge.getCloudDriver(
-      resolvedCtx as Context | Record<string, unknown> | undefined,
-    );
-    if (!driver.isConfigured()) {
-      return existing?.job ?? null;
-    }
-    try {
-      const rows = await EdgeIsolateDatabaseEngine.withTimeout(
-        driver.selectRows<Record<string, any>>(
-          'generation_jobs',
-          `select=*&generation_id=eq.${encodeURIComponent(generationId)}&limit=1`,
-        ),
-        3000,
-        [],
-      );
-      const gj = rows[0];
-      if (!gj || !gj.generation_id) {
-        return existing?.job ?? null;
-      }
-      const remoteStatus = String(gj.status ?? 'queued');
-      const remoteUpdatedMs = Number(gj.updated_at || 0);
-      const existingUpdatedMs = existing?.job.updatedAt.getTime() ?? 0;
-      if (
-        existing &&
-        existing.job.status === 'succeeded' &&
-        remoteStatus !== 'succeeded'
-      ) {
-        return existing.job;
-      }
-      if (
-        !existing ||
-        (remoteStatus === 'succeeded' && existing.job.status !== 'succeeded') ||
-        (remoteStatus === 'failed' && existing.job.status !== 'failed') ||
-        remoteUpdatedMs >= existingUpdatedMs
-      ) {
-        const mapped = this.mapSupabaseGenerationJobRow(gj, existing?.job);
-        this.generationJobs.set(mapped.generationId, {
-          job: mapped,
-          creatorId: canonicalizeCreatorId(
-            String(gj.creator_id ?? existing?.creatorId ?? 'creator_cern'),
-          ),
-          jobKind: String(gj.job_kind ?? existing?.jobKind ?? 'audio_synthesis'),
-        });
-        return mapped;
-      }
-    } catch {
-      // Best-effort cross-isolate Supabase lookup
-    }
-    return existing?.job ?? null;
+    return this.syncGenerationJobFromCloud(generationId, cOrEnv);
   }
 
-  public upsertGenerationJob(
+  private buildGenerationManifestPayload(
     job: GenerationJob,
-    creatorId = 'creator_cern',
-    jobKind = 'audio_synthesis',
-  ): void {
+  ): Record<string, unknown> | null {
+    if (!job.manifest && !job.visionMeta) return null;
+    return {
+      ...(job.manifest ?? {}),
+      ...(job.visionMeta ? { visionMeta: job.visionMeta } : {}),
+    };
+  }
+
+  private mergeAndStoreGenerationJob(
+    job: GenerationJob,
+    creatorId: string,
+    jobKind: string,
+  ): { merged: GenerationJob; effectiveCreatorId: string; payload: Record<string, unknown> } {
     const existing = this.generationJobs.get(job.generationId);
     const merged: GenerationJob = {
       ...(existing?.job ?? ({} as GenerationJob)),
@@ -5041,42 +5519,69 @@ export class EdgeIsolateDatabaseEngine {
       stemUrls: job.stemUrls ?? existing?.job.stemUrls,
       manifestUrl: job.manifestUrl ?? existing?.job.manifestUrl,
       manifest: job.manifest ?? existing?.job.manifest,
+      visionMeta: job.visionMeta ?? existing?.job.visionMeta,
       coverUrl: job.coverUrl ?? existing?.job.coverUrl,
       lyrics: job.lyrics ?? existing?.job.lyrics,
     };
     const effectiveCreatorId = canonicalizeCreatorId(creatorId);
+    const resolvedKind = existing?.jobKind && jobKind === 'audio_synthesis' ? existing.jobKind : jobKind;
     this.generationJobs.set(job.generationId, {
       job: merged,
       creatorId: effectiveCreatorId,
-      jobKind,
+      jobKind: resolvedKind,
     });
-    this.mirrorWriteThrough(async (driver) => {
-      await driver.upsertRow(
-        'generation_jobs',
-        {
-          generation_id: merged.generationId,
-          creator_id: effectiveCreatorId,
-          job_kind: jobKind,
-          provider_task_id: merged.providerTaskId ?? null,
-          status: merged.status,
-          step: merged.step,
-          progress_pct: Math.round(Number(merged.progressPct ?? 0)),
-          track_title: merged.trackTitle || 'Untitled Track',
-          genre: merged.genre || 'Amapiano',
-          language: merged.language || 'Instrumental',
-          duration_sec: Math.round(Number(merged.durationSec ?? 180)),
-          master_mp3_url: merged.masterMp3Url ?? null,
-          stems_zip_url: merged.stemsZipUrl ?? null,
-          stem_urls_json: merged.stemUrls ?? {},
-          manifest_url: merged.manifestUrl ?? null,
-          manifest_json: merged.manifest ?? null,
-          error_message: merged.errorMessage ?? null,
-          created_at: merged.createdAt ? merged.createdAt.getTime() : Date.now(),
-          updated_at: merged.updatedAt ? merged.updatedAt.getTime() : Date.now(),
-        },
-        'generation_id',
-      );
+    return {
+      merged,
+      effectiveCreatorId,
+      payload: {
+        generation_id: merged.generationId,
+        creator_id: effectiveCreatorId,
+        job_kind: resolvedKind,
+        provider_task_id: merged.providerTaskId ?? null,
+        status: merged.status,
+        step: merged.step,
+        progress_pct: Math.round(Number(merged.progressPct ?? 0)),
+        track_title: merged.trackTitle || 'Untitled Track',
+        genre: merged.genre || 'Amapiano',
+        language: merged.language || 'Instrumental',
+        duration_sec: Math.round(Number(merged.durationSec ?? 180)),
+        master_mp3_url: merged.masterMp3Url ?? null,
+        stems_zip_url: merged.stemsZipUrl ?? null,
+        stem_urls_json: merged.stemUrls ?? {},
+        manifest_url: merged.manifestUrl ?? null,
+        manifest_json: this.buildGenerationManifestPayload(merged),
+        error_message: merged.errorMessage ?? null,
+        created_at: merged.createdAt ? merged.createdAt.getTime() : Date.now(),
+        updated_at: merged.updatedAt ? merged.updatedAt.getTime() : Date.now(),
+      },
+    };
+  }
+
+  public upsertGenerationJob(
+    job: GenerationJob,
+    creatorId = 'creator_cern',
+    jobKind = 'audio_synthesis',
+  ): void {
+    const { payload } = this.mergeAndStoreGenerationJob(job, creatorId, jobKind);
+    this.mirrorWriteThrough('generation_jobs.upsert', async (driver) => {
+      await driver.upsertRow('generation_jobs', payload, 'generation_id');
     });
+  }
+
+  public async upsertGenerationJobAsync(
+    job: GenerationJob,
+    creatorId = 'creator_cern',
+    jobKind = 'audio_synthesis',
+    cOrEnv?: unknown,
+  ): Promise<void> {
+    const { payload } = this.mergeAndStoreGenerationJob(job, creatorId, jobKind);
+    await this.awaitWriteThrough(
+      'generation_jobs.upsert',
+      async (driver) => {
+        await driver.upsertRow('generation_jobs', payload, 'generation_id');
+      },
+      cOrEnv,
+    );
   }
 
   public getGenerationJob(generationId: string): GenerationJob | null {
@@ -5452,13 +5957,28 @@ export class EdgeIsolateDatabaseEngine {
       data.parentCommentId ?? r.parent_comment_id ?? undefined;
     const replyToHandle =
       data.replyToHandle ?? r.reply_to_handle ?? undefined;
+    const userId = String(data.userId ?? r.creator_id);
+    const username = String(
+      data.username ?? r.username ?? `@${userId.replace(/^creator_/, '')}`,
+    );
+    const displayName = String(
+      data.displayName ?? r.display_name ?? data.creatorName ?? 'Creator',
+    );
+    const avatarUrl = String(data.avatarUrl ?? r.avatar_url ?? '');
+    const isCreator = Boolean(data.isCreator ?? r.is_creator ?? false);
+    const likeCount = Number(r.likes_count ?? data.likeCount ?? 0);
+
     return {
       ...data,
       id: String(r.id),
       clipId: String(data.clipId ?? r.reel_id),
-      userId: String(data.userId ?? r.creator_id),
+      userId,
+      username,
+      displayName,
+      avatarUrl,
+      isCreator,
       text: String(data.text ?? r.content),
-      likeCount: Number(data.likeCount ?? 0),
+      likeCount,
       ...(parentCommentId ? { parentCommentId: String(parentCommentId) } : {}),
       ...(replyToHandle ? { replyToHandle: String(replyToHandle) } : {}),
       createdAt: String(data.createdAt ?? r.created_at),
@@ -5648,7 +6168,7 @@ export class EdgeIsolateDatabaseEngine {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  public upsertNotification(input: UpsertNotificationInput): NotificationRecord {
+  private buildNotificationRecord(input: UpsertNotificationInput): NotificationRecord {
     const cid = canonicalizeCreatorId(input.userId);
     const existing = this.notifications.get(input.id);
     const record: NotificationRecord = {
@@ -5677,27 +6197,47 @@ export class EdgeIsolateDatabaseEngine {
       createdAt: input.createdAt ?? existing?.createdAt ?? new Date().toISOString(),
     };
     this.notifications.set(record.id, record);
-    this.mirrorWriteThrough(async (driver) => {
-      await driver.upsertRow(
-        'notifications',
-        {
-          id: record.id,
-          user_id: record.userId,
-          title: record.title,
-          body: record.body,
-          category: record.category,
-          subtype: record.subtype,
-          priority: record.priority,
-          is_read: record.isRead,
-          target_route: record.targetRoute,
-          target_entity_id: record.targetEntityId,
-          cta_label: record.ctaLabel,
-          metadata_json: record.metadata,
-          created_at: record.createdAt,
-        },
-        'id',
-      );
+    return record;
+  }
+
+  private notificationRowPayload(record: NotificationRecord): Record<string, unknown> {
+    return {
+      id: record.id,
+      user_id: record.userId,
+      title: record.title,
+      body: record.body,
+      category: record.category,
+      subtype: record.subtype,
+      priority: record.priority,
+      is_read: record.isRead,
+      target_route: record.targetRoute,
+      target_entity_id: record.targetEntityId,
+      cta_label: record.ctaLabel,
+      metadata_json: record.metadata,
+      created_at: record.createdAt,
+    };
+  }
+
+  public upsertNotification(input: UpsertNotificationInput): NotificationRecord {
+    const record = this.buildNotificationRecord(input);
+    this.mirrorWriteThrough('notifications.upsert', async (driver) => {
+      await driver.upsertRow('notifications', this.notificationRowPayload(record), 'id');
     });
+    return record;
+  }
+
+  public async upsertNotificationAsync(
+    input: UpsertNotificationInput,
+    cOrEnv?: unknown,
+  ): Promise<NotificationRecord> {
+    const record = this.buildNotificationRecord(input);
+    await this.awaitWriteThrough(
+      'notifications.upsert',
+      async (driver) => {
+        await driver.upsertRow('notifications', this.notificationRowPayload(record), 'id');
+      },
+      cOrEnv,
+    );
     return record;
   }
 
@@ -5824,6 +6364,57 @@ export class EdgeIsolateDatabaseEngine {
       );
     });
     return updated;
+  }
+
+  public async consumeFreeMonthlySongQuotaAsync(
+    userId: string,
+    cOrEnv?: unknown,
+  ): Promise<AtomicQuotaConsumeResult> {
+    const cid = canonicalizeCreatorId(userId);
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (driver.isConfigured()) {
+      try {
+        const rpcRes = await driver.callRpc<Record<string, any>>(
+          'consume_free_monthly_song_quota_atomic',
+          { p_user_id: cid },
+        );
+        if (rpcRes && typeof rpcRes === 'object') {
+          const limit = Number(rpcRes.freeMonthlySongsLimit ?? 10);
+          const used = Number(rpcRes.freeMonthlySongsUsed ?? 0);
+          const remaining = Number(
+            rpcRes.freeMonthlySongsRemaining ?? Math.max(0, limit - used),
+          );
+          const record: CreatorQuotaRecord = {
+            userId: cid,
+            planTier: String(rpcRes.planTier ?? 'free'),
+            freeMonthlySongsLimit: limit,
+            freeMonthlySongsUsed: used,
+            freeMonthlySongsRemaining: remaining,
+            cycleResetAt: String(
+              rpcRes.cycleResetAt ??
+              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            ),
+            updatedAt: String(rpcRes.updatedAt ?? new Date().toISOString()),
+          };
+          this.creatorQuotas.set(cid, record);
+          this.domainHydratedAtMs.set(`quota:${cid}`, Date.now());
+          return {
+            ...record,
+            allowed: Boolean(rpcRes.allowed ?? true),
+          };
+        }
+      } catch (err) {
+        this.recordWriteThroughFailure('creator_quotas.consume_atomic_rpc', err);
+      }
+    }
+
+    const before = this.getCreatorQuota(cid);
+    const isPaid =
+      before.planTier.toLowerCase() !== 'free' || before.freeMonthlySongsLimit < 0;
+    const allowed =
+      isPaid || before.freeMonthlySongsUsed < before.freeMonthlySongsLimit;
+    const updated = allowed ? this.consumeFreeMonthlySongQuota(cid) : before;
+    return { ...updated, allowed };
   }
 }
 

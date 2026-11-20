@@ -192,6 +192,12 @@ When invoked (via `/vhunambi-forensic-auditor` or an audit/analysis request), ex
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
+│ STEP 0: CODEBASE MEMORY WAKE (`vhunambi-memory`)                             │
+│  • Read `docs/memory/CORTEX_INDEX.md` (< 6 KB) first.                        │
+│  • Run `node .agents/skills/vhunambi-memory/scripts/query_connectome.mjs     │
+│    --hubs <relevant_hubs>` (and `--open` or `--file <path>`) BEFORE grepping │
+│    so audits immediately surface OPEN backend routes & 2-hop hub relatives.  │
+├──────────────────────────────────────────────────────────────────────────────┤
 │ STEP 1: SCOPE DEFINITION & PRIOR AUDIT DISCOVERY                             │
 │  • Identify which archetype(s) apply (A: Crash/Stability, B: Cloud/GPU E2E,  │
 │    C: UI/UX & Stubs, D: Subsystem Deep-Dive).                                │

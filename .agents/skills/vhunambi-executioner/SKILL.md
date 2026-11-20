@@ -92,6 +92,11 @@ Never dump edits across 25 files across all milestones at once without intermedi
 ### Law 8: Full-Stack Final Sign-Off Gate
 A phase execution is NOT complete until all applicable stack gates pass with zero errors and `tasks.md` has every milestone checked off (`[x]`).
 
+### Law 9: Sleep & Memory Consolidation (`vhunambi-memory`)
+Only **after** Law 8 passes (`flutter analyze`, `npx tsc --noEmit`, and bounded test suites all green):
+1. Update the phase's `memory.md` (or `docs/memory/sprints/P<id>_memory.md` for un-spec'd sprints) to `"status": "completed"` with verified `code_anchor` paths, `consumes[]`, `endpoints[]`, `breakthroughs[]`, and `gotchas[]`.
+2. Run `node .agents/skills/vhunambi-memory/scripts/consolidate_memory.mjs` to update `docs/memory/CONNECTOME_GRAPH.json`, regenerate `docs/memory/CORTEX_INDEX.md`, promote any claimed `OPEN` endpoints to `CONNECTED_EXTENSIBLE`, and inspect the Dream Ripple Report.
+
 ---
 
 ## 3. Step-by-Step Stage 4 Execution Playbook
@@ -100,9 +105,10 @@ When invoked (via `/vhunambi-executioner` or a phase implementation prompt), fol
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ STEP 1: PHASE SUITE INGESTION & MILESTONE QUEUE INITIALIZATION              │
+│ STEP 1: MEMORY WAKE, PHASE SUITE INGESTION & MILESTONE QUEUE INITIALIZATION  │
+│  • Read docs/memory/CORTEX_INDEX.md + query_connectome.mjs for target hubs.  │
 │  • Read docs/phases/phase_XX_.../tasks.md, requirements.md, blueprint.md,    │
-│    and design.md.                                                            │
+│    design.md, and draft memory.md.                                           │
 │  • Identify which milestones [ ] remain unchecked in tasks.md.               │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ STEP 2: PER-MILESTONE PRE-FLIGHT FILE INSPECTION                             │
@@ -119,8 +125,10 @@ When invoked (via `/vhunambi-executioner` or a phase implementation prompt), fol
 │  • Run milestone unit/widget test with --timeout=60s.                        │
 │  • Update [x] checkboxes in tasks.md for Milestone MX.Y.                     │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ STEP 5: FULL-STACK CONVERGENCE & HANDOFF GATE                                │
+│ STEP 5: FULL-STACK CONVERGENCE & SLEEP CONSOLIDATION (`vhunambi-memory`)     │
 │  • Run full analyzer & test suites across modified packages.                 │
+│  • Finalize memory.md ("status": "completed") with verified anchors/gotchas. │
+│  • Run `node .agents/skills/vhunambi-memory/scripts/consolidate_memory.mjs`. │
 │  • Present concise verification report with clickable file:/// links.        │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```

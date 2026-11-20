@@ -5,6 +5,7 @@ import {
   resolveMediaUrl,
   resolveRuntimeEnv,
 } from '../config/env.js';
+import { vhunambiDb } from '../db/vhunambi_db.js';
 import { createJob, getJob, completeJob } from '../modules/jobs/job_store.js';
 import { sovereignAuthMiddleware } from '../middleware/auth_middleware.js';
 import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
@@ -83,14 +84,13 @@ interface VisionJobMeta {
   height?: number;
   outputImageUrl?: string;
   videoUrl?: string;
+  coverUrl?: string;
   resolution?: string;
   fps?: number;
   preset?: string;
   engine?: string;
   renderedAt?: string;
 }
-
-const visionMetaFallbackStore = new Map<string, VisionJobMeta>();
 
 function normalizeVisionUrl(
   rawUrl: string,
@@ -178,20 +178,7 @@ visionRoutes.post('/generate', async (c) => {
         : normalizeVisionUrl(result.outputImageUrl, c)
       : undefined;
 
-    createJob({
-      generationId: result.jobId,
-      trackTitle: input.title ?? 'ComfyUI Artwork',
-      genre: input.genre,
-      language: input.language,
-      providerTaskId: result.jobId,
-    });
-    if (result.status === 'completed' && normalizedImageUrl) {
-      completeJob(result.jobId, {
-        masterMp3Url: normalizedImageUrl,
-      });
-    }
-
-    visionMetaFallbackStore.set(result.jobId, {
+    const visionMeta: Record<string, unknown> = {
       jobId: result.jobId,
       kind: 'vision',
       status: result.status,
@@ -200,7 +187,25 @@ visionRoutes.post('/generate', async (c) => {
       width: result.width,
       height: result.height,
       outputImageUrl: normalizedImageUrl,
+    };
+    const jobRecord = createJob({
+      generationId: result.jobId,
+      trackTitle: input.title ?? 'ComfyUI Artwork',
+      genre: input.genre,
+      language: input.language,
+      providerTaskId: result.jobId,
+      status: result.status === 'completed' ? 'succeeded' : 'queued',
+      step: result.status === 'completed' ? 'ready' : 'queued',
+      progressPct: result.status === 'completed' ? 100 : 10,
+      masterMp3Url: normalizedImageUrl,
+      visionMeta,
     });
+    await vhunambiDb.upsertGenerationJobAsync(
+      jobRecord,
+      c.get('authUser')?.creatorId ?? 'creator_cern',
+      'vision',
+      c,
+    );
 
     return c.json(
       {
@@ -270,27 +275,36 @@ visionRoutes.post('/render-video', async (c) => {
       : normalizeVisionUrl(rawCoverUrl, c);
     const renderedAt = new Date().toISOString();
 
-    createJob({
-      generationId: jobId,
-      trackTitle: input.title ?? 'Lyric Reel',
-      genre: 'Amapiano',
-      language: 've',
-    });
-    completeJob(jobId, {
-      masterMp3Url: outputVideoUrl,
-    });
-
-    visionMetaFallbackStore.set(jobId, {
+    const visionMeta: Record<string, unknown> = {
       jobId,
       kind: 'render-video',
       status: 'completed',
       videoUrl: outputVideoUrl,
+      coverUrl: outputCoverUrl,
       resolution: input.resolution,
       fps: input.fps,
       preset: input.preset,
       engine: 'RunPod-NVENC-GPU',
       renderedAt,
+    };
+    const jobRecord = createJob({
+      generationId: jobId,
+      trackTitle: input.title ?? 'Lyric Reel',
+      genre: 'Amapiano',
+      language: 've',
+      status: 'succeeded',
+      step: 'ready',
+      progressPct: 100,
+      masterMp3Url: outputVideoUrl,
+      coverUrl: outputCoverUrl,
+      visionMeta,
     });
+    await vhunambiDb.upsertGenerationJobAsync(
+      jobRecord,
+      c.get('authUser')?.creatorId ?? 'creator_cern',
+      'render-video',
+      c,
+    );
 
     return c.json(
       {
@@ -318,10 +332,13 @@ visionRoutes.post('/render-video', async (c) => {
  * GET /v1/vision/render-video/:id
  * Status polling endpoint for server-side NVENC lyric video renders.
  */
-visionRoutes.get('/render-video/:id', (c) => {
+visionRoutes.get('/render-video/:id', async (c) => {
   const id = c.req.param('id');
-  const meta = visionMetaFallbackStore.get(id);
-  const job = getJob(id);
+  let job = getJob(id);
+  if (!job) {
+    job = (await vhunambiDb.syncGenerationJobFromCloud(id, c)) ?? undefined;
+  }
+  const meta = job?.visionMeta as VisionJobMeta | undefined;
 
   if (!meta && !job) {
     return c.json(
@@ -352,8 +369,11 @@ visionRoutes.get('/render-video/:id', (c) => {
  */
 visionRoutes.get('/:id', async (c) => {
   const id = c.req.param('id');
-  const meta = visionMetaFallbackStore.get(id);
-  const job = getJob(id);
+  let job = getJob(id);
+  if (!job || job.status === 'queued' || job.status === 'running') {
+    job = (await vhunambiDb.syncGenerationJobFromCloud(id, c)) ?? job;
+  }
+  const meta = job?.visionMeta as VisionJobMeta | undefined;
 
   if (!meta && !job) {
     return c.json(
@@ -413,9 +433,26 @@ visionRoutes.get('/:id', async (c) => {
             }
             outputImageUrl = resolvedUrl;
             completeJob(id, { masterMp3Url: outputImageUrl });
-            if (meta) {
-              meta.status = 'completed';
-              meta.outputImageUrl = outputImageUrl;
+            if (job) {
+              const updatedMeta: Record<string, unknown> = {
+                ...(job.visionMeta ?? {}),
+                status: 'completed',
+                outputImageUrl,
+              };
+              await vhunambiDb.upsertGenerationJobAsync(
+                {
+                  ...job,
+                  status: 'succeeded',
+                  step: 'ready',
+                  progressPct: 100,
+                  masterMp3Url: outputImageUrl,
+                  visionMeta: updatedMeta,
+                  updatedAt: new Date(),
+                },
+                c.get('authUser')?.creatorId ?? 'creator_cern',
+                'vision',
+                c,
+              );
             }
           }
         } else if (upper === 'IN_PROGRESS') {

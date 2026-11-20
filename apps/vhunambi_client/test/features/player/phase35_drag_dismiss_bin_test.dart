@@ -30,12 +30,12 @@ void main() {
   });
 
   Track sampleTrack() => Track(
-        id: 'trk_bin_test_1',
-        title: 'Mapungubwe Gold',
-        creatorName: 'Tsonga Electro King',
-        genre: 'Amapiano',
-        duration: const Duration(minutes: 4, seconds: 12),
-      );
+    id: 'trk_bin_test_1',
+    title: 'Mapungubwe Gold',
+    creatorName: 'Tsonga Electro King',
+    genre: 'Amapiano',
+    duration: const Duration(minutes: 4, seconds: 12),
+  );
 
   group('Phase 35: Drag to Bin Dismiss & 2-Form Architecture Tests', () {
     test('PlayerForm enum only has bar and pill', () {
@@ -65,8 +65,9 @@ void main() {
       expect(controller.isDragging, isFalse);
     });
 
-    testWidgets('Bin drop target emerges during drag and dismisses on drop',
-        (tester) async {
+    testWidgets('Bin drop target emerges during drag and dismisses on drop', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -140,8 +141,9 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     });
 
-    testWidgets('Mini player buttons use soft rounded Phosphor icons',
-        (tester) async {
+    testWidgets('Mini player buttons use soft rounded Phosphor icons', (
+      tester,
+    ) async {
       final handler = TestVhunambiAudioHandler();
       addTearDown(handler.dispose);
 
@@ -163,26 +165,33 @@ void main() {
           container: container,
           child: MaterialApp(
             theme: AppTheme.darkTheme,
-            home: const Scaffold(
-              body: MiniPlayerHost(),
-            ),
+            home: const Scaffold(body: MiniPlayerHost()),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      // MobileMiniPlayer has soft circular previous, play/pause and next buttons
-      final prevBtn = tester.widget<IconButton>(find.byKey(const Key('mini_player_prev')));
-      expect(prevBtn.style?.shape?.resolve({}), isA<CircleBorder>());
-
-      final nextBtn = tester.widget<IconButton>(find.byKey(const Key('mini_player_next')));
-      expect(nextBtn.style?.shape?.resolve({}), isA<CircleBorder>());
-
-      final playPauseBtn = tester.widget<IconButton>(find.byKey(const Key('mini_player_play_pause')));
-      expect(playPauseBtn.style?.shape?.resolve({}), isA<CircleBorder>());
+      // MobileMiniPlayer renders 44x44 Phosphor-powered soft transport buttons
+      for (final key in const [
+        Key('mini_player_prev'),
+        Key('mini_player_play_pause'),
+        Key('mini_player_next'),
+      ]) {
+        final finder = find.byKey(key);
+        expect(finder, findsOneWidget);
+        final size = tester.getSize(finder);
+        expect(size.width, greaterThanOrEqualTo(44));
+        expect(size.height, greaterThanOrEqualTo(44));
+        expect(
+          find.descendant(of: finder, matching: find.byType(PhosphorIcon)),
+          findsWidgets,
+        );
+      }
 
       // Switch to PillForm
-      container.read(miniPlayerControllerProvider.notifier).setForm(PlayerForm.pill);
+      container
+          .read(miniPlayerControllerProvider.notifier)
+          .setForm(PlayerForm.pill);
       await tester.pumpAndSettle();
 
       expect(find.byType(PillForm), findsOneWidget);

@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../collections/domain/models/collection_entity.dart';
+import '../../domain/models/published_clip.dart';
 import '../../domain/models/stem_remix_context.dart';
+import 'social_repository_provider.dart';
 
 /// A single node in the genealogical remix tree (REQ-RMX-TREE-01 / Phase 37).
 @immutable
@@ -270,4 +272,58 @@ final remixLineageTreeProvider =
     children: const [],
   );
 });
+
+/// Converts a backend [PublishedClip] remix child into a [RemixNode].
+RemixNode remixNodeFromPublishedClip(PublishedClip clip, {int depth = 1}) {
+  final handle = clip.creatorUsername.startsWith('@')
+      ? clip.creatorUsername
+      : '@${clip.creatorUsername}';
+  return RemixNode(
+    id: clip.id,
+    title: clip.title,
+    creatorId: clip.creatorId,
+    creatorHandle: handle,
+    creatorDisplayName: clip.creatorDisplayName,
+    creatorAvatarUrl: clip.creatorAvatarUrl,
+    isVerified: clip.isCreatorVerified,
+    genre: clip.genre,
+    bpm: clip.dna.musical.bpm.round(),
+    musicalKey: clip.dna.musical.key,
+    remixMode: clip.remixMode ?? RemixCreationMode.openVerseVocal,
+    depth: clip.remixGenerationDepth > 0 ? clip.remixGenerationDepth : depth,
+    audioUrl: clip.audioUrl,
+    coverUrl: clip.coverUrl,
+    playCount: clip.playCount,
+    likeCount: clip.likeCount,
+    coCreationSplits: clip.coCreationSplits,
+  );
+}
+
+/// Merges live remote remix children onto [root], deduplicating by node ID.
+RemixNode mergeRemoteRemixChildren(
+  RemixNode root,
+  List<PublishedClip> remoteRemixes,
+) {
+  if (remoteRemixes.isEmpty) return root;
+  final existingIds = <String>{
+    root.id,
+    for (final child in root.children) child.id,
+    for (final child in root.children)
+      for (final grandChild in child.children) grandChild.id,
+  };
+  final appended = <RemixNode>[
+    ...root.children,
+    for (final clip in remoteRemixes)
+      if (existingIds.add(clip.id))
+        remixNodeFromPublishedClip(clip, depth: root.depth + 1),
+  ];
+  return root.copyWith(children: appended);
+}
+
+/// Fetches live remix descendants from `GET /api/social/clips/:id/remixes`.
+final remixLineageRemoteChildrenProvider =
+    FutureProvider.family<List<PublishedClip>, String>((ref, clipId) async {
+      final repo = ref.watch(socialRepositoryProvider);
+      return repo.getClipRemixes(clipId);
+    });
 

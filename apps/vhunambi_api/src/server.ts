@@ -45,13 +45,26 @@ export const app = new Hono<{ Bindings: VhunambiWorkerEnv }>();
 // Enable CORS for Flutter web / desktop / local testing
 app.use('*', cors());
 
-// Bind active Worker Context for non-blocking Supabase write-through & cold-start hydration
+// Bind active Worker Context for non-blocking Supabase write-through & scoped cold-start hydration
 app.use('*', async (c, next) => {
   EdgePersistenceBridge.setActiveContext(c);
   try {
+    const p = c.req.path;
+    const hasScopedReadThrough =
+      p.startsWith('/api/notifications') ||
+      p.startsWith('/api/v1/notifications') ||
+      p.startsWith('/api/wallet') ||
+      p.startsWith('/api/v1/wallet') ||
+      p.startsWith('/api/explore') ||
+      p.startsWith('/api/v1/explore') ||
+      p.startsWith('/v1/generations') ||
+      p.startsWith('/v1/vision') ||
+      p.startsWith('/v1/webhooks');
+
     if (
       !isNodeSqliteAvailable() &&
-      (c.req.path.startsWith('/api') || c.req.path.startsWith('/v1'))
+      !hasScopedReadThrough &&
+      (p.startsWith('/api') || p.startsWith('/v1'))
     ) {
       await getEdgeIsolateDatabaseEngine().ensureColdStartHydrated(c);
     }

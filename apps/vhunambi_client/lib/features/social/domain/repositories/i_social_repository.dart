@@ -21,6 +21,9 @@ abstract class ISocialRepository {
   /// Retrieves clips published by a specific creator.
   Future<List<PublishedClip>> getCreatorClips(String creatorId);
 
+  /// Fetches live remix descendant clips via `GET /api/social/clips/:id/remixes`.
+  Future<List<PublishedClip>> getClipRemixes(String clipId);
+
   /// Retrieves the community comment thread for a specific clip.
   Future<List<ReelComment>> getComments(String clipId);
 

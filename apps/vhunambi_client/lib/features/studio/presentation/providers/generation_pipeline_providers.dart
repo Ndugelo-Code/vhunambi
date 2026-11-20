@@ -11,6 +11,7 @@ import '../../../content_studio/domain/models/master_media_object.dart';
 import '../../../content_studio/presentation/providers/master_media_object_provider.dart';
 import '../../../creator_dna/domain/models/behavior_event.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
+import '../../../home/presentation/providers/creator_allowance_provider.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../notifications/domain/models/notification_entity.dart';
@@ -129,6 +130,13 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
         trackTitle: trackTitle,
         genre: genre,
       );
+      if (mounted) {
+        try {
+          _ref
+              .read(creatorAllowanceProvider.notifier)
+              .consumeOneSongOptimistically();
+        } catch (_) {}
+      }
       _autoPlayOnComplete = true;
       return;
     }
@@ -208,6 +216,10 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
       pregenStemLocks: resolvedStemLocks,
     );
     if (!mounted) return;
+
+    try {
+      _ref.read(creatorAllowanceProvider.notifier).consumeOneSongOptimistically();
+    } catch (_) {}
 
     final realGenerationId =
         response['generationId'] as String? ?? optimisticId;

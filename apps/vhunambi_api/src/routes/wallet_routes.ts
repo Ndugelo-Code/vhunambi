@@ -30,10 +30,10 @@ walletRoutes.get('/banks', (c) => {
 
 // GET /api/wallet/allowance — Creator 10 Free Monthly Song Allowance (Phase 67)
 // NOTE: Registered before /:creatorId so 'allowance' is never treated as a creatorId.
-walletRoutes.get('/allowance', (c) => {
+walletRoutes.get('/allowance', async (c) => {
   const queryUser = c.req.query('userId');
   const creatorId = resolveEffectiveCreatorId(c, queryUser, 'creator_cern');
-  const quota = vhunambiDb.getCreatorQuota(creatorId);
+  const quota = await vhunambiDb.syncCreatorQuotaFromCloud(creatorId, c);
   return c.json({
     success: true,
     ...quota,
@@ -41,11 +41,12 @@ walletRoutes.get('/allowance', (c) => {
 });
 
 // GET /api/wallet/:creatorId (REQ-P45-WAL-01 + Phase 61 Tenant Guard)
-walletRoutes.get('/:creatorId', (c) => {
+walletRoutes.get('/:creatorId', async (c) => {
   const creatorId = c.req.param('creatorId');
   const forbidden = assertTenantCreatorAccess(c, creatorId);
   if (forbidden) return forbidden;
 
+  await vhunambiDb.syncCreatorWalletFromCloud(creatorId, c);
   const wallet = vhunambiDb.getWallet(creatorId);
   return c.json(wallet);
 });
@@ -91,6 +92,7 @@ walletRoutes.post('/payout', async (c) => {
   if (forbidden) return forbidden;
 
   const creatorId = resolveEffectiveCreatorId(c, body.creatorId, 'creator_cern');
+  await vhunambiDb.syncCreatorWalletFromCloud(creatorId, c);
   const amountZar = Number(body.amountZar) || 0;
   const bankName = body.bankName;
   const accountNumber = body.accountNumber;

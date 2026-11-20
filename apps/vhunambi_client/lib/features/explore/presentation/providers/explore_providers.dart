@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vhunambi_client/core/auth/auth_providers.dart';
 import 'package:vhunambi_client/core/constants/app_assets.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/design_system/tokens/vhunambi_mood.dart';
 import 'package:vhunambi_client/core/resilience/safe_notifier_mixin.dart';
 import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import 'package:vhunambi_client/core/sync/sync_outbox_service.dart';
@@ -266,20 +267,22 @@ class ExploreTracksNotifier extends StateNotifier<List<Track>>
     if (likedTrack != null) {
       final track = likedTrack!;
       try {
-        ref?.read(notificationsProvider.notifier).addNotification(
-          NotificationEntity(
-            id: 'notif_exp_track_like_${track.id}',
-            title: 'Liked "${track.title}"',
-            message: 'Hearted ${track.creatorName}\'s track in Explore.',
-            category: NotificationCategory.social,
-            priority: NotificationPriority.normal,
-            subtype: 'post_like',
-            targetRoute: '/track/${track.id}',
-            targetEntityId: track.id,
-            ctaLabel: 'Open Track Cockpit',
-            createdAt: DateTime.now(),
-          ),
-        );
+        ref
+            ?.read(notificationsProvider.notifier)
+            .addNotification(
+              NotificationEntity(
+                id: 'notif_exp_track_like_${track.id}',
+                title: 'Liked "${track.title}"',
+                message: 'Hearted ${track.creatorName}\'s track in Explore.',
+                category: NotificationCategory.social,
+                priority: NotificationPriority.normal,
+                subtype: 'post_like',
+                targetRoute: '/track/${track.id}',
+                targetEntityId: track.id,
+                ctaLabel: 'Open Track Cockpit',
+                createdAt: DateTime.now(),
+              ),
+            );
       } catch (_) {}
     }
     unawaited(ExploreCacheRepository.saveLikedTrackIds(_likedTrackIds));
@@ -410,9 +413,16 @@ List<Track> filterExploreTracks({
         track.genre.toLowerCase() != normalizedGenre) {
       return false;
     }
-    if (normalizedMood.isNotEmpty &&
-        (track.mood ?? '').toLowerCase() != normalizedMood) {
-      return false;
+    if (normalizedMood.isNotEmpty) {
+      final canonicalFilterMood = VhunambiMood.tryNormalize(normalizedMood);
+      if (canonicalFilterMood == null) {
+        if ((track.mood ?? '').trim().toLowerCase() != normalizedMood) {
+          return false;
+        }
+      } else if (VhunambiMood.normalize(track.mood).moodId !=
+          canonicalFilterMood.moodId) {
+        return false;
+      }
     }
     if (normalizedLanguage.isNotEmpty &&
         normalizedLanguage != 'all' &&
@@ -822,6 +832,10 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
       if (existing != null) {
         hydrated.add(
           existing.copyWith(
+            likeCount:
+                (raw['likeCount'] as num?)?.toInt() ?? existing.likeCount,
+            commentCount:
+                (raw['commentCount'] as num?)?.toInt() ?? existing.commentCount,
             cosignCount:
                 (raw['cosignCount'] as num?)?.toInt() ?? existing.cosignCount,
             repostCount:
@@ -845,6 +859,8 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
               'creatorName': raw['creatorName'] ?? 'Creator',
               'genre': raw['genre'] ?? 'Amapiano',
             }),
+            likeCount: (raw['likeCount'] as num?)?.toInt() ?? 0,
+            commentCount: (raw['commentCount'] as num?)?.toInt() ?? 0,
             cosignCount: (raw['cosignCount'] as num?)?.toInt() ?? 0,
             repostCount: (raw['repostCount'] as num?)?.toInt() ?? 0,
           ),
@@ -902,6 +918,29 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
       } catch (_) {}
     }
     _persistLikesSnapshot();
+    unawaited(_syncToggleLikeToCloud(postId));
+  }
+
+  Future<void> _syncToggleLikeToCloud(String postId) async {
+    final repo = repository;
+    if (repo != null && !repo.shouldSkipNetwork) {
+      final result = await repo.togglePostLike(postId);
+      if (result != null) {
+        if (!mounted) return;
+        state = [
+          for (final post in state)
+            if (post.id == postId)
+              post.copyWith(
+                isLikedByMe: result.liked,
+                likeCount: result.likeCount,
+              )
+            else
+              post,
+        ];
+        _persistLikesSnapshot();
+        return;
+      }
+    }
     _outbox?.enqueue(
       SyncMutationRecord(
         idempotencyKey:
@@ -931,6 +970,15 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
   void addPost(SocialMusicPost post) {
     state = [post, ...state];
     _persistPostsSnapshot();
+    unawaited(_syncAddPostToCloud(post));
+  }
+
+  Future<void> _syncAddPostToCloud(SocialMusicPost post) async {
+    final repo = repository;
+    if (repo != null && !repo.shouldSkipNetwork) {
+      final published = await repo.publishPost(post.toJson());
+      if (published != null) return;
+    }
     _outbox?.enqueue(
       SyncMutationRecord(
         idempotencyKey: 'mut_post_${post.id}',
@@ -955,6 +1003,32 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
           post,
     ];
     _persistPostsSnapshot();
+    unawaited(_syncRepostToCloud(originalPostId, repostPost));
+  }
+
+  Future<void> _syncRepostToCloud(
+    String originalPostId,
+    SocialMusicPost repostPost,
+  ) async {
+    final repo = repository;
+    if (repo != null && !repo.shouldSkipNetwork) {
+      final result = await repo.repostPost(
+        originalPostId,
+        repost: repostPost.toJson(),
+      );
+      if (result != null) {
+        if (!mounted) return;
+        state = [
+          for (final post in state)
+            if (post.id == originalPostId)
+              post.copyWith(repostCount: result.repostCount)
+            else
+              post,
+        ];
+        _persistPostsSnapshot();
+        return;
+      }
+    }
     _outbox?.enqueue(
       SyncMutationRecord(
         idempotencyKey: 'mut_repost_${repostPost.id}',
@@ -1011,6 +1085,30 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
       } catch (_) {}
     }
     _persistCoSignSnapshot();
+    unawaited(_syncCosignToCloud(postId));
+  }
+
+  Future<void> _syncCosignToCloud(String postId) async {
+    final repo = repository;
+    if (repo != null && !repo.shouldSkipNetwork) {
+      String? creatorId;
+      try {
+        creatorId = ref?.read(currentCreatorIdProvider);
+      } catch (_) {}
+      final result = await repo.cosignPost(postId, creatorId: creatorId);
+      if (result != null) {
+        if (!mounted) return;
+        state = [
+          for (final post in state)
+            if (post.id == postId)
+              post.copyWith(cosignCount: result.cosignCount)
+            else
+              post,
+        ];
+        _persistCoSignSnapshot();
+        return;
+      }
+    }
     _outbox?.enqueue(
       SyncMutationRecord(
         idempotencyKey:

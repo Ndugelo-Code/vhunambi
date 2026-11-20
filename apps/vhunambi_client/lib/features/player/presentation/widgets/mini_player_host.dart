@@ -173,6 +173,18 @@ class _MiniPlayerHostState extends ConsumerState<MiniPlayerHost>
     final isHomeInlineMounted = ref.watch(homeInlineNowPlayingMountedProvider);
     if (activeTab == 0 && isHomeInlineMounted) return true;
 
+    // Phase 70 (REQ-P70-MINI-01): Suppress floating MiniPlayerHost whenever
+    // TrackDetailView renders its own inline WaveformScrubber.
+    final trackDetailInlineCount = ref.watch(
+      trackDetailInlinePlayerMountedProvider,
+    );
+    if (trackDetailInlineCount > 0) return true;
+
+    // Phase 70 (REQ-P70-MINI-02): Suppress floating MiniPlayerHost on pushed
+    // full-screen visitor profiles so it never occludes mid-screen tabs/cards.
+    final pushedOverlayCount = ref.watch(pushedFullScreenOverlayCountProvider);
+    if (pushedOverlayCount > 0) return true;
+
     // Hide when no active track or track is placeholder / 'Unknown' (REQ-P44-MINI-01).
     if (!playerState.hasActiveTrack) return true;
     final track = playerState.currentTrack;

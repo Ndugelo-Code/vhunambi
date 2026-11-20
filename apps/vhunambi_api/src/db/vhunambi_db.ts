@@ -8,12 +8,17 @@ import {
 } from '../security/crypto_token.js';
 import type { GenerationJob } from '../modules/jobs/job_types.js';
 import {
+  normalizeVhunambiMoodId,
+  type VhunambiMoodId,
+} from '../utils/mood_taxonomy.js';
+import {
   canonicalizeCreatorId,
   EdgeIsolateDatabaseEngine,
   EdgePersistenceBridge,
   getEdgeIsolateDatabaseEngine,
   SA_BANK_REGISTRY,
   type AuthTokenBundle,
+  type AtomicQuotaConsumeResult,
   type BankPayoutRequest,
   type CreatorQuotaRecord,
   type ExploreFeedOptions,
@@ -27,6 +32,7 @@ import {
   type SyncDeltaResult,
   type SyncMutationRecord,
   type UpsertNotificationInput,
+  type WriteThroughFailureRecord,
 } from './edge_persistence_bridge.js';
 
 export {
@@ -36,6 +42,7 @@ export {
   getEdgeIsolateDatabaseEngine,
   SA_BANK_REGISTRY,
   type AuthTokenBundle,
+  type AtomicQuotaConsumeResult,
   type BankPayoutRequest,
   type CreatorQuotaRecord,
   type ExploreFeedOptions,
@@ -49,6 +56,7 @@ export {
   type SyncDeltaResult,
   type SyncMutationRecord,
   type UpsertNotificationInput,
+  type WriteThroughFailureRecord,
 };
 
 type SqliteBuiltinModule = typeof import('node:sqlite');
@@ -248,6 +256,9 @@ export class VhunambiDatabase {
         like_count INTEGER DEFAULT 0,
         cosign_count INTEGER DEFAULT 0,
         discovery_stage TEXT NOT NULL DEFAULT 'freshCrate',
+        mood_id TEXT NOT NULL DEFAULT 'uplifting',
+        description TEXT NOT NULL DEFAULT '',
+        allow_open_stems_remix INTEGER NOT NULL DEFAULT 0,
         data_json TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
@@ -484,6 +495,18 @@ export class VhunambiDatabase {
     } catch (_) { }
     try {
       this.db.exec('ALTER TABLE reel_comments ADD COLUMN reply_to_handle TEXT;');
+    } catch (_) { }
+    try {
+      this.db.exec("ALTER TABLE explore_tracks ADD COLUMN mood_id TEXT NOT NULL DEFAULT 'uplifting';");
+    } catch (_) { }
+    try {
+      this.db.exec("ALTER TABLE explore_tracks ADD COLUMN description TEXT NOT NULL DEFAULT '';");
+    } catch (_) { }
+    try {
+      this.db.exec('ALTER TABLE explore_tracks ADD COLUMN allow_open_stems_remix INTEGER NOT NULL DEFAULT 0;');
+    } catch (_) { }
+    try {
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_explore_tracks_mood_id ON explore_tracks(mood_id);');
     } catch (_) { }
     try {
       this.db.exec('CREATE INDEX IF NOT EXISTS idx_published_clips_remix_parent ON published_clips(remixed_from_clip_id);');
@@ -751,9 +774,9 @@ export class VhunambiDatabase {
       const insertTrack = this.db.prepare(`
         INSERT INTO explore_tracks (
           id, title, artist_id, artist_name, genre, audio_url, bpm,
-          play_count, like_count, cosign_count, discovery_stage, data_json,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          play_count, like_count, cosign_count, discovery_stage, mood_id,
+          description, allow_open_stems_remix, data_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const seedTracks: Array<{
@@ -1098,6 +1121,7 @@ export class VhunambiDatabase {
               : t.plays >= 1500 || t.cosigns >= 60
                 ? 'risingBreakout'
                 : 'freshCrate';
+          const normalizedMoodId = normalizeVhunambiMoodId(t.mood);
           insertTrack.run(
             t.id,
             t.title,
@@ -1110,11 +1134,17 @@ export class VhunambiDatabase {
             t.likes,
             t.cosigns,
             stage,
+            normalizedMoodId,
+            '',
+            t.stemsAvailable ? 1 : 0,
             JSON.stringify({
               subGenre: t.subGenre,
               language: t.language,
               province: t.province,
               mood: t.mood,
+              moodId: normalizedMoodId,
+              description: '',
+              allowOpenStemsRemix: t.stemsAvailable,
               musicalKey: t.musicalKey,
               coverUrl: t.coverUrl,
               durationMs: t.durationMs,
@@ -1861,6 +1891,15 @@ export class VhunambiDatabase {
       language: String(data.language ?? 'isiZulu'),
       province: String(data.province ?? 'Gauteng'),
       mood: String(data.mood ?? 'Vibrant'),
+      moodId: normalizeVhunambiMoodId(
+        (r.mood_id as string | undefined) ??
+        (data.moodId as string | undefined) ??
+        (data.mood as string | undefined),
+      ),
+      description: String(r.description ?? data.description ?? ''),
+      allowOpenStemsRemix: Boolean(
+        r.allow_open_stems_remix ?? data.allowOpenStemsRemix ?? false,
+      ),
       bpm: Number(r.bpm ?? 113),
       musicalKey: String(data.musicalKey ?? 'Am'),
       audioUrl: String(r.audio_url ?? ''),
@@ -1896,6 +1935,8 @@ export class VhunambiDatabase {
   public getExploreTracks(options: {
     genre?: string;
     stage?: string;
+    moodId?: string;
+    mood?: string;
     sort?: 'trending' | 'newest' | 'likes' | 'plays';
     search?: string;
     limit?: number;
@@ -1928,6 +1969,14 @@ export class VhunambiDatabase {
     ) {
       const st = options.stage.trim().toLowerCase();
       mapped = mapped.filter((t) => t.discoveryStage.toLowerCase() === st);
+    }
+
+    const rawMood = options.moodId ?? options.mood;
+    if (rawMood && rawMood.trim() !== '' && rawMood.toLowerCase() !== 'all') {
+      const targetMoodId = normalizeVhunambiMoodId(rawMood);
+      mapped = mapped.filter(
+        (t) => normalizeVhunambiMoodId(t.moodId ?? t.mood) === targetMoodId,
+      );
     }
 
     if (options.search && options.search.trim() !== '') {
@@ -2030,11 +2079,21 @@ export class VhunambiDatabase {
           ? 'risingBreakout'
           : 'freshCrate'),
     );
+    const normalizedMoodId: VhunambiMoodId = normalizeVhunambiMoodId(
+      (input.moodId as string | undefined) ?? (input.mood as string | undefined),
+    );
+    const description = String(input.description ?? '');
+    const allowOpenStemsRemix = Boolean(
+      input.allowOpenStemsRemix ?? input.stemsAvailable ?? false,
+    );
     const dataJson = {
       subGenre: input.subGenre ?? 'Sgija',
       language: input.language ?? 'isiZulu',
       province: input.province ?? 'Gauteng',
       mood: input.mood ?? 'Vibrant',
+      moodId: normalizedMoodId,
+      description,
+      allowOpenStemsRemix,
       musicalKey: input.musicalKey ?? 'Am',
       coverUrl: input.coverUrl ?? '',
       durationMs: Number(input.durationMs ?? input.duration ?? 180000),
@@ -2053,9 +2112,9 @@ export class VhunambiDatabase {
         `
       INSERT INTO explore_tracks (
         id, title, artist_id, artist_name, genre, audio_url, bpm,
-        play_count, like_count, cosign_count, discovery_stage, data_json,
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        play_count, like_count, cosign_count, discovery_stage, mood_id,
+        description, allow_open_stems_remix, data_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         artist_name = excluded.artist_name,
@@ -2066,6 +2125,9 @@ export class VhunambiDatabase {
         like_count = MAX(explore_tracks.like_count, excluded.like_count),
         cosign_count = MAX(explore_tracks.cosign_count, excluded.cosign_count),
         discovery_stage = excluded.discovery_stage,
+        mood_id = excluded.mood_id,
+        description = excluded.description,
+        allow_open_stems_remix = excluded.allow_open_stems_remix,
         data_json = excluded.data_json,
         updated_at = excluded.updated_at
     `,
@@ -2082,6 +2144,9 @@ export class VhunambiDatabase {
         likeCount,
         cosignCount,
         stage,
+        normalizedMoodId,
+        description,
+        allowOpenStemsRemix ? 1 : 0,
         JSON.stringify(dataJson),
         String(input.createdAt || now),
         now,
@@ -4498,9 +4563,14 @@ export class VhunambiDatabase {
     }
 
     let manifest: GenerationJob['manifest'];
+    let visionMeta: Record<string, unknown> | undefined;
     if (r.manifest_json) {
       try {
-        manifest = JSON.parse(String(r.manifest_json)) as GenerationJob['manifest'];
+        const parsedManifest = JSON.parse(String(r.manifest_json)) as Record<string, unknown>;
+        manifest = parsedManifest as unknown as GenerationJob['manifest'];
+        if (parsedManifest.visionMeta && typeof parsedManifest.visionMeta === 'object') {
+          visionMeta = parsedManifest.visionMeta as Record<string, unknown>;
+        }
       } catch {
         manifest = undefined;
       }
@@ -4519,6 +4589,7 @@ export class VhunambiDatabase {
       stemUrls,
       manifestUrl: r.manifest_url ? String(r.manifest_url) : undefined,
       manifest,
+      visionMeta,
       durationSec: r.duration_sec !== null && r.duration_sec !== undefined ? Number(r.duration_sec) : undefined,
       errorMessage: r.error_message ? String(r.error_message) : undefined,
       providerTaskId: r.provider_task_id ? String(r.provider_task_id) : undefined,
@@ -4575,7 +4646,12 @@ export class VhunambiDatabase {
         job.stemsZipUrl ?? null,
         JSON.stringify(job.stemUrls ?? {}),
         job.manifestUrl ?? null,
-        job.manifest ? JSON.stringify(job.manifest) : null,
+        job.manifest || job.visionMeta
+          ? JSON.stringify({
+            ...(job.manifest ?? {}),
+            ...(job.visionMeta ? { visionMeta: job.visionMeta } : {}),
+          })
+          : null,
         job.errorMessage ?? null,
         createdMs,
         updatedMs,
@@ -5282,6 +5358,74 @@ export class VhunambiDatabase {
       ),
       updatedAt,
     };
+  }
+
+  public getWriteThroughFailures(): WriteThroughFailureRecord[] {
+    return [];
+  }
+
+  public async syncNotificationsFromCloud(
+    userId: string,
+    _cOrEnv?: unknown,
+  ): Promise<NotificationRecord[]> {
+    return this.listNotifications(userId);
+  }
+
+  public async syncCreatorQuotaFromCloud(
+    userId: string,
+    _cOrEnv?: unknown,
+  ): Promise<CreatorQuotaRecord> {
+    return this.getCreatorQuota(userId);
+  }
+
+  public async syncGenerationJobFromCloud(
+    genId: string,
+    _cOrEnv?: unknown,
+  ): Promise<GenerationJob | null> {
+    return this.getGenerationJob(genId);
+  }
+
+  public async syncExploreFromCloud(
+    _force = false,
+    _cOrEnv?: unknown,
+  ): Promise<boolean> {
+    return false;
+  }
+
+  public async syncCreatorWalletFromCloud(
+    _creatorId: string,
+    _cOrEnv?: unknown,
+  ): Promise<boolean> {
+    return false;
+  }
+
+  public async consumeFreeMonthlySongQuotaAsync(
+    userId: string,
+    _cOrEnv?: unknown,
+  ): Promise<AtomicQuotaConsumeResult> {
+    const before = this.getCreatorQuota(userId);
+    const isPaid =
+      before.planTier.toLowerCase() !== 'free' || before.freeMonthlySongsLimit < 0;
+    const allowed =
+      isPaid || before.freeMonthlySongsUsed < before.freeMonthlySongsLimit;
+    const updated = allowed ? this.consumeFreeMonthlySongQuota(userId) : before;
+    return { ...updated, allowed };
+  }
+
+  public async upsertNotificationAsync(
+    input: UpsertNotificationInput,
+    _cOrEnv?: unknown,
+  ): Promise<NotificationRecord> {
+    return this.upsertNotification(input);
+  }
+
+  public async upsertGenerationJobAsync(
+    job: GenerationJob,
+    creatorId = 'creator_cern',
+    jobKind = 'audio_synthesis',
+    _cOrEnv?: unknown,
+  ): Promise<void> {
+    this.upsertGenerationJob(job, creatorId, jobKind);
   }
 }
 

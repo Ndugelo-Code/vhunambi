@@ -142,7 +142,7 @@ void main() {
     );
 
     testWidgets(
-      'Finding PROF-005 & 006: Music tab embeds scoped Creator DNA and Voice Identity showcase',
+      'Finding PROF-005 & 006: Public visitor profile renders Overview/About safely and conceals internal Voice DNA & reset tools',
       (tester) async {
         tester.view.physicalSize = const Size(1280, 2400);
         tester.view.devicePixelRatio = 1.0;
@@ -158,15 +158,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Music'));
+        expect(find.text('Artist Overview'), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('visitor_tab_about')));
         await tester.pumpAndSettle();
 
-        expect(find.byType(ArtistVoiceShowcaseCard), findsOneWidget);
-        expect(find.byKey(const Key('voice_audition_btn')), findsOneWidget);
-        expect(find.byKey(const Key('voice_remix_studio_btn')), findsOneWidget);
-
-        expect(find.byType(CreatorDnaProfileCard), findsOneWidget);
-        // Ensure reset button is concealed for non-owner
+        expect(find.text('About Makhadzi'), findsOneWidget);
+        expect(find.byType(ArtistVoiceShowcaseCard), findsNothing);
+        expect(find.byType(CreatorDnaProfileCard), findsNothing);
         expect(find.byKey(const Key('reset_dna_button')), findsNothing);
       },
     );

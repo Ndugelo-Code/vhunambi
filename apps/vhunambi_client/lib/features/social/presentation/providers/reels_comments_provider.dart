@@ -411,7 +411,15 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
       commentsByClipId: {...state.commentsByClipId, clipId: updated},
     );
     _persistCommentsForClip(clipId, updated);
-    _repo?.toggleLikeComment(commentId);
+    final isKineticPost =
+        clipId.startsWith('post_') || clipId.startsWith('kpost_');
+    if (isKineticPost && _ref != null) {
+      unawaited(_ref.read(exploreRepositoryProvider).likeComment(commentId));
+      return;
+    }
+    if (_repo != null) {
+      unawaited(_repo.toggleLikeComment(commentId));
+    }
   }
 
   void _seedComments() {

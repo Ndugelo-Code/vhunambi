@@ -127,57 +127,63 @@ generationRoutes.post('/', async (c) => {
     // Record providerTaskId for fallback active polling
     setJobProviderTaskId(generationId, dispatchResult.jobId);
 
-    // Phase 67: Decrement creator monthly free song quota & emit studio/quota alerts
+    // Phase 67 + Phase 71: Atomic monthly free song quota decrement & durable alerts
     const creatorId = canonicalizeCreatorId(
       c.get('authUser')?.creatorId ?? input.userId ?? 'creator_cern',
     );
-    const quota = vhunambiDb.consumeFreeMonthlySongQuota(creatorId);
-    vhunambiDb.upsertNotification({
-      id: `notif_gen_${generationId}`,
-      userId: creatorId,
-      title: `Studio Track Ready: "${input.trackTitle}"`,
-      message: `Synthesized ${input.genre} track (${quota.freeMonthlySongsRemaining} / ${quota.freeMonthlySongsLimit} monthly free songs left).`,
-      category: 'creatorActivity',
-      subtype: 'studio_render',
-      priority: 'normal',
-      targetRoute: `/track/${generationId}`,
-      targetEntityId: generationId,
-      ctaLabel: 'Open Track Cockpit',
-      metadata: {
-        trackId: generationId,
-        trackTitle: input.trackTitle,
-        genre: input.genre,
-        freeSongsRemaining: quota.freeMonthlySongsRemaining,
-        freeSongsTotal: quota.freeMonthlySongsLimit,
+    const quota = await vhunambiDb.consumeFreeMonthlySongQuotaAsync(creatorId, c);
+    await vhunambiDb.upsertNotificationAsync(
+      {
+        id: `notif_gen_${generationId}`,
+        userId: creatorId,
+        title: `Studio Track Ready: "${input.trackTitle}"`,
+        message: `Synthesized ${input.genre} track (${quota.freeMonthlySongsRemaining} / ${quota.freeMonthlySongsLimit} monthly free songs left).`,
+        category: 'creatorActivity',
+        subtype: 'studio_render',
+        priority: 'normal',
+        targetRoute: `/track/${generationId}`,
+        targetEntityId: generationId,
+        ctaLabel: 'Open Track Cockpit',
+        metadata: {
+          trackId: generationId,
+          trackTitle: input.trackTitle,
+          genre: input.genre,
+          freeSongsRemaining: quota.freeMonthlySongsRemaining,
+          freeSongsTotal: quota.freeMonthlySongsLimit,
+        },
       },
-    });
+      c,
+    );
     if (
       quota.freeMonthlySongsRemaining === 3 ||
       quota.freeMonthlySongsRemaining === 1 ||
       quota.freeMonthlySongsRemaining === 0
     ) {
-      vhunambiDb.upsertNotification({
-        id: `notif_quota_low_${creatorId}_${quota.freeMonthlySongsRemaining}`,
-        userId: creatorId,
-        title:
-          quota.freeMonthlySongsRemaining === 0
-            ? 'Monthly Free Song Allowance Used (0 / 10 Left)'
-            : `${quota.freeMonthlySongsRemaining} Free Monthly Song${quota.freeMonthlySongsRemaining === 1 ? '' : 's'} Remaining`,
-        message:
-          quota.freeMonthlySongsRemaining === 0
-            ? 'You used all 10 monthly free songs. Top up Cultural Coins or upgrade to keep generating right away.'
-            : `You have ${quota.freeMonthlySongsRemaining} free song generations remaining in this 30-day cycle.`,
-        category: 'system',
-        subtype: 'monthly_quota',
-        priority: quota.freeMonthlySongsRemaining <= 1 ? 'high' : 'normal',
-        targetRoute: '/wallet',
-        ctaLabel: 'View Balance & Usage',
-        metadata: {
-          freeSongsTotal: quota.freeMonthlySongsLimit,
-          freeSongsRemaining: quota.freeMonthlySongsRemaining,
-          planTier: quota.planTier,
+      await vhunambiDb.upsertNotificationAsync(
+        {
+          id: `notif_quota_low_${creatorId}_${quota.freeMonthlySongsRemaining}`,
+          userId: creatorId,
+          title:
+            quota.freeMonthlySongsRemaining === 0
+              ? 'Monthly Free Song Allowance Used (0 / 10 Left)'
+              : `${quota.freeMonthlySongsRemaining} Free Monthly Song${quota.freeMonthlySongsRemaining === 1 ? '' : 's'} Remaining`,
+          message:
+            quota.freeMonthlySongsRemaining === 0
+              ? 'You used all 10 monthly free songs. Top up Cultural Coins or upgrade to keep generating right away.'
+              : `You have ${quota.freeMonthlySongsRemaining} free song generations remaining in this 30-day cycle.`,
+          category: 'system',
+          subtype: 'monthly_quota',
+          priority: quota.freeMonthlySongsRemaining <= 1 ? 'high' : 'normal',
+          targetRoute: '/wallet',
+          ctaLabel: 'View Balance & Usage',
+          metadata: {
+            freeSongsTotal: quota.freeMonthlySongsLimit,
+            freeSongsRemaining: quota.freeMonthlySongsRemaining,
+            planTier: quota.planTier,
+          },
         },
-      });
+        c,
+      );
     }
 
     const runtimeEnv = resolveRuntimeEnv(c);
@@ -244,7 +250,7 @@ generationRoutes.get('/:id', async (c) => {
     !isNodeSqliteAvailable() &&
     (!job || job.status === 'queued' || job.status === 'running')
   ) {
-    job = (await vhunambiDb.hydrateGenerationJobById(id, c)) ?? job;
+    job = (await vhunambiDb.syncGenerationJobFromCloud(id, c)) ?? job;
   }
 
   if (!job) {
@@ -334,7 +340,7 @@ generationRoutes.get('/:id/manifest', async (c) => {
     !isNodeSqliteAvailable() &&
     (!job || job.status === 'queued' || job.status === 'running')
   ) {
-    job = (await vhunambiDb.hydrateGenerationJobById(id, c)) ?? job;
+    job = (await vhunambiDb.syncGenerationJobFromCloud(id, c)) ?? job;
   }
 
   if (!job) {

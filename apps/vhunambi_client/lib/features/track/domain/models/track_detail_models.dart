@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:vhunambi_client/core/design_system/tokens/vhunambi_mood.dart';
 
 /// Ownership licence attached to a generated track (REQ-TRK-03).
 enum LicenseType { personal, commercial }
@@ -24,11 +25,7 @@ class StemTrackEntity {
     this.volume = 1.0,
   });
 
-  StemTrackEntity copyWith({
-    bool? isMuted,
-    bool? isSoloed,
-    double? volume,
-  }) {
+  StemTrackEntity copyWith({bool? isMuted, bool? isSoloed, double? volume}) {
     return StemTrackEntity(
       id: id,
       name: name,
@@ -116,11 +113,11 @@ class TrackDetailEntity {
   ];
 
   static const Map<String, String> reactionGlyphs = {
-    'fire': '🔥',
-    'love': '❤️',
-    'rhythm': '🎵',
-    'hands': '🙌',
-    'globe': '🌍',
+    'fire': 'Fire',
+    'love': 'Soul',
+    'rhythm': 'Groove',
+    'hands': 'Praise',
+    'globe': 'Global',
   };
 
   static const String ownershipNotice =
@@ -143,6 +140,13 @@ class TrackDetailEntity {
   final String lyrics;
   final String prompt;
   final StemSeparationState stemState;
+  final String? coverUrl;
+  final String description;
+  final DateTime? createdAt;
+  final int bpm;
+  final String musicalKey;
+  final String moodId;
+  final bool allowOpenStemsRemix;
 
   const TrackDetailEntity({
     required this.id,
@@ -168,12 +172,28 @@ class TrackDetailEntity {
     this.lyrics = '',
     this.prompt = '',
     this.stemState = const StemSeparationState(),
+    this.coverUrl,
+    this.description = '',
+    this.createdAt,
+    this.bpm = 113,
+    this.musicalKey = 'F#m',
+    this.moodId = 'uplifting',
+    this.allowOpenStemsRemix = false,
   });
 
   bool get isCommercial => licenseType == LicenseType.commercial;
 
+  /// Canonical [VhunambiMood] resolved from [moodId].
+  VhunambiMood get canonicalMood => VhunambiMood.normalize(moodId);
+
+  /// Clean license badge text (`STD-UIUX-001` zero raw emojis).
   String get licenseBadge =>
-      isCommercial ? '⚖️ Commercial Use' : '🛡️ Personal Use';
+      isCommercial ? 'Commercial License' : 'Personal Use';
+
+  /// Visitor-safe provenance line (`REQ-P70-GATE-01`).
+  String get visitorProvenanceNotice => allowOpenStemsRemix
+      ? 'Created by $creatorHandle · Open Stems Allowed'
+      : 'Created by $creatorHandle · All Rights Reserved';
 
   String get metadataLabel => '$genre • $language • $formattedDuration';
 
@@ -192,6 +212,13 @@ class TrackDetailEntity {
     String? lyrics,
     String? prompt,
     StemSeparationState? stemState,
+    String? coverUrl,
+    String? description,
+    DateTime? createdAt,
+    int? bpm,
+    String? musicalKey,
+    String? moodId,
+    bool? allowOpenStemsRemix,
   }) {
     return TrackDetailEntity(
       id: id,
@@ -211,6 +238,13 @@ class TrackDetailEntity {
       lyrics: lyrics ?? this.lyrics,
       prompt: prompt ?? this.prompt,
       stemState: stemState ?? this.stemState,
+      coverUrl: coverUrl ?? this.coverUrl,
+      description: description ?? this.description,
+      createdAt: createdAt ?? this.createdAt,
+      bpm: bpm ?? this.bpm,
+      musicalKey: musicalKey ?? this.musicalKey,
+      moodId: moodId ?? this.moodId,
+      allowOpenStemsRemix: allowOpenStemsRemix ?? this.allowOpenStemsRemix,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
@@ -52,10 +53,10 @@ class ProducerBeatListingTile extends StatelessWidget {
                   gradient: AppGradients.forGenre(beat.genre),
                   borderRadius: AppRadius.thumbBorder,
                 ),
-                child: Icon(
-                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                child: PhosphorIcon(
+                  isPlaying ? PhosphorIconsFill.pause : PhosphorIconsFill.play,
                   color: Colors.white,
-                  size: 26,
+                  size: 22,
                 ),
               ),
             ),
@@ -81,7 +82,10 @@ class ProducerBeatListingTile extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceSecondary,
                         borderRadius: AppRadius.pillBorder,
@@ -128,10 +132,7 @@ class ProducerBeatListingTile extends StatelessWidget {
               ),
               Text(
                 'R$zarPrice',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textTertiary,
-                ),
+                style: TextStyle(fontSize: 10, color: AppColors.textTertiary),
               ),
               const SizedBox(height: 4),
               ConstrainedBox(
@@ -143,7 +144,10 @@ class ProducerBeatListingTile extends StatelessWidget {
                     backgroundColor: AppColors.surfaceSecondary,
                     foregroundColor: AppColors.textPrimary,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
                     ),
@@ -162,4 +166,3 @@ class ProducerBeatListingTile extends StatelessWidget {
     );
   }
 }
-

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_gradients.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../domain/models/track_detail_models.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
+import 'package:vhunambi_client/core/theme/app_colors.dart';
+import 'package:vhunambi_client/core/theme/app_dimensions.dart';
+import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_track_artwork.dart';
+import 'package:vhunambi_client/features/track/domain/models/track_detail_models.dart';
 
-/// "More Like This" Recommendation Shelf (REQ-TRK-11).
+/// "More Like This" Recommendation Shelf (`REQ-TRK-11`, `REQ-P70-SCUX-01`).
 class MoreLikeThisShelf extends StatelessWidget {
   final List<TrackDetailEntity> recommendations;
   final ValueChanged<TrackDetailEntity> onSelectTrack;
@@ -23,19 +26,20 @@ class MoreLikeThisShelf extends StatelessWidget {
     if (recommendations.isEmpty) return const SizedBox.shrink();
 
     final genre = recommendations.first.genre;
+    final textPrimary = AppColors.textPrimaryOf(context);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Row
+        children: <Widget>[
           Row(
-            children: [
+            children: <Widget>[
               Text(
                 'More Like This',
                 style: AppTypography.titleMedium.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: textPrimary,
                 ),
               ),
               const SizedBox(width: 8),
@@ -57,115 +61,97 @@ class MoreLikeThisShelf extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 14),
-
-          // Tracks List
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: recommendations.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final item = recommendations[index];
-              return _buildTrackCard(item);
-            },
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (context, index) =>
+                _buildTrackCard(context, recommendations[index]),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTrackCard(TrackDetailEntity item) {
-    return InkWell(
-      onTap: () => onSelectTrack(item),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceElevated,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.borderSubtle),
-        ),
-        child: Row(
-          children: [
-            // Genre Cover Art Icon
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: AppGradients.forGenre(item.genre),
+  Widget _buildTrackCard(BuildContext context, TrackDetailEntity item) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onSelectTrack(item),
+        borderRadius: AppRadius.cardBorder,
+        child: VhunambiGlassSurface(
+          variant: VhunambiGlassVariant.card,
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: <Widget>[
+              VhunambiTrackArtwork(
+                coverUrl: item.coverUrl,
+                genre: item.genre,
+                trackId: item.id,
+                width: 44,
+                height: 44,
                 borderRadius: BorderRadius.circular(8),
+                badgeIconSize: 20,
               ),
-              child: const Center(
-                child: Icon(
-                  Icons.music_note_rounded,
-                  color: Colors.white,
-                  size: 22,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      item.title,
+                      style: AppTypography.bodySmall.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${item.creatorName} · ${item.genre} · ${item.formattedDuration}',
+                      style: AppTypography.caption.copyWith(
+                        color: textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-
-            // Metadata Column
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    style: AppTypography.bodySmall.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+              Row(
+                children: <Widget>[
+                  const PhosphorIcon(
+                    AppIcons.heart,
+                    size: 14,
+                    color: AppColors.brandPrimary,
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(width: 4),
                   Text(
-                    '${item.creatorName} • ${item.genre} • ${item.formattedDuration}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
+                    '${item.likesCount}',
+                    style: AppTypography.caption.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: textSecondary,
                     ),
                   ),
                 ],
               ),
-            ),
-
-            // Likes Badge
-            Row(
-              children: [
-                const Icon(
-                  Icons.favorite_rounded,
-                  size: 14,
+              const SizedBox(width: 8),
+              IconButton(
+                iconSize: 24,
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                icon: const PhosphorIcon(
+                  PhosphorIconsFill.playCircle,
                   color: AppColors.brandPrimary,
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  '${item.likesCount}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-
-            // Play Trigger Button
-            IconButton(
-              iconSize: 26,
-              padding: const EdgeInsets.all(9),
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              icon: const Icon(
-                Icons.play_circle_fill_rounded,
-                color: AppColors.brandPrimary,
+                onPressed: () => onAuditionTrack?.call(item),
               ),
-              onPressed: () => onAuditionTrack?.call(item),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

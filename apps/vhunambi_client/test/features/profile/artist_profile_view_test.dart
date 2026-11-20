@@ -30,46 +30,57 @@ Future<void> _pumpArtistProfile(
 
 void main() {
   testWidgets(
-    'ArtistProfileView renders banner, monogram, 5 stats, and supporters',
+    'ArtistProfileView renders banner, monogram, inline stats, 5 Facebook tabs, and supporters',
     (WidgetTester tester) async {
       await _pumpArtistProfile(tester);
 
       // 1. Header Banner & Identity (REQ-TRK-12)
       expect(find.byType(ProfileBannerHeader), findsOneWidget);
-      expect(find.text('Fifi'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ProfileBannerHeader),
+          matching: find.text('Fifi'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('@fifi'), findsOneWidget);
       expect(find.text('FI'), findsOneWidget);
       expect(find.text('Verified Artist'), findsOneWidget);
       expect(find.text('Follow'), findsOneWidget);
       expect(find.text('Tip Artist'), findsOneWidget);
 
-      // 2. 5-Metric Stats Grid (REQ-TRK-13)
-      expect(find.byType(ProfileStatsGrid), findsOneWidget);
-      expect(find.text('Songs'), findsOneWidget);
-      expect(find.text('Likes'), findsOneWidget);
-      expect(find.text('Plays'), findsOneWidget);
-      expect(find.text('Followers'), findsOneWidget);
-      expect(find.text('Day Streak'), findsOneWidget);
-      expect(find.text('8'), findsOneWidget);
-      expect(find.text('1.8K'), findsOneWidget);
-      expect(find.text('4'), findsOneWidget);
-
-      // 3. Switch to Music tab (Top Songs & Recent Activity)
-      await tester.tap(find.text('Music'));
-      await tester.pumpAndSettle();
+      // 2. Inline Public Social Proof Strip without private Day Streak (`SC-01`, `VP-05`)
+      expect(
+        find.byKey(const Key('visitor_profile_inline_stats')),
+        findsOneWidget,
+      );
+      expect(find.byType(ProfileStatsGrid), findsNothing);
+      expect(find.text('Day Streak'), findsNothing);
       expect(find.text('Top Songs'), findsOneWidget);
-      expect(find.text('Ndo Mufuna Matibe'), findsWidgets);
-      expect(find.text('Recent Activity'), findsOneWidget);
+
+      // 3. Switch to Songs tab (`visitor_tab_songs`) -> shows ranked live song tiles
+      await tester.tap(find.byKey(const Key('visitor_tab_songs')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key as ValueKey<String>).value.startsWith(
+                'visitor_song_tile_',
+              ),
+        ),
+        findsWidgets,
+      );
 
       // 4. Switch to Beats tab (Top Supporters Leaderboard REQ-TRK-14)
-      await tester.tap(find.text('Beats'));
+      await tester.tap(find.byKey(const Key('visitor_tab_beats')));
       await tester.pumpAndSettle();
       expect(find.byType(TopSupportersLeaderboard), findsOneWidget);
       expect(find.text('Top Supporters'), findsOneWidget);
       expect(find.text('Sipho Beats'), findsOneWidget);
-      expect(find.text('🥇'), findsOneWidget);
+      expect(find.textContaining('Gold'), findsOneWidget);
       expect(find.text('Lerato K'), findsOneWidget);
-      expect(find.text('🥈'), findsOneWidget);
+      expect(find.textContaining('Silver'), findsOneWidget);
     },
   );
 

@@ -1,19 +1,23 @@
-import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { app } from './server.js';
+import { app } from '../src/server.js';
 import {
   EdgeIsolateDatabaseEngine,
   getEdgeIsolateDatabaseEngine,
-} from './db/edge_persistence_bridge.js';
-import { setSimulateEdgeIsolateMode } from './db/vhunambi_db.js';
+} from '../src/db/edge_persistence_bridge.js';
+import { setSimulateEdgeIsolateMode } from '../src/db/vhunambi_db.js';
 
-describe('Phase 67 Backend: Notifications & 10 Free Monthly Songs Quota Engine (REQ-P67-API-01..02)', () => {
-  afterEach(() => {
-    setSimulateEdgeIsolateMode(false);
-    getEdgeIsolateDatabaseEngine().resetForTesting();
-  });
+function resetState(): void {
+  setSimulateEdgeIsolateMode(false);
+  getEdgeIsolateDatabaseEngine().resetForTesting();
+}
 
-  it('GET /api/wallet/allowance initializes 10 free monthly song credits for a creator', async () => {
+async function runPhase67Tests(): Promise<void> {
+  console.log(
+    '\nRunning Phase 67 Backend: Notifications & 10 Free Monthly Songs Quota Engine Tests...\n',
+  );
+
+  // 1. GET /api/wallet/allowance initializes 10 free monthly song credits
+  try {
     const res = await app.fetch(
       new Request('http://localhost/api/wallet/allowance?userId=creator_p67_alice'),
     );
@@ -24,9 +28,13 @@ describe('Phase 67 Backend: Notifications & 10 Free Monthly Songs Quota Engine (
     assert.equal(body.freeMonthlySongsLimit, 10);
     assert.equal(body.freeMonthlySongsUsed, 0);
     assert.equal(body.freeMonthlySongsRemaining, 10);
-  });
+    console.log('  [PASS] GET /api/wallet/allowance initialization');
+  } finally {
+    resetState();
+  }
 
-  it('CRUD /api/notifications supports upsert, read toggle, mark-all-read, and delete', async () => {
+  // 2. CRUD /api/notifications supports upsert, read toggle, mark-all-read, and delete
+  try {
     const uid = 'creator_p67_crud';
     const postRes = await app.fetch(
       new Request('http://localhost/api/notifications', {
@@ -103,11 +111,14 @@ describe('Phase 67 Backend: Notifications & 10 Free Monthly Songs Quota Engine (
     const afterBody = (await afterList.json()) as Record<string, any>;
     assert.equal(afterBody.unreadCount, 0);
     assert.equal(afterBody.notifications.length, 1);
-  });
+    console.log('  [PASS] CRUD /api/notifications');
+  } finally {
+    resetState();
+  }
 
-  it('POST /v1/generations decrements free monthly song allowance and emits studio + low-quota notifications', async () => {
+  // 3. POST /v1/generations decrements free monthly song allowance and emits alerts
+  try {
     const uid = 'creator_p67_quota_test';
-
     for (let i = 1; i <= 7; i += 1) {
       const genRes = await app.fetch(
         new Request('http://localhost/v1/generations', {
@@ -137,9 +148,13 @@ describe('Phase 67 Backend: Notifications & 10 Free Monthly Songs Quota Engine (
     );
     assert.ok(ids.includes(`notif_quota_low_${uid}_3`));
     assert.ok(ids.some((id) => id.startsWith('notif_gen_')));
-  });
+    console.log('  [PASS] POST /v1/generations quota & notification alerts');
+  } finally {
+    resetState();
+  }
 
-  it('EdgeIsolateDatabaseEngine parity works cleanly without node:sqlite (workerd simulation)', async () => {
+  // 4. EdgeIsolateDatabaseEngine parity without node:sqlite (workerd simulation)
+  try {
     setSimulateEdgeIsolateMode(true);
     const uid = 'creator_p67_edge';
 
@@ -174,5 +189,15 @@ describe('Phase 67 Backend: Notifications & 10 Free Monthly Songs Quota Engine (
     assert.equal(listBody.notifications.length, 1);
     assert.equal(listBody.notifications[0].targetRoute, '/wallet');
     assert.ok(EdgeIsolateDatabaseEngine);
-  });
+    console.log('  [PASS] EdgeIsolateDatabaseEngine workerd parity');
+  } finally {
+    resetState();
+  }
+
+  console.log('\nALL PHASE 67 BACKEND TESTS PASSED!\n');
+}
+
+runPhase67Tests().catch((err) => {
+  console.error('Phase 67 backend test failed:', err);
+  process.exit(1);
 });

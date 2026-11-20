@@ -11,6 +11,10 @@ abstract class IMarketplaceRepository {
 
   Future<BeatListingEntity?> getBeatById(String id);
 
+  /// Fetches beats published by [producerId] via
+  /// `GET /api/marketplace/producers/:producerId/beats` (`EP-P58-MKT-VERIFY-PRODUCER`).
+  Future<List<BeatListingEntity>> getProducerBeats(String producerId);
+
   Future<BeatListingEntity> publishBeat(BeatListingEntity beat);
 
   Future<bool> unpublishBeat(String id);

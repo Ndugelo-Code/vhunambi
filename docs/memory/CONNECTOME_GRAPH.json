@@ -1,0 +1,1563 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-11-20T03:41:08.746Z",
+  "latest_completed_phase": "P71",
+  "latest_completed_order": 71,
+  "stats": {
+    "total_phases": 10,
+    "completed_phases": 10,
+    "total_endpoints": 33,
+    "open_count": 5,
+    "connected_extensible_count": 25,
+    "sealed_count": 3
+  },
+  "phases": [
+    {
+      "phase_id": "P00_P63",
+      "phase_order": 63,
+      "memory_key": "MEM-P00-P63-FOUNDATION-BASELINE",
+      "title": "Foundation Baseline & Pre-P64 Open/Shared Endpoints Census",
+      "status": "completed",
+      "completed_at": "2026-11-12",
+      "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
+      "predecessor_keys": [],
+      "concept_hubs": [
+        "identity_role",
+        "quota_economy",
+        "sync_outbox",
+        "ui_surface_std",
+        "social_graph",
+        "ai_synthesis_gpu",
+        "audio_transport"
+      ],
+      "endpoints_defined": [
+        "EP-P61-IDENTITY-UTILS",
+        "EP-P60-HIVE-SYNC-CORE",
+        "EP-P58-MKT-VERIFY-PRODUCER",
+        "EP-P37-REMIX-TREE-API",
+        "EP-P41-WALLET-DIRECT",
+        "EP-P27-MELODY-PRESETS-PACKS",
+        "EP-P26-VOICE-CALIBRATION-RECIPE",
+        "EP-P25-GEN-MASTER-PRESETS",
+        "EP-P63-R2-SEEDER",
+        "EP-P62-RUNPOD-WEBHOOK"
+      ],
+      "consumes": [],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/core/widgets/vhunambi_top_bar_kit.dart",
+          "relation": "PROVIDES",
+          "to": "apps/vhunambi_client/lib/features/track/presentation/views/track_detail_view.dart",
+          "note": "Shared top bar kit consumed by 16 screens"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/core/widgets/vhunambi_bottom_dock_kit.dart",
+          "relation": "PROVIDES",
+          "to": "apps/vhunambi_client/lib/main.dart",
+          "note": "Shared bottom dock clearance metrics consumed by 11 screens"
+        }
+      ],
+      "breakthroughs": [
+        "26-box AES-256 Sovereign Hive bootstrap (P60), dual-gate ES256/HS256 auth (P61), and Cloudflare Worker + GenerationSessionDO hybrid stack (P62-P63) form the production baseline.",
+        "Audit VHUNAMBI_REPO_TOPOLOGY_AND_MEMORY_READINESS_AUDIT.md inventoried 6 pre-P64 backend route groups sitting OPEN with zero direct Dart client HTTP callers."
+      ],
+      "gotchas": [
+        "SovereignAuthRepository.clearSession() must delete only sessionStorageKey, never tokenBox.clear(), or onboarding_state_v1 is wiped.",
+        "Never call bare top-level function names inside CreatorIdUtils static methods (Dart lexical scope infinite recursion)."
+      ]
+    },
+    {
+      "phase_id": "P64",
+      "phase_order": 64,
+      "memory_key": "MEM-P64-CLOUD-PIPELINE-HARDWARE-AUDIO",
+      "title": "Full Cloud Production Pipeline, Hardware Audio Bootstrap & ACE-Step 1.5 LoRA GPU Activation",
+      "status": "completed",
+      "completed_at": "2026-11-13",
+      "memory_file": "docs/phases/phase_64_full_production_pipeline_and_lora_gpu_activation/memory.md",
+      "predecessor_keys": [
+        "MEM-P00-P63-FOUNDATION-BASELINE"
+      ],
+      "concept_hubs": [
+        "audio_transport",
+        "ai_synthesis_gpu",
+        "media_artwork"
+      ],
+      "endpoints_defined": [
+        "EP-P64-HARDWARE-AUDIO-BOOTSTRAP"
+      ],
+      "consumes": [
+        "EP-P60-HIVE-SYNC-CORE"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/main.dart",
+          "relation": "PROVIDES",
+          "to": "EP-P64-HARDWARE-AUDIO-BOOTSTRAP",
+          "note": "Overrides audioHandlerProvider inside root ProviderScope"
+        }
+      ],
+      "breakthroughs": [
+        "bootstrapPlatformAudioHandler() is wired in apps/vhunambi_client/lib/main.dart#L60-L70 under VhunambiCrashShield.guardStartup.",
+        "Read-through R2 media synthesizer and scale-to-zero RunPod wake guard (max=0 fallback to 4-stem R2 synthesis) prevent empty media responses."
+      ],
+      "gotchas": [
+        "Worker EdgeIsolateDatabaseEngine hydrates in volatile RAM outside auth_routes.ts; do not assume cold Worker isolates retain non-Supabase writes."
+      ]
+    },
+    {
+      "phase_id": "P65",
+      "phase_order": 65,
+      "memory_key": "MEM-P65-FOUNDATION-CRASH-IMMUNITY",
+      "title": "Foundation Stability, Crash Immunity & 5-Layer Fault-Containment Architecture",
+      "status": "completed",
+      "completed_at": "2026-11-15",
+      "memory_file": "docs/phases/phase_65_foundation_stability_and_fault_containment/memory.md",
+      "predecessor_keys": [
+        "MEM-P64-CLOUD-PIPELINE-HARDWARE-AUDIO"
+      ],
+      "concept_hubs": [
+        "audio_transport",
+        "sync_outbox",
+        "media_artwork"
+      ],
+      "endpoints_defined": [
+        "EP-P65-CRASH-AUDIO-SHIELD"
+      ],
+      "consumes": [
+        "EP-P64-HARDWARE-AUDIO-BOOTSTRAP",
+        "EP-P60-HIVE-SYNC-CORE"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/core/resilience/safe_audio_orchestrator.dart",
+          "relation": "MUTATES",
+          "to": "apps/vhunambi_client/lib/features/player/data/services/vhunambi_audio_handler.dart",
+          "note": "Enforces single-active hardware ExoPlayer audio slot across player, stems, reels, and sketchpad"
+        }
+      ],
+      "breakthroughs": [
+        "Added drawable/ic_stat_music.xml, VhunambiCrashShield.run(), SafeAudioOrchestrator ExoPlayer mutex, SafeNotifierMixin, SafeNetworkAvatar, JsonSafe, and Hono global app.onError boundary.",
+        "Phase 65 tasks.md uses a status table without markdown checkboxes, but all 5 containment symbols are verified live in apps/vhunambi_client/lib/core/."
+      ],
+      "gotchas": [
+        "apps/vhunambi_api/test/phase65_foundation_resilience.test.ts exists in test/ but is currently omitted from package.json's npm test script.",
+        "Always guard async StateNotifier mutations with mounted checks or SafeNotifierMixin after every await."
+      ]
+    },
+    {
+      "phase_id": "P66",
+      "phase_order": 66,
+      "memory_key": "MEM-P66-AUDIO-PROMPT-HYGIENE-V3",
+      "title": "VH001-VH006 Studio Cockpit Wiring, ACE-Step Lyric Sanitizer, Bantu Phonetic Guard & -14 LUFS Mastering",
+      "status": "completed",
+      "completed_at": "2026-11-16",
+      "memory_file": "docs/memory/sprints/P66_memory.md",
+      "predecessor_keys": [
+        "MEM-P65-FOUNDATION-CRASH-IMMUNITY"
+      ],
+      "concept_hubs": [
+        "ai_synthesis_gpu",
+        "mood_taxonomy"
+      ],
+      "endpoints_defined": [
+        "EP-P66-ACESTEP-PROMPT-HYGIENE",
+        "EP-P66-LYRICS-REFINE-STORY"
+      ],
+      "consumes": [
+        "EP-P65-CRASH-AUDIO-SHIELD"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/studio/presentation/providers/generation_pipeline_providers.dart",
+          "relation": "PROVIDES",
+          "to": "apps/vhunambi_api/src/routes/generation_routes.ts",
+          "note": "Passes mood from studioFormProvider end-to-end into buildAceStepStyleTags()"
+        }
+      ],
+      "breakthroughs": [
+        "Un-spec'd sprint (commit c70fcde / vhunambi-v3): replaced destructive Demucs 4-stem re-summing (-9.5 LUFS) with master_clean_stereo_gentle() at -14.0 LUFS / -1.0 dBTP.",
+        "Added _install_latin_language_guard() in tools/zr-studio-gpu/model_utils.py to stop py3langid/LangSegment from misclassifying Bantu lyrics as Mandarin Chinese."
+      ],
+      "gotchas": [
+        "Non-structural bracketed stage directions (e.g. [Log drum drop]) are sung aloud by ACE-Step unless stripped by lyrics_sanitizer.ts / sanitize_lyrics_for_ace_step().",
+        "This sprint had no docs/phases/phase_66 folder; documented in docs/AGENT_HANDOFF_BIBLE.md Section 42 and preserved here."
+      ]
+    },
+    {
+      "phase_id": "P67",
+      "phase_order": 67,
+      "memory_key": "MEM-P67-NOTIFICATIONS-QUOTA",
+      "title": "Notifications Center Two-Pass Overhaul & 10 Free Monthly Songs Engine",
+      "status": "completed",
+      "completed_at": "2026-11-16",
+      "memory_file": "docs/phases/phase_67_notifications_center_two_pass_overhaul/memory.md",
+      "predecessor_keys": [
+        "MEM-P66-AUDIO-PROMPT-HYGIENE-V3"
+      ],
+      "concept_hubs": [
+        "notifications_bus",
+        "quota_economy",
+        "ui_surface_std",
+        "sync_outbox"
+      ],
+      "endpoints_defined": [
+        "EP-P67-NOTIF-API",
+        "EP-P67-QUOTA-API",
+        "EP-P67-NOTIF-BELL",
+        "EP-P67-DEEPLINK-ROUTER",
+        "EP-P67-ONBOARDING-NOTIFS",
+        "EP-P67-SCRUB-LEGACY-NOTIFS"
+      ],
+      "consumes": [
+        "EP-P65-CRASH-AUDIO-SHIELD",
+        "EP-P60-HIVE-SYNC-CORE"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/notifications/presentation/views/notifications_view.dart",
+          "relation": "ROUTES_TO",
+          "to": "EP-P67-DEEPLINK-ROUTER",
+          "note": "Dispatches tapped notification alerts into track, post, profile, or studio destinations"
+        }
+      ],
+      "breakthroughs": [
+        "Purged fake Phase 40 demo alerts, calibrated starter Creator DNA completeness to 6-10%, and fixed Unknown Melody lookup in track_providers.dart by searching libraryTracksProvider & exploreTracksProvider.",
+        "Shipped 20261116000001_phase67_notifications_and_quotas.sql and 10 Free Monthly Songs tracking on /api/wallet/allowance + /v1/generations."
+      ],
+      "gotchas": [
+        "apps/vhunambi_api/src/phase67_notifications_quota.test.ts was placed inside src/ instead of test/; keep in mind during API test cleanup.",
+        "All 5 /api/notifications* backend routes remain OPEN until a client HTTP notification sync repository is added."
+      ]
+    },
+    {
+      "phase_id": "P68",
+      "phase_order": 68,
+      "memory_key": "MEM-P68-HOME-MAIN-ROOM",
+      "title": "Home Dashboard Main Room & Studio Utility Overhaul",
+      "status": "completed",
+      "completed_at": "2026-11-17",
+      "memory_file": "docs/phases/phase_68_home_dashboard_main_room_overhaul/memory.md",
+      "predecessor_keys": [
+        "MEM-P67-NOTIFICATIONS-QUOTA"
+      ],
+      "concept_hubs": [
+        "media_artwork",
+        "quota_economy",
+        "audio_transport",
+        "mood_taxonomy",
+        "ui_surface_std"
+      ],
+      "endpoints_defined": [
+        "EP-P68-TRACK-ARTWORK",
+        "EP-P68-CREATOR-ALLOWANCE",
+        "EP-P68-MINIPLAYER-SUPPRESS",
+        "EP-P68-MOOD-FRAGMENTED"
+      ],
+      "consumes": [
+        "EP-P67-QUOTA-API",
+        "EP-P67-NOTIF-BELL",
+        "EP-P65-CRASH-AUDIO-SHIELD"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/home/presentation/widgets/main_room_header.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P68-CREATOR-ALLOWANCE",
+          "note": "Renders live 10/10 monthly songs allowance pill"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/home/presentation/views/home_dashboard_view.dart",
+          "relation": "MUTATES",
+          "to": "EP-P68-MINIPLAYER-SUPPRESS",
+          "note": "Suppresses floating MiniPlayerHost on Tab 0 while NowPlayingHomeCard is mounted"
+        }
+      ],
+      "breakthroughs": [
+        "Replaced orange-placeholder covers with 10 registered studio PNGs via AppAssets.resolveGenreCoverAsset and VhunambiTrackArtwork.",
+        "Wired GET /api/wallet/allowance (EP-P67-QUOTA-API) into CreatorAllowanceNotifier + MainRoomHeader and added Tab-0 MiniPlayerHost suppression."
+      ],
+      "gotchas": [
+        "Keep standalone MiniPlayerHost tests working by defaulting homeInlineNowPlayingMountedProvider to false when HomeDashboardView is not mounted.",
+        "Purged raw emojis from african_greeting_resolver.dart, dna_insight_card.dart, cross_module_synergy_deck.dart, and subscription_upgrade_modal.dart per STD-UIUX-001."
+      ]
+    },
+    {
+      "phase_id": "P68.5",
+      "phase_order": 68.5,
+      "memory_key": "MEM-P68-5-MADONI-CINEMA-SPLASH",
+      "title": "Phase 68.5 Cinema Splash Screen & Madoni Software Parent Attribution",
+      "status": "completed",
+      "completed_at": "2026-11-18",
+      "memory_file": "docs/memory/sprints/P68_5_memory.md",
+      "predecessor_keys": [
+        "MEM-P68-HOME-MAIN-ROOM"
+      ],
+      "concept_hubs": [
+        "media_artwork",
+        "ui_surface_std"
+      ],
+      "endpoints_defined": [
+        "EP-P68-5-MADONI-BRANDING"
+      ],
+      "consumes": [],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/onboarding/presentation/views/splash_view.dart",
+          "relation": "CONSUMES",
+          "to": "apps/vhunambi_client/lib/core/constants/app_assets.dart",
+          "note": "Reads AppAssets.splashHero and AppAssets.madoniSoftwareLogo"
+        }
+      ],
+      "breakthroughs": [
+        "Eliminated Android cold-start white flash via obsidian #FF0A0A0C launch_background.xml (drawable + drawable-v21) paired with animated SplashView.",
+        "Registered assets/branding/madonisoftware/madoni_logo.png and android-chrome-192x192.png in pubspec.yaml and AppAssets."
+      ],
+      "gotchas": [
+        "Un-spec'd sprint bundled into commit bf7ca98 with no docs/phases/ folder; tracked here under docs/memory/sprints/ so future sessions never overwrite splash_view.dart or launch_background.xml."
+      ]
+    },
+    {
+      "phase_id": "P69",
+      "phase_order": 69,
+      "memory_key": "MEM-P69-KINETIC-POST-FOCUS",
+      "title": "Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul",
+      "status": "completed",
+      "completed_at": "2026-11-18",
+      "memory_file": "docs/phases/phase_69_kinetic_post_focus_and_threading_overhaul/memory.md",
+      "predecessor_keys": [
+        "MEM-P68-HOME-MAIN-ROOM",
+        "MEM-P68-5-MADONI-CINEMA-SPLASH"
+      ],
+      "concept_hubs": [
+        "social_graph",
+        "identity_role",
+        "media_artwork",
+        "notifications_bus",
+        "sync_outbox",
+        "ui_surface_std"
+      ],
+      "endpoints_defined": [
+        "EP-P69-THREADED-COMMENTS",
+        "EP-P69-KPOST-FOCUS-ROUTE",
+        "EP-P69-POST-COSIGN-REPOST-HTTP"
+      ],
+      "consumes": [
+        "EP-P68-TRACK-ARTWORK",
+        "EP-P67-DEEPLINK-ROUTER",
+        "EP-P65-CRASH-AUDIO-SHIELD",
+        "EP-P61-IDENTITY-UTILS"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/explore/presentation/widgets/explore_social_post_card.dart",
+          "relation": "ROUTES_TO",
+          "to": "EP-P69-KPOST-FOCUS-ROUTE",
+          "note": "1-tap card/caption/media/strip/comment button navigation while isolating social_post_play_btn"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/explore/presentation/views/kinetic_post_focus_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P69-THREADED-COMMENTS",
+          "note": "Renders threaded discussion & sticky bottom StudioReactionComposerBar"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/social/presentation/providers/reels_comments_provider.dart",
+          "relation": "MUTATES",
+          "to": "apps/vhunambi_client/lib/features/explore/presentation/providers/explore_providers.dart",
+          "note": "Increments SocialMusicPost.commentCount via SocialFeedPostsNotifier.incrementCommentCount"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/explore/presentation/widgets/repost_kinetic_post_sheet.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P61-IDENTITY-UTILS",
+          "note": "Resolves active creator identity from ownerProfileProvider & authSessionProvider instead of @current_user"
+        }
+      ],
+      "breakthroughs": [
+        "Built full-screen KineticPostFocusView (< Post) + reusable ThreadedCommentsSection/StudioReactionComposerBar shared across Kinetic Posts and ReelsCommentSheet with zero raw Unicode emojis or stock Icons.*.",
+        "Shipped 20261118000001_phase69_kinetic_posts_and_threaded_comments.sql, /api/v1/explore/posts* routes, kinetic_posts fallback in social_service.ts, and fixed applyMutationsBatch so post.like increments like_count (never cosign_count).",
+        "Verified 23/23 API test suites (SQLite + EdgeIsolate), full flutter analyze (0 issues), 183/183 Explore/Social/Notifications tests, and installed 43.2 MB ARM64 release APK on Huawei JNY_LX1 (EPHUT20917014649)."
+      ],
+      "gotchas": [
+        "Never use pumpAndSettle() on KineticPostFocusView / ExploreSocialPostCard when KineticPostSonicPill's repeating equalizer ticker is active; use bounded pump loops (12 x 50ms) for MaterialPageRoute transitions.",
+        "When purging raw emojis from shared cards (e.g. Co-Sign pill), audit legacy test files across both test/features/explore/ and test/features/social/ (phase38, phase40, phase46)."
+      ]
+    },
+    {
+      "phase_id": "P70",
+      "phase_order": 70,
+      "memory_key": "MEM-P70-SONG-COCKPIT-VISITOR-PROFILE",
+      "title": "Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul",
+      "status": "completed",
+      "completed_at": "2026-11-19",
+      "memory_file": "docs/phases/phase_70_song_cockpit_and_visitor_profile_glass_overhaul/memory.md",
+      "predecessor_keys": [
+        "MEM-P68-HOME-MAIN-ROOM",
+        "MEM-P69-KINETIC-POST-FOCUS"
+      ],
+      "concept_hubs": [
+        "identity_role",
+        "media_artwork",
+        "mood_taxonomy",
+        "social_graph",
+        "audio_transport",
+        "ui_surface_std",
+        "quota_economy"
+      ],
+      "endpoints_defined": [
+        "EP-P70-GLASS-SURFACE",
+        "EP-P70-MOOD-TAXONOMY",
+        "EP-P70-VIEWER-ROLE"
+      ],
+      "consumes": [
+        "EP-P58-MKT-VERIFY-PRODUCER",
+        "EP-P68-TRACK-ARTWORK",
+        "EP-P69-THREADED-COMMENTS",
+        "EP-P69-KPOST-FOCUS-ROUTE",
+        "EP-P68-MINIPLAYER-SUPPRESS",
+        "EP-P61-IDENTITY-UTILS",
+        "EP-P68-MOOD-FRAGMENTED"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/track/presentation/views/track_detail_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P70-VIEWER-ROLE",
+          "note": "Gates StemSeparationLab, StemMixerDeck (List in Beatstore), Mastering, PromptAttributionCard, and Ownership Deed strictly on ViewerRole.owner"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/track/presentation/views/track_detail_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P69-THREADED-COMMENTS",
+          "note": "Replaces legacy flat CommentsSection with shared ThreadedCommentsSection + sticky StudioReactionComposerBar"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/track/presentation/widgets/track_hero_section.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P68-TRACK-ARTWORK",
+          "note": "Replaces flat genre gradient box with unified VhunambiTrackArtwork"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/profile/presentation/views/artist_profile_view.dart",
+          "relation": "ROUTES_TO",
+          "to": "EP-P69-KPOST-FOCUS-ROUTE",
+          "note": "Opens KineticPostFocusView from Overview and Posts & Reels tabs on public visitor creator profiles"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/marketplace/data/repositories/http_marketplace_repository.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P58-MKT-VERIFY-PRODUCER",
+          "note": "Calls GET /api/marketplace/producers/:producerId/beats to hydrate Visitor Profile Beats tab"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/player/presentation/widgets/mini_player_host.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P68-MINIPLAYER-SUPPRESS",
+          "note": "Generalizes inline/pushed route suppression via trackDetailInlinePlayerMountedProvider and pushedFullScreenOverlayCountProvider"
+        }
+      ],
+      "breakthroughs": [
+        "Drafted two-pass architecture cleanly isolating Pass 1 (Glass system, VhunambiMood, ViewerRole, Role-Aware TrackDetailView) from Pass 2 (5-tab Facebook-benchmark ArtistProfileView, EP-P58 producer beats HTTP wiring, backend mood_id parity)."
+      ],
+      "gotchas": [
+        "AppColors.surfaceElevated resolves to #FFFFFF in Light Mode; never pair it with hardcoded Colors.white foregrounds (root cause of TrackActionsBar and ProfileBannerHeader ghost pills).",
+        "Never put BackdropFilter inside repeating ListView/CustomScrollView cards on Android; keep VhunambiGlassSurface.enableLiveBlur = false by default and wrap VhunambiAmbientMeshBackdrop in RepaintBoundary.",
+        "In Flutter widget tests using FakeAsync, Dio ResponseBody.fromString streams can stall; test HttpClientAdapter HTTP calls in plain test() blocks and override FutureProvider families in testWidgets() with bounded pump()."
+      ]
+    },
+    {
+      "phase_id": "P71",
+      "phase_order": 71,
+      "memory_key": "MEM-P71-CLOUD-SPINE-CONNECTOME-CLOSURE",
+      "title": "Cloudflare Worker Supabase Read/Write-Through Durability, OPEN Connectome Closure (EP-P67, EP-P69, EP-P37, EP-P68) & 100% Green Test Baseline",
+      "status": "completed",
+      "completed_at": "2026-11-20",
+      "memory_file": "docs/phases/phase_71_cloud_persistence_and_open_connectome_closure/memory.md",
+      "predecessor_keys": [
+        "MEM-P67-NOTIFICATIONS-QUOTA",
+        "MEM-P68-HOME-MAIN-ROOM",
+        "MEM-P69-KINETIC-POST-FOCUS",
+        "MEM-P70-SONG-COCKPIT-VISITOR-PROFILE"
+      ],
+      "concept_hubs": [
+        "sync_outbox",
+        "notifications_bus",
+        "social_graph",
+        "quota_economy",
+        "ui_surface_std"
+      ],
+      "endpoints_defined": [
+        "EP-P71-EDGE-SWR-READTHROUGH",
+        "EP-P71-ATOMIC-QUOTA-RPC"
+      ],
+      "consumes": [
+        "EP-P67-NOTIF-API",
+        "EP-P69-POST-COSIGN-REPOST-HTTP",
+        "EP-P37-REMIX-TREE-API",
+        "EP-P68-CREATOR-ALLOWANCE"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/notifications/data/repositories/http_notification_repository.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P67-NOTIF-API",
+          "note": "Wires bidirectional GET/POST/PATCH/DELETE /api/notifications* sync into NotificationsNotifier alongside 0ms Hive cache"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/explore/data/repositories/http_explore_repository.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P69-POST-COSIGN-REPOST-HTTP",
+          "note": "Adds direct HTTP callers for /explore/feed, /posts/:id/cosign, /posts/:id/repost, and /comments/:id/like with offline-only outbox fallback in SocialFeedPostsNotifier"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/social/data/repositories/http_social_repository.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P37-REMIX-TREE-API",
+          "note": "Calls GET /api/social/clips/:id/remixes and merges live remix children onto RemixLineageTreeSheet via remixLineageRemoteChildrenProvider"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/studio/presentation/widgets/studio_action_bar.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P68-CREATOR-ALLOWANCE",
+          "note": "Displays live monthly free song allowance chip (studio_allowance_chip) and pairs with GenerationPipelineNotifier optimistic decrement and SubscriptionUpgradeModal status card"
+        },
+        {
+          "from": "apps/vhunambi_api/src/routes/generation_routes.ts",
+          "relation": "CONSUMES",
+          "to": "EP-P71-ATOMIC-QUOTA-RPC",
+          "note": "Executes row-locked Postgres quota decrement via consumeFreeMonthlySongQuotaAsync across Cloudflare Worker isolates"
+        },
+        {
+          "from": "apps/vhunambi_api/src/routes/webhook_routes.ts",
+          "relation": "PROVIDES",
+          "to": "EP-P71-EDGE-SWR-READTHROUGH",
+          "note": "Awaits durable generation_jobs upsert on RunPod webhook completion so polling isolates see finished audio immediately"
+        }
+      ],
+      "breakthroughs": [
+        "Replacing the monolithic 21-table coldStartHydrated=true lock with domain-scoped SWR freshness tracking (12s TTL, never marked fresh on timeout/error) eliminates silent cross-isolate staleness for notifications, Kinetic Posts, threaded comments, RunPod webhook completions, and wallets.",
+        "Routing SocialFeedPostsNotifier mutations through direct HTTP first and falling back to EdgeSyncCoordinator outbox ONLY on offline/error closes EP-P69-POST-COSIGN-REPOST-HTTP with zero double-increment bugs."
+      ],
+      "gotchas": [
+        "The live Explore posts notifier in explore_providers.dart is named SocialFeedPostsNotifier (socialFeedPostsProvider), not ExplorePostsNotifier; preserve the authentic symbol name to avoid breaking existing callers and tests.",
+        "Because vhunambiDb in vhunambi_db.ts is typed as VhunambiDatabase (proxying EdgeIsolateDatabaseEngine in workerd), every new async/sync helper added to EdgeIsolateDatabaseEngine must also have a matching method on VhunambiDatabase for tsc --noEmit parity.",
+        "Postgres explore_tracks uses likes_count (plural) while EdgeIsolateDatabaseEngine RAM rows use like_count (singular); always patch likes_count in PostgREST write-throughs.",
+        "applyMutationsBatch previously ignored m.payload?.trackId and m.entityId when deriving entityId; include both so track like outbox syncs resolve and mirror to Supabase.",
+        "GenerationPipelineNotifier.submitAndStartGeneration returns early when socket is! GenerationSocketService (test harness); invoke consumeOneSongOptimistically() in both the fake-socket and production-socket branches.",
+        "Pre-existing unrelated failure observed in apps/vhunambi_client/test/features/explore/explore_notifier_test.dart:163 (filterExploreTracks mood 'Energetic' returns 3 instead of 2 due to Phase 70 canonical VhunambiMood mapping)."
+      ]
+    }
+  ],
+  "endpoints": {
+    "EP-P61-IDENTITY-UTILS": {
+      "id": "EP-P61-IDENTITY-UTILS",
+      "kind": "domain_utility",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P00_P63",
+      "origin_order": 63,
+      "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
+      "hubs": [
+        "identity_role"
+      ],
+      "spec_anchor": "docs/phases/phase_61_sovereign_identity_auth_and_security_convergence/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/core/utils/creator_id_utils.dart",
+      "summary": "Canonical creator ID normalizer & handle utilities shared across auth, marketplace, playlists, and profiles.",
+      "consumers": [
+        "P61:auth_providers",
+        "P61:sovereign_auth_repository",
+        "P61:marketplace_providers",
+        "P61:profile_providers",
+        "P61:artist_profile_view",
+        "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul",
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+      ],
+      "consumed_by_phases": [
+        "P69",
+        "P70"
+      ],
+      "open_opportunities": "Pair with formal ViewerRole owner-vs-visitor boundary across TrackDetailView & ArtistProfileView (Phase 70)"
+    },
+    "EP-P60-HIVE-SYNC-CORE": {
+      "id": "EP-P60-HIVE-SYNC-CORE",
+      "kind": "persistence_engine",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P00_P63",
+      "origin_order": 63,
+      "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
+      "hubs": [
+        "sync_outbox"
+      ],
+      "spec_anchor": "docs/phases/phase_60_sovereign_hive_brain_and_persistence_convergence/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/core/storage/sovereign_hive_bootstrap_service.dart",
+      "summary": "26-box AES-256 Sovereign Hive vault bootstrap + EdgeSyncCoordinator (/api/v1/sync/mutations, /delta) + SovereignApiClient.",
+      "consumers": [
+        "P60:main.dart",
+        "P60:sovereign_hive_account_sanitizer",
+        "P60:offline_providers",
+        "P60:hive_brain_telemetry_card",
+        "P64:Full Cloud Production Pipeline, Hardware Audio Bootstrap & ACE-Step 1.5 LoRA GPU Activation",
+        "P65:Foundation Stability, Crash Immunity & 5-Layer Fault-Containment Architecture",
+        "P67:Notifications Center Two-Pass Overhaul & 10 Free Monthly Songs Engine"
+      ],
+      "consumed_by_phases": [
+        "P64",
+        "P65",
+        "P67"
+      ],
+      "open_opportunities": "Wire Worker routes beyond auth_routes.ts to SupabaseCloudDriver instead of volatile EdgeIsolateDatabaseEngine memory"
+    },
+    "EP-P58-MKT-VERIFY-PRODUCER": {
+      "id": "EP-P58-MKT-VERIFY-PRODUCER",
+      "kind": "backend_api",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P00_P63",
+      "origin_order": 63,
+      "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
+      "hubs": [
+        "quota_economy",
+        "identity_role"
+      ],
+      "spec_anchor": "docs/phases/phase_58_sovereign_beatstore_licensing/design.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/marketplace_routes.ts",
+      "summary": "GET /api/marketplace/licenses/verify/:certificateId, GET /licenses/:buyerId, GET /producers/:producerId/beats.",
+      "consumers": [
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+      ],
+      "consumed_by_phases": [
+        "P70"
+      ],
+      "open_opportunities": "Wire GET /producers/:producerId/beats into ArtistProfileView Beatstore tab & certificate verification UI (Phase 70)"
+    },
+    "EP-P37-REMIX-TREE-API": {
+      "id": "EP-P37-REMIX-TREE-API",
+      "kind": "backend_api",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P00_P63",
+      "origin_order": 63,
+      "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
+      "hubs": [
+        "social_graph"
+      ],
+      "spec_anchor": "docs/phases/phase_37_open_verse_and_stem_remix_chains/design.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/social_routes.ts",
+      "summary": "GET /api/social/clips/:id/remixes lineage endpoint.",
+      "consumers": [
+        "P71:Cloudflare Worker Supabase Read/Write-Through Durability, OPEN Connectome Closure (EP-P67, EP-P69, EP-P37, EP-P68) & 100% Green Test Baseline"
+      ],
+      "consumed_by_phases": [
+        "P71"
+      ],
+      "open_opportunities": "Connect RemixLineageTreeSheet to live backend remix graph instead of local-only mock tree"
+    },
+    "EP-P41-WALLET-DIRECT": {
+      "id": "EP-P41-WALLET-DIRECT",
+      "kind": "backend_api",
+      "state": "OPEN",
+      "origin_phase": "P00_P63",
+      "origin_order": 63,
+      "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
+      "hubs": [
+        "quota_economy"
+      ],
+      "spec_anchor": "docs/phases/phase_41_creator_sovereign_payouts_and_banking/design.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/wallet_routes.ts",
+      "summary": "GET /api/wallet/:creatorId & POST /api/wallet/topup direct routes.",
+      "consumers": [],
+      "consumed_by_phases": [],
+      "open_opportunities": "Consolidate with /api/creators/:id/wallet or wire direct topup/balance callers cleanly"
+    },
+    "EP-P27-MELODY-PRESETS-PACKS": {
+      "id": "EP-P27-MELODY-PRESETS-PACKS",
+      "kind": "backend_api",
+      "state": "OPEN",
+      "origin_phase": "P00_P63",
+      "origin_order": 63,
+      "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
+      "hubs": [
+        "audio_transport",
+        "ai_synthesis_gpu"
+      ],
+      "spec_anchor": "docs/phases/phase_27_melody_logdrum_sketchpad/design.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/melody_routes.ts",
+      "summary": "GET /v1/melodies/presets & GET /v1/melodies/sound-packs.",
+      "consumers": [],
+      "consumed_by_phases": [],
+      "open_opportunities": "Hydrate Groove Sketchpad sound pack catalog dynamically from backend API"
+    },
+    "EP-P26-VOICE-CALIBRATION-RECIPE": {
+      "id": "EP-P26-VOICE-CALIBRATION-RECIPE",
+      "kind": "backend_api",
+      "state": "OPEN",
+      "origin_phase": "P00_P63",
+      "origin_order": 63,
+      "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
+      "hubs": [
+        "ai_synthesis_gpu",
+        "identity_role"
+      ],
+      "spec_anchor": "docs/phases/phase_26_vocal_identity_cloning/design.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/voice_routes.ts",
+      "summary": "POST /v1/voices/extract-calibration & PATCH /v1/voices/signatures/:id/recipe.",
+      "consumers": [],
+      "consumed_by_phases": [],
+      "open_opportunities": "Wire voice calibration & DSP signature recipe updates from Sound Signature intake flow"
+    },
+    "EP-P25-GEN-MASTER-PRESETS": {
+      "id": "EP-P25-GEN-MASTER-PRESETS",
+      "kind": "backend_api",
+      "state": "OPEN",
+      "origin_phase": "P00_P63",
+      "origin_order": 63,
+      "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
+      "hubs": [
+        "ai_synthesis_gpu",
+        "audio_transport"
+      ],
+      "spec_anchor": "docs/phases/phase_25_stem_mastering_suite/design.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/generation_routes.ts",
+      "summary": "GET /v1/generations/mastering/presets & GET /v1/generations/:id/manifest.",
+      "consumers": [],
+      "consumed_by_phases": [],
+      "open_opportunities": "Sync server mastering presets & 4-stem MMO manifest directly into Mastering Studio & TrackDetailView"
+    },
+    "EP-P63-R2-SEEDER": {
+      "id": "EP-P63-R2-SEEDER",
+      "kind": "ops_api",
+      "state": "SEALED",
+      "origin_phase": "P00_P63",
+      "origin_order": 63,
+      "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
+      "hubs": [
+        "media_artwork",
+        "sync_outbox"
+      ],
+      "spec_anchor": "docs/phases/phase_63_e2e_cloud_pipeline_and_preflight_convergence/design.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/system_routes.ts",
+      "summary": "POST /api/system/seed-r2-media operator-only bucket seeder.",
+      "consumers": [
+        "ops:cli"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": null
+    },
+    "EP-P62-RUNPOD-WEBHOOK": {
+      "id": "EP-P62-RUNPOD-WEBHOOK",
+      "kind": "webhook",
+      "state": "SEALED",
+      "origin_phase": "P00_P63",
+      "origin_order": 63,
+      "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
+      "hubs": [
+        "ai_synthesis_gpu"
+      ],
+      "spec_anchor": "docs/phases/phase_62_hybrid_cloud_stack_topology_convergence/design.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/webhook_routes.ts",
+      "summary": "POST /v1/webhooks/ace-step HMAC-verified server-to-server RunPod GPU callback.",
+      "consumers": [
+        "runpod:zr-studio-gpu"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": null
+    },
+    "EP-P64-HARDWARE-AUDIO-BOOTSTRAP": {
+      "id": "EP-P64-HARDWARE-AUDIO-BOOTSTRAP",
+      "kind": "service_bootstrap",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P64",
+      "origin_order": 64,
+      "memory_file": "docs/phases/phase_64_full_production_pipeline_and_lora_gpu_activation/memory.md",
+      "hubs": [
+        "audio_transport"
+      ],
+      "spec_anchor": "docs/phases/phase_64_full_production_pipeline_and_lora_gpu_activation/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/main.dart#L60-L70",
+      "summary": "Overrides audioHandlerProvider in ProviderScope via bootstrapPlatformAudioHandler() with TestVhunambiAudioHandler fallback.",
+      "consumers": [
+        "P64:main.dart",
+        "P65:Foundation Stability, Crash Immunity & 5-Layer Fault-Containment Architecture"
+      ],
+      "consumed_by_phases": [
+        "P65"
+      ],
+      "open_opportunities": "Keep hardware audio bootstrap verified whenever player_provider or AudioServiceConfig changes"
+    },
+    "EP-P65-CRASH-AUDIO-SHIELD": {
+      "id": "EP-P65-CRASH-AUDIO-SHIELD",
+      "kind": "resilience_kit",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P65",
+      "origin_order": 65,
+      "memory_file": "docs/phases/phase_65_foundation_stability_and_fault_containment/memory.md",
+      "hubs": [
+        "audio_transport",
+        "sync_outbox",
+        "media_artwork"
+      ],
+      "spec_anchor": "docs/phases/phase_65_foundation_stability_and_fault_containment/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/core/resilience/safe_audio_orchestrator.dart",
+      "summary": "5-layer containment kit: VhunambiCrashShield, SafeAudioOrchestrator mutex, SafeNotifierMixin, SafeNetworkAvatar, JsonSafe, and Hono app.onError.",
+      "consumers": [
+        "P65:main.dart",
+        "P65:vhunambi_audio_handler",
+        "P65:just_audio_multi_stem_engine",
+        "P65:reel_audio_pool_service",
+        "P65:sovereign_domain_repositories",
+        "P66:VH001-VH006 Studio Cockpit Wiring, ACE-Step Lyric Sanitizer, Bantu Phonetic Guard & -14 LUFS Mastering",
+        "P67:Notifications Center Two-Pass Overhaul & 10 Free Monthly Songs Engine",
+        "P68:Home Dashboard Main Room & Studio Utility Overhaul",
+        "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul"
+      ],
+      "consumed_by_phases": [
+        "P66",
+        "P67",
+        "P68",
+        "P69"
+      ],
+      "open_opportunities": "Adopt SafeNetworkAvatar across ArtistProfileView, TrackDetailView, and remaining Image.network avatars; include phase65_foundation_resilience.test.ts in api npm test"
+    },
+    "EP-P66-ACESTEP-PROMPT-HYGIENE": {
+      "id": "EP-P66-ACESTEP-PROMPT-HYGIENE",
+      "kind": "synthesis_pipeline",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P66",
+      "origin_order": 66,
+      "memory_file": "docs/memory/sprints/P66_memory.md",
+      "hubs": [
+        "ai_synthesis_gpu",
+        "mood_taxonomy"
+      ],
+      "spec_anchor": "docs/AGENT_HANDOFF_BIBLE.md#L1840-L1912",
+      "code_anchor": "apps/vhunambi_api/src/modules/lyrics/lyrics_sanitizer.ts",
+      "summary": "Comma-separated ACE-Step style tags (buildAceStepStyleTags), bracketed stage-direction lyric sanitizer, Bantu Latin language guard, and gentle -14.0 LUFS mastering.",
+      "consumers": [
+        "P66:prompt_compiler.ts",
+        "P66:runpod_adapter.ts",
+        "P66:tools/zr-studio-gpu/model_utils.py",
+        "P66:tools/zr-studio-gpu/stem_mastering_worker.py"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Feed unified VhunambiMood taxonomy directly into buildAceStepStyleTags() once EP-P68-MOOD-FRAGMENTED is unified"
+    },
+    "EP-P66-LYRICS-REFINE-STORY": {
+      "id": "EP-P66-LYRICS-REFINE-STORY",
+      "kind": "backend_api",
+      "state": "OPEN",
+      "origin_phase": "P66",
+      "origin_order": 66,
+      "memory_file": "docs/memory/sprints/P66_memory.md",
+      "hubs": [
+        "ai_synthesis_gpu",
+        "mood_taxonomy"
+      ],
+      "spec_anchor": "docs/audits/VHUNAMBI_REPO_TOPOLOGY_AND_MEMORY_READINESS_AUDIT.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/lyrics_routes.ts",
+      "summary": "POST /v1/lyrics/refine & POST /v1/lyrics/story-transform endpoints.",
+      "consumers": [],
+      "consumed_by_phases": [],
+      "open_opportunities": "Wire line-level AI lyric refinement and story-to-lyrics transform UI inside Studio Lyrics Review (HttpLyricsGenerationService only calls /v1/lyrics/generate)"
+    },
+    "EP-P67-NOTIF-API": {
+      "id": "EP-P67-NOTIF-API",
+      "kind": "backend_api",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P67",
+      "origin_order": 67,
+      "memory_file": "docs/phases/phase_67_notifications_center_two_pass_overhaul/memory.md",
+      "hubs": [
+        "notifications_bus",
+        "sync_outbox"
+      ],
+      "spec_anchor": "docs/phases/phase_67_notifications_center_two_pass_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/notification_routes.ts",
+      "summary": "5 REST routes: GET/POST /api/notifications, PATCH /:id/read, POST /mark-all-read, DELETE /:id backed by 20261116000001 migration.",
+      "consumers": [
+        "P71:Cloudflare Worker Supabase Read/Write-Through Durability, OPEN Connectome Closure (EP-P67, EP-P69, EP-P37, EP-P68) & 100% Green Test Baseline"
+      ],
+      "consumed_by_phases": [
+        "P71"
+      ],
+      "open_opportunities": "Zero Dart client HTTP callers yet (NotificationRepository uses local Hive only); wire cross-device cloud notification sync"
+    },
+    "EP-P67-QUOTA-API": {
+      "id": "EP-P67-QUOTA-API",
+      "kind": "backend_api",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P67",
+      "origin_order": 67,
+      "memory_file": "docs/phases/phase_67_notifications_center_two_pass_overhaul/memory.md",
+      "hubs": [
+        "quota_economy"
+      ],
+      "spec_anchor": "docs/phases/phase_67_notifications_center_two_pass_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/wallet_routes.ts",
+      "summary": "GET /api/wallet/allowance returning 10 free monthly songs quota balance & monthly reset cycle.",
+      "consumers": [
+        "P68:Home Dashboard Main Room & Studio Utility Overhaul"
+      ],
+      "consumed_by_phases": [
+        "P68"
+      ],
+      "open_opportunities": "Expose live monthly quota allowance in Studio Compose & SubscriptionUpgradeModal in addition to Home"
+    },
+    "EP-P67-NOTIF-BELL": {
+      "id": "EP-P67-NOTIF-BELL",
+      "kind": "ui_primitive",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P67",
+      "origin_order": 67,
+      "memory_file": "docs/phases/phase_67_notifications_center_two_pass_overhaul/memory.md",
+      "hubs": [
+        "notifications_bus",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_67_notifications_center_two_pass_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/features/notifications/presentation/widgets/notification_bell_button.dart",
+      "summary": "Unified unread badge bell button rendered across all top-level navigation app bars.",
+      "consumers": [
+        "P67:vhunambi_app_bar",
+        "P67:explore_top_bar",
+        "P67:library_app_bar",
+        "P67:marketplace_top_bar",
+        "P68:Home Dashboard Main Room & Studio Utility Overhaul"
+      ],
+      "consumed_by_phases": [
+        "P68"
+      ],
+      "open_opportunities": "Back unread count with EP-P67-NOTIF-API once cloud notification sync is wired"
+    },
+    "EP-P67-DEEPLINK-ROUTER": {
+      "id": "EP-P67-DEEPLINK-ROUTER",
+      "kind": "navigation_router",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P67",
+      "origin_order": 67,
+      "memory_file": "docs/phases/phase_67_notifications_center_two_pass_overhaul/memory.md",
+      "hubs": [
+        "notifications_bus",
+        "social_graph"
+      ],
+      "spec_anchor": "docs/phases/phase_67_notifications_center_two_pass_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/features/notifications/presentation/utils/notification_deep_link_router.dart",
+      "summary": "Central notification deep-link dispatcher supporting /track/:id, /post/:id, /studio, /profile/:id, and /wallet routes.",
+      "consumers": [
+        "P67:notifications_view",
+        "P67:notification_detail_bottom_sheet",
+        "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul"
+      ],
+      "consumed_by_phases": [
+        "P69"
+      ],
+      "open_opportunities": "Extend for Beatstore license deeds and Visitor Creator Profile tabs in Phase 70+"
+    },
+    "EP-P67-ONBOARDING-NOTIFS": {
+      "id": "EP-P67-ONBOARDING-NOTIFS",
+      "kind": "domain_service",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P67",
+      "origin_order": 67,
+      "memory_file": "docs/phases/phase_67_notifications_center_two_pass_overhaul/memory.md",
+      "hubs": [
+        "notifications_bus",
+        "quota_economy"
+      ],
+      "spec_anchor": "docs/phases/phase_67_notifications_center_two_pass_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/features/notifications/domain/services/onboarding_notifications_service.dart",
+      "summary": "Idempotent beginner milestone seeder (Welcome, Creator DNA 6-10%, 10 Free Monthly Songs).",
+      "consumers": [
+        "P67:onboarding_view",
+        "P67:main.dart"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Sync starter milestones with backend EP-P67-NOTIF-API on fresh sign-in"
+    },
+    "EP-P67-SCRUB-LEGACY-NOTIFS": {
+      "id": "EP-P67-SCRUB-LEGACY-NOTIFS",
+      "kind": "internal_migration",
+      "state": "SEALED",
+      "origin_phase": "P67",
+      "origin_order": 67,
+      "memory_file": "docs/phases/phase_67_notifications_center_two_pass_overhaul/memory.md",
+      "hubs": [
+        "notifications_bus",
+        "sync_outbox"
+      ],
+      "spec_anchor": "docs/phases/phase_67_notifications_center_two_pass_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/features/notifications/data/repositories/notification_repository.dart",
+      "summary": "One-off Hive scrubber purging legacy phase40SeededNotifications demo mocks (isLegacyDemoMockId).",
+      "consumers": [
+        "P67:notification_repository"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": null
+    },
+    "EP-P68-TRACK-ARTWORK": {
+      "id": "EP-P68-TRACK-ARTWORK",
+      "kind": "ui_primitive",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P68",
+      "origin_order": 68,
+      "memory_file": "docs/phases/phase_68_home_dashboard_main_room_overhaul/memory.md",
+      "hubs": [
+        "media_artwork",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_68_home_dashboard_main_room_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/core/widgets/vhunambi_track_artwork.dart",
+      "summary": "Unified track cover renderer backed by 10 bundled studio PNGs and AppAssets.resolveGenreCoverAsset deterministic fallback.",
+      "consumers": [
+        "P68:horizontal_genre_track_shelf",
+        "P68:now_playing_home_card",
+        "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul",
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+      ],
+      "consumed_by_phases": [
+        "P69",
+        "P70"
+      ],
+      "open_opportunities": "Not yet adopted in TrackDetailView (936 lines, 6 stock Icons.*) or ArtistProfileView (803 lines, 10 stock Icons.*) — prime Phase 70 upgrade"
+    },
+    "EP-P68-CREATOR-ALLOWANCE": {
+      "id": "EP-P68-CREATOR-ALLOWANCE",
+      "kind": "state_provider",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P68",
+      "origin_order": 68,
+      "memory_file": "docs/phases/phase_68_home_dashboard_main_room_overhaul/memory.md",
+      "hubs": [
+        "quota_economy",
+        "sync_outbox"
+      ],
+      "spec_anchor": "docs/phases/phase_68_home_dashboard_main_room_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/features/home/presentation/providers/creator_allowance_provider.dart",
+      "summary": "CreatorAllowanceNotifier consuming GET /api/wallet/allowance with per-tenant Hive prefsBoxKey caching.",
+      "consumers": [
+        "P68:main_room_header",
+        "P71:Cloudflare Worker Supabase Read/Write-Through Durability, OPEN Connectome Closure (EP-P67, EP-P69, EP-P37, EP-P68) & 100% Green Test Baseline"
+      ],
+      "consumed_by_phases": [
+        "P71"
+      ],
+      "open_opportunities": "Mount live 10/10 quota pill inside Studio Compose header and SubscriptionUpgradeModal"
+    },
+    "EP-P68-MINIPLAYER-SUPPRESS": {
+      "id": "EP-P68-MINIPLAYER-SUPPRESS",
+      "kind": "state_contract",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P68",
+      "origin_order": 68,
+      "memory_file": "docs/phases/phase_68_home_dashboard_main_room_overhaul/memory.md",
+      "hubs": [
+        "audio_transport",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_68_home_dashboard_main_room_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/core/navigation/navigation_providers.dart",
+      "summary": "homeInlineNowPlayingMountedProvider coordinating floating MiniPlayerHost suppression whenever Tab-0 NowPlayingHomeCard is visible.",
+      "consumers": [
+        "P68:mini_player_host",
+        "P68:home_dashboard_view",
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+      ],
+      "consumed_by_phases": [
+        "P70"
+      ],
+      "open_opportunities": "Reuse inline-player suppression contract for future full-screen focus players (e.g. Song Cockpit) to avoid duplicate transports"
+    },
+    "EP-P68-MOOD-FRAGMENTED": {
+      "id": "EP-P68-MOOD-FRAGMENTED",
+      "kind": "data_contract",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P68",
+      "origin_order": 68,
+      "memory_file": "docs/phases/phase_68_home_dashboard_main_room_overhaul/memory.md",
+      "hubs": [
+        "mood_taxonomy",
+        "ai_synthesis_gpu",
+        "social_graph"
+      ],
+      "spec_anchor": "docs/audits/VHUNAMBI_REPO_TOPOLOGY_AND_MEMORY_READINESS_AUDIT.md",
+      "code_anchor": "apps/vhunambi_client/lib/core/design_system/tokens/design_enums.dart#L33-L48",
+      "summary": "Fragmented mood representation: 5-value enum Mood in design_enums.dart vs free strings in StudioFormNotifier vs Explore exploreMoodFilterProvider.",
+      "consumers": [
+        "P68:studio_form_provider",
+        "P68:explore_providers",
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+      ],
+      "consumed_by_phases": [
+        "P70"
+      ],
+      "open_opportunities": "Unify into a canonical VhunambiMood / moodId taxonomy across Studio, TrackDetailView, Explore mood filters, and Home curated mixes (Phase 70+)"
+    },
+    "EP-P68-5-MADONI-BRANDING": {
+      "id": "EP-P68-5-MADONI-BRANDING",
+      "kind": "brand_assets",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P68.5",
+      "origin_order": 68.5,
+      "memory_file": "docs/memory/sprints/P68_5_memory.md",
+      "hubs": [
+        "media_artwork",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/audits/VHUNAMBI_REPO_TOPOLOGY_AND_MEMORY_READINESS_AUDIT.md",
+      "code_anchor": "apps/vhunambi_client/lib/features/onboarding/presentation/views/splash_view.dart",
+      "summary": "Full-bleed sunset Cinema Splash (SplashView), obsidian launch_background.xml eliminating white flash, and AppAssets.madoniSoftwareLogo / madoniSoftwareIcon.",
+      "consumers": [
+        "P68.5:splash_view",
+        "P68.5:launch_background.xml"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Reuse AppAssets.madoniSoftwareLogo in Settings/About drawer and legal attribution footer"
+    },
+    "EP-P69-THREADED-COMMENTS": {
+      "id": "EP-P69-THREADED-COMMENTS",
+      "kind": "ui_primitive",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P69",
+      "origin_order": 69,
+      "memory_file": "docs/phases/phase_69_kinetic_post_focus_and_threading_overhaul/memory.md",
+      "hubs": [
+        "social_graph",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_69_kinetic_post_focus_and_threading_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/features/social/presentation/widgets/threaded_comments_section.dart",
+      "summary": "Reusable ThreadedCommentsSection + StudioReactionComposerBar (Most relevant/Newest sort, View N replies, Author badge, active Reply banner, Phosphor reaction chips, zero raw emojis).",
+      "consumers": [
+        "P69:kinetic_post_focus_view",
+        "P69:reels_comment_sheet",
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+      ],
+      "consumed_by_phases": [
+        "P70"
+      ],
+      "open_opportunities": "Drop directly into TrackDetailView (Song Cockpit) to replace legacy flat track comments (Phase 70)"
+    },
+    "EP-P69-KPOST-FOCUS-ROUTE": {
+      "id": "EP-P69-KPOST-FOCUS-ROUTE",
+      "kind": "ui_destination",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P69",
+      "origin_order": 69,
+      "memory_file": "docs/phases/phase_69_kinetic_post_focus_and_threading_overhaul/memory.md",
+      "hubs": [
+        "social_graph",
+        "notifications_bus",
+        "media_artwork"
+      ],
+      "spec_anchor": "docs/phases/phase_69_kinetic_post_focus_and_threading_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_client/lib/features/explore/presentation/views/kinetic_post_focus_view.dart",
+      "summary": "Full-screen < Post destination (KineticPostFocusView) with multi-image counter pill, inline sonic pill, engagement summary, threaded replies, sticky bottom composer, and /post/:id deep-link support.",
+      "consumers": [
+        "P69:explore_social_post_card",
+        "P69:notification_deep_link_router",
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+      ],
+      "consumed_by_phases": [
+        "P70"
+      ],
+      "open_opportunities": "Open KineticPostFocusView from creator post grids inside ArtistProfileView and OwnerProfileView (Phase 70)"
+    },
+    "EP-P69-POST-COSIGN-REPOST-HTTP": {
+      "id": "EP-P69-POST-COSIGN-REPOST-HTTP",
+      "kind": "backend_api",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P69",
+      "origin_order": 69,
+      "memory_file": "docs/phases/phase_69_kinetic_post_focus_and_threading_overhaul/memory.md",
+      "hubs": [
+        "social_graph",
+        "sync_outbox"
+      ],
+      "spec_anchor": "docs/phases/phase_69_kinetic_post_focus_and_threading_overhaul/design.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/explore_routes.ts",
+      "summary": "POST /api/explore/posts/:id/cosign, POST /api/explore/posts/:id/repost, POST /api/explore/comments/:id/like, and GET /api/explore/feed.",
+      "consumers": [
+        "P71:Cloudflare Worker Supabase Read/Write-Through Durability, OPEN Connectome Closure (EP-P67, EP-P69, EP-P37, EP-P68) & 100% Green Test Baseline"
+      ],
+      "consumed_by_phases": [
+        "P71"
+      ],
+      "open_opportunities": "Add direct HttpExploreRepository callers alongside EdgeSyncCoordinator outbox mutations for immediate cloud feedback on cosign, repost, and comment likes"
+    },
+    "EP-P70-GLASS-SURFACE": {
+      "id": "EP-P70-GLASS-SURFACE",
+      "kind": "ui_primitive",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P70",
+      "origin_order": 70,
+      "memory_file": "docs/phases/phase_70_song_cockpit_and_visitor_profile_glass_overhaul/memory.md",
+      "hubs": [
+        "ui_surface_std",
+        "media_artwork"
+      ],
+      "spec_anchor": "docs/phases/phase_70_song_cockpit_and_visitor_profile_glass_overhaul/design.md#1-vhunambiglasssurface-ep-p70-glass-surface",
+      "code_anchor": "apps/vhunambi_client/lib/core/widgets/vhunambi_glass_surface.dart",
+      "summary": "Dual-theme 3-layer VhunambiGlassSurface & RepaintBoundary-protected VhunambiAmbientMeshBackdrop calibrated for Warm African Daylight (Morning Mist) and Obsidian Night with 60 FPS Android blur guardrails (enableLiveBlur: false default, sigma <= 16.0 opt-in).",
+      "consumers": [
+        "P70:TrackDetailView",
+        "P70:ArtistProfileView"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Adopt VhunambiGlassSurface across Home dashboard cards, Explore headers, Notifications drawer, and OwnerProfileView"
+    },
+    "EP-P70-MOOD-TAXONOMY": {
+      "id": "EP-P70-MOOD-TAXONOMY",
+      "kind": "domain_contract",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P70",
+      "origin_order": 70,
+      "memory_file": "docs/phases/phase_70_song_cockpit_and_visitor_profile_glass_overhaul/memory.md",
+      "hubs": [
+        "mood_taxonomy",
+        "social_graph"
+      ],
+      "spec_anchor": "docs/phases/phase_70_song_cockpit_and_visitor_profile_glass_overhaul/design.md#3-canonical-vhunambimood-ep-p70-mood-taxonomy",
+      "code_anchor": "apps/vhunambi_client/lib/core/design_system/tokens/vhunambi_mood.dart",
+      "summary": "Canonical 6-mood wire taxonomy (uplifting, soulful, energetic, chill, hypnotic, romantic) with lossless normalize() bridging design_enums.dart, StudioFormState, Explore filters, TrackDetailEntity, and apps/vhunambi_api.",
+      "consumers": [
+        "P70:TrackSonicTelemetryCard",
+        "P70:explore_providers",
+        "P70:explore_routes"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Power Mood Radio stations, interactive Explore mood pill cross-filtering from TrackDetailView, and Studio mood selector migration"
+    },
+    "EP-P70-VIEWER-ROLE": {
+      "id": "EP-P70-VIEWER-ROLE",
+      "kind": "domain_policy",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P70",
+      "origin_order": 70,
+      "memory_file": "docs/phases/phase_70_song_cockpit_and_visitor_profile_glass_overhaul/memory.md",
+      "hubs": [
+        "identity_role",
+        "quota_economy"
+      ],
+      "spec_anchor": "docs/phases/phase_70_song_cockpit_and_visitor_profile_glass_overhaul/design.md#4-deterministic-viewerrole-policy-ep-p70-viewer-role",
+      "code_anchor": "apps/vhunambi_client/lib/core/auth/viewer_role.dart",
+      "summary": "Fail-closed ViewerRole { owner, visitor } resolver backed by EP-P61-IDENTITY-UTILS isolating paid creator studio controls and personal ownership deeds from outside listeners.",
+      "consumers": [
+        "P70:TrackDetailView",
+        "P70:TrackHeroSection"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Reuse ViewerRole across KineticPostFocusView creator moderation actions, Beatstore producer edit gates, and Playlists ownership guards"
+    },
+    "EP-P71-EDGE-SWR-READTHROUGH": {
+      "id": "EP-P71-EDGE-SWR-READTHROUGH",
+      "kind": "backend_persistence",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P71",
+      "origin_order": 71,
+      "memory_file": "docs/phases/phase_71_cloud_persistence_and_open_connectome_closure/memory.md",
+      "hubs": [
+        "sync_outbox",
+        "notifications_bus",
+        "social_graph"
+      ],
+      "spec_anchor": "docs/phases/phase_71_cloud_persistence_and_open_connectome_closure/design.md#2-overhaul-pass-1-m711-edge-swr-readwrite-through--database-parity",
+      "code_anchor": "apps/vhunambi_api/src/db/edge_persistence_bridge.ts",
+      "summary": "Domain-scoped SWR freshness tracker (12s TTL, never sealed on timeout/error), targeted cloud read-through helpers (syncNotificationsFromCloud, syncCreatorQuotaFromCloud, syncGenerationJobFromCloud, syncExploreFromCloud, syncCreatorWalletFromCloud), awaited critical write-throughs, and bounded 100-entry write-through failure telemetry ring.",
+      "consumers": [
+        "P71:notification_routes",
+        "P71:wallet_routes",
+        "P71:explore_routes",
+        "P71:generation_routes",
+        "P71:webhook_routes",
+        "P71:vision_routes"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Adopt domain-scoped SWR sync helpers in marketplace_routes, playlist_routes, library_routes, and voice_routes for full multi-isolate durability across every Cloudflare Worker endpoint"
+    },
+    "EP-P71-ATOMIC-QUOTA-RPC": {
+      "id": "EP-P71-ATOMIC-QUOTA-RPC",
+      "kind": "sql_rpc",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P71",
+      "origin_order": 71,
+      "memory_file": "docs/phases/phase_71_cloud_persistence_and_open_connectome_closure/memory.md",
+      "hubs": [
+        "quota_economy",
+        "sync_outbox"
+      ],
+      "spec_anchor": "docs/phases/phase_71_cloud_persistence_and_open_connectome_closure/design.md#1-overhaul-pass-1-m711-postgresql-migration--atomic-quota-rpc",
+      "code_anchor": "supabase/migrations/20261120000001_phase71_schema_parity_and_rpcs.sql",
+      "summary": "Row-locked PL/pgSQL RPC public.consume_free_monthly_song_quota_atomic(p_user_id TEXT) with 30-day cycle rollover and FOR UPDATE serialization preventing multi-isolate double-spend of the 10 Free Monthly Songs quota.",
+      "consumers": [
+        "P71:EdgeIsolateDatabaseEngine.consumeFreeMonthlySongQuotaAsync",
+        "P71:generation_routes"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Reuse for future subscription tier quota enforcement (Vision renders, Stem Separation credits) and PayFast upgrade tier unlocks"
+    }
+  },
+  "hub_index": {
+    "identity_role": {
+      "endpoints": [
+        "EP-P61-IDENTITY-UTILS",
+        "EP-P58-MKT-VERIFY-PRODUCER",
+        "EP-P26-VOICE-CALIBRATION-RECIPE",
+        "EP-P70-VIEWER-ROLE"
+      ],
+      "phases": [
+        "P00_P63",
+        "P69",
+        "P70"
+      ]
+    },
+    "media_artwork": {
+      "endpoints": [
+        "EP-P63-R2-SEEDER",
+        "EP-P65-CRASH-AUDIO-SHIELD",
+        "EP-P68-TRACK-ARTWORK",
+        "EP-P68-5-MADONI-BRANDING",
+        "EP-P69-KPOST-FOCUS-ROUTE",
+        "EP-P70-GLASS-SURFACE"
+      ],
+      "phases": [
+        "P64",
+        "P65",
+        "P68",
+        "P68.5",
+        "P69",
+        "P70"
+      ]
+    },
+    "quota_economy": {
+      "endpoints": [
+        "EP-P58-MKT-VERIFY-PRODUCER",
+        "EP-P41-WALLET-DIRECT",
+        "EP-P67-QUOTA-API",
+        "EP-P67-ONBOARDING-NOTIFS",
+        "EP-P68-CREATOR-ALLOWANCE",
+        "EP-P70-VIEWER-ROLE",
+        "EP-P71-ATOMIC-QUOTA-RPC"
+      ],
+      "phases": [
+        "P00_P63",
+        "P67",
+        "P68",
+        "P70",
+        "P71"
+      ]
+    },
+    "audio_transport": {
+      "endpoints": [
+        "EP-P27-MELODY-PRESETS-PACKS",
+        "EP-P25-GEN-MASTER-PRESETS",
+        "EP-P64-HARDWARE-AUDIO-BOOTSTRAP",
+        "EP-P65-CRASH-AUDIO-SHIELD",
+        "EP-P68-MINIPLAYER-SUPPRESS"
+      ],
+      "phases": [
+        "P00_P63",
+        "P64",
+        "P65",
+        "P68",
+        "P70"
+      ]
+    },
+    "mood_taxonomy": {
+      "endpoints": [
+        "EP-P66-ACESTEP-PROMPT-HYGIENE",
+        "EP-P66-LYRICS-REFINE-STORY",
+        "EP-P68-MOOD-FRAGMENTED",
+        "EP-P70-MOOD-TAXONOMY"
+      ],
+      "phases": [
+        "P66",
+        "P68",
+        "P70"
+      ]
+    },
+    "social_graph": {
+      "endpoints": [
+        "EP-P37-REMIX-TREE-API",
+        "EP-P67-DEEPLINK-ROUTER",
+        "EP-P68-MOOD-FRAGMENTED",
+        "EP-P69-THREADED-COMMENTS",
+        "EP-P69-KPOST-FOCUS-ROUTE",
+        "EP-P69-POST-COSIGN-REPOST-HTTP",
+        "EP-P70-MOOD-TAXONOMY",
+        "EP-P71-EDGE-SWR-READTHROUGH"
+      ],
+      "phases": [
+        "P00_P63",
+        "P69",
+        "P70",
+        "P71"
+      ]
+    },
+    "notifications_bus": {
+      "endpoints": [
+        "EP-P67-NOTIF-API",
+        "EP-P67-NOTIF-BELL",
+        "EP-P67-DEEPLINK-ROUTER",
+        "EP-P67-ONBOARDING-NOTIFS",
+        "EP-P67-SCRUB-LEGACY-NOTIFS",
+        "EP-P69-KPOST-FOCUS-ROUTE",
+        "EP-P71-EDGE-SWR-READTHROUGH"
+      ],
+      "phases": [
+        "P67",
+        "P69",
+        "P71"
+      ]
+    },
+    "sync_outbox": {
+      "endpoints": [
+        "EP-P60-HIVE-SYNC-CORE",
+        "EP-P63-R2-SEEDER",
+        "EP-P65-CRASH-AUDIO-SHIELD",
+        "EP-P67-NOTIF-API",
+        "EP-P67-SCRUB-LEGACY-NOTIFS",
+        "EP-P68-CREATOR-ALLOWANCE",
+        "EP-P69-POST-COSIGN-REPOST-HTTP",
+        "EP-P71-EDGE-SWR-READTHROUGH",
+        "EP-P71-ATOMIC-QUOTA-RPC"
+      ],
+      "phases": [
+        "P00_P63",
+        "P65",
+        "P67",
+        "P69",
+        "P71"
+      ]
+    },
+    "ui_surface_std": {
+      "endpoints": [
+        "EP-P67-NOTIF-BELL",
+        "EP-P68-TRACK-ARTWORK",
+        "EP-P68-MINIPLAYER-SUPPRESS",
+        "EP-P68-5-MADONI-BRANDING",
+        "EP-P69-THREADED-COMMENTS",
+        "EP-P70-GLASS-SURFACE"
+      ],
+      "phases": [
+        "P00_P63",
+        "P67",
+        "P68",
+        "P68.5",
+        "P69",
+        "P70",
+        "P71"
+      ]
+    },
+    "ai_synthesis_gpu": {
+      "endpoints": [
+        "EP-P27-MELODY-PRESETS-PACKS",
+        "EP-P26-VOICE-CALIBRATION-RECIPE",
+        "EP-P25-GEN-MASTER-PRESETS",
+        "EP-P62-RUNPOD-WEBHOOK",
+        "EP-P66-ACESTEP-PROMPT-HYGIENE",
+        "EP-P66-LYRICS-REFINE-STORY",
+        "EP-P68-MOOD-FRAGMENTED"
+      ],
+      "phases": [
+        "P00_P63",
+        "P64",
+        "P66"
+      ]
+    }
+  },
+  "file_index": {
+    "apps/vhunambi_client/lib/core/utils/creator_id_utils.dart": [
+      "EP-P61-IDENTITY-UTILS"
+    ],
+    "apps/vhunambi_client/lib/core/storage/sovereign_hive_bootstrap_service.dart": [
+      "EP-P60-HIVE-SYNC-CORE"
+    ],
+    "apps/vhunambi_api/src/routes/marketplace_routes.ts": [
+      "EP-P58-MKT-VERIFY-PRODUCER"
+    ],
+    "apps/vhunambi_api/src/routes/social_routes.ts": [
+      "EP-P37-REMIX-TREE-API"
+    ],
+    "apps/vhunambi_api/src/routes/wallet_routes.ts": [
+      "EP-P41-WALLET-DIRECT",
+      "EP-P67-QUOTA-API"
+    ],
+    "apps/vhunambi_api/src/routes/melody_routes.ts": [
+      "EP-P27-MELODY-PRESETS-PACKS"
+    ],
+    "apps/vhunambi_api/src/routes/voice_routes.ts": [
+      "EP-P26-VOICE-CALIBRATION-RECIPE"
+    ],
+    "apps/vhunambi_api/src/routes/generation_routes.ts": [
+      "EP-P25-GEN-MASTER-PRESETS"
+    ],
+    "apps/vhunambi_api/src/routes/system_routes.ts": [
+      "EP-P63-R2-SEEDER"
+    ],
+    "apps/vhunambi_api/src/routes/webhook_routes.ts": [
+      "EP-P62-RUNPOD-WEBHOOK"
+    ],
+    "apps/vhunambi_client/lib/main.dart": [
+      "EP-P64-HARDWARE-AUDIO-BOOTSTRAP"
+    ],
+    "apps/vhunambi_client/lib/core/resilience/safe_audio_orchestrator.dart": [
+      "EP-P65-CRASH-AUDIO-SHIELD"
+    ],
+    "apps/vhunambi_api/src/modules/lyrics/lyrics_sanitizer.ts": [
+      "EP-P66-ACESTEP-PROMPT-HYGIENE"
+    ],
+    "apps/vhunambi_api/src/routes/lyrics_routes.ts": [
+      "EP-P66-LYRICS-REFINE-STORY"
+    ],
+    "apps/vhunambi_api/src/routes/notification_routes.ts": [
+      "EP-P67-NOTIF-API"
+    ],
+    "apps/vhunambi_client/lib/features/notifications/presentation/widgets/notification_bell_button.dart": [
+      "EP-P67-NOTIF-BELL"
+    ],
+    "apps/vhunambi_client/lib/features/notifications/presentation/utils/notification_deep_link_router.dart": [
+      "EP-P67-DEEPLINK-ROUTER"
+    ],
+    "apps/vhunambi_client/lib/features/notifications/domain/services/onboarding_notifications_service.dart": [
+      "EP-P67-ONBOARDING-NOTIFS"
+    ],
+    "apps/vhunambi_client/lib/features/notifications/data/repositories/notification_repository.dart": [
+      "EP-P67-SCRUB-LEGACY-NOTIFS"
+    ],
+    "apps/vhunambi_client/lib/core/widgets/vhunambi_track_artwork.dart": [
+      "EP-P68-TRACK-ARTWORK"
+    ],
+    "apps/vhunambi_client/lib/features/home/presentation/providers/creator_allowance_provider.dart": [
+      "EP-P68-CREATOR-ALLOWANCE"
+    ],
+    "apps/vhunambi_client/lib/core/navigation/navigation_providers.dart": [
+      "EP-P68-MINIPLAYER-SUPPRESS"
+    ],
+    "apps/vhunambi_client/lib/core/design_system/tokens/design_enums.dart": [
+      "EP-P68-MOOD-FRAGMENTED"
+    ],
+    "apps/vhunambi_client/lib/features/onboarding/presentation/views/splash_view.dart": [
+      "EP-P68-5-MADONI-BRANDING"
+    ],
+    "apps/vhunambi_client/lib/features/social/presentation/widgets/threaded_comments_section.dart": [
+      "EP-P69-THREADED-COMMENTS"
+    ],
+    "apps/vhunambi_client/lib/features/explore/presentation/views/kinetic_post_focus_view.dart": [
+      "EP-P69-KPOST-FOCUS-ROUTE"
+    ],
+    "apps/vhunambi_api/src/routes/explore_routes.ts": [
+      "EP-P69-POST-COSIGN-REPOST-HTTP"
+    ],
+    "apps/vhunambi_client/lib/core/widgets/vhunambi_glass_surface.dart": [
+      "EP-P70-GLASS-SURFACE"
+    ],
+    "apps/vhunambi_client/lib/core/design_system/tokens/vhunambi_mood.dart": [
+      "EP-P70-MOOD-TAXONOMY"
+    ],
+    "apps/vhunambi_client/lib/core/auth/viewer_role.dart": [
+      "EP-P70-VIEWER-ROLE"
+    ],
+    "apps/vhunambi_api/src/db/edge_persistence_bridge.ts": [
+      "EP-P71-EDGE-SWR-READTHROUGH"
+    ],
+    "supabase/migrations/20261120000001_phase71_schema_parity_and_rpcs.sql": [
+      "EP-P71-ATOMIC-QUOTA-RPC"
+    ]
+  }
+}

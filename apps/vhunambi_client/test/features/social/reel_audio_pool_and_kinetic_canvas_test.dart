@@ -117,7 +117,12 @@ void main() {
         final reelsPool = container.read(reelAudioPoolProvider.notifier);
         final clips = container.read(socialFeedProvider).clips;
 
-        // Global player starts playing by default
+        // Global player initializes paused on cold start; start playback before entering reels
+        expect(
+          container.read(playerStateProvider).playbackStatus,
+          equals(PlaybackStatus.paused),
+        );
+        container.read(playerStateProvider.notifier).togglePlayPause();
         expect(
           container.read(playerStateProvider).playbackStatus,
           equals(PlaybackStatus.playing),

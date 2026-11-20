@@ -946,6 +946,38 @@ class HttpSocialRepository implements ISocialRepository {
     return _payFastSettleFallback(checkoutId);
   }
 
+  @override
+  Future<List<PublishedClip>> getClipRemixes(String clipId) async {
+    if (_shouldSkipNetwork || clipId.trim().isEmpty) {
+      return const <PublishedClip>[];
+    }
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/social/clips/${Uri.encodeComponent(clipId)}/remixes',
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final rawList = JsonSafe.asList(response.data!['remixes']);
+        final parsed = <PublishedClip>[];
+        for (final item in rawList) {
+          final map = JsonSafe.asMap(item);
+          if (map.isNotEmpty) {
+            try {
+              parsed.add(PublishedClip.fromJson(map));
+            } catch (e) {
+              debugPrint(
+                '[HttpSocialRepository] Skipping malformed remix clip: $e',
+              );
+            }
+          }
+        }
+        return parsed;
+      }
+    } catch (e) {
+      debugPrint('[HttpSocialRepository] getClipRemixes fallback: $e');
+    }
+    return const <PublishedClip>[];
+  }
+
   PayFastStatusSnapshot _payFastStatusFallback(String checkoutId) {
     final session = _fallbackPayFastSessions[checkoutId];
     final creatorId = session?.creatorId ?? 'creator_cern';

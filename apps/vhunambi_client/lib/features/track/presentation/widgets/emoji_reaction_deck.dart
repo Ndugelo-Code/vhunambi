@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../domain/models/track_detail_models.dart';
+import 'package:vhunambi_client/core/theme/app_colors.dart';
+import 'package:vhunambi_client/core/theme/app_dimensions.dart';
+import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
+import 'package:vhunambi_client/features/track/domain/models/track_detail_models.dart';
 
-/// 5-Glyph Cultural Vector Reaction Pill Deck (REQ-TRK-06 / STD-UIUX-001).
+/// Compact Horizontal Cultural Vector Reaction Rail (`REQ-TRK-06`, `REQ-P70-SCUX-03`).
 class EmojiReactionDeck extends StatelessWidget {
   final TrackDetailEntity track;
   final ValueChanged<String> onToggleReaction;
@@ -18,17 +19,32 @@ class EmojiReactionDeck extends StatelessWidget {
 
   static IconData getReactionIcon(String key) {
     return switch (key) {
-      'fire' => PhosphorIconsRegular.fire,
-      'love' => PhosphorIconsRegular.heart,
-      'rhythm' => PhosphorIconsRegular.musicNotes,
-      'hands' => PhosphorIconsRegular.handsClapping,
-      'globe' => PhosphorIconsRegular.globeHemisphereWest,
-      _ => PhosphorIconsRegular.sparkle,
+      'fire' => PhosphorIconsFill.flame,
+      'love' => PhosphorIconsFill.heart,
+      'rhythm' => PhosphorIconsFill.musicNotes,
+      'hands' => PhosphorIconsFill.handsClapping,
+      'globe' => PhosphorIconsFill.globeHemisphereWest,
+      _ => PhosphorIconsFill.sparkle,
     };
   }
 
-  static Color getReactionColor(String key, bool isSelected) {
-    if (!isSelected) return AppColors.textSecondary;
+  static String getReactionLabel(String key) {
+    return switch (key) {
+      'fire' => 'Fire',
+      'love' => 'Soul',
+      'rhythm' => 'Groove',
+      'hands' => 'Praise',
+      'globe' => 'Pan-African',
+      _ => 'Vibe',
+    };
+  }
+
+  static Color getReactionColor(
+    BuildContext context,
+    String key,
+    bool isSelected,
+  ) {
+    if (!isSelected) return AppColors.textSecondaryOf(context);
     return switch (key) {
       'fire' => AppColors.brandPrimary,
       'love' => AppColors.error,
@@ -41,59 +57,71 @@ class EmojiReactionDeck extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      child: Center(
-        child: Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 10,
-          runSpacing: 8,
-          children: TrackDetailEntity.reactionKeys.map((key) {
-            final count = track.reactions[key] ?? 0;
-            final isSelected = track.userReactions.contains(key);
-            final activeColor = getReactionColor(key, isSelected);
+    final textPrimary = AppColors.textPrimaryOf(context);
+    return Container(
+      key: const Key('track_reaction_rail'),
+      height: 44,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: TrackDetailEntity.reactionKeys.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final key = TrackDetailEntity.reactionKeys[index];
+          final count = track.reactions[key] ?? 0;
+          final isSelected = track.userReactions.contains(key);
+          final activeColor = getReactionColor(context, key, isSelected);
 
-            return InkWell(
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
               key: Key('reaction_$key'),
               onTap: () => onToggleReaction(key),
               borderRadius: AppRadius.pillBorder,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
+              child: VhunambiGlassSurface(
+                variant: VhunambiGlassVariant.pill,
+                tintAccent: isSelected ? activeColor : null,
+                borderColorOverride: isSelected ? activeColor : null,
                 constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? activeColor.withAlpha(25)
-                      : AppColors.surfaceElevated,
-                  borderRadius: AppRadius.pillBorder,
-                  border: Border.all(
-                    color: isSelected ? activeColor : AppColors.borderSubtle,
-                    width: isSelected ? 1.5 : 1.0,
-                  ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
+                  children: <Widget>[
                     PhosphorIcon(
                       getReactionIcon(key),
-                      size: 18,
+                      size: 16,
                       color: activeColor,
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '$count',
+                      getReactionLabel(key),
                       style: AppTypography.caption.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: isSelected ? activeColor : AppColors.textPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w500,
+                        color: isSelected ? activeColor : textPrimary,
                       ),
                     ),
+                    if (count > 0) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        '$count',
+                        style: AppTypography.caption.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: isSelected ? activeColor : textPrimary,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-            );
-          }).toList(),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

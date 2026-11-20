@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -55,8 +57,8 @@ class _CommentsSectionState extends State<CommentsSection> {
           // Section Title
           Row(
             children: [
-              const Icon(
-                Icons.chat_bubble_outline_rounded,
+              const PhosphorIcon(
+                AppIcons.chat,
                 size: 18,
                 color: AppColors.brandPrimary,
               ),
@@ -100,10 +102,14 @@ class _CommentsSectionState extends State<CommentsSection> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(
-                    Icons.send_rounded,
+                  icon: const PhosphorIcon(
+                    PhosphorIconsFill.paperPlaneRight,
                     color: AppColors.brandPrimary,
                     size: 20,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
                   ),
                   onPressed: _submit,
                 ),
@@ -120,8 +126,8 @@ class _CommentsSectionState extends State<CommentsSection> {
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.forum_outlined,
+                    PhosphorIcon(
+                      AppIcons.chat,
                       size: 36,
                       color: AppColors.textTertiary,
                     ),
@@ -235,10 +241,8 @@ class _CommentsSectionState extends State<CommentsSection> {
             iconSize: 16,
             padding: const EdgeInsets.all(12),
             constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            icon: Icon(
-              comment.isLiked
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
+            icon: PhosphorIcon(
+              comment.isLiked ? AppIcons.heart : AppIcons.heartOutline,
               color: comment.isLiked
                   ? AppColors.brandPrimary
                   : AppColors.textTertiary,

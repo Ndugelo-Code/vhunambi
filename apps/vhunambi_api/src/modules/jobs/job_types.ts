@@ -16,6 +16,7 @@ export interface GenerationJob {
   stemUrls?: Record<string, string>;
   manifestUrl?: string;
   manifest?: MasterMediaObjectManifest;
+  visionMeta?: Record<string, unknown>;
   coverUrl?: string;
   lyrics?: string;
   durationSec?: number;

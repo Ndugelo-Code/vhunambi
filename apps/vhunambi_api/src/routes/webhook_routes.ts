@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import crypto from 'node:crypto';
 import { extractWorkerEnv, resolveRuntimeEnv } from '../config/env.js';
+import { vhunambiDb } from '../db/vhunambi_db.js';
 import {
+  getJob,
   updateJobProgress,
   completeJob,
   failJob,
@@ -135,6 +137,27 @@ webhookRoutes.post('/ace-step', async (c) => {
         stemUrls,
         manifestUrl,
       });
+      const updatedJob = getJob(generationId) ?? {
+        generationId,
+        trackTitle: 'AI Master',
+        genre: 'Amapiano',
+        language: 've',
+        status: 'succeeded' as const,
+        step: 'ready' as const,
+        progressPct: 100,
+        masterMp3Url,
+        stemsZipUrl,
+        stemUrls,
+        manifestUrl,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      await vhunambiDb.upsertGenerationJobAsync(
+        updatedJob,
+        'creator_cern',
+        'audio_synthesis',
+        c,
+      );
       await broadcastGenerationEventToDo(workerEnv, {
         generationId,
         status: 'succeeded',
@@ -154,6 +177,15 @@ webhookRoutes.post('/ace-step', async (c) => {
     case 'failed': {
       const errorMsg = typeof error === 'string' ? error : 'GPU synthesis failed';
       failJob(generationId, errorMsg);
+      const failedJob = getJob(generationId);
+      if (failedJob) {
+        await vhunambiDb.upsertGenerationJobAsync(
+          failedJob,
+          'creator_cern',
+          'audio_synthesis',
+          c,
+        );
+      }
       await broadcastGenerationEventToDo(workerEnv, {
         generationId,
         status: 'failed',

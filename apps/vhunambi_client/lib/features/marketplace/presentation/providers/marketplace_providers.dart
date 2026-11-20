@@ -68,6 +68,25 @@ final creatorBeatsFamilyProvider =
       }).toList();
     });
 
+/// Live producer beat catalog consuming `EP-P58-MKT-VERIFY-PRODUCER`
+/// (`GET /api/marketplace/producers/:producerId/beats`) with optimistic merge
+/// against local `creatorBeatsFamilyProvider` (`REQ-P70-API-01`).
+final producerBeatsFamilyProvider =
+    FutureProvider.family<List<BeatListingEntity>, String>((
+      ref,
+      producerId,
+    ) async {
+      final repo = ref.watch(marketplaceRepositoryProvider);
+      final localBeats = ref.watch(creatorBeatsFamilyProvider(producerId));
+      final remoteBeats = await repo.getProducerBeats(producerId);
+
+      final mergedById = <String, BeatListingEntity>{
+        for (final b in remoteBeats) b.id: b,
+        for (final b in localBeats) b.id: b,
+      };
+      return mergedById.values.toList();
+    });
+
 final filteredBeatsProvider = Provider<List<BeatListingEntity>>((ref) {
   return filterBeats(
     beats: ref.watch(marketplaceBeatsProvider),

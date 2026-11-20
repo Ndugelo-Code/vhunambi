@@ -269,11 +269,12 @@ socialRoutes.post('/creators/:id/follow', (c) => {
 });
 
 // GET /api/creators/:id/wallet — creator balance & tipping ledger (REQ-WAL-01 + Phase 61 Tenant Guard)
-socialRoutes.get('/creators/:id/wallet', (c) => {
+socialRoutes.get('/creators/:id/wallet', async (c) => {
   const id = c.req.param('id') ?? '';
   const forbidden = assertTenantCreatorAccess(c, id);
   if (forbidden) return forbidden;
 
+  await vhunambiDb.syncCreatorWalletFromCloud(id, c);
   const wallet = getCreatorWallet(id);
   return c.json(wallet, 200);
 });
@@ -347,9 +348,9 @@ socialRoutes.post('/creators/:id/wallet/payout', async (c) => {
   const legacyResult = sqliteReceipt
     ? null
     : requestPayout(id, {
-        amountZar: data.amountZar,
-        payoutMethod: resolvedRail,
-      });
+      amountZar: data.amountZar,
+      payoutMethod: resolvedRail,
+    });
 
   if (!legacyResult && !sqliteReceipt) {
     return c.json(

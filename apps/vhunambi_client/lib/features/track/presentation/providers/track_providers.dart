@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/tokens/vhunambi_mood.dart';
+import '../../../../core/utils/creator_id_utils.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../notifications/domain/models/notification_entity.dart';
@@ -255,6 +257,27 @@ class TrackCommentsNotifier extends StateNotifier<List<CommentEntity>> {
   }
 }
 
+int _defaultBpmForGenre(String genre) {
+  return switch (genre.trim().toLowerCase()) {
+    'gqom' => 127,
+    'afro house' || 'afro-house' => 122,
+    'maskandi' => 106,
+    'kwaito' => 104,
+    'afrobeats' || 'afro pop' || 'afro-pop' => 108,
+    _ => 113,
+  };
+}
+
+String _defaultKeyForGenre(String genre) {
+  return switch (genre.trim().toLowerCase()) {
+    'gqom' => 'Cm',
+    'afro house' || 'afro-house' => 'Am',
+    'maskandi' => 'G',
+    'kwaito' => 'Dm',
+    _ => 'F#m',
+  };
+}
+
 TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
   if (ref != null) {
     // 1. Check User Library Vault (real generated & saved tracks)
@@ -266,6 +289,10 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
             RegExp(r'[^a-z0-9]+'),
             '_',
           );
+          final resolvedCreatorId = canonicalizeCreatorId(
+            lt.creatorName,
+            fallback: 'creator_$handleSlug',
+          );
           return TrackDetailEntity(
             id: lt.id,
             title: lt.title,
@@ -274,13 +301,20 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
             duration: Duration(
               seconds: lt.durationSeconds > 0 ? lt.durationSeconds : 180,
             ),
-            creatorId: 'creator_$handleSlug',
+            creatorId: resolvedCreatorId,
             creatorName: lt.creatorName,
-            creatorHandle: '@$handleSlug',
+            creatorHandle: handleFromCreatorId(resolvedCreatorId),
             playCount: lt.playCount,
+            coverUrl: lt.coverImageUrl,
+            createdAt: lt.createdAt,
+            bpm: _defaultBpmForGenre(lt.genre),
+            musicalKey: _defaultKeyForGenre(lt.genre),
+            moodId: VhunambiMood.normalize(null).moodId,
+            description:
+                'Mastered ${lt.genre} studio composition performed in ${lt.language}.',
             lyrics: lt.lyrics ?? '[Instrumental / AI Studio Track]',
             prompt:
-                'Synthesized in Vhunambi Studio (${lt.genre} • ${lt.language})',
+                'Synthesized in Vhunambi Studio (${lt.genre} · ${lt.language})',
           );
         }
       }
@@ -291,9 +325,8 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
       final exploreTracks = ref.read(exploreTracksProvider);
       for (final et in exploreTracks) {
         if (et.id == trackId) {
-          final handleSlug = et.creatorName.toLowerCase().replaceAll(
-            RegExp(r'[^a-z0-9]+'),
-            '_',
+          final resolvedCreatorId = canonicalizeCreatorId(
+            et.creatorHandle ?? et.creatorName,
           );
           return TrackDetailEntity(
             id: et.id,
@@ -301,12 +334,19 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
             genre: et.genre,
             language: et.language,
             duration: et.duration,
-            creatorId: 'creator_$handleSlug',
+            creatorId: resolvedCreatorId,
             creatorName: et.creatorName,
-            creatorHandle: et.creatorHandle ?? '@$handleSlug',
+            creatorHandle:
+                et.creatorHandle ?? handleFromCreatorId(resolvedCreatorId),
             playCount: et.playCount,
             likesCount: et.likeCount,
-            lyrics: '[${et.title} • ${et.language}]',
+            coverUrl: et.coverUrl,
+            bpm: _defaultBpmForGenre(et.genre),
+            musicalKey: _defaultKeyForGenre(et.genre),
+            moodId: VhunambiMood.normalize(et.mood).moodId,
+            description:
+                '${et.title} by ${et.creatorName} — ${et.genre} production recorded in ${et.language}.',
+            lyrics: '[${et.title} · ${et.language}]',
             prompt: 'Featured on Vhunambi Explore (${et.genre})',
           );
         }
@@ -325,7 +365,11 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
       duration: const Duration(minutes: 3, seconds: 18),
       creatorId: 'creator_cern',
       creatorName: 'Vhunambi Studio',
-      creatorHandle: '@vhunambi',
+      creatorHandle: '@cern',
+      bpm: 113,
+      musicalKey: 'F#m',
+      moodId: VhunambiMood.uplifting.moodId,
+      description: 'Original Amapiano session crafted in Vhunambi Studio.',
       prompt: 'African vocal rhythms with deep log drums',
       lyrics:
           '[Verse 1]\nMelodies from the north...\n[Chorus]\nVhutsila ha u imba...',
@@ -342,7 +386,7 @@ List<CommentEntity> _lookupInitialComments(String trackId) {
         trackId: trackId,
         authorName: 'Sipho Beats',
         authorHandle: '@sipho_beats',
-        content: 'That log drum drop at 1:12 is absolutely legendary! 🔥',
+        content: 'That log drum drop at 1:12 is absolutely legendary!',
         createdAt: DateTime.now().subtract(const Duration(hours: 3)),
         likesCount: 5,
         isLiked: true,
@@ -353,7 +397,7 @@ List<CommentEntity> _lookupInitialComments(String trackId) {
         authorName: 'Lerato K',
         authorHandle: '@lerato_k',
         content:
-            'Tshivenḓa harmonies with amapiano piano chords hit different ❤️',
+            'Tshivenḓa harmonies with amapiano piano chords hit different.',
         createdAt: DateTime.now().subtract(const Duration(hours: 6)),
         likesCount: 2,
         isLiked: false,
@@ -515,6 +559,12 @@ Indlela ende siyi hamba sonke.''',
     playCount: 2400,
     reactions: {'fire': 22, 'love': 30, 'rhythm': 45, 'hands': 14, 'globe': 20},
     userReactions: {},
+    bpm: 122,
+    musicalKey: 'Am',
+    moodId: 'soulful',
+    allowOpenStemsRemix: false,
+    description:
+        'Warm twilight Afro House session layered with Conga percussion and lush Fender Rhodes chords.',
     prompt:
         'Hypnotic 122 BPM Afro house percussion with African congas and soothing Rhodes',
     lyrics: '''[Chorus]

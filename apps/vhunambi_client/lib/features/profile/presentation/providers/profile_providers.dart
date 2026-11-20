@@ -6,6 +6,9 @@ import '../../../../core/cache/profile_cache.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/storage/sovereign_domain_repositories.dart';
 import '../../../../core/utils/creator_id_utils.dart';
+import '../../../../shared/models/track.dart';
+import '../../../explore/domain/models/social_music_post.dart';
+import '../../../explore/presentation/providers/explore_providers.dart';
 import '../../../notifications/domain/models/notification_entity.dart';
 import '../../../notifications/domain/models/notification_enums.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
@@ -23,6 +26,61 @@ final artistProfileFamilyProvider =
       String
     >((ref, artistId) {
       return ArtistProfileNotifier(artistId, ref: ref);
+    });
+
+/// Dynamically merges live tracks belonging to [artistId] from Explore feeds
+/// so `ArtistProfileView` never displays static hardcoded songs (`REQ-P70-PTAB-02`).
+final creatorCatalogTracksProvider = Provider.family<List<Track>, String>((
+  ref,
+  artistId,
+) {
+  final canonicalTarget = canonicalizeCreatorId(artistId);
+  final rawTarget = extractRawCreatorId(artistId).toLowerCase();
+  final exploreTracks = ref.watch(exploreTracksProvider);
+  final seenIds = <String>{};
+  final results = <Track>[];
+
+  bool matchesCreator(String? creatorName, String? creatorHandle) {
+    final handleSlug = (creatorHandle ?? '')
+        .trim()
+        .toLowerCase()
+        .replaceFirst(RegExp(r'^@+'), '');
+    final nameSlug = (creatorName ?? '').trim().toLowerCase();
+    final canonicalFromHandle = handleSlug.isNotEmpty
+        ? canonicalizeCreatorId(handleSlug, fallback: '')
+        : '';
+    return handleSlug == rawTarget ||
+        nameSlug == rawTarget ||
+        canonicalFromHandle == canonicalTarget;
+  }
+
+  for (final track in exploreTracks) {
+    if (matchesCreator(track.creatorName, track.creatorHandle) &&
+        seenIds.add(track.id)) {
+      results.add(track);
+    }
+  }
+  return results;
+});
+
+/// Projects Kinetic Posts authored by [artistId] for `Overview` and `Posts & Reels`
+/// (`EP-P69-KPOST-FOCUS-ROUTE`, `REQ-P70-PTAB-02`).
+final creatorKineticPostsProvider =
+    Provider.family<List<SocialMusicPost>, String>((ref, artistId) {
+      final canonicalTarget = canonicalizeCreatorId(artistId);
+      final rawTarget = extractRawCreatorId(artistId).toLowerCase();
+      final posts = ref.watch(socialFeedPostsProvider);
+
+      return posts.where((post) {
+        final cid = canonicalizeCreatorId(post.creatorId, fallback: '');
+        final handleSlug = post.creatorHandle
+            .trim()
+            .toLowerCase()
+            .replaceFirst(RegExp(r'^@+'), '');
+        return cid == canonicalTarget ||
+            extractRawCreatorId(post.creatorId).toLowerCase() == rawTarget ||
+            handleSlug == rawTarget;
+      }).toList();
     });
 
 /// Account owner creator studio profile provider for `/profile/me` (REQ-TRK-15).

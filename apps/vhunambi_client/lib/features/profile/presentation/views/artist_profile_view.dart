@@ -1,278 +1,384 @@
-import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/design_system/tokens/app_icons.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_gradients.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/utils/responsive_utils.dart';
-import '../../../../core/utils/creator_id_utils.dart';
-import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
-import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
-import '../../../../shared/models/track.dart';
-import '../../../player/presentation/providers/player_provider.dart';
-import '../../../track/presentation/views/track_detail_view.dart';
-import '../../../social/domain/models/published_clip.dart';
-import '../../../social/presentation/providers/creator_clips_provider.dart';
-import '../../../social/presentation/widgets/creator_reel_thumbnail_card.dart';
-import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
-import '../../../social/presentation/widgets/creator_tipping_sheet.dart';
-import '../../../marketplace/presentation/providers/marketplace_providers.dart';
-import '../../../marketplace/presentation/widgets/beat_license_modal.dart';
-import '../widgets/producer_beat_listing_tile.dart';
-import '../../../creator_dna/presentation/widgets/creator_dna_profile_card.dart';
-import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
-import '../widgets/artist_voice_showcase_card.dart';
-import '../widgets/pinned_spotlight_card.dart';
-import '../providers/profile_providers.dart';
-import '../../domain/models/profile_models.dart';
-import '../../domain/models/profile_operation_type.dart';
-import '../../domain/models/profile_operation_state.dart';
-import '../widgets/error/error_boundary.dart';
-import '../widgets/loading/loading_overlay.dart';
-import '../widgets/loading/profile_skeleton_screen.dart';
-import '../widgets/offline/offline_indicator.dart';
-import '../widgets/profile_banner_header.dart';
-import '../widgets/profile_stats_grid.dart';
-import '../widgets/top_supporters_leaderboard.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
+import 'package:vhunambi_client/core/design_system/tokens/vhunambi_mood.dart';
+import 'package:vhunambi_client/core/navigation/navigation_providers.dart';
+import 'package:vhunambi_client/core/theme/app_colors.dart';
+import 'package:vhunambi_client/core/theme/app_dimensions.dart';
+import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/core/utils/creator_id_utils.dart';
+import 'package:vhunambi_client/core/utils/responsive_utils.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_ambient_mesh_backdrop.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_top_bar_kit.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_track_artwork.dart';
+import 'package:vhunambi_client/features/explore/domain/models/social_music_post.dart';
+import 'package:vhunambi_client/features/explore/presentation/views/kinetic_post_focus_view.dart';
+import 'package:vhunambi_client/features/marketplace/presentation/providers/marketplace_providers.dart';
+import 'package:vhunambi_client/features/marketplace/presentation/widgets/beat_license_modal.dart';
+import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
+import 'package:vhunambi_client/features/profile/domain/models/profile_models.dart';
+import 'package:vhunambi_client/features/profile/domain/models/profile_operation_state.dart';
+import 'package:vhunambi_client/features/profile/domain/models/profile_operation_type.dart';
+import 'package:vhunambi_client/features/profile/presentation/providers/profile_providers.dart';
+import 'package:vhunambi_client/features/profile/presentation/widgets/error/error_boundary.dart';
+import 'package:vhunambi_client/features/profile/presentation/widgets/loading/profile_skeleton_screen.dart';
+import 'package:vhunambi_client/features/profile/presentation/widgets/offline/offline_indicator.dart';
+import 'package:vhunambi_client/features/profile/presentation/widgets/pinned_spotlight_card.dart';
+import 'package:vhunambi_client/features/profile/presentation/widgets/producer_beat_listing_tile.dart';
+import 'package:vhunambi_client/features/profile/presentation/widgets/profile_banner_header.dart';
+import 'package:vhunambi_client/features/profile/presentation/widgets/top_supporters_leaderboard.dart';
+import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
+import 'package:vhunambi_client/features/social/presentation/providers/creator_clips_provider.dart';
+import 'package:vhunambi_client/features/social/presentation/widgets/creator_reel_thumbnail_card.dart';
+import 'package:vhunambi_client/features/social/presentation/widgets/creator_tipping_sheet.dart';
+import 'package:vhunambi_client/features/social/presentation/widgets/kinetic_reels_modal.dart';
+import 'package:vhunambi_client/features/track/presentation/views/track_detail_view.dart';
+import 'package:vhunambi_client/shared/models/track.dart';
 
-/// Public Artist Profile View (`/profile/:id`) (REQ-TRK-12 … REQ-TRK-14).
-class ArtistProfileView extends ConsumerWidget {
+/// Facebook-Benchmark Public Visitor Creator Profile View (`/profile/:id`)
+/// (`REQ-P70-PROF-01..03`, `REQ-P70-PTAB-01..03`, `STD-UIUX-001`).
+class ArtistProfileView extends ConsumerStatefulWidget {
   final String artistId;
 
   const ArtistProfileView({super.key, required this.artistId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(artistProfileFamilyProvider(artistId));
-    final opState = ref.watch(profileOperationProvider(artistId));
+  ConsumerState<ArtistProfileView> createState() => _ArtistProfileViewState();
+}
+
+class _ArtistProfileViewState extends ConsumerState<ArtistProfileView> {
+  StateController<int>? _pushedOverlayCounter;
+  bool _didIncrementPushedOverlay = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final counter = ref.read(pushedFullScreenOverlayCountProvider.notifier);
+      _pushedOverlayCounter = counter;
+      _didIncrementPushedOverlay = true;
+      counter.state++;
+    });
+  }
+
+  @override
+  void dispose() {
+    final counter = _pushedOverlayCounter;
+    if (_didIncrementPushedOverlay && counter != null) {
+      _didIncrementPushedOverlay = false;
+      Future<void>.microtask(() {
+        if (counter.mounted && counter.state > 0) {
+          counter.state = (counter.state - 1).clamp(0, 99);
+        }
+      });
+    }
+    super.dispose();
+  }
+
+  String _formatCompactMetric(int count) {
+    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
+    return '$count';
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  void _openTipSheet(BuildContext context, ArtistProfileEntity profile) {
+    CreatorTippingSheet.show(
+      context,
+      creatorId: profile.id,
+      creatorName: profile.displayName,
+      creatorUsername: profile.username,
+      creatorAvatarUrl: profile.avatarUrl,
+    );
+  }
+
+  void _openOverflowSheet(BuildContext context, ArtistProfileEntity profile) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceModalOf(context),
+      shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
+      builder: (sheetCtx) {
+        final textPrimary = AppColors.textPrimaryOf(sheetCtx);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ListTile(
+                  key: const Key('visitor_overflow_share'),
+                  leading: PhosphorIcon(AppIcons.share, color: textPrimary),
+                  title: Text(
+                    'Share Profile',
+                    style: AppTypography.bodyLarge.copyWith(color: textPrimary),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    Clipboard.setData(
+                      ClipboardData(text: profile.profileUrl),
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Copied ${profile.displayName} profile link',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  key: const Key('visitor_overflow_copy_handle'),
+                  leading: PhosphorIcon(
+                    PhosphorIconsRegular.copy,
+                    color: textPrimary,
+                  ),
+                  title: Text(
+                    'Copy ${profile.handle}',
+                    style: AppTypography.bodyLarge.copyWith(color: textPrimary),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    Clipboard.setData(ClipboardData(text: profile.handle));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Copied ${profile.handle}')),
+                    );
+                  },
+                ),
+                ListTile(
+                  key: const Key('visitor_overflow_report'),
+                  leading: const PhosphorIcon(
+                    PhosphorIconsRegular.flag,
+                    color: AppColors.error,
+                  ),
+                  title: Text(
+                    'Report Creator',
+                    style: AppTypography.bodyLarge.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Report submitted for ${profile.handle}.'),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = ref.watch(artistProfileFamilyProvider(widget.artistId));
+    final opState = ref.watch(profileOperationProvider(widget.artistId));
+    final liveTracks = ref.watch(creatorCatalogTracksProvider(profile.id));
+    final creatorPosts = ref.watch(creatorKineticPostsProvider(profile.id));
     final clips = ref.watch(
       creatorClipsFamilyProvider(normalizeCreatorId(profile.id)),
     );
+    final textPrimary = AppColors.textPrimaryOf(context);
 
-    // Listen for mutation errors to display snackbars
-    ref.listen<ProfileOperationState>(profileOperationProvider(artistId), (
-      previous,
-      current,
-    ) {
-      final followError = current.errorFor(ProfileOperationType.follow);
-      if (followError != null &&
-          previous?.errorFor(ProfileOperationType.follow) != followError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(followError.message),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-      final tipError = current.errorFor(ProfileOperationType.tip);
-      if (tipError != null &&
-          previous?.errorFor(ProfileOperationType.tip) != tipError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(tipError.message),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    });
+    ref.listen<ProfileOperationState>(
+      profileOperationProvider(widget.artistId),
+      (previous, current) {
+        final followError = current.errorFor(ProfileOperationType.follow);
+        if (followError != null &&
+            previous?.errorFor(ProfileOperationType.follow) != followError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(followError.message),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        final tipError = current.errorFor(ProfileOperationType.tip);
+        if (tipError != null &&
+            previous?.errorFor(ProfileOperationType.tip) != tipError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(tipError.message),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      },
+    );
 
-    // Initial fetch loading state
     if (opState.isLoading(ProfileOperationType.fetch) &&
         opState.cachedProfile == null) {
       return const ProfileSkeletonScreen();
     }
 
-    // Initial fetch error state
     final fetchError = opState.errorFor(ProfileOperationType.fetch);
     if (fetchError != null && opState.cachedProfile == null) {
       return Scaffold(
-        backgroundColor: AppColors.surfaceCanvas,
+        backgroundColor: AppColors.surfaceCanvasOf(context),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: const VhunambiBackButton(color: Colors.white),
+          leading: VhunambiBackButton(color: textPrimary),
         ),
         body: ErrorBoundary(
           message: fetchError.message,
           onRetry: () => ref
-              .read(profileOperationProvider(artistId).notifier)
+              .read(profileOperationProvider(widget.artistId).notifier)
               .fetchProfile(),
         ),
       );
     }
 
-    final isMutating =
-        opState.isLoading(ProfileOperationType.follow) ||
-        opState.isLoading(ProfileOperationType.tip);
-    final mutationMessage = opState.isLoading(ProfileOperationType.follow)
-        ? 'Updating follow status...'
-        : 'Processing tip...';
-
-    final hasActiveTrack = ref.watch(
-      playerStateProvider.select((s) => s.hasActiveTrack),
-    );
-    final bottomInset =
-        VhunambiBottomDockMetrics.scrollInset(hasActiveTrack: hasActiveTrack) +
-        24;
+    final primaryGenre = profile.topGenres.isNotEmpty
+        ? profile.topGenres.first
+        : 'Amapiano';
 
     return DefaultTabController(
-      length: 3,
+      length: 5,
+      initialIndex: 0,
       child: Scaffold(
-        backgroundColor: AppColors.surfaceCanvas,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: const VhunambiBackButton(color: Colors.white),
-          title: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.music_note_rounded,
-                color: AppColors.brandPrimary,
-                size: 20,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'VHUNAMBI',
-                style: AppTypography.titleMedium.copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
+        backgroundColor: AppColors.surfaceCanvasOf(context),
+        appBar: PreferredSize(
+          preferredSize: Size.fromHeight(
+            VhunambiTopBarMetrics.totalHeight(context),
           ),
-          centerTitle: true,
-          actions: [
-            IconButton(
-              icon: PhosphorIcon(PhosphorIconsRegular.shareNetwork, color: AppColors.textPrimaryOf(context), size: 20),
-              onPressed: () {
-                final url = 'https://vhunambi.com/profile/${profile.username}';
-                Clipboard.setData(ClipboardData(text: url));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile link copied! 🔗')),
-                );
-              },
+          child: VhunambiTopBarSurface(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+              child: Row(
+                children: <Widget>[
+                  VhunambiBackButton(color: textPrimary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      profile.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.titleMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    icon: PhosphorIcon(
+                      AppIcons.share,
+                      color: textPrimary,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      Clipboard.setData(
+                        ClipboardData(text: profile.profileUrl),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Profile link copied!')),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
-        body: LoadingOverlay(
-          isLoading: isMutating,
-          message: mutationMessage,
+        body: VhunambiAmbientMeshBackdrop.forGenre(
+          genre: primaryGenre,
           child: RefreshIndicator(
             color: AppColors.brandPrimary,
-            backgroundColor: AppColors.surfaceModal,
+            backgroundColor: AppColors.surfaceModalOf(context),
             onRefresh: () => ref
-                .read(profileOperationProvider(artistId).notifier)
+                .read(profileOperationProvider(widget.artistId).notifier)
                 .fetchProfile(),
             child: NestedScrollView(
-              headerSliverBuilder: (context, _) => [
+              headerSliverBuilder: (context, _) => <Widget>[
                 SliverToBoxAdapter(
                   child: Column(
-                    children: [
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
                       if (opState.isOffline)
                         OfflineIndicator(
                           cacheTimestamp: opState.cachedProfile?.timestamp,
                           onRefresh: () => ref
-                              .read(profileOperationProvider(artistId).notifier)
+                              .read(
+                                profileOperationProvider(
+                                  widget.artistId,
+                                ).notifier,
+                              )
                               .fetchProfile(),
                         ),
                       ProfileBannerHeader(
                         profile: profile,
                         onToggleFollow: () => ref
-                            .read(profileOperationProvider(artistId).notifier)
+                            .read(
+                              profileOperationProvider(
+                                widget.artistId,
+                              ).notifier,
+                            )
                             .toggleFollow(),
-                        onTipArtist: () => CreatorTippingSheet.show(
-                          context,
-                          creatorId: profile.id,
-                          creatorName: profile.displayName,
-                          creatorUsername: profile.username,
-                          creatorAvatarUrl: profile.avatarUrl,
-                        ),
-                        onShare: () {
-                          Clipboard.setData(
-                            ClipboardData(
-                              text:
-                                  'https://vhunambi.com/profile/${profile.username}',
-                            ),
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Profile link copied! 🔗'),
-                            ),
-                          );
-                        },
-                        onReport: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Report submitted for review'),
-                            ),
-                          );
-                        },
+                        onTipArtist: () => _openTipSheet(context, profile),
+                        onOpenOverflowMenu: () =>
+                            _openOverflowSheet(context, profile),
                       ),
-                      ProfileStatsGrid(profile: profile),
-                      if (profile.pinnedTrackId != null &&
-                          profile.pinnedTrackId!.isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: ResponsiveUtils.isDesktop(context)
-                                ? 32
-                                : 16,
-                          ),
-                          child: PinnedSpotlightCard(
-                            pinnedTrackId: profile.pinnedTrackId,
-                            fallbackCreatorName: profile.displayName,
-                          ),
-                        ),
-                      ],
+                      _buildInlineSocialProofStrip(
+                        context,
+                        profile,
+                        liveTracks.length,
+                      ),
                     ],
                   ),
                 ),
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: _ProfileTabBarDelegate(
-                    TabBar(
+                    surfaceColor: AppColors.surfaceCanvasOf(context),
+                    tabBar: TabBar(
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
                       labelColor: AppColors.brandPrimary,
                       indicatorColor: AppColors.brandPrimary,
-                      unselectedLabelColor: AppColors.textSecondary,
-                      tabs: const [
+                      unselectedLabelColor: AppColors.textSecondaryOf(context),
+                      tabs: const <Tab>[
+                        Tab(key: Key('visitor_tab_overview'), text: 'Overview'),
+                        Tab(key: Key('visitor_tab_songs'), text: 'Songs'),
                         Tab(
-                          icon: Icon(AppIcons.reels, size: 20),
-                          text: 'Clips',
+                          key: Key('visitor_tab_posts_reels'),
+                          text: 'Posts & Reels',
                         ),
-                        Tab(
-                          icon: Icon(AppIcons.songs, size: 20),
-                          text: 'Music',
-                        ),
-                        Tab(
-                          icon: Icon(AppIcons.beatstore, size: 20),
-                          text: 'Beats',
-                        ),
+                        Tab(key: Key('visitor_tab_beats'), text: 'Beats'),
+                        Tab(key: Key('visitor_tab_about'), text: 'About'),
                       ],
                     ),
                   ),
                 ),
               ],
               body: TabBarView(
-                children: [
-                  _reelsGrid(context, ref, clips, bottomInset),
-                  _discographyTab(context, ref, profile, bottomInset),
-                  _beatsCommunityTab(
+                children: <Widget>[
+                  _buildOverviewTab(
                     context,
-                    ref,
                     profile,
-                    () => CreatorTippingSheet.show(
-                      context,
-                      creatorId: profile.id,
-                      creatorName: profile.displayName,
-                      creatorUsername: profile.username,
-                      creatorAvatarUrl: profile.avatarUrl,
-                    ),
-                    bottomInset,
+                    liveTracks,
+                    creatorPosts,
                   ),
+                  _buildSongsTab(context, profile, liveTracks),
+                  _buildPostsAndReelsTab(context, profile, creatorPosts, clips),
+                  _buildBeatsTab(context, profile),
+                  _buildAboutTab(context, profile),
                 ],
               ),
             ),
@@ -282,132 +388,50 @@ class ArtistProfileView extends ConsumerWidget {
     );
   }
 
-  Widget _buildTopSongTile({
-    required BuildContext context,
-    required WidgetRef ref,
-    required int rank,
-    required String trackId,
-    required String title,
-    required String genre,
-    required String duration,
-    required String plays,
-    required int likes,
-  }) {
-    return InkWell(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => TrackDetailView(trackId: trackId),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceElevated,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.borderSubtle),
-        ),
-        child: Row(
-          children: [
+  Widget _buildInlineSocialProofStrip(
+    BuildContext context,
+    ArtistProfileEntity profile,
+    int liveSongCount,
+  ) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final resolvedSongs = liveSongCount > 0 ? liveSongCount : profile.songCount;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: ResponsiveUtils.isDesktop(context) ? 32 : 16,
+        vertical: AppSpacing.xs,
+      ),
+      child: VhunambiGlassSurface(
+        key: const Key('visitor_profile_inline_stats'),
+        variant: VhunambiGlassVariant.card,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
             Text(
-              '$rank',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppColors.brandPrimary,
+              '${_formatCompactMetric(profile.followerCount)} followers',
+              style: AppTypography.bodySmall.copyWith(
+                color: textPrimary,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(width: 14),
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                gradient: AppGradients.forGenre(genre),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.piano_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
+            Text('·', style: AppTypography.bodySmall.copyWith(color: textSecondary)),
+            Text(
+              '${_formatCompactMetric(profile.monthlyListenersCount)} monthly listeners',
+              style: AppTypography.bodySmall.copyWith(color: textSecondary),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTypography.bodySmall.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$genre • $duration',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
+            Text('·', style: AppTypography.bodySmall.copyWith(color: textSecondary)),
+            Text(
+              '$resolvedSongs songs',
+              style: AppTypography.bodySmall.copyWith(color: textSecondary),
             ),
-            Row(
-              children: [
-                Icon(
-                  Icons.play_arrow_rounded,
-                  size: 14,
-                  color: AppColors.textSecondary,
-                ),
-                Text(
-                  plays,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Icon(
-                  Icons.favorite_rounded,
-                  size: 14,
-                  color: AppColors.brandPrimary,
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  '$likes',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 10),
-            IconButton(
-              iconSize: 26,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              icon: const Icon(
-                Icons.play_circle_fill_rounded,
-                color: AppColors.brandPrimary,
-              ),
-              onPressed: () {
-                ref
-                    .read(playerStateProvider.notifier)
-                    .playTrack(
-                      Track(
-                        id: trackId,
-                        title: title,
-                        creatorName: 'Fifi',
-                        genre: genre,
-                        duration: const Duration(minutes: 3, seconds: 18),
-                      ),
-                    );
-              },
+            Text('·', style: AppTypography.bodySmall.copyWith(color: textSecondary)),
+            Text(
+              '${_formatCompactMetric(profile.playCount)} plays',
+              style: AppTypography.bodySmall.copyWith(color: textSecondary),
             ),
           ],
         ),
@@ -415,217 +439,469 @@ class ArtistProfileView extends ConsumerWidget {
     );
   }
 
-  Widget _buildActivityRow({
-    required String title,
-    required String genre,
-    required String timeAgo,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderSubtle),
+  Widget _buildOverviewTab(
+    BuildContext context,
+    ArtistProfileEntity profile,
+    List<Track> liveTracks,
+    List<SocialMusicPost> creatorPosts,
+  ) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final moodTags = <VhunambiMood>{
+      for (final track in liveTracks)
+        VhunambiMood.normalize(track.mood),
+      if (liveTracks.isEmpty) VhunambiMood.uplifting,
+    }.toList();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        36,
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              gradient: AppGradients.forGenre(genre),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.music_note_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
+      children: <Widget>[
+        if (profile.pinnedTrackId != null &&
+            profile.pinnedTrackId!.isNotEmpty) ...<Widget>[
+          PinnedSpotlightCard(
+            pinnedTrackId: profile.pinnedTrackId,
+            fallbackCreatorName: profile.displayName,
           ),
-          const SizedBox(width: 12),
-          Expanded(
+        ],
+
+        if (profile.bio.isNotEmpty) ...<Widget>[
+          VhunambiGlassSurface(
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppTypography.bodySmall.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    const PhosphorIcon(
+                      AppIcons.user,
+                      size: 16,
+                      color: AppColors.brandPrimary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Artist Overview',
+                      style: AppTypography.titleSmall.copyWith(
+                        color: textPrimary,
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '$timeAgo • $genre',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
+                  profile.bio,
+                  style: AppTypography.bodyMuted.copyWith(color: textSecondary),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
         ],
-      ),
-    );
-  }
-
-  // --- Tri-modal profile tabs (REQ-SOC-06 / REQ-SOC-07) ---
-
-  Widget _reelsGrid(
-    BuildContext context,
-    WidgetRef ref,
-    List<PublishedClip> clips,
-    double bottomInset,
-  ) {
-    if (clips.isEmpty) {
-      return _TabEmptyState(
-        icon: Icons.movie_filter_outlined,
-        message: 'No clips yet.\nPublish a reel from the Content Studio!',
-      );
-    }
-    final columns = ResponsiveUtils.isDesktop(context) ? 4 : 3;
-    return GridView.builder(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.md,
-        bottomInset,
-      ),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: columns,
-        crossAxisSpacing: AppSpacing.sm,
-        mainAxisSpacing: AppSpacing.sm,
-        childAspectRatio: 9 / 16 * 1.25,
-      ),
-      itemCount: clips.length,
-      itemBuilder: (context, i) {
-        final clip = clips[i];
-        return CreatorReelThumbnailCard(
-          clip: clip,
-          onTap: () => KineticReelsModal.show(
-            context,
-            clips: clips,
-            initialClipId: clip.id,
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _discographyTab(
-    BuildContext context,
-    WidgetRef ref,
-    ArtistProfileEntity profile,
-    double bottomInset,
-  ) {
-    final artistDna =
-        profile.creatorDna ?? ref.watch(artistDnaFamilyProvider(profile.id));
-
-    return ListView(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.md,
-        bottomInset,
-      ),
-      children: [
-        // 1. Sovereign Bantu Voice Identity Showcase (Phase 30 REQ-PROF-VOICE-01)
-        ArtistVoiceShowcaseCard(
-          artistName: profile.displayName,
-          vocalArchetypeTitle: profile.vocalArchetypeTitle,
-          vocalArchetypeLanguage: profile.vocalArchetypeLanguage,
-          vocalSampleUrl: profile.vocalSampleUrl,
-        ),
-        const SizedBox(height: AppSpacing.md),
-
-        // 2. Scoped Creator DNA Profile Card (Phase 30 REQ-PROF-DNA-01)
-        CreatorDnaProfileCard(isOwner: false, customDna: artistDna),
-        const SizedBox(height: AppSpacing.lg),
 
         Text(
           'Top Songs',
           style: AppTypography.titleMedium.copyWith(
             fontWeight: FontWeight.bold,
+            color: textPrimary,
           ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        _buildTopSongTile(
-          context: context,
-          ref: ref,
-          rank: 1,
-          trackId: 'seed-01',
-          title: 'Ndo Mufuna Matibe',
-          genre: 'Amapiano',
-          duration: '3:18',
-          plays: '12.4K',
-          likes: 840,
         ),
         const SizedBox(height: AppSpacing.xs),
-        _buildTopSongTile(
-          context: context,
-          ref: ref,
-          rank: 2,
-          trackId: 'track_default_1',
-          title: 'Grateful in the Light',
-          genre: 'Amapiano',
-          duration: '3:29',
-          plays: '9.1K',
-          likes: 412,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text(
-          'Releases',
-          style: AppTypography.titleMedium.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        if (profile.releases.isEmpty)
-          Text('No releases yet.', style: AppTypography.bodyMuted)
+        if (liveTracks.isEmpty)
+          _buildVisitorEmptyGlassCard(
+            context,
+            icon: AppIcons.songs,
+            message: '${profile.displayName} has no public tracks published yet.',
+          )
         else
-          for (final release in profile.releases) _ReleaseRow(release: release),
-        const SizedBox(height: AppSpacing.lg),
+          for (int i = 0; i < liveTracks.take(3).length; i++) ...<Widget>[
+            _buildTrackTile(context, liveTracks[i], rank: i + 1),
+            const SizedBox(height: AppSpacing.xs),
+          ],
+
+        const SizedBox(height: AppSpacing.md),
         Text(
-          'Recent Activity',
+          'Latest Post',
           style: AppTypography.titleMedium.copyWith(
             fontWeight: FontWeight.bold,
+            color: textPrimary,
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        _buildActivityRow(
-          title: 'Ndo Mufuna Matibe',
-          genre: 'Amapiano',
-          timeAgo: 'Released 2 days ago',
+        const SizedBox(height: AppSpacing.xs),
+        if (creatorPosts.isEmpty)
+          _buildVisitorEmptyGlassCard(
+            context,
+            icon: AppIcons.reels,
+            message: '${profile.handle} has not posted updates yet.',
+          )
+        else
+          _buildKineticPostPreviewCard(context, creatorPosts.first),
+
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Genres & Sonic Moods',
+          style: AppTypography.titleMedium.copyWith(
+            fontWeight: FontWeight.bold,
+            color: textPrimary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: <Widget>[
+            for (final genre in profile.topGenres)
+              VhunambiGlassSurface(
+                variant: VhunambiGlassVariant.pill,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                child: Text(
+                  genre,
+                  style: AppTypography.caption.copyWith(
+                    color: textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            for (final mood in moodTags)
+              VhunambiGlassSurface(
+                variant: VhunambiGlassVariant.pill,
+                tintAccent: mood.accentColor,
+                borderColorOverride: mood.accentColor.withValues(alpha: 0.45),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    PhosphorIcon(mood.icon, size: 13, color: mood.accentColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      mood.label,
+                      style: AppTypography.caption.copyWith(
+                        color: textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _beatsCommunityTab(
+  Widget _buildSongsTab(
     BuildContext context,
-    WidgetRef ref,
     ArtistProfileEntity profile,
-    VoidCallback onTip,
-    double bottomInset,
+    List<Track> liveTracks,
   ) {
-    final beats = ref.watch(creatorBeatsFamilyProvider(profile.id));
-    final currentTrack = ref.watch(playerStateProvider).currentTrack;
+    if (liveTracks.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        children: <Widget>[
+          _buildVisitorEmptyGlassCard(
+            context,
+            icon: AppIcons.songs,
+            message: '${profile.handle} has no public songs listed yet.',
+          ),
+        ],
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        36,
+      ),
+      itemCount: liveTracks.length,
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
+      itemBuilder: (context, index) =>
+          _buildTrackTile(context, liveTracks[index], rank: index + 1),
+    );
+  }
+
+  Widget _buildTrackTile(
+    BuildContext context,
+    Track track, {
+    required int rank,
+  }) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final playerState = ref.watch(playerStateProvider);
+    final isPlaying =
+        playerState.isPlaying && playerState.currentTrack?.id == track.id;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: Key('visitor_song_tile_${track.id}'),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => TrackDetailView(trackId: track.id),
+            ),
+          );
+        },
+        borderRadius: AppRadius.cardBorder,
+        child: VhunambiGlassSurface(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: <Widget>[
+              SizedBox(
+                width: 24,
+                child: Text(
+                  '$rank',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.titleSmall.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.brandPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              VhunambiTrackArtwork(
+                coverUrl: track.coverUrl,
+                genre: track.genre,
+                trackId: track.id,
+                width: 44,
+                height: 44,
+                borderRadius: BorderRadius.circular(8),
+                badgeIconSize: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      track.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.bodySmall.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${track.genre} · ${_formatDuration(track.duration)} · ${_formatCompactMetric(track.playCount)} plays',
+                      style: AppTypography.caption.copyWith(
+                        color: textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                key: Key('visitor_song_play_${track.id}'),
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                icon: PhosphorIcon(
+                  isPlaying
+                      ? PhosphorIconsFill.pauseCircle
+                      : PhosphorIconsFill.playCircle,
+                  size: 28,
+                  color: AppColors.brandPrimary,
+                ),
+                onPressed: () {
+                  if (isPlaying) {
+                    ref.read(playerStateProvider.notifier).pause();
+                  } else {
+                    ref.read(playerStateProvider.notifier).playTrack(track);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPostsAndReelsTab(
+    BuildContext context,
+    ArtistProfileEntity profile,
+    List<SocialMusicPost> creatorPosts,
+    List<PublishedClip> clips,
+  ) {
+    if (creatorPosts.isEmpty && clips.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        children: <Widget>[
+          _buildVisitorEmptyGlassCard(
+            context,
+            icon: AppIcons.reels,
+            message: "${profile.handle} hasn't shared any posts or reels yet.",
+          ),
+        ],
+      );
+    }
+
+    final columns = ResponsiveUtils.isDesktop(context) ? 4 : 3;
+    final textPrimary = AppColors.textPrimaryOf(context);
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
         AppSpacing.md,
         AppSpacing.md,
-        bottomInset,
+        36,
       ),
-      children: [
+      children: <Widget>[
+        if (creatorPosts.isNotEmpty) ...<Widget>[
+          Text(
+            'Kinetic Posts',
+            style: AppTypography.titleMedium.copyWith(
+              fontWeight: FontWeight.bold,
+              color: textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          for (final post in creatorPosts) ...<Widget>[
+            _buildKineticPostPreviewCard(context, post),
+            const SizedBox(height: AppSpacing.xs),
+          ],
+          const SizedBox(height: AppSpacing.md),
+        ],
+        if (clips.isNotEmpty) ...<Widget>[
+          Text(
+            'Reels & Clips',
+            style: AppTypography.titleMedium.copyWith(
+              fontWeight: FontWeight.bold,
+              color: textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: AppSpacing.sm,
+              mainAxisSpacing: AppSpacing.sm,
+              childAspectRatio: 9 / 16 * 1.25,
+            ),
+            itemCount: clips.length,
+            itemBuilder: (context, i) {
+              final clip = clips[i];
+              return CreatorReelThumbnailCard(
+                clip: clip,
+                onTap: () => KineticReelsModal.show(
+                  context,
+                  clips: clips,
+                  initialClipId: clip.id,
+                ),
+              );
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildKineticPostPreviewCard(
+    BuildContext context,
+    SocialMusicPost post,
+  ) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: Key('visitor_post_preview_${post.id}'),
+        onTap: () {
+          KineticPostFocusView.show(
+            context,
+            postId: post.id,
+            initialPost: post,
+          );
+        },
+        borderRadius: AppRadius.cardBorder,
+        child: VhunambiGlassSurface(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                post.caption,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.bodySmall.copyWith(color: textPrimary),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: <Widget>[
+                  PhosphorIcon(
+                    AppIcons.heart,
+                    size: 14,
+                    color: AppColors.brandPrimary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${post.likeCount}',
+                    style: AppTypography.caption.copyWith(color: textSecondary),
+                  ),
+                  const SizedBox(width: 14),
+                  PhosphorIcon(
+                    AppIcons.chat,
+                    size: 14,
+                    color: textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${post.commentCount} comments',
+                    style: AppTypography.caption.copyWith(color: textSecondary),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Open Post',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.brandPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBeatsTab(BuildContext context, ArtistProfileEntity profile) {
+    final asyncBeats = ref.watch(producerBeatsFamilyProvider(profile.id));
+    final fallbackLocal = ref.watch(creatorBeatsFamilyProvider(profile.id));
+    final beats = asyncBeats.valueOrNull ?? fallbackLocal;
+    final currentTrack = ref.watch(playerStateProvider).currentTrack;
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        36,
+      ),
+      children: <Widget>[
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
+          children: <Widget>[
             Row(
-              children: [
-                const Icon(
-                  Icons.storefront_rounded,
+              children: <Widget>[
+                const PhosphorIcon(
+                  AppIcons.navMarketActive,
                   color: AppColors.brandPrimary,
                   size: 20,
                 ),
@@ -634,43 +910,24 @@ class ArtistProfileView extends ConsumerWidget {
                   'Beats & Stems',
                   style: AppTypography.titleMedium.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: textPrimary,
                   ),
                 ),
               ],
             ),
             Text(
               '${beats.length} available',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: AppTypography.caption.copyWith(color: textSecondary),
             ),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
         if (beats.isEmpty)
-          Container(
+          _buildVisitorEmptyGlassCard(
+            context,
             key: const Key('artist_profile_empty_beats'),
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
-              borderRadius: AppRadius.cardBorder,
-              border: Border.all(color: AppColors.borderSubtle),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.music_off_rounded,
-                  size: 32,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'No beats listed yet by this producer.',
-                  style: AppTypography.bodyMuted,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+            icon: AppIcons.songsOutline,
+            message: 'No beats listed yet by this producer.',
           )
         else
           for (final beat in beats)
@@ -683,26 +940,125 @@ class ArtistProfileView extends ConsumerWidget {
         const SizedBox(height: AppSpacing.lg),
         TopSupportersLeaderboard(
           supporters: profile.topSupporters,
-          onTipFirst: onTip,
+          onTipFirst: () => _openTipSheet(context, profile),
         ),
-        const SizedBox(height: AppSpacing.md),
-        if (profile.topSupporters.isEmpty)
-          Text(
-            'No supporters yet — be the first to tip!',
-            style: AppTypography.bodyMuted,
-          ),
       ],
+    );
+  }
+
+  Widget _buildAboutTab(BuildContext context, ArtistProfileEntity profile) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        36,
+      ),
+      children: <Widget>[
+        VhunambiGlassSurface(
+          key: const Key('visitor_about_provenance_card'),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  const PhosphorIcon(
+                    AppIcons.info,
+                    size: 18,
+                    color: AppColors.brandPrimary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'About ${profile.displayName}',
+                    style: AppTypography.titleSmall.copyWith(
+                      color: textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                profile.bio.isNotEmpty
+                    ? profile.bio
+                    : 'Independent African music creator on Vhunambi.',
+                style: AppTypography.bodyMuted.copyWith(color: textSecondary),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _AboutRow(
+                icon: profile.archetype.icon,
+                label: 'Craft Archetype',
+                value: profile.archetype.displayName,
+              ),
+              _AboutRow(
+                icon: AppIcons.songs,
+                label: 'Primary Genres',
+                value: profile.topGenres.isNotEmpty
+                    ? profile.topGenres.join(', ')
+                    : 'Amapiano',
+              ),
+              _AboutRow(
+                icon: AppIcons.coin,
+                label: 'Direct Fan Support',
+                value: profile.tipsEnabled ? 'Enabled' : 'Paused',
+              ),
+            ],
+          ),
+        ),
+        if (profile.releases.isNotEmpty) ...<Widget>[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Releases',
+            style: AppTypography.titleMedium.copyWith(
+              fontWeight: FontWeight.bold,
+              color: textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          for (final release in profile.releases) _ReleaseRow(release: release),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildVisitorEmptyGlassCard(
+    BuildContext context, {
+    Key? key,
+    required IconData icon,
+    required String message,
+  }) {
+    return VhunambiGlassSurface(
+      key: key,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        children: <Widget>[
+          PhosphorIcon(icon, size: 32, color: AppColors.textSecondaryOf(context)),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: AppTypography.bodyMuted.copyWith(
+              color: AppColors.textSecondaryOf(context),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 }
 
-/// Pinned TabBar sliver header for the tri-modal profile.
 class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final Color surfaceColor;
   final TabBar tabBar;
-  _ProfileTabBarDelegate(this.tabBar);
+
+  _ProfileTabBarDelegate({required this.surfaceColor, required this.tabBar});
 
   @override
   double get minExtent => tabBar.preferredSize.height;
+
   @override
   double get maxExtent => tabBar.preferredSize.height;
 
@@ -712,35 +1068,50 @@ class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Container(color: AppColors.surfaceCanvas, child: tabBar);
+    return Container(color: surfaceColor, child: tabBar);
   }
 
   @override
-  bool shouldRebuild(_ProfileTabBarDelegate oldDelegate) => false;
+  bool shouldRebuild(_ProfileTabBarDelegate oldDelegate) =>
+      surfaceColor != oldDelegate.surfaceColor;
 }
 
-class _TabEmptyState extends StatelessWidget {
+class _AboutRow extends StatelessWidget {
   final IconData icon;
-  final String message;
-  const _TabEmptyState({required this.icon, required this.message});
+  final String label;
+  final String value;
+
+  const _AboutRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: AppColors.textTertiary),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: AppTypography.bodyMuted,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: <Widget>[
+          PhosphorIcon(icon, size: 16, color: AppColors.brandPrimary),
+          const SizedBox(width: 8),
+          Text(
+            '$label:',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondaryOf(context),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              value,
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.textPrimaryOf(context),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -748,54 +1119,48 @@ class _TabEmptyState extends StatelessWidget {
 
 class _ReleaseRow extends StatelessWidget {
   final MusicReleaseEntity release;
+
   const _ReleaseRow({required this.release});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              gradient: AppGradients.forGenre(release.genre),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: VhunambiGlassSurface(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: <Widget>[
+            VhunambiTrackArtwork(
+              genre: release.genre,
+              trackId: release.id,
+              width: 44,
+              height: 44,
               borderRadius: AppRadius.thumbBorder,
+              badgeIconSize: 20,
             ),
-            child: const Icon(
-              Icons.album_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  release.title,
-                  style: AppTypography.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w600,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    release.title,
+                    style: AppTypography.bodyLarge.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimaryOf(context),
+                    ),
                   ),
-                ),
-                Text(
-                  '${release.typeLabel} • ${release.trackCount} tracks • ${release.releaseYear}',
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.textSecondary,
+                  Text(
+                    '${release.typeLabel} · ${release.trackCount} tracks · ${release.releaseYear}',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondaryOf(context),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

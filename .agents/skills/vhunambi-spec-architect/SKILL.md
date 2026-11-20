@@ -1,12 +1,13 @@
 ---
 name: vhunambi-spec-architect
 description: >-
-  Author, audit, and harden Vhunambi 4-document phase specification suites
-  (blueprint.md, requirements.md, design.md, tasks.md) under the All-Gemini
-  Engineering Standard (Gemini 4 Argon Browser Architect + Antigravity Gemini 3.8
-  Flash Draft/Executor + Antigravity Gemini 4 Argon Codebase Forensic Auditor).
-  Use this skill whenever the user asks to create, review, refine, or standardize
-  phase specifications, or before executing a new engineering phase.
+  Author, audit, and harden Vhunambi 5-document phase specification suites
+  (blueprint.md, requirements.md, design.md, tasks.md, memory.md) under the
+  All-Gemini Engineering Standard (Gemini 4 Argon Browser Architect +
+  Antigravity Gemini 3.8 Flash Draft/Executor + Antigravity Gemini 4 Argon
+  Codebase Forensic Auditor). Use this skill whenever the user asks to create,
+  review, refine, or standardize phase specifications, or before executing a new
+  engineering phase.
 ---
 
 # Vhunambi 4-Document Specification Architect & Forensic Hardening Skill
@@ -95,6 +96,10 @@ Every phase specification suite in `docs/phases/phase_XX_<name>/` MUST contain a
 - **§1 Master Milestone Roadmap & Dependency Graph**: ASCII roadmap box (`M1` through `M6`) + summary table.
 - **§2–§7 Milestones M1–M6 Granular Tasks**: Each task (`Task X.Y`) specifies Target File (`apps/vhunambi_client/lib/...`), concrete method signatures, and Acceptance Criteria.
 - **§8–§9 Traceability Matrix & Stage 4 Execution Verification Checklist**: Boxed `[x]` checklist of the 7 Anti-Trap invariants + exact PowerShell verification commands.
+
+### 3.5 `memory.md` (5th Document — Hippocampus Draft Contract)
+- Every new phase folder under `docs/phases/phase_XX_<name>/` MUST include `memory.md` using the fenced ```` ```json vhunambi-memory ```` schema defined in [`vhunambi-memory`](../vhunambi-memory/SKILL.md).
+- Draft `memory.md` with `"status": "draft"`, declaring `concept_hubs`, existing endpoint IDs in `consumes[]` (discovered via `query_connectome.mjs`), and new endpoint IDs in `endpoints[]`. Never set `"status": "completed"` during Stage 2/3 spec authoring; Stage 4 (`/vhunambi-executioner`) finalizes it only after verification gates pass.
 
 ---
 

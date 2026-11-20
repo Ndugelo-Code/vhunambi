@@ -5,20 +5,24 @@ import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/core/resilience/safe_notifier_mixin.dart';
 import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
+import '../../data/repositories/http_notification_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../domain/models/notification_entity.dart';
 import '../../domain/models/notification_enums.dart';
 
 /// StateNotifier that manages in-app notifications (newest first) with
-/// Hive O(1) `notif_<id>` persistence and zero demo mock pollution.
+/// Hive O(1) `notif_<id>` persistence and bidirectional `/api/notifications` sync.
 class NotificationsNotifier extends StateNotifier<List<NotificationEntity>>
     with SafeNotifierMixin<List<NotificationEntity>> {
   final NotificationRepository _repo;
+  final HttpNotificationRepository? _remoteRepo;
 
   NotificationsNotifier([
     List<NotificationEntity>? initial,
     NotificationRepository? repository,
+    HttpNotificationRepository? remoteRepository,
   ]) : _repo = repository ?? NotificationRepository(),
+       _remoteRepo = remoteRepository,
        super(
          initial ??
              _hydrateInitialNotifications(
@@ -48,7 +52,8 @@ class NotificationsNotifier extends StateNotifier<List<NotificationEntity>>
   }
 
   /// Hydrates from persistent storage asynchronously, scrubbing legacy Phase 40
-  /// demo mocks (`notif_p40_*`, `notif_seed_*`) and preserving in-memory read states.
+  /// demo mocks (`notif_p40_*`, `notif_seed_*`) and preserving in-memory read states,
+  /// then reconciles server alerts via `EP-P67-NOTIF-API`.
   Future<void> hydrateFromStorage() async {
     await _repo.scrubLegacyDemoMocks();
     final loaded = (await _repo.getNotifications())
@@ -58,33 +63,54 @@ class NotificationsNotifier extends StateNotifier<List<NotificationEntity>>
     final cleanCurrent = state
         .where((n) => !NotificationRepository.isLegacyDemoMockId(n.id))
         .toList();
-    if (loaded.isEmpty) {
-      if (cleanCurrent.length != state.length) {
-        state = cleanCurrent;
+    if (loaded.isNotEmpty) {
+      if (cleanCurrent.isEmpty) {
+        state = loaded;
+      } else {
+        state = _mergeNotificationLists(base: loaded, overlay: cleanCurrent);
       }
-      return;
+    } else if (cleanCurrent.length != state.length) {
+      state = cleanCurrent;
     }
-    if (cleanCurrent.isEmpty) {
-      state = loaded;
-    } else {
-      final byId = <String, NotificationEntity>{
-        for (final n in loaded) n.id: n,
-      };
-      for (final current in cleanCurrent) {
-        final stored = byId[current.id];
-        if (stored == null) {
-          byId[current.id] = current;
-        } else {
-          // Preserve read=true if either in-memory or storage marked it read.
-          byId[current.id] = current.copyWith(
-            isRead: current.isRead || stored.isRead,
-          );
-        }
+    await syncFromCloud();
+  }
+
+  /// Pulls server-emitted notifications (`GET /api/notifications`) and merges
+  /// preserving local `isRead` flags without disturbing offline Hive data.
+  Future<void> syncFromCloud() async {
+    final remote = _remoteRepo;
+    if (remote == null || remote.shouldSkipNetwork) return;
+    final remoteList = await remote.fetchNotifications();
+    if (!mounted || remoteList == null) return;
+
+    final cleanRemote = remoteList
+        .where((n) => !NotificationRepository.isLegacyDemoMockId(n.id))
+        .toList(growable: false);
+    if (cleanRemote.isEmpty) return;
+
+    final merged = _mergeNotificationLists(base: cleanRemote, overlay: state);
+    state = merged;
+    await _repo.saveNotifications(merged);
+  }
+
+  static List<NotificationEntity> _mergeNotificationLists({
+    required List<NotificationEntity> base,
+    required List<NotificationEntity> overlay,
+  }) {
+    final byId = <String, NotificationEntity>{for (final n in base) n.id: n};
+    for (final current in overlay) {
+      if (NotificationRepository.isLegacyDemoMockId(current.id)) continue;
+      final stored = byId[current.id];
+      if (stored == null) {
+        byId[current.id] = current;
+      } else {
+        byId[current.id] = stored.copyWith(
+          isRead: current.isRead || stored.isRead,
+        );
       }
-      final merged = byId.values.toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      state = merged;
     }
+    return byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   /// Prepends a new notification (deduplicated by `id`) and persists in O(1).
@@ -92,6 +118,9 @@ class NotificationsNotifier extends StateNotifier<List<NotificationEntity>>
     final withoutDup = state.where((n) => n.id != notification.id).toList();
     state = <NotificationEntity>[notification, ...withoutDup];
     unawaited(_repo.saveNotification(notification));
+    if (_remoteRepo != null) {
+      unawaited(_remoteRepo.upsertNotification(notification));
+    }
   }
 
   /// Upserts a notification while preserving its existing `isRead` flag if present.
@@ -107,6 +136,9 @@ class NotificationsNotifier extends StateNotifier<List<NotificationEntity>>
     next[existingIdx] = merged;
     state = next;
     unawaited(_repo.saveNotification(merged));
+    if (_remoteRepo != null) {
+      unawaited(_remoteRepo.upsertNotification(merged));
+    }
   }
 
   /// Backward-compatible adapter for Phase 10's StateProvider `.update()` calls.
@@ -137,6 +169,9 @@ class NotificationsNotifier extends StateNotifier<List<NotificationEntity>>
     }).toList();
     if (updatedItem != null) {
       unawaited(_repo.saveNotification(updatedItem!));
+      if (_remoteRepo != null) {
+        unawaited(_remoteRepo.markRead(id));
+      }
     }
   }
 
@@ -146,6 +181,9 @@ class NotificationsNotifier extends StateNotifier<List<NotificationEntity>>
     state = updated;
     if (updated.isNotEmpty) {
       unawaited(_repo.saveNotifications(updated));
+      if (_remoteRepo != null) {
+        unawaited(_remoteRepo.markAllRead());
+      }
     }
   }
 
@@ -153,6 +191,9 @@ class NotificationsNotifier extends StateNotifier<List<NotificationEntity>>
   void removeNotification(String id) {
     state = state.where((n) => n.id != id).toList();
     unawaited(_repo.deleteNotification(id));
+    if (_remoteRepo != null) {
+      unawaited(_remoteRepo.deleteNotification(id));
+    }
   }
 
   /// Alias matching NotificationRepository contract.
@@ -171,7 +212,8 @@ final notificationsProvider =
       ref,
     ) {
       ref.watch(currentCreatorIdProvider);
-      return NotificationsNotifier();
+      final remoteRepo = ref.watch(httpNotificationRepositoryProvider);
+      return NotificationsNotifier(null, null, remoteRepo);
     });
 
 /// Unread count per category — single partition source of truth (`REQ-P67-ONB-03`).

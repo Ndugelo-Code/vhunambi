@@ -6,6 +6,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../landing/domain/models/landing_models.dart';
 import '../../../landing/presentation/providers/landing_providers.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import '../providers/creator_allowance_provider.dart';
 import '../../../social/presentation/providers/creator_wallet_provider.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../../notifications/domain/models/notification_entity.dart';
@@ -27,6 +28,7 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final billingCycle = ref.watch(pricingBillingCycleProvider);
     final tiers = ref.watch(pricingTiersProvider);
+    final allowance = ref.watch(creatorAllowanceProvider);
 
     return Container(
       constraints: BoxConstraints(
@@ -92,6 +94,95 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
+
+          // Phase 71 (CON-04): Live Monthly Free Song Allowance Status Card
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              key: const Key('upgrade_modal_allowance_card'),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSecondaryOf(context),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: allowance.isExhausted
+                      ? AppColors.error
+                      : AppColors.borderSubtleOf(context),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      PhosphorIcon(
+                        allowance.isPaidUnlimited
+                            ? PhosphorIconsFill.crown
+                            : PhosphorIconsFill.musicNotes,
+                        color: allowance.isExhausted
+                            ? AppColors.error
+                            : AppColors.brandPrimary,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          allowance.isPaidUnlimited
+                              ? 'Pro Plan · Unlimited Generations'
+                              : 'Monthly Free Song Allowance',
+                          style: AppTypography.titleSmall.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimaryOf(context),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        allowance.isPaidUnlimited
+                            ? 'Unlimited'
+                            : '${allowance.freeMonthlySongsRemaining}/${allowance.freeMonthlySongsLimit} Left',
+                        style: AppTypography.caption.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: allowance.isExhausted
+                              ? AppColors.error
+                              : AppColors.brandPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (!allowance.isPaidUnlimited) ...[
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: AppRadius.pillBorder,
+                      child: LinearProgressIndicator(
+                        minHeight: 6,
+                        value: allowance.freeMonthlySongsLimit > 0
+                            ? (allowance.freeMonthlySongsRemaining /
+                                      allowance.freeMonthlySongsLimit)
+                                  .clamp(0.0, 1.0)
+                            : 0.0,
+                        backgroundColor: AppColors.borderSubtleOf(context),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          allowance.isExhausted
+                              ? AppColors.error
+                              : allowance.isLowQuota
+                              ? AppColors.coinGold
+                              : AppColors.brandPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${allowance.freeMonthlySongsUsed} of ${allowance.freeMonthlySongsLimit} free songs used this 30-day cycle',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
 
           // Monthly / Yearly billing cycle toggle
           Container(
@@ -301,7 +392,7 @@ class SubscriptionUpgradeModal extends ConsumerWidget {
                   style: const TextStyle(
                     fontSize: 8.5,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppColors.brandContrast,
                   ),
                 ),
               ),

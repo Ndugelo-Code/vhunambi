@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vhunambi_client/core/auth/auth_providers.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/player/domain/models/stem_mixer_state.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/stem_mixer_provider.dart';
@@ -15,7 +16,12 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          currentCreatorIdProvider.overrideWithValue('creator_fifi'),
+          currentCreatorHandleProvider.overrideWithValue('@fifi'),
+        ],
+      );
 
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -41,8 +47,20 @@ void main() {
       await tester.pumpAndSettle();
 
       // 2. Stems are ready
-      expect(find.text('Vocals'), findsOneWidget);
-      expect(find.text('Drums'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(StemSeparationLab),
+          matching: find.text('Vocals'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(StemSeparationLab),
+          matching: find.text('Drums'),
+        ),
+        findsOneWidget,
+      );
 
       // Check initial mute state in StemMixerNotifier
       final initialVocals = container
