@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../utils/lyric_karaoke_sanitizer.dart';
 import 'lyric_word_timestamp.dart';
 
 /// The canonical, immutable Song Metadata DNA representing all acoustic,
@@ -67,20 +68,22 @@ class SongMetadataDna {
             ? Map<String, dynamic>.from(rawVisualTheme)
             : const {},
       ),
-      alignment:
-          (json['alignment'] as List<dynamic>?)
-              ?.whereType<Map<dynamic, dynamic>>()
-              .map(
-                (w) =>
-                    LyricWordTimestamp.fromJson(Map<String, dynamic>.from(w)),
-              )
-              .toList() ??
-          const [],
+      alignment: LyricKaraokeSanitizer.sanitizeAlignment(
+        (json['alignment'] as List<dynamic>?)
+                ?.whereType<Map<dynamic, dynamic>>()
+                .map(
+                  (w) => LyricWordTimestamp.fromJson(
+                    Map<String, dynamic>.from(w),
+                  ),
+                )
+                .toList() ??
+            const [],
+      ),
     );
   }
 
   /// Synthesizes complete SongMetadataDna from standard track fields.
-  /// Automatically extracts word alignment from lyrics if available.
+  /// Automatically extracts sanitized word alignment from lyrics if available.
   factory SongMetadataDna.fromTrackInfo({
     required String id,
     required String title,
@@ -92,7 +95,10 @@ class SongMetadataDna {
   }) {
     final alignmentList = <LyricWordTimestamp>[];
     if (lyrics != null && lyrics.trim().isNotEmpty) {
-      final words = lyrics
+      final sanitizedLyrics = LyricKaraokeSanitizer.cleanLyricTextForKaraoke(
+        lyrics,
+      );
+      final words = sanitizedLyrics
           .split(RegExp(r'\s+'))
           .where((w) => w.isNotEmpty)
           .toList();

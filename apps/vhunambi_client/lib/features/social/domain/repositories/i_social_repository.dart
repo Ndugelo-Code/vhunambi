@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:vhunambi_client/features/social/domain/models/creator_wallet.dart';
 import 'package:vhunambi_client/features/social/domain/models/kinetic_reaction.dart';
 import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
@@ -49,6 +50,25 @@ abstract class ISocialRepository {
 
   /// Toggles the user's like state on a reel clip.
   Future<({bool liked, int likeCount})> toggleLikeClip(String clipId);
+
+  /// Applies, switches, or clears a 6-type multi-reaction on a reel clip.
+  Future<
+    ({
+      bool liked,
+      int likeCount,
+      Map<KineticReactionType, int> reactionCounts,
+      KineticReactionType? myReaction,
+    })
+  >
+  reactToClip(String clipId, KineticReactionType? reaction);
+
+  /// Uploads a recorded or picked reel media file (`<= 25 MB`) to Cloudflare R2.
+  Future<({String url, String mediaKind, String mimeType, int sizeBytes})>
+  uploadReelMedia({
+    required Uint8List bytes,
+    required String filename,
+    required String mimeType,
+  });
 
   /// Toggles follow status on a creator.
   Future<({bool following, int followerCount})> toggleFollowCreator(

@@ -5,6 +5,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Phase 35 Sovereign Audio Intake: Microphone recording -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Phase 74 Kinetic Reels Studio v4: Camera & Gallery Video/Image access -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <!-- Phase 9 hardware audio bridge (audio_service): background media playback. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

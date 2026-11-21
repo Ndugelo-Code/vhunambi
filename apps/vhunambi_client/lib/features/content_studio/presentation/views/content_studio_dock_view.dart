@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -15,6 +17,7 @@ import '../widgets/duration_trim_scrubber.dart';
 import '../widgets/atmospheric_effects_deck.dart';
 import '../widgets/export_action_sheet.dart';
 import '../widgets/publish_clip_modal.dart';
+import 'kinetic_reel_studio_view.dart';
 import '../../../player/presentation/widgets/player_obstacle.dart';
 
 /// Responsive Content Studio Cockpit for turning song DNA, 9:16 cover art,
@@ -156,12 +159,36 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
         ),
         actions: [
           Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: isDesktop
+                ? OutlinedButton.icon(
+                    key: const Key('content_studio_open_full_reel_studio_btn'),
+                    onPressed: () => KineticReelStudioView.show(context),
+                    icon: const PhosphorIcon(
+                      AppIcons.reels,
+                      color: AppColors.brandPrimary,
+                      size: 16,
+                    ),
+                    label: const Text('Reels Studio'),
+                  )
+                : IconButton(
+                    key: const Key('content_studio_open_full_reel_studio_btn'),
+                    tooltip: 'Open Reels Studio',
+                    onPressed: () => KineticReelStudioView.show(context),
+                    icon: const PhosphorIcon(
+                      AppIcons.reels,
+                      color: AppColors.brandPrimary,
+                      size: 20,
+                    ),
+                  ),
+          ),
+          Padding(
             padding: const EdgeInsets.only(right: 16),
             child: ElevatedButton.icon(
               key: const Key('app_bar_export_button'),
               onPressed: () => _openExportSheet(context),
-              icon: const Icon(
-                Icons.download_rounded,
+              icon: const PhosphorIcon(
+                AppIcons.download,
                 color: AppColors.brandContrast,
                 size: 18,
               ),
@@ -228,10 +255,8 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                       style: IconButton.styleFrom(
                         backgroundColor: AppColors.brandPrimary,
                       ),
-                      icon: Icon(
-                        state.isPlaying
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
+                      icon: PhosphorIcon(
+                        state.isPlaying ? AppIcons.pause : AppIcons.play,
                         color: AppColors.brandContrast,
                       ),
                     ),
@@ -253,8 +278,8 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                           ),
                         );
                       },
-                      icon: const Icon(
-                        Icons.refresh_rounded,
+                      icon: const PhosphorIcon(
+                        AppIcons.remix,
                         size: 16,
                         color: AppColors.brandPrimary,
                       ),
@@ -314,8 +339,8 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                 const SizedBox(height: 40),
                 ElevatedButton.icon(
                   onPressed: () => _openExportSheet(context),
-                  icon: const Icon(
-                    Icons.movie_creation_rounded,
+                  icon: const PhosphorIcon(
+                    AppIcons.reels,
                     color: AppColors.brandContrast,
                   ),
                   label: Text(
@@ -375,10 +400,8 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                 style: IconButton.styleFrom(
                   backgroundColor: AppColors.brandPrimary,
                 ),
-                icon: Icon(
-                  state.isPlaying
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
+                icon: PhosphorIcon(
+                  state.isPlaying ? AppIcons.pause : AppIcons.play,
                   color: AppColors.brandContrast,
                 ),
               ),
@@ -392,8 +415,8 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                     ),
                   );
                 },
-                icon: const Icon(
-                  Icons.refresh_rounded,
+                icon: const PhosphorIcon(
+                  AppIcons.remix,
                   size: 14,
                   color: AppColors.brandPrimary,
                 ),
@@ -440,8 +463,8 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                 OutlinedButton.icon(
                   key: const Key('dock_publish_to_profile_btn'),
                   onPressed: () => _openPublishModal(context),
-                  icon: const Icon(
-                    Icons.campaign_rounded,
+                  icon: const PhosphorIcon(
+                    AppIcons.share,
                     color: AppColors.brandPrimary,
                   ),
                   label: Text(
@@ -462,8 +485,8 @@ class _ContentStudioDockViewState extends ConsumerState<ContentStudioDockView> {
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
                   onPressed: () => _openExportSheet(context),
-                  icon: const Icon(
-                    Icons.download_rounded,
+                  icon: const PhosphorIcon(
+                    AppIcons.download,
                     color: AppColors.brandContrast,
                   ),
                   label: Text(

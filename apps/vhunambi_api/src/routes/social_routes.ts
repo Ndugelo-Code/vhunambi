@@ -1,6 +1,16 @@
 import { Hono } from 'hono';
+import { nanoid } from 'nanoid';
 import { z } from 'zod';
-import { vhunambiDb, SA_BANK_REGISTRY } from '../db/vhunambi_db.js';
+import {
+  VALID_KINETIC_REACTIONS,
+  normalizeKineticReactionWire,
+} from '../db/edge_persistence_bridge.js';
+import {
+  canonicalizeCreatorId,
+  vhunambiDb,
+  SA_BANK_REGISTRY,
+} from '../db/vhunambi_db.js';
+import { uploadBytesToR2 } from '../modules/synthesis/r2_storage.js';
 import {
   assertTenantCreatorAccess,
   resolveEffectiveCreatorId,
@@ -9,6 +19,7 @@ import {
 import {
   addComment,
   followCreator,
+  getClipById,
   getClipsByCreator,
   getComments,
   getCreatorWallet,
@@ -16,7 +27,8 @@ import {
   getClipRemixes,
   likeClip,
   likeComment,
-  publishClip,
+  publishClipAsync,
+  reactToClipAsync,
   requestPayout,
   sendCulturalTip,
 } from '../modules/social/social_service.js';
@@ -43,6 +55,23 @@ const PublishClipSchema = z.object({
   isCreatorVerified: z.boolean().optional(),
   audioUrl: z.string().optional(),
   coverUrl: z.string().optional(),
+  videoUrl: z.string().nullable().optional(),
+  mediaKind: z
+    .enum([
+      'artwork',
+      'camera_video',
+      'gallery_video',
+      'gallery_photo',
+      'vision',
+    ])
+    .optional(),
+  audioStartMs: z.number().int().min(0).optional(),
+  audioEndMs: z.number().int().min(1000).optional(),
+  effectPreset: z.string().optional(),
+  effectIntensity: z.number().min(0).max(1).optional(),
+  typographyPreset: z.string().optional(),
+  speedRate: z.number().min(0.25).max(4).optional(),
+  stickerId: z.string().nullable().optional(),
   remixedFromClipId: z.string().optional(),
   remixAttribution: z.string().optional(),
 });
@@ -94,7 +123,85 @@ const PayoutSchema = z.object({
   accountHolder: z.string().optional(),
 });
 
-// POST /api/social/publish — 1-tap in-house publish (REQ-SOC-01)
+const MAX_SOCIAL_MEDIA_BYTES = 25 * 1024 * 1024; // 26,214,400 bytes
+const ALLOWED_SOCIAL_MEDIA_MIMES: Record<string, string> = {
+  'video/mp4': 'mp4',
+  'video/quicktime': 'mov',
+  'video/webm': 'webm',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'audio/mpeg': 'mp3',
+  'audio/mp4': 'm4a',
+};
+
+// POST /api/social/media/upload — authenticated R2 media upload for Reels Studio v4 (REQ-P74-BE-04)
+socialRoutes.post('/social/media/upload', async (c) => {
+  const authUser = c.get('authUser');
+  const creatorId = canonicalizeCreatorId(authUser?.creatorId ?? 'creator_cern');
+  const reqContentType = (c.req.header('content-type') || '').toLowerCase();
+
+  let bytes: Uint8Array;
+  let mimeType = '';
+
+  if (reqContentType.includes('multipart/form-data')) {
+    const form = await c.req.formData();
+    const file = form.get('file');
+    if (!file || typeof (file as Blob).arrayBuffer !== 'function') {
+      return c.json(
+        { error: 'INVALID_REQUEST', message: 'Missing multipart file field' },
+        400,
+      );
+    }
+    const fileBlob = file as Blob;
+    mimeType = (fileBlob.type || '').split(';')[0].trim().toLowerCase();
+    bytes = new Uint8Array(await fileBlob.arrayBuffer());
+  } else {
+    mimeType = reqContentType.split(';')[0].trim().toLowerCase();
+    bytes = new Uint8Array(await c.req.arrayBuffer());
+  }
+
+  const ext = ALLOWED_SOCIAL_MEDIA_MIMES[mimeType];
+  if (!ext) {
+    return c.json(
+      {
+        error: 'UNSUPPORTED_MEDIA_TYPE',
+        message: `Unsupported MIME type: ${mimeType || 'unknown'}`,
+      },
+      415,
+    );
+  }
+  if (bytes.byteLength === 0) {
+    return c.json(
+      { error: 'INVALID_REQUEST', message: 'Empty media payload' },
+      400,
+    );
+  }
+  if (bytes.byteLength > MAX_SOCIAL_MEDIA_BYTES) {
+    return c.json(
+      {
+        error: 'PAYLOAD_TOO_LARGE',
+        message: 'Media payload exceeds 25 MB limit',
+      },
+      413,
+    );
+  }
+
+  const objectKey = `social/${creatorId}/${Date.now()}_${nanoid(8)}.${ext}`;
+  const stored = await uploadBytesToR2(objectKey, bytes, mimeType, c);
+  return c.json(
+    {
+      success: true,
+      key: stored.key,
+      url: `/r2/${stored.key}`,
+      contentType: mimeType,
+      size: bytes.byteLength,
+    },
+    201,
+  );
+});
+
+// POST /api/social/publish — 1-tap in-house publish (REQ-SOC-01 / REQ-P74-BE-03)
 socialRoutes.post('/social/publish', async (c) => {
   try {
     const body = await c.req.json();
@@ -111,15 +218,18 @@ socialRoutes.post('/social/publish', async (c) => {
     if (forbidden) return forbidden;
 
     const authUser = c.get('authUser');
-    const result = publishClip({
-      ...parsed.data,
-      creatorId: authUser
-        ? resolveEffectiveCreatorId(c, parsed.data.creatorId, authUser.creatorId)
-        : parsed.data.creatorId,
-      creatorUsername:
-        parsed.data.creatorUsername ||
-        (authUser ? authUser.handle.replace(/^@/, '') : undefined),
-    });
+    const result = await publishClipAsync(
+      {
+        ...parsed.data,
+        creatorId: authUser
+          ? resolveEffectiveCreatorId(c, parsed.data.creatorId, authUser.creatorId)
+          : parsed.data.creatorId,
+        creatorUsername:
+          parsed.data.creatorUsername ||
+          (authUser ? authUser.handle.replace(/^@/, '') : undefined),
+      },
+      c,
+    );
     return c.json({ success: true, ...result }, 201);
   } catch (error) {
     console.error('[Social Publish Error]', error);
@@ -130,13 +240,29 @@ socialRoutes.post('/social/publish', async (c) => {
   }
 });
 
-// GET /api/social/feed — cursor-paginated discovery feed (REQ-SOC-16 / REQ-SOC-22)
-socialRoutes.get('/social/feed', (c) => {
+// GET /api/social/feed — cursor-paginated discovery feed (REQ-SOC-16 / REQ-SOC-22 / REQ-P74-BE-02)
+socialRoutes.get('/social/feed', async (c) => {
+  await vhunambiDb.syncSocialFromCloud(false, c);
   const cursor = c.req.query('cursor');
   const limit = Number.parseInt(c.req.query('limit') ?? '20', 10);
   const viewerId = c.get('authUser')?.creatorId ?? 'creator_cern';
   const page = getFeed(cursor, Number.isFinite(limit) ? limit : 20, viewerId);
   return c.json(page, 200);
+});
+
+// GET /api/social/clips/:id — single clip detail with SWR read-through (REQ-P74-BE-02)
+socialRoutes.get('/social/clips/:id', async (c) => {
+  await vhunambiDb.syncSocialFromCloud(false, c);
+  const id = c.req.param('id');
+  const viewerId = c.get('authUser')?.creatorId ?? 'creator_cern';
+  const clip = getClipById(id, viewerId);
+  if (!clip) {
+    return c.json(
+      { error: 'NOT_FOUND', message: `Clip ${id} not found` },
+      404,
+    );
+  }
+  return c.json(clip, 200);
 });
 
 // POST /api/social/clips/:id/like — optimistic like toggle (REQ-SOC-13 / REQ-SOC-24)
@@ -153,15 +279,52 @@ socialRoutes.post('/social/clips/:id/like', (c) => {
   return c.json(result, 200);
 });
 
+// POST /api/social/clips/:id/react — 6-type clip multi-reaction toggle/switch (REQ-P74-BE-03)
+socialRoutes.post('/social/clips/:id/react', async (c) => {
+  const id = c.req.param('id');
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await c.req.json()) as Record<string, unknown>;
+  } catch (_) {}
+  const rawReaction = body.reactionType ?? body.reaction ?? null;
+  if (rawReaction !== null && rawReaction !== undefined) {
+    const normalized = normalizeKineticReactionWire(rawReaction);
+    if (!normalized || !VALID_KINETIC_REACTIONS.has(normalized)) {
+      return c.json(
+        {
+          error: 'INVALID_REACTION',
+          message: `Unsupported reactionType: ${String(rawReaction)}`,
+        },
+        400,
+      );
+    }
+  }
+  const reactionType =
+    rawReaction === null || rawReaction === undefined
+      ? null
+      : normalizeKineticReactionWire(rawReaction);
+  const actorId = c.get('authUser')?.creatorId ?? 'creator_cern';
+  const result = await reactToClipAsync(id, actorId, reactionType, c);
+  if (!result.success) {
+    return c.json(
+      { error: 'NOT_FOUND', message: `Clip ${id} not found` },
+      404,
+    );
+  }
+  return c.json(result, 200);
+});
+
 // GET /api/social/clips/:id/remixes — remix lineage children (Phase 37 REQ-RMX-TREE-01, deduplicated)
-socialRoutes.get('/social/clips/:id/remixes', (c) => {
+socialRoutes.get('/social/clips/:id/remixes', async (c) => {
+  await vhunambiDb.syncSocialFromCloud(false, c);
   const id = c.req.param('id');
   const remixes = getClipRemixes(id);
   return c.json({ clipId: id, count: remixes.length, remixes }, 200);
 });
 
-// GET /api/social/clips/:id/comments — thread comments (REQ-COM-01)
-socialRoutes.get('/social/clips/:id/comments', (c) => {
+// GET /api/social/clips/:id/comments — thread comments (REQ-COM-01 / REQ-P74-BE-02)
+socialRoutes.get('/social/clips/:id/comments', async (c) => {
+  await vhunambiDb.syncSocialFromCloud(false, c);
   const id = c.req.param('id');
   const viewerId = c.get('authUser')?.creatorId ?? 'creator_cern';
   const comments = getComments(id, viewerId);
@@ -430,8 +593,9 @@ socialRoutes.post('/social/clips/:id/tip', async (c) => {
   return c.json(result, 200);
 });
 
-// GET /api/creators/:id/clips — creator reel grid source (REQ-SOC-23)
-socialRoutes.get('/creators/:id/clips', (c) => {
+// GET /api/creators/:id/clips — creator reel grid source (REQ-SOC-23 / REQ-P74-BE-02)
+socialRoutes.get('/creators/:id/clips', async (c) => {
+  await vhunambiDb.syncSocialFromCloud(false, c);
   const id = c.req.param('id');
   const viewerId = c.get('authUser')?.creatorId ?? 'creator_cern';
   return c.json({ clips: getClipsByCreator(id, viewerId) }, 200);

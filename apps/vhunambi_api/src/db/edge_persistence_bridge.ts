@@ -855,41 +855,7 @@ export class EdgeIsolateDatabaseEngine {
 
         this.hydrateExploreTrackRows(exploreRows);
         this.hydrateKineticPostRows(postsRows);
-
-        for (const pc of clipsRows) {
-          if (!pc.id) continue;
-          const parsedData =
-            pc.data_json && typeof pc.data_json === 'object'
-              ? (pc.data_json as Record<string, any>)
-              : {};
-          const createdIso = new Date(Number(pc.created_at || Date.now())).toISOString();
-          const updatedIso = new Date(Number(pc.updated_at || Date.now())).toISOString();
-          const cid = canonicalizeCreatorId(String(pc.creator_id ?? 'creator_cern'));
-          this.publishedClips.set(String(pc.id), {
-            id: String(pc.id),
-            creator_id: cid,
-            creator_handle: String(parsedData.creatorUsername ?? `@${cid.replace(/^creator_/, '')}`),
-            video_url: String(parsedData.audioUrl ?? parsedData.videoUrl ?? pc.audio_url ?? ''),
-            audio_title: String(parsedData.title ?? pc.title ?? 'Untitled Clip'),
-            bantu_language: pc.genre ? String(pc.genre) : null,
-            views_count: Number(parsedData.playCount ?? pc.views_count ?? 0),
-            likes_count: Number(pc.likes_count ?? parsedData.likeCount ?? 0),
-            comments_count: Number(pc.comments_count ?? parsedData.commentCount ?? 0),
-            remixes_count: Number(pc.remixes_count ?? parsedData.remixCount ?? 0),
-            remixed_from_clip_id: pc.remixed_from_clip_id ? String(pc.remixed_from_clip_id) : null,
-            data_json: JSON.stringify({
-              ...parsedData,
-              id: String(pc.id),
-              trackId: pc.track_id ?? parsedData.trackId,
-              creatorId: cid,
-              genre: pc.genre ?? parsedData.genre,
-              coverUrl: pc.cover_url ?? parsedData.coverUrl,
-            }),
-            created_at: createdIso,
-            updated_at: updatedIso,
-          });
-        }
-
+        this.hydratePublishedClipRows(clipsRows);
         this.hydrateReelCommentRows(commentsRows);
 
         this.hydrateMarketplaceAssetRows(assetsRows);
@@ -1138,6 +1104,97 @@ export class EdgeIsolateDatabaseEngine {
       if (rx) {
         this.socialInteractionReactions.set(key, rx);
       }
+    }
+  }
+
+  private hydratePublishedClipRows(clipsRows: Array<Record<string, any>>): void {
+    for (const pc of clipsRows) {
+      if (!pc.id) continue;
+      const parsedData =
+        pc.data_json && typeof pc.data_json === 'object'
+          ? (pc.data_json as Record<string, any>)
+          : this.parseJsonField(pc.data_json);
+      const createdMs = Number(pc.created_at);
+      const updatedMs = Number(pc.updated_at);
+      const createdIso = Number.isFinite(createdMs) && createdMs > 0
+        ? new Date(createdMs).toISOString()
+        : String(pc.created_at || parsedData.publishedAt || new Date().toISOString());
+      const updatedIso = Number.isFinite(updatedMs) && updatedMs > 0
+        ? new Date(updatedMs).toISOString()
+        : String(pc.updated_at || createdIso);
+      const cid = canonicalizeCreatorId(String(pc.creator_id ?? 'creator_cern'));
+      const reactionCounts = compactReactionCounts(
+        normalizeReactionCounts(pc.reaction_counts_json ?? parsedData.reactionCounts),
+      );
+      const videoUrl =
+        typeof pc.video_url === 'string' && pc.video_url.trim().length > 0
+          ? pc.video_url.trim()
+          : (typeof parsedData.videoUrl === 'string' && parsedData.videoUrl.trim().length > 0
+            ? parsedData.videoUrl.trim()
+            : null);
+      const mediaKind = String(pc.media_kind ?? parsedData.mediaKind ?? 'artwork');
+      const audioStartMs = Number(pc.audio_start_ms ?? parsedData.audioStartMs ?? 0);
+      const audioEndMs = Number(pc.audio_end_ms ?? parsedData.audioEndMs ?? 30000);
+      const effectPreset = String(pc.effect_preset ?? parsedData.effectPreset ?? 'kinetic_gold');
+      const effectIntensity = Number(pc.effect_intensity ?? parsedData.effectIntensity ?? 0.65);
+      const typographyPreset = String(
+        pc.typography_preset ?? parsedData.typographyPreset ?? 'kinetic_bounce',
+      );
+      const speedRate = Number(pc.speed_rate ?? parsedData.speedRate ?? 1.0);
+      const stickerId =
+        typeof pc.sticker_id === 'string' && pc.sticker_id.trim().length > 0
+          ? pc.sticker_id.trim()
+          : (typeof parsedData.stickerId === 'string' && parsedData.stickerId.trim().length > 0
+            ? parsedData.stickerId.trim()
+            : null);
+
+      const mergedPayload = {
+        ...parsedData,
+        id: String(pc.id),
+        trackId: pc.track_id ?? parsedData.trackId ?? String(pc.id),
+        creatorId: cid,
+        creatorUsername: String(
+          parsedData.creatorUsername ?? `@${cid.replace(/^creator_/, '')}`,
+        ),
+        title: String(parsedData.title ?? pc.title ?? 'Untitled Clip'),
+        genre: String(pc.genre ?? parsedData.genre ?? 'Amapiano'),
+        audioUrl: String(pc.audio_url ?? parsedData.audioUrl ?? ''),
+        coverUrl: String(pc.cover_url ?? parsedData.coverUrl ?? ''),
+        videoUrl,
+        mediaKind,
+        audioStartMs,
+        audioEndMs,
+        effectPreset,
+        effectIntensity,
+        typographyPreset,
+        speedRate,
+        stickerId,
+        reactionCounts,
+        likeCount: Number(pc.likes_count ?? parsedData.likeCount ?? 0),
+        commentCount: Number(pc.comments_count ?? parsedData.commentCount ?? 0),
+        remixCount: Number(pc.remixes_count ?? parsedData.remixCount ?? 0),
+        publishedAt: String(parsedData.publishedAt ?? createdIso),
+      };
+
+      this.publishedClips.set(String(pc.id), {
+        id: String(pc.id),
+        creator_id: cid,
+        creator_handle: mergedPayload.creatorUsername,
+        video_url: videoUrl ?? mergedPayload.audioUrl ?? '',
+        audio_title: mergedPayload.title,
+        bantu_language: mergedPayload.genre,
+        views_count: Number(parsedData.playCount ?? pc.views_count ?? 0),
+        likes_count: mergedPayload.likeCount,
+        comments_count: mergedPayload.commentCount,
+        remixes_count: mergedPayload.remixCount,
+        remixed_from_clip_id: pc.remixed_from_clip_id
+          ? String(pc.remixed_from_clip_id)
+          : null,
+        reaction_counts_json: JSON.stringify(reactionCounts),
+        data_json: JSON.stringify(mergedPayload),
+        created_at: createdIso,
+        updated_at: updatedIso,
+      });
     }
   }
 
@@ -1469,6 +1526,74 @@ export class EdgeIsolateDatabaseEngine {
 
       const allSucceeded =
         tracksRes.ok && postsRes.ok && commentsRes.ok && interactionsRes.ok;
+      if (allSucceeded) {
+        this.domainHydratedAtMs.set(domainKey, Date.now());
+      }
+      return allSucceeded;
+    })().finally(() => {
+      if (this.domainInFlightPromises.get(domainKey) === syncPromise) {
+        this.domainInFlightPromises.delete(domainKey);
+      }
+    });
+
+    this.domainInFlightPromises.set(domainKey, syncPromise);
+    return syncPromise;
+  }
+
+  public async syncSocialFromCloud(
+    force = false,
+    cOrEnv?: unknown,
+  ): Promise<boolean> {
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) return false;
+
+    const domainKey = 'social:global';
+    const lastHydrated = this.domainHydratedAtMs.get(domainKey) ?? 0;
+    if (
+      !force &&
+      lastHydrated > 0 &&
+      Date.now() - lastHydrated < EdgeIsolateDatabaseEngine.DEFAULT_SWR_TTL_MS
+    ) {
+      return true;
+    }
+
+    const existingFlight = this.domainInFlightPromises.get(domainKey);
+    if (existingFlight && !force) {
+      return existingFlight;
+    }
+
+    const syncPromise = (async (): Promise<boolean> => {
+      const [clipsRes, commentsRes, interactionsRes] = await Promise.all([
+        EdgeIsolateDatabaseEngine.withTimeoutResult(
+          driver.selectRows<Record<string, any>>(
+            'published_clips',
+            'select=*&order=created_at.desc&limit=120',
+          ),
+          3500,
+        ),
+        EdgeIsolateDatabaseEngine.withTimeoutResult(
+          driver.selectRows<Record<string, any>>(
+            'reel_comments',
+            'select=*&order=timestamp_ms.desc&limit=400',
+          ),
+          3500,
+        ),
+        EdgeIsolateDatabaseEngine.withTimeoutResult(
+          driver.selectRows<Record<string, any>>(
+            'social_interactions',
+            'select=*&limit=1000',
+          ),
+          3500,
+        ),
+      ]);
+
+      if (clipsRes.ok) this.hydratePublishedClipRows(clipsRes.value);
+      if (commentsRes.ok) this.hydrateReelCommentRows(commentsRes.value);
+      if (interactionsRes.ok) {
+        this.hydrateSocialInteractionRows(interactionsRes.value);
+      }
+
+      const allSucceeded = clipsRes.ok && commentsRes.ok && interactionsRes.ok;
       if (allSucceeded) {
         this.domainHydratedAtMs.set(domainKey, Date.now());
       }
@@ -3746,7 +3871,7 @@ export class EdgeIsolateDatabaseEngine {
   }
 
   public getSocialReaction(
-    interactionType: 'post_react' | 'comment_react',
+    interactionType: 'post_react' | 'comment_react' | 'clip_react',
     targetId: string,
     actorCreatorId = 'creator_cern',
   ): KineticReactionWire | null {
@@ -6698,7 +6823,10 @@ export class EdgeIsolateDatabaseEngine {
     return this.publishedClips.size;
   }
 
-  public upsertPublishedClip(clip: Record<string, any>): void {
+  private buildPublishedClipCloudPayload(clip: Record<string, any>): {
+    localRow: Record<string, any>;
+    cloudRow: Record<string, any>;
+  } {
     const now = new Date().toISOString();
     const id = String(clip.id);
     const creatorId = canonicalizeCreatorId(
@@ -6715,59 +6843,113 @@ export class EdgeIsolateDatabaseEngine {
       this.publishedClips.get(id)?.created_at ||
       now,
     );
-    const clipPayload = {
-      ...clip,
-      creatorId,
-      creatorUsername: creatorHandle,
-    };
-    this.publishedClips.set(id, {
-      id,
-      creator_id: creatorId,
-      creator_handle: creatorHandle,
-      video_url: String(clip.audioUrl || clip.videoUrl || ''),
-      audio_title: String(clip.title || 'Untitled Clip'),
-      bantu_language: clip.genre ? String(clip.genre) : null,
-      views_count: Number(clip.playCount ?? clip.viewsCount ?? 0),
-      likes_count: Number(clip.likeCount ?? clip.likesCount ?? 0),
-      comments_count: Number(clip.commentCount ?? clip.commentsCount ?? 0),
-      remixes_count: Number(clip.remixCount ?? clip.remixesCount ?? 0),
-      remixed_from_clip_id: clip.remixedFromClipId
-        ? String(clip.remixedFromClipId)
-        : null,
-      data_json: JSON.stringify(clipPayload),
-      created_at: createdAt,
-      updated_at: now,
-    });
     const createdMs = Date.parse(createdAt) || Date.now();
     const updatedMs = Date.parse(now) || Date.now();
-    this.mirrorWriteThrough(async (driver) => {
-      await driver.upsertRow(
-        'published_clips',
-        {
-          id,
-          track_id: String(clip.trackId || id),
-          creator_id: creatorId,
-          title: String(clip.title || 'Untitled Groove'),
-          caption: String(clip.caption || ''),
-          genre: String(clip.genre || 'Amapiano'),
-          bpm: Math.round(Number(clip.bpm ?? 113)),
-          likes_count: Number(clip.likeCount ?? clip.likesCount ?? 0),
-          comments_count: Number(clip.commentCount ?? clip.commentsCount ?? 0),
-          remixes_count: Number(clip.remixCount ?? clip.remixesCount ?? 0),
-          shares_count: Number(clip.shareCount ?? clip.sharesCount ?? 0),
-          audio_url: String(clip.audioUrl || clip.videoUrl || ''),
-          cover_url: String(clip.coverUrl || ''),
-          remixed_from_clip_id: clip.remixedFromClipId ? String(clip.remixedFromClipId) : null,
-          remix_attribution: clip.remixAttribution ? String(clip.remixAttribution) : null,
-          tags_json: Array.isArray(clip.tags) ? clip.tags : [],
-          dna_json: clip.dna ?? {},
-          data_json: clipPayload,
-          created_at: createdMs,
-          updated_at: updatedMs,
-        },
-        'id',
-      );
-    });
+    const reactionCounts = compactReactionCounts(
+      normalizeReactionCounts(clip.reactionCounts),
+    );
+    const videoUrl =
+      typeof clip.videoUrl === 'string' && clip.videoUrl.trim().length > 0
+        ? clip.videoUrl.trim()
+        : null;
+    const clipPayload = {
+      ...clip,
+      id,
+      creatorId,
+      creatorUsername: creatorHandle,
+      videoUrl,
+      mediaKind: String(clip.mediaKind || 'artwork'),
+      audioStartMs: Number(clip.audioStartMs ?? 0),
+      audioEndMs: Number(clip.audioEndMs ?? 30000),
+      effectPreset: String(clip.effectPreset || 'kinetic_gold'),
+      effectIntensity: Number(clip.effectIntensity ?? 0.65),
+      typographyPreset: String(clip.typographyPreset || 'kinetic_bounce'),
+      speedRate: Number(clip.speedRate ?? 1.0),
+      stickerId: clip.stickerId ? String(clip.stickerId) : null,
+      reactionCounts,
+      publishedAt: createdAt,
+    };
+    return {
+      localRow: {
+        id,
+        creator_id: creatorId,
+        creator_handle: creatorHandle,
+        video_url: videoUrl ?? String(clip.audioUrl || ''),
+        audio_title: String(clip.title || 'Untitled Clip'),
+        bantu_language: clip.genre ? String(clip.genre) : null,
+        views_count: Number(clip.playCount ?? clip.viewsCount ?? 0),
+        likes_count: Number(clip.likeCount ?? clip.likesCount ?? 0),
+        comments_count: Number(clip.commentCount ?? clip.commentsCount ?? 0),
+        remixes_count: Number(clip.remixCount ?? clip.remixesCount ?? 0),
+        remixed_from_clip_id: clip.remixedFromClipId
+          ? String(clip.remixedFromClipId)
+          : null,
+        reaction_counts_json: JSON.stringify(reactionCounts),
+        data_json: JSON.stringify(clipPayload),
+        created_at: createdAt,
+        updated_at: now,
+      },
+      cloudRow: {
+        id,
+        track_id: String(clip.trackId || id),
+        creator_id: creatorId,
+        title: String(clip.title || 'Untitled Groove'),
+        caption: String(clip.caption || ''),
+        genre: String(clip.genre || 'Amapiano'),
+        bpm: Math.round(Number(clip.bpm ?? 113)),
+        likes_count: Number(clip.likeCount ?? clip.likesCount ?? 0),
+        comments_count: Number(clip.commentCount ?? clip.commentsCount ?? 0),
+        remixes_count: Number(clip.remixCount ?? clip.remixesCount ?? 0),
+        shares_count: Number(clip.shareCount ?? clip.sharesCount ?? 0),
+        audio_url: String(clip.audioUrl || ''),
+        cover_url: String(clip.coverUrl || ''),
+        video_url: videoUrl,
+        media_kind: clipPayload.mediaKind,
+        audio_start_ms: clipPayload.audioStartMs,
+        audio_end_ms: clipPayload.audioEndMs,
+        effect_preset: clipPayload.effectPreset,
+        effect_intensity: clipPayload.effectIntensity,
+        typography_preset: clipPayload.typographyPreset,
+        speed_rate: clipPayload.speedRate,
+        sticker_id: clipPayload.stickerId,
+        reaction_counts_json: reactionCounts,
+        remixed_from_clip_id: clip.remixedFromClipId ? String(clip.remixedFromClipId) : null,
+        remix_attribution: clip.remixAttribution ? String(clip.remixAttribution) : null,
+        tags_json: Array.isArray(clip.tags) ? clip.tags : [],
+        dna_json: clip.dna ?? {},
+        data_json: clipPayload,
+        created_at: createdMs,
+        updated_at: updatedMs,
+      },
+    };
+  }
+
+  public upsertPublishedClip(
+    clip: Record<string, any>,
+    skipMirror = false,
+  ): void {
+    const { localRow, cloudRow } = this.buildPublishedClipCloudPayload(clip);
+    this.publishedClips.set(localRow.id, localRow);
+    if (!skipMirror) {
+      this.mirrorWriteThrough('published_clips.upsert', async (driver) => {
+        await driver.upsertRow('published_clips', cloudRow, 'id');
+      });
+    }
+  }
+
+  public async upsertPublishedClipAsync(
+    clip: Record<string, any>,
+    cOrEnv?: unknown,
+  ): Promise<void> {
+    const { localRow, cloudRow } = this.buildPublishedClipCloudPayload(clip);
+    this.publishedClips.set(localRow.id, localRow);
+    await this.awaitWriteThrough(
+      'published_clips.upsert',
+      async (driver) => {
+        await driver.upsertRow('published_clips', cloudRow, 'id');
+      },
+      cOrEnv,
+    );
   }
 
   private mapPublishedClipRow(r: Record<string, any>): Record<string, any> {
@@ -6777,12 +6959,25 @@ export class EdgeIsolateDatabaseEngine {
     } catch {
       data = {};
     }
+    const reactionCounts = compactReactionCounts(
+      normalizeReactionCounts(r.reaction_counts_json ?? data.reactionCounts),
+    );
     return {
       ...data,
       id: String(r.id),
       creatorId: String(data.creatorId ?? r.creator_id),
       creatorUsername: String(data.creatorUsername ?? r.creator_handle),
       title: String(data.title ?? r.audio_title),
+      videoUrl: data.videoUrl ?? null,
+      mediaKind: String(data.mediaKind ?? 'artwork'),
+      audioStartMs: Number(data.audioStartMs ?? 0),
+      audioEndMs: Number(data.audioEndMs ?? 30000),
+      effectPreset: String(data.effectPreset ?? 'kinetic_gold'),
+      effectIntensity: Number(data.effectIntensity ?? 0.65),
+      typographyPreset: String(data.typographyPreset ?? 'kinetic_bounce'),
+      speedRate: Number(data.speedRate ?? 1.0),
+      stickerId: data.stickerId ?? null,
+      reactionCounts,
       playCount: Number(r.views_count ?? data.playCount ?? 0),
       likeCount: Number(r.likes_count ?? data.likeCount ?? 0),
       commentCount: Number(r.comments_count ?? data.commentCount ?? 0),
@@ -6801,6 +6996,11 @@ export class EdgeIsolateDatabaseEngine {
   public listPublishedClipRows(): Record<string, any>[] {
     return Array.from(this.publishedClips.values())
       .reverse()
+      .sort((a, b) => {
+        const ta = Date.parse(String(a.created_at || '')) || 0;
+        const tb = Date.parse(String(b.created_at || '')) || 0;
+        return tb - ta;
+      })
       .map((r) => this.mapPublishedClipRow(r));
   }
 
@@ -6808,7 +7008,161 @@ export class EdgeIsolateDatabaseEngine {
     return Array.from(this.publishedClips.values())
       .filter((r) => r.remixed_from_clip_id === parentClipId)
       .reverse()
+      .sort((a, b) => {
+        const ta = Date.parse(String(a.created_at || '')) || 0;
+        const tb = Date.parse(String(b.created_at || '')) || 0;
+        return tb - ta;
+      })
       .map((r) => this.mapPublishedClipRow(r));
+  }
+
+  public reactToClip(
+    clipId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    skipMirror = false,
+  ): KineticReactionMutationResult {
+    const row = this.publishedClips.get(clipId);
+    if (!row) {
+      return {
+        success: false,
+        targetId: clipId,
+        myReaction: null,
+        reactionCounts: {},
+        likeCount: 0,
+        liked: false,
+      };
+    }
+
+    const actor = canonicalizeCreatorId(actorCreatorId);
+    const key = `clip_react::${clipId}::${actor}`;
+    const prevReaction = this.socialInteractionReactions.get(key) ?? null;
+    const requested = normalizeKineticReactionWire(reactionType);
+    const nextReaction: KineticReactionWire | null =
+      requested === null || requested === prevReaction ? null : requested;
+
+    const parsedData = this.parseJsonField(row.data_json);
+    const counts = normalizeReactionCounts(
+      row.reaction_counts_json ?? parsedData.reactionCounts,
+    );
+    const legacyLikeCount = Math.max(
+      0,
+      Number(row.likes_count ?? parsedData.likeCount ?? 0),
+    );
+    if (sumReactionCounts(counts) === 0 && legacyLikeCount > 0) {
+      counts.love = legacyLikeCount;
+    }
+
+    if (prevReaction) {
+      counts[prevReaction] = Math.max(0, counts[prevReaction] - 1);
+    }
+    if (nextReaction) {
+      counts[nextReaction] = counts[nextReaction] + 1;
+      this.socialInteractions.add(key);
+      this.socialInteractionReactions.set(key, nextReaction);
+    } else {
+      this.socialInteractions.delete(key);
+      this.socialInteractionReactions.delete(key);
+    }
+
+    const compact = compactReactionCounts(counts);
+    const nextLikes = Math.max(sumReactionCounts(counts), 0);
+    row.reaction_counts_json = JSON.stringify(compact);
+    row.likes_count = nextLikes;
+    row.updated_at = new Date().toISOString();
+    parsedData.reactionCounts = compact;
+    parsedData.likeCount = nextLikes;
+    row.data_json = JSON.stringify(parsedData);
+
+    if (!skipMirror) {
+      this.mirrorWriteThrough('published_clips.react', async (driver) => {
+        if (nextReaction) {
+          await driver.upsertRow(
+            'social_interactions',
+            {
+              interaction_type: 'clip_react',
+              target_id: clipId,
+              actor_creator_id: actor,
+              reaction_type: nextReaction,
+              created_at: Date.now(),
+            },
+            'interaction_type,target_id,actor_creator_id',
+          );
+        } else {
+          await driver.deleteRows(
+            'social_interactions',
+            `interaction_type=eq.clip_react&target_id=eq.${encodeURIComponent(clipId)}&actor_creator_id=eq.${encodeURIComponent(actor)}`,
+          );
+        }
+        await driver.patchRows(
+          'published_clips',
+          `id=eq.${encodeURIComponent(clipId)}`,
+          {
+            reaction_counts_json: compact,
+            likes_count: nextLikes,
+            data_json: parsedData,
+            updated_at: Date.now(),
+          },
+        );
+      });
+    }
+
+    return {
+      success: true,
+      targetId: clipId,
+      myReaction: nextReaction,
+      reactionCounts: compact,
+      likeCount: nextLikes,
+      liked: nextReaction !== null,
+    };
+  }
+
+  public async reactToClipAsync(
+    clipId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    cOrEnv?: unknown,
+  ): Promise<KineticReactionMutationResult> {
+    const result = this.reactToClip(clipId, actorCreatorId, reactionType, true);
+    if (!result.success) return result;
+    const actor = canonicalizeCreatorId(actorCreatorId);
+    const row = this.publishedClips.get(clipId);
+    const parsedData = row ? this.parseJsonField(row.data_json) : {};
+    await this.awaitWriteThrough(
+      'published_clips.react',
+      async (driver) => {
+        await Promise.all([
+          result.myReaction
+            ? driver.upsertRow(
+              'social_interactions',
+              {
+                interaction_type: 'clip_react',
+                target_id: clipId,
+                actor_creator_id: actor,
+                reaction_type: result.myReaction,
+                created_at: Date.now(),
+              },
+              'interaction_type,target_id,actor_creator_id',
+            )
+            : driver.deleteRows(
+              'social_interactions',
+              `interaction_type=eq.clip_react&target_id=eq.${encodeURIComponent(clipId)}&actor_creator_id=eq.${encodeURIComponent(actor)}`,
+            ),
+          driver.patchRows(
+            'published_clips',
+            `id=eq.${encodeURIComponent(clipId)}`,
+            {
+              reaction_counts_json: result.reactionCounts,
+              likes_count: result.likeCount,
+              data_json: parsedData,
+              updated_at: Date.now(),
+            },
+          ),
+        ]);
+      },
+      cOrEnv,
+    );
+    return result;
   }
 
   public insertReelComment(comment: Record<string, any>): void {

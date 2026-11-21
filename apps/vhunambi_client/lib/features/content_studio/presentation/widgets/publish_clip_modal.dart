@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../../shared/models/track.dart';
 import '../../../explore/domain/models/social_music_post.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
@@ -49,6 +50,7 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
   final TextEditingController _captionController = TextEditingController();
   final Set<String> _selectedTags = <String>{};
   ClipVisibility _visibility = ClipVisibility.public;
+  bool _alsoShareToExplore = false;
 
   @override
   void dispose() {
@@ -89,62 +91,60 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
       return;
     }
 
-    // Close FINDING-EXP-005: inject published creation into Explore Social Feed
-    ref
-        .read(socialFeedPostsProvider.notifier)
-        .addPost(
-          SocialMusicPost(
-            id: 'post_${clip.id}',
-            creatorId: clip.creatorId,
-            creatorName: clip.creatorDisplayName,
-            creatorHandle: '@${clip.creatorUsername}',
-            creatorAvatarUrl: clip.creatorAvatarUrl,
-            isCreatorVerified: clip.isCreatorVerified,
-            publishedAt: clip.publishedAt,
-            location: 'South Africa',
-            caption: clip.caption.isNotEmpty
-                ? clip.caption
-                : 'New track drop 🔥',
-            track: Track(
-              id: clip.trackId,
-              title: clip.title,
+    // Opt-in ONLY — never auto-inject promotional feed copy into Explore Feed (REQ-P74-STU-05)
+    if (_alsoShareToExplore) {
+      ref
+          .read(socialFeedPostsProvider.notifier)
+          .addPost(
+            SocialMusicPost(
+              id: 'post_${clip.id}',
+              creatorId: clip.creatorId,
               creatorName: clip.creatorDisplayName,
               creatorHandle: '@${clip.creatorUsername}',
-              genre: clip.genre,
-              duration: Duration(seconds: clip.dna.musical.durationSec),
-              audioUrl: clip.audioUrl,
-              coverUrl: clip.coverUrl,
-              isNew: true,
+              creatorAvatarUrl: clip.creatorAvatarUrl,
+              isCreatorVerified: clip.isCreatorVerified,
+              publishedAt: clip.publishedAt,
+              location: 'South Africa',
+              caption: clip.caption.isNotEmpty ? clip.caption : clip.title,
+              track: Track(
+                id: clip.trackId,
+                title: clip.title,
+                creatorName: clip.creatorDisplayName,
+                creatorHandle: '@${clip.creatorUsername}',
+                genre: clip.genre,
+                duration: Duration(seconds: clip.dna.musical.durationSec),
+                audioUrl: clip.audioUrl,
+                coverUrl: clip.coverUrl,
+                isNew: true,
+              ),
+              likeCount: 0,
+              commentCount: 0,
+              remixCount: 0,
+              tipCountCoins: 0,
+              isFollowingCreator: false,
             ),
-            likeCount: 0,
-            commentCount: 0,
-            remixCount: 0,
-            tipCountCoins: 0,
-            isFollowingCreator: false,
-          ),
-        );
+          );
+    }
 
     if (remixContext != null) {
       ref.read(stemRemixProvider.notifier).clearRemix();
     }
 
     navigator.pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          remixContext != null
-              ? 'Remix published with attribution! 🔁 ${clip.shareUrl}'
-              : 'Published to your profile! ${clip.shareUrl}',
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            remixContext != null
+                ? 'Remix published with attribution!'
+                : 'Published to your profile!',
+          ),
+          backgroundColor: AppColors.brandPrimary,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 2500),
         ),
-        backgroundColor: AppColors.brandPrimary,
-        action: SnackBarAction(
-          label: 'COPY',
-          textColor: AppColors.brandContrast,
-          onPressed: () =>
-              Clipboard.setData(ClipboardData(text: clip.shareUrl)),
-        ),
-      ),
-    );
+      );
   }
 
   @override
@@ -154,18 +154,17 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
     final genre = state.dna?.genre ?? 'Amapiano';
     final viewInsets = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceModal,
-        borderRadius: AppRadius.modalBorder,
-      ),
-      padding: EdgeInsets.only(
-        left: AppSpacing.lg,
-        right: AppSpacing.lg,
-        top: AppSpacing.md,
-        bottom: AppSpacing.md + viewInsets,
-      ),
-      child: Column(
+    return Material(
+      color: AppColors.surfaceModal,
+      borderRadius: AppRadius.modalBorder,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(
+          left: AppSpacing.lg,
+          right: AppSpacing.lg,
+          top: AppSpacing.md,
+          bottom: AppSpacing.md + viewInsets,
+        ),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
@@ -177,7 +176,10 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
               ),
               IconButton(
                 key: const Key('publish_modal_close'),
-                icon: Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                icon: PhosphorIcon(
+                  AppIcons.close,
+                  color: AppColors.textSecondary,
+                ),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
@@ -197,8 +199,8 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.alt_route_rounded,
+                  const PhosphorIcon(
+                    PhosphorIconsRegular.gitFork,
                     size: 14,
                     color: AppColors.badgeCyan,
                   ),
@@ -257,6 +259,19 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
                     _buildTagSelector(),
                     const SizedBox(height: AppSpacing.sm),
                     _buildVisibilitySelector(),
+                    SwitchListTile(
+                      key: const Key('publish_modal_share_to_explore_switch'),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(
+                        'Also share to Explore Feed',
+                        style: AppTypography.caption.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      value: _alsoShareToExplore,
+                      onChanged: (v) => setState(() => _alsoShareToExplore = v),
+                    ),
                   ],
                 ),
               ),
@@ -283,8 +298,8 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
                 child: ElevatedButton.icon(
                   key: const Key('publish_reel_btn'),
                   onPressed: _publish,
-                  icon: const Icon(
-                    Icons.rocket_launch_rounded,
+                  icon: const PhosphorIcon(
+                    AppIcons.upload,
                     color: AppColors.brandContrast,
                     size: 18,
                   ),
@@ -308,32 +323,17 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
           ),
         ],
       ),
+      ),
     );
   }
 
   Widget _buildThumbnail(String? coverUrl, String genre) {
-    return ClipRRect(
+    return VhunambiTrackArtwork(
+      coverUrl: coverUrl,
+      genre: genre,
+      width: 88,
+      height: 88 * 16 / 9,
       borderRadius: AppRadius.inputBorder,
-      child: Container(
-        width: 88,
-        height: 88 * 16 / 9,
-        decoration: BoxDecoration(gradient: AppGradients.forGenre(genre)),
-        child: coverUrl == null
-            ? Icon(
-                Icons.music_note_rounded,
-                color: AppColors.textPrimary,
-                size: 32,
-              )
-            : Image.network(
-                coverUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Icon(
-                  Icons.music_note_rounded,
-                  color: AppColors.textPrimary,
-                  size: 32,
-                ),
-              ),
-      ),
     );
   }
 
@@ -358,7 +358,7 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
         Expanded(
           child: _ChoicePill(
             label: 'Public',
-            icon: Icons.public_rounded,
+            icon: PhosphorIconsRegular.globe,
             selected: _visibility == ClipVisibility.public,
             onTap: () => setState(() => _visibility = ClipVisibility.public),
           ),
@@ -367,7 +367,7 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
         Expanded(
           child: _ChoicePill(
             label: 'Followers',
-            icon: Icons.lock_outline_rounded,
+            icon: PhosphorIconsRegular.lockSimple,
             selected: _visibility == ClipVisibility.followers,
             onTap: () => setState(() => _visibility = ClipVisibility.followers),
           ),
@@ -411,8 +411,8 @@ class _ChoicePill extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(
-                icon,
+              PhosphorIcon(
+                icon!,
                 size: 14,
                 color: selected
                     ? AppColors.brandContrast

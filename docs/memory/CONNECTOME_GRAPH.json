@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-11-21T02:40:56.673Z",
-  "latest_completed_phase": "P73",
-  "latest_completed_order": 73,
+  "generated_at": "2026-11-21T09:53:59.495Z",
+  "latest_completed_phase": "P74",
+  "latest_completed_order": 74,
   "stats": {
-    "total_phases": 12,
-    "completed_phases": 12,
-    "total_endpoints": 39,
+    "total_phases": 13,
+    "completed_phases": 13,
+    "total_endpoints": 43,
     "open_count": 4,
-    "connected_extensible_count": 32,
+    "connected_extensible_count": 36,
     "sealed_count": 3
   },
   "phases": [
@@ -749,6 +749,92 @@
         "vhunambi_db.ts runs its top-of-constructor ALTER TABLE block BEFORE CREATE TABLE IF NOT EXISTS social_interactions; new columns on social_interactions must appear both inside CREATE TABLE and in a post-CREATE ALTER TABLE helper to avoid breaking fresh :memory: SQLite test DBs.",
         "SovereignStickerGraphic must guard height.isFinite (infinite height in GridView) and use a compact FittedBox scale layout below 64dp (mini pending-media composer chip), while Gestured GIF cards require HitTestBehavior.opaque + placeholder box when CachedNetworkImage is loading."
       ]
+    },
+    {
+      "phase_id": "P74",
+      "phase_order": 74,
+      "memory_key": "MEM-P74-KINETIC-REELS-STUDIO-V4",
+      "title": "Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload",
+      "status": "completed",
+      "completed_at": "2026-11-21T09:53:00Z",
+      "memory_file": "docs/phases/phase_74_kinetic_reels_studio_and_playback_v4/memory.md",
+      "predecessor_keys": [
+        "MEM-P68-HOME-MAIN-ROOM",
+        "MEM-P69-KINETIC-POST-FOCUS",
+        "MEM-P70-SONG-COCKPIT-VISITOR-PROFILE",
+        "MEM-P71-CLOUD-SPINE-CONNECTOME-CLOSURE",
+        "MEM-P72-ASSET-VAULT-OWNER-PROFILE-GLASS",
+        "MEM-P73-KPOST-CHROMATIC-REACTIONS-HYGIENE"
+      ],
+      "concept_hubs": [
+        "social_graph",
+        "media_artwork",
+        "mood_taxonomy",
+        "ui_surface_std",
+        "identity_role",
+        "audio_transport",
+        "sync_outbox"
+      ],
+      "endpoints_defined": [
+        "EP-P74-REELS-STUDIO-PIPELINE",
+        "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
+        "EP-P74-SOCIAL-SWR-READTHROUGH",
+        "EP-P74-KARAOKE-LYRIC-SANITIZER"
+      ],
+      "consumes": [
+        "EP-P70-GLASS-SURFACE",
+        "EP-P70-MOOD-TAXONOMY",
+        "EP-P68-TRACK-ARTWORK",
+        "EP-P68-MINIPLAYER-SUPPRESS",
+        "EP-P71-EDGE-SWR-READTHROUGH",
+        "EP-P73-POST-CHROMATIC-SYNTH",
+        "EP-P73-MULTI-REACTIONS-API",
+        "EP-P73-GIF-STICKER-MEDIA",
+        "EP-P73-PROFILE-ROUTER"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/content_studio/presentation/views/kinetic_reel_studio_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P73-POST-CHROMATIC-SYNTH",
+          "note": "Synthesizes 9:16 ambient backdrop and glass accent in Stage 1/2 from selected track mood and cover art"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/content_studio/presentation/views/kinetic_reel_studio_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P73-GIF-STICKER-MEDIA",
+          "note": "Overlays SovereignStickerGraphic onto the 9:16 Reel editor stage and persists stickerId on PublishedClip"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/content_studio/presentation/views/kinetic_reel_studio_view.dart",
+          "relation": "MUTATES",
+          "to": "EP-P68-MINIPLAYER-SUPPRESS",
+          "note": "Ref-counts pushedFullScreenOverlayCountProvider so MiniPlayerHost never overlaps the full-screen Reel Studio"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/social/presentation/widgets/kinetic_reels_modal.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P73-MULTI-REACTIONS-API",
+          "note": "Wires long-press ReactionTrayOverlay and POST /api/social/clips/:id/react onto the Reels action rail"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/social/presentation/widgets/kinetic_reels_modal.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P73-PROFILE-ROUTER",
+          "note": "Routes self creator handle taps to OwnerProfileView and external creators to ArtistProfileView"
+        }
+      ],
+      "breakthroughs": [
+        "Unified the orphaned ContentStudioDockView engines (KineticPreviewCanvas, DurationTrimScrubber, AtmosphericEffectsDeck, TypographyPresetPicker) with native camera, image_picker, and video_player inside a 4-stage full-screen KineticReelStudioView while keeping the arm64 APK ~50.5 MiB (no FFmpeg bloat).",
+        "Eliminated the 65-second frozen Publish SnackBar and forced 'New track drop' Explore spam by removing SnackBarAction in favor of a 2.5s auto-dismissing glass toast and making 'Also share to Explore Feed' opt-in (false by default).",
+        "Hardened pre-existing SECURITY DEFINER financial RPCs (execute_atomic_payout, record_beat_license_atomic, send_cultural_tip_atomic) via dynamic pg_proc regprocedure search_path pinning and service_role EXECUTE restriction."
+      ],
+      "gotchas": [
+        "In Flutter Material 3, passing a SnackBarAction causes ScaffoldMessenger to treat the SnackBar as an interactive accessibility surface that ignores short durations and stays pinned for ~65 seconds; celebratory toasts must omit SnackBarAction.",
+        "EdgeIsolateDatabaseEngine.listPublishedClipRows() previously called Array.from(this.publishedClips.values()).reverse() without timestamp sorting, which reverses DESC-ordered Supabase rows after syncSocialFromCloud unless sorted by created_at DESC.",
+        "CameraController, VideoPlayerController, and just_audio AudioPlayer invoke native platform MethodChannels that hang or throw in headless flutter test runs unless guarded by an explicit FLUTTER_TEST environment check.",
+        "Updating KineticPreviewCanvas's fallback from 'VHUNAMBI 9:16 COVER' to VhunambiTrackArtwork requires realigning kinetic_preview_canvas_test.dart#L32, and purging the raw musical-note emoji from KineticReelsModal's remix toast requires realigning kinetic_reels_modal_test.dart#L144."
+      ]
     }
   ],
   "endpoints": {
@@ -1217,13 +1303,15 @@
         "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul",
         "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul",
         "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
-        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
       ],
       "consumed_by_phases": [
         "P69",
         "P70",
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ],
       "open_opportunities": "Not yet adopted in TrackDetailView (936 lines, 6 stock Icons.*) or ArtistProfileView (803 lines, 10 stock Icons.*) — prime Phase 70 upgrade"
     },
@@ -1271,12 +1359,14 @@
         "P68:home_dashboard_view",
         "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul",
         "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
-        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
       ],
       "consumed_by_phases": [
         "P70",
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ],
       "open_opportunities": "Reuse inline-player suppression contract for future full-screen focus players (e.g. Song Cockpit) to avoid duplicate transports"
     },
@@ -1421,11 +1511,13 @@
         "P70:TrackDetailView",
         "P70:ArtistProfileView",
         "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
-        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
       ],
       "consumed_by_phases": [
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ],
       "open_opportunities": "Adopt VhunambiGlassSurface across Home dashboard cards, Explore headers, Notifications drawer, and OwnerProfileView"
     },
@@ -1448,11 +1540,13 @@
         "P70:explore_providers",
         "P70:explore_routes",
         "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
-        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
       ],
       "consumed_by_phases": [
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ],
       "open_opportunities": "Power Mood Radio stations, interactive Explore mood pill cross-filtering from TrackDetailView, and Studio mood selector migration"
     },
@@ -1505,11 +1599,13 @@
         "P71:webhook_routes",
         "P71:vision_routes",
         "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
-        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
       ],
       "consumed_by_phases": [
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ],
       "open_opportunities": "Adopt domain-scoped SWR sync helpers in marketplace_routes, playlist_routes, library_routes, and voice_routes for full multi-isolate durability across every Cloudflare Worker endpoint"
     },
@@ -1594,9 +1690,12 @@
       "code_anchor": "apps/vhunambi_client/lib/core/theme/post_chromatic_palette_resolver.dart",
       "summary": "3-Tier dynamic chromatic world synthesizer (Mood+Cover -> Cover+Split-Complement -> Brand Fallback) with LRU cache, 150ms extraction guard, FLUTTER_TEST deterministic bypass, and WCAG AA contrast clamping for Light and Dark modes.",
       "consumers": [
-        "P73:KineticPostFocusView"
+        "P73:KineticPostFocusView",
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P74"
+      ],
       "open_opportunities": "Reuse in Phase 74 KineticReelStudioView backdrop tinting and TrackDetailView ambient canvas synthesis"
     },
     "EP-P73-MULTI-REACTIONS-API": {
@@ -1617,9 +1716,12 @@
       "consumers": [
         "P73:KineticPostFocusView",
         "P73:ExploreSocialPostCard",
-        "P73:ThreadedCommentsSection"
+        "P73:ThreadedCommentsSection",
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P74"
+      ],
       "open_opportunities": "Adopt ReactionTrayOverlay and POST /api/social/clips/:id/react inside Phase 74 KineticReelsModal playback V4"
     },
     "EP-P73-GIF-STICKER-MEDIA": {
@@ -1639,9 +1741,12 @@
       "summary": "Cloudflare Worker Tenor/GIPHY proxy (GET /api/social/gifs/search & /trending with non-500 curated fallback), 8 bundled vector Sovereign Cultural Stickers, and media-only comment persistence (gif_url, sticker_id, media_aspect_ratio).",
       "consumers": [
         "P73:StudioReactionComposerBar",
-        "P73:ThreadedCommentsSection"
+        "P73:ThreadedCommentsSection",
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P74"
+      ],
       "open_opportunities": "Extend sticker overlays into Phase 74 KineticReelStudioView canvas stickers and direct creator messaging"
     },
     "EP-P73-PROFILE-ROUTER": {
@@ -1665,10 +1770,102 @@
         "P73:TrackDetailView",
         "P73:ExploreSearchView",
         "P73:ExploreDiscoveryDrawerSheet",
-        "P73:NotificationDeepLinkRouter"
+        "P73:NotificationDeepLinkRouter",
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
+      ],
+      "consumed_by_phases": [
+        "P74"
+      ],
+      "open_opportunities": "Route all Phase 74 Reel creator badges and remix lineage chips through navigateToCreatorProfile()"
+    },
+    "EP-P74-REELS-STUDIO-PIPELINE": {
+      "id": "EP-P74-REELS-STUDIO-PIPELINE",
+      "kind": "ui_flow_and_state",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P74",
+      "origin_order": 74,
+      "memory_file": "docs/phases/phase_74_kinetic_reels_studio_and_playback_v4/memory.md",
+      "hubs": [
+        "social_graph",
+        "media_artwork",
+        "audio_transport",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_74_kinetic_reels_studio_and_playback_v4/design.md#4-pass-2-m743--instagram-benchmark-4-stage-kineticreelstudioview",
+      "code_anchor": "apps/vhunambi_client/lib/features/content_studio/presentation/views/kinetic_reel_studio_view.dart",
+      "summary": "Full-screen 4-stage Instagram-benchmark Reels Creation Studio unifying Live Camera, Gallery Photo/Video, Vault Song Chromatic Art, Vision AI 9:16 backdrops, ReelAudioPickerSheet, ReelAudioTrimmerSheet, KineticPreviewCanvas, Sovereign Stickers, and opt-in Explore cross-posting.",
+      "consumers": [
+        "P74:TrendingReelsShelf",
+        "P74:ContentStudioDockView",
+        "P74:KineticReelsModal"
       ],
       "consumed_by_phases": [],
-      "open_opportunities": "Route all Phase 74 Reel creator badges and remix lineage chips through navigateToCreatorProfile()"
+      "open_opportunities": "Connect Studio DAW finish flow and TrackDetailView Share-as-Reel directly into KineticReelStudioView.show()"
+    },
+    "EP-P74-SOCIAL-MEDIA-R2-UPLOAD": {
+      "id": "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
+      "kind": "backend_rest_and_client_repo",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P74",
+      "origin_order": 74,
+      "memory_file": "docs/phases/phase_74_kinetic_reels_studio_and_playback_v4/memory.md",
+      "hubs": [
+        "media_artwork",
+        "sync_outbox",
+        "social_graph"
+      ],
+      "spec_anchor": "docs/phases/phase_74_kinetic_reels_studio_and_playback_v4/design.md#23-worker-rest-routes-social_routests--serverts",
+      "code_anchor": "apps/vhunambi_api/src/routes/social_routes.ts",
+      "summary": "Authenticated POST /api/social/media/upload endpoint validating MIME allowlist and 25 MB ceiling, persisting camera/gallery video, photo, and audio bytes to Cloudflare R2 (VHUNAMBI_VAULT) under social/<canonicalCreatorId>/ and returning normalized /r2/social/... URLs.",
+      "consumers": [
+        "P74:HttpSocialRepository",
+        "P74:KineticReelPublishView"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Reuse POST /api/social/media/upload for CreateKineticPostSheet custom device photo uploads and custom playlist cover uploads"
+    },
+    "EP-P74-SOCIAL-SWR-READTHROUGH": {
+      "id": "EP-P74-SOCIAL-SWR-READTHROUGH",
+      "kind": "backend_persistence",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P74",
+      "origin_order": 74,
+      "memory_file": "docs/phases/phase_74_kinetic_reels_studio_and_playback_v4/memory.md",
+      "hubs": [
+        "sync_outbox",
+        "social_graph"
+      ],
+      "spec_anchor": "docs/phases/phase_74_kinetic_reels_studio_and_playback_v4/design.md#22-sqlite-vhunambi_dbts--edge-swr-edge_persistence_bridgets-11-parity",
+      "code_anchor": "apps/vhunambi_api/src/db/edge_persistence_bridge.ts",
+      "summary": "12-second domain-scoped SWR read-through (syncSocialFromCloud) and awaited write-through (upsertPublishedClipAsync, reactToClipAsync) across published_clips, reel_comments, and social_interactions with timestamp-sorted feed projection.",
+      "consumers": [
+        "P74:social_routes",
+        "P74:server_scoped_bypass"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Extend scoped SWR read-through to voice_routes (voice_clones/sound_signatures) for 100% Worker route isolation"
+    },
+    "EP-P74-KARAOKE-LYRIC-SANITIZER": {
+      "id": "EP-P74-KARAOKE-LYRIC-SANITIZER",
+      "kind": "domain_utility",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P74",
+      "origin_order": 74,
+      "memory_file": "docs/phases/phase_74_kinetic_reels_studio_and_playback_v4/memory.md",
+      "hubs": [
+        "audio_transport",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_74_kinetic_reels_studio_and_playback_v4/design.md#32-karaoke-lyric-bracket-sanitizer-lyric_karaoke_sanitizerdart",
+      "code_anchor": "apps/vhunambi_client/lib/features/content_studio/domain/utils/lyric_karaoke_sanitizer.dart",
+      "summary": "Pure Dart lyric sanitizer stripping [Intro], [Verse], [instrument cues], and parenthetical stage directions before word-timestamp tokenization in SongMetadataDna.fromTrackInfo and PublishedClip.effectiveLyrics.",
+      "consumers": [
+        "P74:SongMetadataDna",
+        "P74:PublishedClip",
+        "P74:KineticPreviewCanvas"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Reuse LyricKaraokeSanitizer in TrackDetailView synchronized lyric sheet and BantuLyricTranslationService"
     }
   },
   "hub_index": {
@@ -1685,7 +1882,8 @@
         "P69",
         "P70",
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ]
     },
     "media_artwork": {
@@ -1697,7 +1895,9 @@
         "EP-P69-KPOST-FOCUS-ROUTE",
         "EP-P70-GLASS-SURFACE",
         "EP-P73-POST-CHROMATIC-SYNTH",
-        "EP-P73-GIF-STICKER-MEDIA"
+        "EP-P73-GIF-STICKER-MEDIA",
+        "EP-P74-REELS-STUDIO-PIPELINE",
+        "EP-P74-SOCIAL-MEDIA-R2-UPLOAD"
       ],
       "phases": [
         "P64",
@@ -1707,7 +1907,8 @@
         "P69",
         "P70",
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ]
     },
     "quota_economy": {
@@ -1737,7 +1938,9 @@
         "EP-P25-GEN-MASTER-PRESETS",
         "EP-P64-HARDWARE-AUDIO-BOOTSTRAP",
         "EP-P65-CRASH-AUDIO-SHIELD",
-        "EP-P68-MINIPLAYER-SUPPRESS"
+        "EP-P68-MINIPLAYER-SUPPRESS",
+        "EP-P74-REELS-STUDIO-PIPELINE",
+        "EP-P74-KARAOKE-LYRIC-SANITIZER"
       ],
       "phases": [
         "P00_P63",
@@ -1746,7 +1949,8 @@
         "P68",
         "P70",
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ]
     },
     "mood_taxonomy": {
@@ -1762,7 +1966,8 @@
         "P68",
         "P70",
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ]
     },
     "social_graph": {
@@ -1777,7 +1982,10 @@
         "EP-P71-EDGE-SWR-READTHROUGH",
         "EP-P73-MULTI-REACTIONS-API",
         "EP-P73-GIF-STICKER-MEDIA",
-        "EP-P73-PROFILE-ROUTER"
+        "EP-P73-PROFILE-ROUTER",
+        "EP-P74-REELS-STUDIO-PIPELINE",
+        "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
+        "EP-P74-SOCIAL-SWR-READTHROUGH"
       ],
       "phases": [
         "P00_P63",
@@ -1785,7 +1993,8 @@
         "P70",
         "P71",
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ]
     },
     "notifications_bus": {
@@ -1817,7 +2026,9 @@
         "EP-P71-ATOMIC-QUOTA-RPC",
         "EP-P72-VAULT-CLOUD-SWR",
         "EP-P72-BUYER-LICENSES-HTTP",
-        "EP-P73-MULTI-REACTIONS-API"
+        "EP-P73-MULTI-REACTIONS-API",
+        "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
+        "EP-P74-SOCIAL-SWR-READTHROUGH"
       ],
       "phases": [
         "P00_P63",
@@ -1826,7 +2037,8 @@
         "P69",
         "P71",
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ]
     },
     "ui_surface_std": {
@@ -1839,7 +2051,9 @@
         "EP-P70-GLASS-SURFACE",
         "EP-P73-POST-CHROMATIC-SYNTH",
         "EP-P73-MULTI-REACTIONS-API",
-        "EP-P73-GIF-STICKER-MEDIA"
+        "EP-P73-GIF-STICKER-MEDIA",
+        "EP-P74-REELS-STUDIO-PIPELINE",
+        "EP-P74-KARAOKE-LYRIC-SANITIZER"
       ],
       "phases": [
         "P00_P63",
@@ -1850,7 +2064,8 @@
         "P70",
         "P71",
         "P72",
-        "P73"
+        "P73",
+        "P74"
       ]
     },
     "ai_synthesis_gpu": {
@@ -1881,7 +2096,8 @@
       "EP-P58-MKT-VERIFY-PRODUCER"
     ],
     "apps/vhunambi_api/src/routes/social_routes.ts": [
-      "EP-P37-REMIX-TREE-API"
+      "EP-P37-REMIX-TREE-API",
+      "EP-P74-SOCIAL-MEDIA-R2-UPLOAD"
     ],
     "apps/vhunambi_api/src/routes/wallet_routes.ts": [
       "EP-P41-WALLET-DIRECT",
@@ -1965,7 +2181,8 @@
     ],
     "apps/vhunambi_api/src/db/edge_persistence_bridge.ts": [
       "EP-P71-EDGE-SWR-READTHROUGH",
-      "EP-P72-VAULT-CLOUD-SWR"
+      "EP-P72-VAULT-CLOUD-SWR",
+      "EP-P74-SOCIAL-SWR-READTHROUGH"
     ],
     "supabase/migrations/20261120000001_phase71_schema_parity_and_rpcs.sql": [
       "EP-P71-ATOMIC-QUOTA-RPC"
@@ -1981,6 +2198,12 @@
     ],
     "apps/vhunambi_client/lib/core/navigation/profile_navigation_helper.dart": [
       "EP-P73-PROFILE-ROUTER"
+    ],
+    "apps/vhunambi_client/lib/features/content_studio/presentation/views/kinetic_reel_studio_view.dart": [
+      "EP-P74-REELS-STUDIO-PIPELINE"
+    ],
+    "apps/vhunambi_client/lib/features/content_studio/domain/utils/lyric_karaoke_sanitizer.dart": [
+      "EP-P74-KARAOKE-LYRIC-SANITIZER"
     ]
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -21,8 +22,8 @@ class TypographyPresetPicker extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(
-              Icons.text_fields_rounded,
+            const PhosphorIcon(
+              PhosphorIconsRegular.textAa,
               size: 18,
               color: AppColors.brandPrimary,
             ),
@@ -48,7 +49,10 @@ class TypographyPresetPicker extends StatelessWidget {
               borderRadius: AppRadius.inputBorder,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? AppColors.brandPrimary.withValues(alpha: 0.15)
@@ -68,8 +72,12 @@ class TypographyPresetPicker extends StatelessWidget {
                     Text(
                       preset.label,
                       style: AppTypography.bodyLarge.copyWith(
-                        color: isSelected ? AppColors.brandPrimary : AppColors.textPrimary,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected
+                            ? AppColors.brandPrimary
+                            : AppColors.textPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 2),

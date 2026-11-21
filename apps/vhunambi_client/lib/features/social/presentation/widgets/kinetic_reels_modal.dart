@@ -2,10 +2,13 @@ import '../../../../core/constants/app_assets.dart';
 import '../../../player/domain/models/stem_mixer_state.dart';
 import '../../../player/presentation/providers/stem_mixer_provider.dart';
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:video_player/video_player.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/navigation/profile_navigation_helper.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -13,7 +16,9 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../domain/models/kinetic_reaction.dart';
 import '../../domain/models/published_clip.dart';
+import '../../domain/models/sovereign_sticker_pack.dart';
 import '../providers/reel_audio_pool_provider.dart';
 import '../providers/social_feed_provider.dart';
 import '../providers/stem_remix_provider.dart';
@@ -22,6 +27,7 @@ import '../../../content_studio/presentation/widgets/kinetic_preview_canvas.dart
 import '../../../studio/presentation/providers/melody_sketchpad_provider.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import '../../../studio/presentation/providers/vocal_identity_provider.dart';
+import 'reaction_tray_overlay.dart';
 import 'reels_comment_sheet.dart';
 import 'creator_tipping_sheet.dart';
 import 'open_verse_remix_cockpit_sheet.dart';
@@ -98,6 +104,7 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
 
   @override
   void dispose() {
+    ReactionTrayOverlay.dismiss();
     final notifier = _poolNotifier;
     if (notifier != null) {
       unawaited(notifier.exitReelsSession());
@@ -225,7 +232,7 @@ class _ReelPageState extends ConsumerState<_ReelPage>
   late final Animation<double> _heartScale;
   late final Animation<double> _heartOpacity;
   bool _showBurstHeart = false;
-  String _burstEmoji = '❤️';
+  KineticReactionType _burstReaction = KineticReactionType.love;
 
   @override
   void initState() {
@@ -276,17 +283,19 @@ class _ReelPageState extends ConsumerState<_ReelPage>
     super.dispose();
   }
 
-  void _triggerBurst({String emoji = '❤️'}) {
+  void _triggerBurst({
+    KineticReactionType reaction = KineticReactionType.love,
+  }) {
     HapticFeedback.mediumImpact();
     setState(() {
       _showBurstHeart = true;
-      _burstEmoji = emoji;
+      _burstReaction = reaction;
     });
     _heartAnimController.forward(from: 0.0);
   }
 
   void _handleDoubleTap(PublishedClip clip) {
-    _triggerBurst(emoji: '❤️');
+    _triggerBurst(reaction: KineticReactionType.love);
     final count = ref.read(socialFeedProvider.notifier).recordLove(clip.id);
     _emitReelLoveNotification(ref, clip, count);
   }
@@ -321,8 +330,10 @@ class _ReelPageState extends ConsumerState<_ReelPage>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Loaded sound into Studio: ${clip.title} 🎵'),
+        content: Text('Loaded sound into Studio: ${clip.title}'),
         backgroundColor: AppColors.brandPrimary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(milliseconds: 2500),
       ),
     );
   }
@@ -418,13 +429,24 @@ class _ReelPageState extends ConsumerState<_ReelPage>
           ),
         ),
 
-        // 1.5. Vhunambi Vision Animated Stage (REQ-P46-REEL-01..03)
-        _buildVisionAnimatedStage(clip, modulationSnapshot),
+        // 1.5. Vhunambi Vision Animated Stage (REQ-P46-REEL-01..03) OR Native Video Backing Layer
+        if (clip.videoUrl != null && clip.videoUrl!.isNotEmpty)
+          _ReelVideoBackingLayer(
+            key: Key('reel_video_backing_layer_${clip.id}'),
+            videoUrl: clip.videoUrl!,
+            isActive: widget.isActive && isPlaying,
+          )
+        else
+          _buildVisionAnimatedStage(clip, modulationSnapshot),
 
         // 2. Live 60 FPS KineticPreviewCanvas (Karaoke Lyrics, Shaders & Waveform)
         KineticPreviewCanvas(
           key: ValueKey('reel_kinetic_canvas_${clip.id}'),
           coverArtUrl: clip.coverUrl.isNotEmpty ? clip.coverUrl : null,
+          genre: clip.genre,
+          trackId: clip.trackId,
+          transparentBackground:
+              clip.videoUrl != null && clip.videoUrl!.isNotEmpty,
           words: clip.effectiveLyrics,
           preset: clip.effectiveTypographyPreset,
           effects: clip.effectiveAtmosphericEffects,
@@ -434,6 +456,20 @@ class _ReelPageState extends ConsumerState<_ReelPage>
           fullScreen: true,
           showInternalPlayOverlay: false,
         ),
+
+        if (SovereignStickerPack.findById(clip.stickerId) != null)
+          Positioned(
+            top: 108,
+            right: 16,
+            child: IgnorePointer(
+              child: SovereignStickerGraphic(
+                key: Key('reel_canvas_sticker_${clip.id}'),
+                sticker: SovereignStickerPack.findById(clip.stickerId)!,
+                width: 96,
+                height: 74,
+              ),
+            ),
+          ),
 
         // 3. Bottom Readability Scrim
         const DecoratedBox(
@@ -619,7 +655,7 @@ class _ReelPageState extends ConsumerState<_ReelPage>
           ),
         ),
 
-        // 6. Multi-Tap Floating Heart / Cultural Emoji Burst
+        // 6. Multi-Tap Floating Vector Reaction Burst (STD-UIUX-001)
         if (_showBurstHeart)
           IgnorePointer(
             child: Center(
@@ -630,15 +666,15 @@ class _ReelPageState extends ConsumerState<_ReelPage>
                     opacity: _heartOpacity.value.clamp(0.0, 1.0),
                     child: Transform.scale(
                       scale: _heartScale.value,
-                      child: _burstEmoji == '❤️'
+                      child: _burstReaction == KineticReactionType.love
                           ? const PhosphorIcon(
                               AppIcons.heart,
                               color: AppColors.brandPrimary,
                               size: 110,
                             )
-                          : Text(
-                              _burstEmoji,
-                              style: const TextStyle(fontSize: 88),
+                          : KineticReactionBadge(
+                              type: _burstReaction,
+                              size: 78,
                             ),
                     ),
                   );
@@ -654,7 +690,7 @@ class _ReelPageState extends ConsumerState<_ReelPage>
           child: _ActionRail(
             clip: clip,
             onShare: widget.onShare,
-            onBurst: (emoji) => _triggerBurst(emoji: emoji),
+            onBurst: (reaction) => _triggerBurst(reaction: reaction),
           ),
         ),
 
@@ -730,7 +766,7 @@ class _ReelPageState extends ConsumerState<_ReelPage>
 class _ActionRail extends StatefulWidget {
   final PublishedClip clip;
   final VoidCallback onShare;
-  final ValueChanged<String> onBurst;
+  final ValueChanged<KineticReactionType> onBurst;
 
   const _ActionRail({
     required this.clip,
@@ -743,9 +779,7 @@ class _ActionRail extends StatefulWidget {
 }
 
 class _ActionRailState extends State<_ActionRail> {
-  bool _showReactions = false;
   bool _translateActive = false;
-  static const List<String> _culturalEmojis = ['🔥', '👑', '🇿🇦', '🎹', '❤️'];
 
   void _showTranslationSheet(BuildContext context, PublishedClip clip) {
     final String rawLyrics;
@@ -798,8 +832,8 @@ class _ActionRailState extends State<_ActionRail> {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
+                    icon: PhosphorIcon(
+                      AppIcons.close,
                       size: 18,
                       color: AppColors.textSecondary,
                     ),
@@ -891,9 +925,9 @@ class _ActionRailState extends State<_ActionRail> {
     );
   }
 
-  void _recordLove(BuildContext context, WidgetRef ref, {String emoji = '❤️'}) {
+  void _recordLove(BuildContext context, WidgetRef ref) {
     HapticFeedback.mediumImpact();
-    widget.onBurst(emoji);
+    widget.onBurst(KineticReactionType.love);
     final count = ref
         .read(socialFeedProvider.notifier)
         .recordLove(widget.clip.id);
@@ -902,14 +936,20 @@ class _ActionRailState extends State<_ActionRail> {
     messenger.showSnackBar(
       SnackBar(
         key: ValueKey('love_toast_${widget.clip.id}'),
-        content: Text('Loved ${count}x! $emoji'),
+        content: Text('Loved ${count}x!'),
         backgroundColor: AppColors.brandPrimary,
         duration: const Duration(milliseconds: 900),
       ),
     );
-    if (_showReactions) {
-      setState(() => _showReactions = false);
-    }
+  }
+
+  void _handleMultiReactionSelect(WidgetRef ref, KineticReactionType reaction) {
+    widget.onBurst(reaction);
+    unawaited(
+      ref
+          .read(socialFeedProvider.notifier)
+          .reactToClip(widget.clip.id, reaction),
+    );
   }
 
   @override
@@ -917,46 +957,31 @@ class _ActionRailState extends State<_ActionRail> {
     return Consumer(
       builder: (context, ref, child) {
         final clip = widget.clip;
+        final myReaction = clip.myReaction;
+        final showCustomReactionBadge =
+            myReaction != null && myReaction != KineticReactionType.love;
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_showReactions)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceModal.withAlpha(220),
-                  borderRadius: AppRadius.pillBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final emoji in _culturalEmojis)
-                      InkWell(
-                        key: ValueKey('burst_emoji_$emoji'),
-                        onTap: () => _recordLove(context, ref, emoji: emoji),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text(
-                            emoji,
-                            style: const TextStyle(fontSize: 20),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            _RailButton(
-              key: const Key('reel_like_btn'),
-              icon: clip.isLikedByMe ? AppIcons.heart : AppIcons.heartOutline,
-              color: clip.isLikedByMe ? AppColors.brandPrimary : Colors.white,
-              label: formatLikes(clip.likeCount),
-              onTap: () => _recordLove(context, ref),
-              onLongPress: () {
-                HapticFeedback.selectionClick();
-                setState(() => _showReactions = !_showReactions);
+            GestureDetector(
+              onLongPressStart: (details) {
+                ReactionTrayOverlay.show(
+                  context: context,
+                  anchorGlobalPosition: details.globalPosition,
+                  activeReaction: clip.myReaction,
+                  onSelected: (rx) => _handleMultiReactionSelect(ref, rx),
+                );
               },
+              child: _RailButton(
+                key: const Key('reel_like_btn'),
+                icon: clip.isLikedByMe ? AppIcons.heart : AppIcons.heartOutline,
+                customIconWidget: showCustomReactionBadge
+                    ? KineticReactionBadge(type: myReaction, size: 30)
+                    : null,
+                color: clip.isLikedByMe ? AppColors.brandPrimary : Colors.white,
+                label: formatLikes(clip.totalReactionCount),
+                onTap: () => _recordLove(context, ref),
+              ),
             ),
             const SizedBox(height: 18),
             _RailButton(
@@ -1038,25 +1063,24 @@ class _ActionRailState extends State<_ActionRail> {
 
 class _RailButton extends StatelessWidget {
   final IconData icon;
+  final Widget? customIconWidget;
   final Color color;
   final String label;
   final VoidCallback onTap;
-  final VoidCallback? onLongPress;
 
   const _RailButton({
     super.key,
     required this.icon,
+    this.customIconWidget,
     required this.color,
     required this.label,
     required this.onTap,
-    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
@@ -1067,7 +1091,9 @@ class _RailButton extends StatelessWidget {
               decoration: const BoxDecoration(
                 boxShadow: [BoxShadow(color: Colors.black54, blurRadius: 4)],
               ),
-              child: PhosphorIcon(icon, color: color, size: 30),
+              child:
+                  customIconWidget ??
+                  PhosphorIcon(icon, color: color, size: 30),
             ),
             const SizedBox(height: 4),
             Text(
@@ -1170,10 +1196,11 @@ class _ReelTopFilterTab extends ConsumerWidget {
             Text(
               label,
               style: AppTypography.bodySmall.copyWith(
-                color: isActive
-                    ? AppColors.textPrimary
-                    : AppColors.textSecondary,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                color: isActive ? Colors.white : Colors.white70,
+                fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
+                shadows: const <Shadow>[
+                  Shadow(color: Colors.black87, blurRadius: 8),
+                ],
               ),
             ),
             const SizedBox(height: 2),
@@ -1502,4 +1529,101 @@ void _emitReelLoveNotification(WidgetRef ref, PublishedClip clip, int count) {
           ),
         );
   } catch (_) {}
+}
+
+class _ReelVideoBackingLayer extends StatefulWidget {
+  final String videoUrl;
+  final bool isActive;
+
+  const _ReelVideoBackingLayer({
+    super.key,
+    required this.videoUrl,
+    required this.isActive,
+  });
+
+  @override
+  State<_ReelVideoBackingLayer> createState() => _ReelVideoBackingLayerState();
+}
+
+class _ReelVideoBackingLayerState extends State<_ReelVideoBackingLayer> {
+  VideoPlayerController? _controller;
+  bool _initialized = false;
+
+  static bool get _isTestEnv {
+    if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
+    try {
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initControllerIfAllowed();
+  }
+
+  Future<void> _initControllerIfAllowed() async {
+    if (_isTestEnv || kIsWeb) return;
+    final uri = Uri.tryParse(widget.videoUrl);
+    if (uri == null) return;
+    try {
+      final ctrl = VideoPlayerController.networkUrl(uri);
+      await ctrl.initialize();
+      await ctrl.setLooping(true);
+      await ctrl.setVolume(0.0);
+      if (widget.isActive) {
+        await ctrl.play();
+      }
+      if (!mounted) {
+        await ctrl.dispose();
+        return;
+      }
+      setState(() {
+        _controller = ctrl;
+        _initialized = true;
+      });
+    } catch (_) {
+      // Deterministic dark backing fallback when offline/unplayable
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReelVideoBackingLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final ctrl = _controller;
+    if (ctrl == null || !_initialized) return;
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive) {
+        unawaited(ctrl.play());
+      } else {
+        unawaited(ctrl.pause());
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_initialized && _controller != null) {
+      return SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: _controller!.value.size.width,
+            height: _controller!.value.size.height,
+            child: VideoPlayer(_controller!),
+          ),
+        ),
+      );
+    }
+    return const ColoredBox(color: Colors.black);
+  }
 }

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
-import '../../../content_studio/presentation/providers/content_studio_provider.dart';
-import '../../../content_studio/presentation/widgets/publish_clip_modal.dart';
-import '../../../library/presentation/providers/library_providers.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
+import '../../../content_studio/presentation/views/kinetic_reel_studio_view.dart';
 import '../../domain/models/published_clip.dart';
 import '../providers/trending_reels_provider.dart';
 import 'kinetic_reels_modal.dart';
@@ -34,11 +34,8 @@ class TrendingReelCard extends StatelessWidget {
 
     return GestureDetector(
       key: ValueKey('trending_card_${clip.id}'),
-      onTap: () => KineticReelsModal.show(
-        context,
-        clips: reels,
-        initialClipId: clip.id,
-      ),
+      onTap: () =>
+          KineticReelsModal.show(context, clips: reels, initialClipId: clip.id),
       child: Container(
         width: width,
         margin: const EdgeInsets.only(right: AppSpacing.sm),
@@ -51,16 +48,13 @@ class TrendingReelCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Container(
-                decoration:
-                    BoxDecoration(gradient: AppGradients.forGenre(clip.genre)),
+              VhunambiTrackArtwork(
+                coverUrl: clip.coverUrl,
+                genre: clip.genre,
+                trackId: clip.trackId,
+                borderRadius: BorderRadius.zero,
+                showSubtleBorder: false,
               ),
-              if (clip.coverUrl.isNotEmpty)
-                Image.network(
-                  clip.coverUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
               const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -94,8 +88,11 @@ class TrendingReelCard extends StatelessWidget {
                         ),
                         if (clip.isCreatorVerified) ...[
                           const SizedBox(width: 3),
-                          const Icon(Icons.verified_rounded,
-                              color: AppColors.brandPrimary, size: 13),
+                          const PhosphorIcon(
+                            AppIcons.verified,
+                            color: AppColors.brandPrimary,
+                            size: 13,
+                          ),
                         ],
                       ],
                     ),
@@ -119,19 +116,31 @@ class TrendingReelCard extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Row(
                         children: [
-                          Icon(Icons.play_arrow_rounded,
-                              size: 13, color: AppColors.textSecondary),
+                          PhosphorIcon(
+                            AppIcons.play,
+                            size: 13,
+                            color: AppColors.textSecondary,
+                          ),
                           const SizedBox(width: 2),
-                          Text(formatLikes(clip.playCount),
-                              style: AppTypography.caption
-                                  .copyWith(color: AppColors.textSecondary)),
+                          Text(
+                            formatLikes(clip.playCount),
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.favorite_rounded,
-                              size: 13, color: AppColors.brandPrimary),
+                          const PhosphorIcon(
+                            AppIcons.heart,
+                            size: 13,
+                            color: AppColors.brandPrimary,
+                          ),
                           const SizedBox(width: 2),
-                          Text(formatLikes(clip.likeCount),
-                              style: AppTypography.caption
-                                  .copyWith(color: AppColors.textSecondary)),
+                          Text(
+                            formatLikes(clip.likeCount),
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -153,8 +162,7 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial =
-        username.isNotEmpty ? username[0].toUpperCase() : '?';
+    final initial = username.isNotEmpty ? username[0].toUpperCase() : '?';
     return Container(
       width: size,
       height: size,
@@ -200,10 +208,7 @@ class _PostKineticReelCard extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              AppColors.surfaceElevated,
-              AppColors.surfaceCanvas,
-            ],
+            colors: [AppColors.surfaceElevated, AppColors.surfaceCanvas],
           ),
         ),
         child: ClipRRect(
@@ -220,10 +225,13 @@ class _PostKineticReelCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.surfaceSecondary,
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.borderSubtle, width: 2),
+                      border: Border.all(
+                        color: AppColors.borderSubtle,
+                        width: 2,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.person_rounded,
+                    child: PhosphorIcon(
+                      AppIcons.user,
                       size: 28,
                       color: AppColors.textSecondary,
                     ),
@@ -235,8 +243,8 @@ class _PostKineticReelCard extends StatelessWidget {
                       color: AppColors.brandPrimary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.add_rounded,
+                    child: const PhosphorIcon(
+                      AppIcons.plus,
                       size: 16,
                       color: AppColors.brandContrast,
                     ),
@@ -272,125 +280,6 @@ class _PostKineticReelCard extends StatelessWidget {
 class TrendingReelsShelf extends ConsumerWidget {
   const TrendingReelsShelf({super.key});
 
-  void _showPostReelSheet(BuildContext context, WidgetRef ref) {
-    final libraryTracks = ref.read(libraryTracksProvider);
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.surfaceModal,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        if (libraryTracks.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.music_off_rounded,
-                  size: 48,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  'No Tracks in Vault',
-                  style: AppTypography.titleMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Generate or upload a song in Studio to create your first reel.',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.brandPrimary,
-                    foregroundColor: AppColors.brandContrast,
-                  ),
-                  child: const Text('Got it'),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.lg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Select Track for Reel',
-                style: AppTypography.titleMedium.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Choose a track from your library vault to publish as a 60 FPS kinetic reel.',
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: libraryTracks.length,
-                  itemBuilder: (c, idx) {
-                    final track = libraryTracks[idx];
-                    return ListTile(
-                      key: Key('post_reel_track_${track.id}'),
-                      leading: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceElevated,
-                          borderRadius: AppRadius.thumbBorder,
-                        ),
-                        child: const Icon(
-                          Icons.audiotrack_rounded,
-                          color: AppColors.brandPrimary,
-                        ),
-                      ),
-                      title: Text(track.title),
-                      subtitle: Text('${track.genre} • ${track.creatorName}'),
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 14,
-                      ),
-                      onTap: () {
-                        Navigator.of(ctx).pop();
-                        ref.read(contentStudioProvider.notifier).initializeWithDna(
-                              dna: track.toSongMetadataDna(),
-                              audioUrl: track.remoteAudioUrl,
-                              coverArtUrl: track.coverImageUrl ?? '',
-                            );
-                        PublishClipModal.show(context);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reels = ref.watch(trendingReelsProvider);
@@ -407,8 +296,8 @@ class TrendingReelsShelf extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.local_fire_department_rounded,
+              const PhosphorIcon(
+                AppIcons.flame,
                 color: AppColors.brandPrimary,
                 size: 20,
               ),
@@ -456,9 +345,8 @@ class TrendingReelsShelf extends ConsumerWidget {
               return _GenrePill(
                 label: genre,
                 isActive: isActive,
-                onTap: () => ref
-                    .read(trendingReelsGenreProvider.notifier)
-                    .state = genre,
+                onTap: () =>
+                    ref.read(trendingReelsGenreProvider.notifier).state = genre,
               );
             },
           ),
@@ -475,7 +363,7 @@ class TrendingReelsShelf extends ConsumerWidget {
             itemBuilder: (context, i) {
               if (i == 0) {
                 return _PostKineticReelCard(
-                  onTap: () => _showPostReelSheet(context, ref),
+                  onTap: () => KineticReelStudioView.show(context),
                 );
               }
               final reelIndex = i - 1;
@@ -497,8 +385,11 @@ class _GenrePill extends StatelessWidget {
   final String label;
   final bool isActive;
   final VoidCallback onTap;
-  const _GenrePill(
-      {required this.label, required this.isActive, required this.onTap});
+  const _GenrePill({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {

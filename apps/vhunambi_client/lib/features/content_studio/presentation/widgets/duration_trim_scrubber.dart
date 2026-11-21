@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -47,8 +48,8 @@ class DurationTrimScrubber extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.content_cut_rounded,
+                  const PhosphorIcon(
+                    PhosphorIconsRegular.scissors,
                     size: 18,
                     color: AppColors.brandPrimary,
                   ),
@@ -87,40 +88,40 @@ class DurationTrimScrubber extends StatelessWidget {
         const SizedBox(height: 12),
 
         // Duration Presets Row
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: DurationPreset.values.map((preset) {
             final isSelected = preset == selectedPreset;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: InkWell(
-                  onTap: () => onPresetChanged(preset),
+            return InkWell(
+              onTap: () => onPresetChanged(preset),
+              borderRadius: AppRadius.thumbBorder,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.brandPrimary
+                      : AppColors.surfaceElevated,
                   borderRadius: AppRadius.thumbBorder,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.brandPrimary
-                          : AppColors.surfaceElevated,
-                      borderRadius: AppRadius.thumbBorder,
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.brandPrimary
-                            : AppColors.borderSubtle,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        preset.label,
-                        style: AppTypography.bodyLarge.copyWith(
-                          color: isSelected
-                              ? AppColors.brandContrast
-                              : AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.brandPrimary
+                        : AppColors.borderSubtle,
+                  ),
+                ),
+                child: Text(
+                  preset.label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: isSelected
+                        ? AppColors.brandContrast
+                        : AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),

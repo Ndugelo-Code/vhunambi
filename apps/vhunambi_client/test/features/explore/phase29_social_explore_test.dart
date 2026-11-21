@@ -191,12 +191,12 @@ void main() {
         expect(postCard, findsOneWidget);
         expect(find.text('Post Reel'), findsOneWidget);
 
-        // Tap Card #0 opens track picker sheet
+        // Tap Card #0 launches full-screen KineticReelStudioView (Phase 74 REQ-P74-STU-01)
         await tester.tap(postCard);
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
 
-        expect(find.text('Select Track for Reel'), findsOneWidget);
-        expect(find.text('Makhado Sunrise'), findsOneWidget);
+        expect(find.byKey(const Key('kinetic_reel_studio_view')), findsOneWidget);
       },
     );
 

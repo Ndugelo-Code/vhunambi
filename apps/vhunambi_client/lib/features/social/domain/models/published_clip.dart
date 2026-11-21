@@ -1,8 +1,12 @@
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
 import '../../../collections/domain/models/collection_entity.dart';
 import '../../../content_studio/domain/models/content_studio_preset.dart';
 import '../../../content_studio/domain/models/lyric_word_timestamp.dart';
 import '../../../content_studio/domain/models/song_metadata_dna.dart';
+import '../../../content_studio/domain/utils/lyric_karaoke_sanitizer.dart';
+import 'kinetic_reaction.dart';
 import 'stem_remix_context.dart';
 
 /// Immutable visibility of a published clip (REQ-SOC-02).
@@ -33,6 +37,15 @@ class PublishedClip {
   final String genre;
   final String audioUrl;
   final String coverUrl;
+  final String? videoUrl;
+  final String mediaKind;
+  final int audioStartMs;
+  final int audioEndMs;
+  final String effectPreset;
+  final double effectIntensity;
+  final String typographyPreset;
+  final double speedRate;
+  final String? stickerId;
 
   /// The immutable Song DNA powering zero-video vector canvas playback.
   final SongMetadataDna dna;
@@ -43,6 +56,8 @@ class PublishedClip {
   final int remixCount;
   final bool isLikedByMe;
   final bool isSavedByMe;
+  final Map<KineticReactionType, int> reactionCounts;
+  final KineticReactionType? myReaction;
 
   /// The number of times the current user has loved this clip in multi-tap bursts.
   final int userReactionCount;
@@ -79,6 +94,15 @@ class PublishedClip {
     required this.genre,
     required this.audioUrl,
     required this.coverUrl,
+    this.videoUrl,
+    this.mediaKind = 'artwork',
+    this.audioStartMs = 0,
+    this.audioEndMs = 30000,
+    this.effectPreset = 'kinetic_gold',
+    this.effectIntensity = 0.65,
+    this.typographyPreset = 'kinetic_bounce',
+    this.speedRate = 1.0,
+    this.stickerId,
     required this.dna,
     this.playCount = 0,
     this.likeCount = 0,
@@ -86,6 +110,8 @@ class PublishedClip {
     this.remixCount = 0,
     this.isLikedByMe = false,
     this.isSavedByMe = false,
+    this.reactionCounts = const <KineticReactionType, int>{},
+    this.myReaction,
     this.userReactionCount = 0,
     this.remixedFromClipId,
     this.remixAttribution,
@@ -105,15 +131,35 @@ class PublishedClip {
       (remixedFromClipId != null && remixedFromClipId!.isNotEmpty) ||
       (parentClipId != null && parentClipId!.isNotEmpty);
 
+  int get totalReactionCount {
+    final sum = reactionCounts.values.fold<int>(
+      0,
+      (acc, v) => acc + (v > 0 ? v : 0),
+    );
+    return math.max(likeCount, sum);
+  }
+
   PublishedClip copyWith({
     String? id,
     String? title,
+    String? videoUrl,
+    String? mediaKind,
+    int? audioStartMs,
+    int? audioEndMs,
+    String? effectPreset,
+    double? effectIntensity,
+    String? typographyPreset,
+    double? speedRate,
+    String? stickerId,
     int? playCount,
     int? likeCount,
     int? commentCount,
     int? remixCount,
     bool? isLikedByMe,
     bool? isSavedByMe,
+    Map<KineticReactionType, int>? reactionCounts,
+    KineticReactionType? myReaction,
+    bool clearMyReaction = false,
     int? userReactionCount,
     String? remixedFromClipId,
     String? remixAttribution,
@@ -140,6 +186,15 @@ class PublishedClip {
       genre: genre,
       audioUrl: audioUrl,
       coverUrl: coverUrl,
+      videoUrl: videoUrl ?? this.videoUrl,
+      mediaKind: mediaKind ?? this.mediaKind,
+      audioStartMs: audioStartMs ?? this.audioStartMs,
+      audioEndMs: audioEndMs ?? this.audioEndMs,
+      effectPreset: effectPreset ?? this.effectPreset,
+      effectIntensity: effectIntensity ?? this.effectIntensity,
+      typographyPreset: typographyPreset ?? this.typographyPreset,
+      speedRate: speedRate ?? this.speedRate,
+      stickerId: stickerId ?? this.stickerId,
       dna: dna,
       playCount: playCount ?? this.playCount,
       likeCount: likeCount ?? this.likeCount,
@@ -147,6 +202,8 @@ class PublishedClip {
       remixCount: remixCount ?? this.remixCount,
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
       isSavedByMe: isSavedByMe ?? this.isSavedByMe,
+      reactionCounts: reactionCounts ?? this.reactionCounts,
+      myReaction: clearMyReaction ? null : (myReaction ?? this.myReaction),
       userReactionCount: userReactionCount ?? this.userReactionCount,
       remixedFromClipId: remixedFromClipId ?? this.remixedFromClipId,
       remixAttribution: remixAttribution ?? this.remixAttribution,
@@ -176,6 +233,15 @@ class PublishedClip {
     'genre': genre,
     'audioUrl': audioUrl,
     'coverUrl': coverUrl,
+    if (videoUrl != null) 'videoUrl': videoUrl,
+    'mediaKind': mediaKind,
+    'audioStartMs': audioStartMs,
+    'audioEndMs': audioEndMs,
+    'effectPreset': effectPreset,
+    'effectIntensity': effectIntensity,
+    'typographyPreset': typographyPreset,
+    'speedRate': speedRate,
+    if (stickerId != null) 'stickerId': stickerId,
     'dna': dna.toJson(),
     'playCount': playCount,
     'likeCount': likeCount,
@@ -183,6 +249,8 @@ class PublishedClip {
     'remixCount': remixCount,
     'isLikedByMe': isLikedByMe,
     'isSavedByMe': isSavedByMe,
+    'reactionCounts': KineticReactionType.encodeCounts(reactionCounts),
+    if (myReaction != null) 'myReaction': myReaction!.wireId,
     'userReactionCount': userReactionCount,
     if (remixedFromClipId != null) 'remixedFromClipId': remixedFromClipId,
     if (remixAttribution != null) 'remixAttribution': remixAttribution,
@@ -201,6 +269,20 @@ class PublishedClip {
     final parentId =
         (json['parentClipId'] as String?) ??
         (json['remixedFromClipId'] as String?);
+    final rawVideoUrl = (json['videoUrl'] ?? json['video_url'] ?? '')
+        .toString()
+        .trim();
+    final normalizedVideoUrl = rawVideoUrl.isNotEmpty
+        ? AppConstants.normalizeCloudMediaUrl(rawVideoUrl)
+        : '';
+    final parsedMyReaction = KineticReactionType.fromWire(
+      json['myReaction'] ?? json['my_reaction'],
+    );
+    final parsedCounts = KineticReactionType.parseCounts(
+      json['reactionCounts'] ??
+          json['reaction_counts'] ??
+          json['reaction_counts_json'],
+    );
     return PublishedClip(
       id: json['id'] as String,
       trackId: json['trackId'] as String? ?? '',
@@ -215,8 +297,37 @@ class PublishedClip {
           (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           const [],
       genre: json['genre'] as String? ?? 'Amapiano',
-      audioUrl: json['audioUrl'] as String? ?? '',
-      coverUrl: json['coverUrl'] as String? ?? '',
+      audioUrl: AppConstants.normalizeCloudMediaUrl(
+        json['audioUrl'] as String? ?? '',
+      ),
+      coverUrl: AppConstants.normalizeCloudMediaUrl(
+        json['coverUrl'] as String? ?? '',
+      ),
+      videoUrl: normalizedVideoUrl.isEmpty ? null : normalizedVideoUrl,
+      mediaKind: (json['mediaKind'] ?? json['media_kind'] ?? 'artwork')
+          .toString(),
+      audioStartMs:
+          ((json['audioStartMs'] ?? json['audio_start_ms']) as num?)?.toInt() ??
+          0,
+      audioEndMs:
+          ((json['audioEndMs'] ?? json['audio_end_ms']) as num?)?.toInt() ??
+          30000,
+      effectPreset:
+          (json['effectPreset'] ?? json['effect_preset'] ?? 'kinetic_gold')
+              .toString(),
+      effectIntensity:
+          ((json['effectIntensity'] ?? json['effect_intensity']) as num?)
+              ?.toDouble() ??
+          0.65,
+      typographyPreset:
+          (json['typographyPreset'] ??
+                  json['typography_preset'] ??
+                  'kinetic_bounce')
+              .toString(),
+      speedRate:
+          ((json['speedRate'] ?? json['speed_rate']) as num?)?.toDouble() ??
+          1.0,
+      stickerId: (json['stickerId'] ?? json['sticker_id']) as String?,
       dna: SongMetadataDna.fromJson(
         json['dna'] is Map
             ? Map<String, dynamic>.from(json['dna'] as Map)
@@ -226,8 +337,11 @@ class PublishedClip {
       likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
       commentCount: (json['commentCount'] as num?)?.toInt() ?? 0,
       remixCount: (json['remixCount'] as num?)?.toInt() ?? 0,
-      isLikedByMe: (json['isLikedByMe'] as bool?) ?? false,
+      isLikedByMe:
+          ((json['isLikedByMe'] as bool?) ?? false) || parsedMyReaction != null,
       isSavedByMe: (json['isSavedByMe'] as bool?) ?? false,
+      reactionCounts: parsedCounts,
+      myReaction: parsedMyReaction,
       userReactionCount: (json['userReactionCount'] as num?)?.toInt() ?? 0,
       remixedFromClipId: parentId,
       remixAttribution: json['remixAttribution'] as String?,
@@ -263,7 +377,8 @@ class PublishedClip {
   /// African karaoke stanzas from the track title and genre so every reel
   /// displays moving kinetic typography.
   List<LyricWordTimestamp> get effectiveLyrics {
-    if (dna.alignment.isNotEmpty) return dna.alignment;
+    final sanitizedDna = LyricKaraokeSanitizer.sanitizeAlignment(dna.alignment);
+    if (sanitizedDna.isNotEmpty) return sanitizedDna;
 
     final titleWords = title
         .split(RegExp(r'\s+'))

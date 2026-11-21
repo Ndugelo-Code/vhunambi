@@ -2,8 +2,11 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../domain/models/content_studio_preset.dart';
 import '../../domain/models/lyric_word_timestamp.dart';
 import '../providers/master_media_object_provider.dart';
@@ -30,6 +33,10 @@ class KineticPreviewCanvas extends StatefulWidget {
   /// handles both single-tap play/pause and double-tap love bursts.
   final bool showInternalPlayOverlay;
 
+  final String genre;
+  final String? trackId;
+  final bool transparentBackground;
+
   const KineticPreviewCanvas({
     super.key,
     required this.coverArtUrl,
@@ -42,6 +49,9 @@ class KineticPreviewCanvas extends StatefulWidget {
     this.modulationSnapshot,
     this.fullScreen = false,
     this.showInternalPlayOverlay = true,
+    this.genre = 'Amapiano',
+    this.trackId,
+    this.transparentBackground = false,
   });
 
   @override
@@ -76,14 +86,14 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
 
   @override
   Widget build(BuildContext context) {
-    final hasCoverUrl =
-        widget.coverArtUrl != null && widget.coverArtUrl!.trim().isNotEmpty;
-
     final stackContent = Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceCanvas,
-        borderRadius:
-            widget.fullScreen ? BorderRadius.zero : BorderRadius.circular(16),
+        color: widget.transparentBackground
+            ? Colors.transparent
+            : AppColors.surfaceCanvas,
+        borderRadius: widget.fullScreen
+            ? BorderRadius.zero
+            : BorderRadius.circular(16),
         boxShadow: widget.fullScreen
             ? null
             : [
@@ -99,39 +109,42 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
         fit: StackFit.expand,
         children: [
           // 1. Ken Burns Visual Cover Art Layer with Log Drum Snap-Zoom
-          AnimatedBuilder(
-            animation: _animController,
-            builder: (context, child) {
-              final snapZoom = widget.modulationSnapshot?.logDrumSnapZoom ?? 0.0;
-              final bassEnergy =
-                  widget.modulationSnapshot?.effectiveBassEnergy ?? 0.0;
-              final kenBurnsScale = widget.effects.kenBurnsMotion
-                  ? 1.0 + (0.06 * sin(_animController.value * 2 * pi))
-                  : 1.0;
-              // Exponential camera snap-zoom on log drum drop + subtle bass pump
-              final scale = kenBurnsScale *
-                  (1.0 + (0.12 * snapZoom) + (0.03 * bassEnergy));
+          if (!widget.transparentBackground)
+            AnimatedBuilder(
+              animation: _animController,
+              builder: (context, child) {
+                final snapZoom =
+                    widget.modulationSnapshot?.logDrumSnapZoom ?? 0.0;
+                final bassEnergy =
+                    widget.modulationSnapshot?.effectiveBassEnergy ?? 0.0;
+                final kenBurnsScale = widget.effects.kenBurnsMotion
+                    ? 1.0 + (0.06 * sin(_animController.value * 2 * pi))
+                    : 1.0;
+                // Exponential camera snap-zoom on log drum drop + subtle bass pump
+                final scale =
+                    kenBurnsScale *
+                    (1.0 + (0.12 * snapZoom) + (0.03 * bassEnergy));
 
-              final dx = widget.effects.kenBurnsMotion
-                  ? 8.0 * cos(_animController.value * 2 * pi)
-                  : 0.0;
+                final dx = widget.effects.kenBurnsMotion
+                    ? 8.0 * cos(_animController.value * 2 * pi)
+                    : 0.0;
 
-              return Transform.translate(
-                offset: Offset(dx, 0),
-                child: Transform.scale(
-                  scale: scale,
-                  child: hasCoverUrl
-                      ? Image.network(
-                          widget.coverArtUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              _buildFallbackVisual(),
-                        )
-                      : _buildFallbackVisual(),
-                ),
-              );
-            },
-          ),
+                return Transform.translate(
+                  offset: Offset(dx, 0),
+                  child: Transform.scale(
+                    scale: scale,
+                    child: VhunambiTrackArtwork(
+                      coverUrl: widget.coverArtUrl,
+                      genre: widget.genre,
+                      trackId: widget.trackId,
+                      borderRadius: BorderRadius.zero,
+                      badgeIconSize: 48,
+                      showSubtleBorder: false,
+                    ),
+                  ),
+                );
+              },
+            ),
 
           // 2. Atmospheric Vignette, Film Grain & Bass Spark Particle Overlay
           CustomPaint(
@@ -178,12 +191,14 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
                           color: Colors.black.withValues(alpha: 0.6),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: AppColors.brandPrimary.withValues(alpha: 0.8),
+                            color: AppColors.brandPrimary.withValues(
+                              alpha: 0.8,
+                            ),
                             width: 2,
                           ),
                         ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
+                        child: const PhosphorIcon(
+                          AppIcons.play,
                           size: 48,
                           color: AppColors.brandPrimary,
                         ),
@@ -201,46 +216,7 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
       return SizedBox.expand(child: stackContent);
     }
 
-    return AspectRatio(
-      aspectRatio: 9 / 16,
-      child: stackContent,
-    );
-  }
-
-  Widget _buildFallbackVisual() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF2C1810),
-            Color(0xFF0D0A08),
-            Color(0xFF1A1208),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.music_note_rounded,
-              size: 64,
-              color: AppColors.brandPrimary.withValues(alpha: 0.6),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'VHUNAMBI 9:16 COVER',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.brandPrimary,
-                letterSpacing: 2.0,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AspectRatio(aspectRatio: 9 / 16, child: stackContent);
   }
 
   Widget _buildLyricsOverlay() {
@@ -281,9 +257,7 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
       ),
       child: Wrap(
         alignment: WrapAlignment.center,
@@ -300,8 +274,10 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
   Widget _buildWordWidget(LyricWordTimestamp word, bool isActive) {
     final wordText = word.word;
     final vocalGlow = widget.modulationSnapshot?.effectiveVocalGlow ?? 0.8;
-    final bloomRadius =
-        (14.0 + (18.0 * vocalGlow * word.phoneticStress)).clamp(8.0, 32.0);
+    final bloomRadius = (14.0 + (18.0 * vocalGlow * word.phoneticStress)).clamp(
+      8.0,
+      32.0,
+    );
     final isIdiom = word.isCulturalIdiom;
 
     switch (widget.preset) {
@@ -346,10 +322,7 @@ class _KineticPreviewCanvasState extends State<KineticPreviewCanvas>
                           : const Color(0xFFFFC107),
                       blurRadius: bloomRadius,
                     ),
-                    const Shadow(
-                      color: Colors.white,
-                      blurRadius: 8,
-                    ),
+                    const Shadow(color: Colors.white, blurRadius: 8),
                   ]
                 : null,
           ),
@@ -463,8 +436,9 @@ class _AtmosphereOverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // 1. Radial Vignette with Bass Pumping
     final pulseFactor = bassPulse || bassEnergy > 0.25;
-    final vignetteAlpha =
-        pulseFactor ? (0.55 + 0.25 * bassEnergy).clamp(0.0, 0.85) : 0.45;
+    final vignetteAlpha = pulseFactor
+        ? (0.55 + 0.25 * bassEnergy).clamp(0.0, 0.85)
+        : 0.45;
 
     final vignettePaint = Paint()
       ..shader = RadialGradient(
@@ -477,7 +451,9 @@ class _AtmosphereOverlayPainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawRect(
-        Rect.fromLTWH(0, 0, size.width, size.height), vignettePaint);
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      vignettePaint,
+    );
 
     final random = Random((animValue * 1000).toInt());
 
@@ -499,15 +475,18 @@ class _AtmosphereOverlayPainter extends CustomPainter {
     if (sparkEnergy > 0.35) {
       final sparkCount = (sparkEnergy * 24).toInt();
       final sparkPaint = Paint()
-        ..color = AppColors.brandPrimary
-            .withValues(alpha: (sparkEnergy * 0.7).clamp(0.1, 0.75));
+        ..color = AppColors.brandPrimary.withValues(
+          alpha: (sparkEnergy * 0.7).clamp(0.1, 0.75),
+        );
 
       for (int i = 0; i < sparkCount; i++) {
         final sx = random.nextDouble() * size.width;
         final sy =
             (size.height * 0.4) + (random.nextDouble() * size.height * 0.6);
-        final radius =
-            (1.0 + (random.nextDouble() * 2.0 * sparkEnergy)).clamp(0.5, 3.5);
+        final radius = (1.0 + (random.nextDouble() * 2.0 * sparkEnergy)).clamp(
+          0.5,
+          3.5,
+        );
         canvas.drawCircle(Offset(sx, sy), radius, sparkPaint);
       }
     }

@@ -488,6 +488,33 @@ export class VhunambiDatabase {
       this.db.exec('ALTER TABLE published_clips ADD COLUMN remixes_count INTEGER DEFAULT 0;');
     } catch (_) { }
     try {
+      this.db.exec("ALTER TABLE published_clips ADD COLUMN media_kind TEXT NOT NULL DEFAULT 'artwork';");
+    } catch (_) { }
+    try {
+      this.db.exec('ALTER TABLE published_clips ADD COLUMN audio_start_ms INTEGER NOT NULL DEFAULT 0;');
+    } catch (_) { }
+    try {
+      this.db.exec('ALTER TABLE published_clips ADD COLUMN audio_end_ms INTEGER NOT NULL DEFAULT 30000;');
+    } catch (_) { }
+    try {
+      this.db.exec("ALTER TABLE published_clips ADD COLUMN effect_preset TEXT NOT NULL DEFAULT 'kinetic_gold';");
+    } catch (_) { }
+    try {
+      this.db.exec('ALTER TABLE published_clips ADD COLUMN effect_intensity REAL NOT NULL DEFAULT 0.65;');
+    } catch (_) { }
+    try {
+      this.db.exec("ALTER TABLE published_clips ADD COLUMN typography_preset TEXT NOT NULL DEFAULT 'kinetic_bounce';");
+    } catch (_) { }
+    try {
+      this.db.exec('ALTER TABLE published_clips ADD COLUMN speed_rate REAL NOT NULL DEFAULT 1.0;');
+    } catch (_) { }
+    try {
+      this.db.exec('ALTER TABLE published_clips ADD COLUMN sticker_id TEXT;');
+    } catch (_) { }
+    try {
+      this.db.exec("ALTER TABLE published_clips ADD COLUMN reaction_counts_json TEXT NOT NULL DEFAULT '{}';");
+    } catch (_) { }
+    try {
       this.db.exec("ALTER TABLE reel_comments ADD COLUMN data_json TEXT NOT NULL DEFAULT '{}';");
     } catch (_) { }
     try {
@@ -2411,7 +2438,7 @@ export class VhunambiDatabase {
   }
 
   public getSocialReaction(
-    interactionType: 'post_react' | 'comment_react',
+    interactionType: 'post_react' | 'comment_react' | 'clip_react',
     targetId: string,
     actorCreatorId = 'creator_cern',
   ): KineticReactionWire | null {
@@ -5109,12 +5136,19 @@ export class VhunambiDatabase {
     return Number(row?.cnt ?? 0);
   }
 
-  public upsertPublishedClip(clip: Record<string, any>): void {
+  public upsertPublishedClip(
+    clip: Record<string, any>,
+    _skipMirror = false,
+  ): void {
     const now = new Date().toISOString();
     const id = String(clip.id);
     const creatorId = canonicalizeCreatorId(String(clip.creatorId || 'creator_cern'));
     const creatorHandle = String(clip.creatorUsername || clip.creatorHandle || `@${creatorId.replace(/^creator_/, '')}`);
-    const videoUrl = String(clip.audioUrl || clip.videoUrl || '');
+    const videoUrl =
+      typeof clip.videoUrl === 'string' && clip.videoUrl.trim().length > 0
+        ? clip.videoUrl.trim()
+        : null;
+    const storedUrl = videoUrl ?? String(clip.audioUrl || '');
     const audioTitle = String(clip.title || 'Untitled Clip');
     const bantuLanguage = clip.genre ? String(clip.genre) : null;
     const viewsCount = Number(clip.playCount ?? clip.viewsCount ?? 0);
@@ -5122,6 +5156,17 @@ export class VhunambiDatabase {
     const commentsCount = Number(clip.commentCount ?? clip.commentsCount ?? 0);
     const remixesCount = Number(clip.remixCount ?? clip.remixesCount ?? 0);
     const remixedFromClipId = clip.remixedFromClipId ? String(clip.remixedFromClipId) : null;
+    const mediaKind = String(clip.mediaKind || 'artwork');
+    const audioStartMs = Number(clip.audioStartMs ?? 0);
+    const audioEndMs = Number(clip.audioEndMs ?? 30000);
+    const effectPreset = String(clip.effectPreset || 'kinetic_gold');
+    const effectIntensity = Number(clip.effectIntensity ?? 0.65);
+    const typographyPreset = String(clip.typographyPreset || 'kinetic_bounce');
+    const speedRate = Number(clip.speedRate ?? 1.0);
+    const stickerId = clip.stickerId ? String(clip.stickerId) : null;
+    const reactionCounts = compactReactionCounts(
+      normalizeReactionCounts(clip.reactionCounts),
+    );
     const createdAt = String(clip.publishedAt || clip.createdAt || now);
 
     this.db
@@ -5129,8 +5174,10 @@ export class VhunambiDatabase {
         `INSERT INTO published_clips (
           id, creator_id, creator_handle, video_url, audio_title, bantu_language,
           views_count, likes_count, comments_count, remixes_count, remixed_from_clip_id,
+          media_kind, audio_start_ms, audio_end_ms, effect_preset, effect_intensity,
+          typography_preset, speed_rate, sticker_id, reaction_counts_json,
           data_json, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           video_url = excluded.video_url,
           audio_title = excluded.audio_title,
@@ -5139,6 +5186,15 @@ export class VhunambiDatabase {
           comments_count = excluded.comments_count,
           remixes_count = excluded.remixes_count,
           remixed_from_clip_id = excluded.remixed_from_clip_id,
+          media_kind = excluded.media_kind,
+          audio_start_ms = excluded.audio_start_ms,
+          audio_end_ms = excluded.audio_end_ms,
+          effect_preset = excluded.effect_preset,
+          effect_intensity = excluded.effect_intensity,
+          typography_preset = excluded.typography_preset,
+          speed_rate = excluded.speed_rate,
+          sticker_id = excluded.sticker_id,
+          reaction_counts_json = excluded.reaction_counts_json,
           data_json = excluded.data_json,
           updated_at = excluded.updated_at`,
       )
@@ -5146,7 +5202,7 @@ export class VhunambiDatabase {
         id,
         creatorId,
         creatorHandle,
-        videoUrl,
+        storedUrl,
         audioTitle,
         bantuLanguage,
         viewsCount,
@@ -5154,14 +5210,42 @@ export class VhunambiDatabase {
         commentsCount,
         remixesCount,
         remixedFromClipId,
+        mediaKind,
+        audioStartMs,
+        audioEndMs,
+        effectPreset,
+        effectIntensity,
+        typographyPreset,
+        speedRate,
+        stickerId,
+        JSON.stringify(reactionCounts),
         JSON.stringify({
           ...clip,
+          id,
           creatorId,
           creatorUsername: creatorHandle,
+          videoUrl,
+          mediaKind,
+          audioStartMs,
+          audioEndMs,
+          effectPreset,
+          effectIntensity,
+          typographyPreset,
+          speedRate,
+          stickerId,
+          reactionCounts,
+          publishedAt: createdAt,
         }),
         createdAt,
         now,
       );
+  }
+
+  public async upsertPublishedClipAsync(
+    clip: Record<string, any>,
+    _cOrEnv?: unknown,
+  ): Promise<void> {
+    this.upsertPublishedClip(clip, true);
   }
 
   private mapPublishedClipRow(r: Record<string, any>): Record<string, any> {
@@ -5171,12 +5255,25 @@ export class VhunambiDatabase {
     } catch {
       data = {};
     }
+    const reactionCounts = compactReactionCounts(
+      normalizeReactionCounts(r.reaction_counts_json ?? data.reactionCounts),
+    );
     return {
       ...data,
       id: String(r.id),
       creatorId: String(data.creatorId ?? r.creator_id),
       creatorUsername: String(data.creatorUsername ?? r.creator_handle),
       title: String(data.title ?? r.audio_title),
+      videoUrl: data.videoUrl ?? null,
+      mediaKind: String(r.media_kind ?? data.mediaKind ?? 'artwork'),
+      audioStartMs: Number(r.audio_start_ms ?? data.audioStartMs ?? 0),
+      audioEndMs: Number(r.audio_end_ms ?? data.audioEndMs ?? 30000),
+      effectPreset: String(r.effect_preset ?? data.effectPreset ?? 'kinetic_gold'),
+      effectIntensity: Number(r.effect_intensity ?? data.effectIntensity ?? 0.65),
+      typographyPreset: String(r.typography_preset ?? data.typographyPreset ?? 'kinetic_bounce'),
+      speedRate: Number(r.speed_rate ?? data.speedRate ?? 1.0),
+      stickerId: r.sticker_id ?? data.stickerId ?? null,
+      reactionCounts,
       playCount: Number(r.views_count ?? data.playCount ?? 0),
       likeCount: Number(r.likes_count ?? data.likeCount ?? 0),
       commentCount: Number(r.comments_count ?? data.commentCount ?? 0),
@@ -5184,6 +5281,84 @@ export class VhunambiDatabase {
       remixedFromClipId: r.remixed_from_clip_id ?? data.remixedFromClipId ?? undefined,
       publishedAt: String(data.publishedAt ?? r.created_at),
     };
+  }
+
+  public reactToClip(
+    clipId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    _skipMirror = false,
+  ): KineticReactionMutationResult {
+    const clip = this.getPublishedClipRow(clipId);
+    if (!clip) {
+      return {
+        success: false,
+        targetId: clipId,
+        myReaction: null,
+        reactionCounts: {},
+        likeCount: 0,
+        liked: false,
+      };
+    }
+
+    const actor = canonicalizeCreatorId(actorCreatorId);
+    const prevReaction = this.getSocialReaction('clip_react', clipId, actor);
+    const requested = normalizeKineticReactionWire(reactionType);
+    const nextReaction: KineticReactionWire | null =
+      requested === null || requested === prevReaction ? null : requested;
+
+    const counts = normalizeReactionCounts(clip.reactionCounts);
+    const legacyLikeCount = Math.max(0, Number(clip.likeCount ?? 0));
+    if (sumReactionCounts(counts) === 0 && legacyLikeCount > 0) {
+      counts.love = legacyLikeCount;
+    }
+
+    if (prevReaction) {
+      counts[prevReaction] = Math.max(0, counts[prevReaction] - 1);
+    }
+    if (nextReaction) {
+      counts[nextReaction] = counts[nextReaction] + 1;
+      this.db
+        .prepare(
+          'INSERT OR REPLACE INTO social_interactions (interaction_type, target_id, actor_creator_id, reaction_type, created_at) VALUES (?, ?, ?, ?, ?)',
+        )
+        .run('clip_react', clipId, actor, nextReaction, Date.now());
+    } else {
+      this.db
+        .prepare(
+          'DELETE FROM social_interactions WHERE interaction_type = ? AND target_id = ? AND actor_creator_id = ?',
+        )
+        .run('clip_react', clipId, actor);
+    }
+
+    const compact = compactReactionCounts(counts);
+    const nextLikes = Math.max(sumReactionCounts(counts), 0);
+    this.upsertPublishedClip(
+      {
+        ...clip,
+        likeCount: nextLikes,
+        reactionCounts: compact,
+      },
+      true,
+    );
+
+    return {
+      success: true,
+      targetId: clipId,
+      myReaction: nextReaction,
+      reactionCounts: compact,
+      likeCount: nextLikes,
+      liked: nextReaction !== null,
+    };
+  }
+
+  public async reactToClipAsync(
+    clipId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    _cOrEnv?: unknown,
+  ): Promise<KineticReactionMutationResult> {
+    return this.reactToClip(clipId, actorCreatorId, reactionType, true);
   }
 
   public getPublishedClipRow(clipId: string): Record<string, any> | null {
@@ -5688,6 +5863,13 @@ export class VhunambiDatabase {
   }
 
   public async syncExploreFromCloud(
+    _force = false,
+    _cOrEnv?: unknown,
+  ): Promise<boolean> {
+    return false;
+  }
+
+  public async syncSocialFromCloud(
     _force = false,
     _cOrEnv?: unknown,
   ): Promise<boolean> {

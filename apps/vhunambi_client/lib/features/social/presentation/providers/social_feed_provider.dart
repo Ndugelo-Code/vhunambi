@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/storage/sovereign_domain_repositories.dart';
+import '../../domain/models/kinetic_reaction.dart';
 import '../../domain/models/published_clip.dart';
 import '../../domain/repositories/i_social_repository.dart';
 import 'social_repository_provider.dart';
@@ -199,6 +201,83 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
     _persistEngagement();
     _repo?.toggleLikeClip(clipId);
     return newReactionCount;
+  }
+
+  /// Optimistically applies, switches, or clears a 6-type reaction on a Reel clip
+  /// while preserving pre-existing unindexed `likeCount` (`SOC-05` / `EP-P73-MULTI-REACTIONS-API`).
+  Future<void> reactToClip(
+    String clipId,
+    KineticReactionType? reaction,
+  ) async {
+    final idx = state.clips.indexWhere((c) => c.id == clipId);
+    if (idx == -1) return;
+
+    final clip = state.clips[idx];
+    final prevReaction = clip.myReaction;
+    final nextReaction =
+        (reaction != null && prevReaction == reaction) ? null : reaction;
+
+    final updatedCounts = Map<KineticReactionType, int>.from(
+      clip.reactionCounts,
+    );
+    final prevReactionSum = updatedCounts.values.fold<int>(
+      0,
+      (sum, v) => sum + (v > 0 ? v : 0),
+    );
+    final unindexedLegacyLikes = math.max(0, clip.likeCount - prevReactionSum);
+
+    if (prevReaction != null && updatedCounts.containsKey(prevReaction)) {
+      final dec = math.max(0, (updatedCounts[prevReaction] ?? 1) - 1);
+      if (dec == 0) {
+        updatedCounts.remove(prevReaction);
+      } else {
+        updatedCounts[prevReaction] = dec;
+      }
+    }
+    if (nextReaction != null) {
+      updatedCounts[nextReaction] = (updatedCounts[nextReaction] ?? 0) + 1;
+    }
+
+    final nextReactionSum = updatedCounts.values.fold<int>(
+      0,
+      (sum, v) => sum + (v > 0 ? v : 0),
+    );
+    final nextLikeCount = unindexedLegacyLikes + nextReactionSum;
+    final nextLiked = nextReaction != null;
+
+    final updatedList = List<PublishedClip>.from(state.clips);
+    updatedList[idx] = clip.copyWith(
+      isLikedByMe: nextLiked,
+      likeCount: nextLikeCount,
+      reactionCounts: updatedCounts,
+      myReaction: nextReaction,
+      clearMyReaction: nextReaction == null,
+      userReactionCount: nextLiked ? math.max(1, clip.userReactionCount) : 0,
+    );
+    state = state.copyWith(clips: updatedList);
+    _persistEngagement();
+
+    if (_repo == null) return;
+    try {
+      final result = await _repo.reactToClip(clipId, nextReaction);
+      if (!mounted) return;
+      final currentIdx = state.clips.indexWhere((c) => c.id == clipId);
+      if (currentIdx == -1) return;
+      final currentClip = state.clips[currentIdx];
+      final reconciled = List<PublishedClip>.from(state.clips);
+      reconciled[currentIdx] = currentClip.copyWith(
+        isLikedByMe: result.liked,
+        likeCount: math.max(nextLikeCount, result.likeCount),
+        reactionCounts: result.reactionCounts.isNotEmpty
+            ? result.reactionCounts
+            : updatedCounts,
+        myReaction: result.myReaction,
+        clearMyReaction: result.myReaction == null,
+      );
+      state = state.copyWith(clips: reconciled);
+    } catch (_) {
+      // Optimistic state stands on offline/test fallback
+    }
   }
 
   /// Loads the next cursor page.

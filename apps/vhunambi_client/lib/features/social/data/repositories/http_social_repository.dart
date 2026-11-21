@@ -33,6 +33,15 @@ class HttpSocialRepository implements ISocialRepository {
       KineticReactionType? myReaction,
     })
   >
+  _fallbackClipReactions = {};
+  final Map<
+    String,
+    ({
+      int likeCount,
+      Map<KineticReactionType, int> reactionCounts,
+      KineticReactionType? myReaction,
+    })
+  >
   _fallbackCommentReactions = {};
   final Map<String, ({bool following, int followerCount})> _fallbackFollows =
       {};
@@ -137,6 +146,143 @@ class HttpSocialRepository implements ISocialRepository {
     );
     _fallbackLikes[clipId] = next;
     return next;
+  }
+
+  @override
+  Future<
+    ({
+      bool liked,
+      int likeCount,
+      Map<KineticReactionType, int> reactionCounts,
+      KineticReactionType? myReaction,
+    })
+  >
+  reactToClip(String clipId, KineticReactionType? reaction) async {
+    if (_shouldSkipNetwork) return _reactToClipFallback(clipId, reaction);
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/social/clips/$clipId/react',
+        data: <String, dynamic>{'reactionType': reaction?.wireId},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = JsonSafe.asMap(response.data);
+        final myRx = KineticReactionType.fromWire(
+          data['myReaction'] ?? data['my_reaction'],
+        );
+        final counts = KineticReactionType.parseCounts(
+          data['reactionCounts'] ?? data['reaction_counts'],
+        );
+        return (
+          liked: JsonSafe.asBool(data['liked'], myRx != null),
+          likeCount: JsonSafe.asInt(data['likeCount'], 0),
+          reactionCounts: counts,
+          myReaction: myRx,
+        );
+      }
+    } catch (e) {
+      debugPrint('[HttpSocialRepository] reactToClip fallback: $e');
+    }
+    return _reactToClipFallback(clipId, reaction);
+  }
+
+  ({
+    bool liked,
+    int likeCount,
+    Map<KineticReactionType, int> reactionCounts,
+    KineticReactionType? myReaction,
+  })
+  _reactToClipFallback(String clipId, KineticReactionType? reaction) {
+    final prev =
+        _fallbackClipReactions[clipId] ??
+        (
+          likeCount: 0,
+          reactionCounts: const <KineticReactionType, int>{},
+          myReaction: null,
+        );
+    final counts = Map<KineticReactionType, int>.from(prev.reactionCounts);
+    final prevRx = prev.myReaction;
+    final nextRx =
+        (reaction != null && prevRx == reaction) ? null : reaction;
+
+    if (prevRx != null && counts.containsKey(prevRx)) {
+      final dec = (counts[prevRx]! - 1).clamp(0, 999999);
+      if (dec == 0) {
+        counts.remove(prevRx);
+      } else {
+        counts[prevRx] = dec;
+      }
+    }
+    if (nextRx != null) {
+      counts[nextRx] = (counts[nextRx] ?? 0) + 1;
+    }
+    final nextCount = counts.values.fold<int>(0, (sum, v) => sum + v);
+    _fallbackClipReactions[clipId] = (
+      likeCount: nextCount,
+      reactionCounts: counts,
+      myReaction: nextRx,
+    );
+    return (
+      liked: nextRx != null,
+      likeCount: nextCount,
+      reactionCounts: Map<KineticReactionType, int>.unmodifiable(counts),
+      myReaction: nextRx,
+    );
+  }
+
+  @override
+  Future<({String url, String mediaKind, String mimeType, int sizeBytes})>
+  uploadReelMedia({
+    required Uint8List bytes,
+    required String filename,
+    required String mimeType,
+  }) async {
+    final kind = mimeType.startsWith('image/')
+        ? 'gallery_photo'
+        : (mimeType.startsWith('video/') ? 'gallery_video' : 'artwork');
+    if (_shouldSkipNetwork) {
+      return (
+        url: '/r2/social/local/${DateTime.now().millisecondsSinceEpoch}_$filename',
+        mediaKind: kind,
+        mimeType: mimeType,
+        sizeBytes: bytes.length,
+      );
+    }
+    try {
+      final form = FormData.fromMap(<String, dynamic>{
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: filename,
+          contentType: DioMediaType.parse(mimeType),
+        ),
+      });
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/social/media/upload',
+        data: form,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+      if (response.statusCode == 201 && response.data != null) {
+        final d = JsonSafe.asMap(response.data);
+        final url = AppConstants.normalizeCloudMediaUrl(
+          JsonSafe.asString(d['url']),
+        );
+        return (
+          url: url.isNotEmpty
+              ? url
+              : JsonSafe.asString(d['url'], '/r2/social/local/$filename'),
+          mediaKind: kind,
+          mimeType: JsonSafe.asString(d['contentType'], mimeType),
+          sizeBytes: JsonSafe.asInt(d['size'], bytes.length),
+        );
+      }
+    } catch (e) {
+      debugPrint('[HttpSocialRepository] uploadReelMedia fallback: $e');
+    }
+    return (
+      url: '/r2/social/local/${DateTime.now().millisecondsSinceEpoch}_$filename',
+      mediaKind: kind,
+      mimeType: mimeType,
+      sizeBytes: bytes.length,
+    );
   }
 
   @override

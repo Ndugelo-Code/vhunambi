@@ -1,5 +1,9 @@
 import { nanoid } from 'nanoid';
 import { resolveMediaUrl } from '../../config/env.js';
+import type {
+  KineticReactionMutationResult,
+  KineticReactionWire,
+} from '../../db/edge_persistence_bridge.js';
 import {
   canonicalizeCreatorId,
   vhunambiDb,
@@ -70,19 +74,73 @@ export const CULTURAL_GIFTS: Record<string, CulturalGiftDto> = {
 /** Newest-first ordered view of all clips. */
 function orderedClips(viewerCreatorId = 'creator_cern'): PublishedClipDto[] {
   seedSocialClips();
+  const canonicalViewer = canonicalizeCreatorId(viewerCreatorId);
   const likedTargets = vhunambiDb.listSocialInteractionTargets(
     'clip_like',
-    canonicalizeCreatorId(viewerCreatorId),
+    canonicalViewer,
   );
   return vhunambiDb.listPublishedClipRows().map((raw) => {
     const clip = raw as PublishedClipDto;
+    const myReaction = vhunambiDb.getSocialReaction(
+      'clip_react',
+      clip.id,
+      canonicalViewer,
+    );
     return {
       ...clip,
       audioUrl: resolveMediaUrl(clip.audioUrl),
       coverUrl: resolveMediaUrl(clip.coverUrl),
-      isLikedByMe: likedTargets.has(clip.id),
+      videoUrl: clip.videoUrl ? resolveMediaUrl(clip.videoUrl) : null,
+      mediaKind: clip.mediaKind ?? 'artwork',
+      audioStartMs: clip.audioStartMs ?? 0,
+      audioEndMs: clip.audioEndMs ?? 30000,
+      effectPreset: clip.effectPreset ?? 'kinetic_gold',
+      effectIntensity: clip.effectIntensity ?? 0.65,
+      typographyPreset: clip.typographyPreset ?? 'kinetic_bounce',
+      speedRate: clip.speedRate ?? 1.0,
+      stickerId: clip.stickerId ?? null,
+      reactionCounts: clip.reactionCounts ?? {},
+      myReaction: myReaction ?? (likedTargets.has(clip.id) ? 'love' : null),
+      isLikedByMe: likedTargets.has(clip.id) || myReaction !== null,
     };
   });
+}
+
+/** Retrieves a single published clip by ID hydrated with viewer reaction state. */
+export function getClipById(
+  clipId: string,
+  viewerCreatorId = 'creator_cern',
+): PublishedClipDto | null {
+  seedSocialClips();
+  const raw = vhunambiDb.getPublishedClipRow(clipId);
+  if (!raw) return null;
+  const clip = raw as PublishedClipDto;
+  const canonicalViewer = canonicalizeCreatorId(viewerCreatorId);
+  const liked = vhunambiDb
+    .listSocialInteractionTargets('clip_like', canonicalViewer)
+    .has(clip.id);
+  const myReaction = vhunambiDb.getSocialReaction(
+    'clip_react',
+    clip.id,
+    canonicalViewer,
+  );
+  return {
+    ...clip,
+    audioUrl: resolveMediaUrl(clip.audioUrl),
+    coverUrl: resolveMediaUrl(clip.coverUrl),
+    videoUrl: clip.videoUrl ? resolveMediaUrl(clip.videoUrl) : null,
+    mediaKind: clip.mediaKind ?? 'artwork',
+    audioStartMs: clip.audioStartMs ?? 0,
+    audioEndMs: clip.audioEndMs ?? 30000,
+    effectPreset: clip.effectPreset ?? 'kinetic_gold',
+    effectIntensity: clip.effectIntensity ?? 0.65,
+    typographyPreset: clip.typographyPreset ?? 'kinetic_bounce',
+    speedRate: clip.speedRate ?? 1.0,
+    stickerId: clip.stickerId ?? null,
+    reactionCounts: clip.reactionCounts ?? {},
+    myReaction: myReaction ?? (liked ? 'love' : null),
+    isLikedByMe: liked || myReaction !== null,
+  };
 }
 
 /**
@@ -172,6 +230,15 @@ function makeClip(req: PublishClipRequest, id: string): PublishedClipDto {
     genre,
     audioUrl: resolveMediaUrl(req.audioUrl ?? `${base}/${req.trackId}.mp3`),
     coverUrl: resolveMediaUrl(req.coverUrl ?? `${base}/${req.trackId}.jpg`),
+    videoUrl: req.videoUrl ? resolveMediaUrl(req.videoUrl) : null,
+    mediaKind: req.mediaKind ?? 'artwork',
+    audioStartMs: req.audioStartMs ?? 0,
+    audioEndMs: req.audioEndMs ?? 30000,
+    effectPreset: req.effectPreset ?? 'kinetic_gold',
+    effectIntensity: req.effectIntensity ?? 0.65,
+    typographyPreset: req.typographyPreset ?? 'kinetic_bounce',
+    speedRate: req.speedRate ?? 1.0,
+    stickerId: req.stickerId ?? null,
     dna,
     playCount: 0,
     likeCount: 0,
@@ -179,6 +246,8 @@ function makeClip(req: PublishClipRequest, id: string): PublishedClipDto {
     remixCount: 0,
     isLikedByMe: false,
     isSavedByMe: false,
+    reactionCounts: {},
+    myReaction: null,
     remixedFromClipId: req.remixedFromClipId,
     remixAttribution: req.remixAttribution,
     publishedAt: new Date().toISOString(),
@@ -209,6 +278,51 @@ export function publishClip(req: PublishClipRequest): {
     shareUrl: `https://vhunambi.com/@${clip.creatorUsername}/reels/${clipId}`,
     publishedAt: clip.publishedAt,
   };
+}
+
+/** Awaited cloud-persistent clip publish (`REQ-P74-BE-03`). */
+export async function publishClipAsync(
+  req: PublishClipRequest,
+  cOrEnv?: unknown,
+): Promise<{
+  clipId: string;
+  shareUrl: string;
+  publishedAt: string;
+}> {
+  seedSocialClips();
+  const clipId = `clip_pub_${nanoid(8)}`;
+  const clip = makeClip(req, clipId);
+
+  await vhunambiDb.upsertPublishedClipAsync(clip, cOrEnv);
+  if (req.remixedFromClipId) {
+    const parent = vhunambiDb.getPublishedClipRow(req.remixedFromClipId);
+    if (parent) {
+      parent.remixCount = Number(parent.remixCount ?? 0) + 1;
+      await vhunambiDb.upsertPublishedClipAsync(parent, cOrEnv);
+    }
+  }
+
+  return {
+    clipId,
+    shareUrl: `https://vhunambi.com/@${clip.creatorUsername}/reels/${clipId}`,
+    publishedAt: clip.publishedAt,
+  };
+}
+
+/** Applies, switches, or toggles off a 6-type reaction on a Reel clip (`REQ-P74-BE-03`). */
+export async function reactToClipAsync(
+  clipId: string,
+  actorCreatorId = 'creator_cern',
+  reactionType: KineticReactionWire | null = null,
+  cOrEnv?: unknown,
+): Promise<KineticReactionMutationResult> {
+  seedSocialClips();
+  return vhunambiDb.reactToClipAsync(
+    clipId,
+    actorCreatorId,
+    reactionType,
+    cOrEnv,
+  );
 }
 
 /** Cursor-paginated newest-first feed (design.md §5.2). */

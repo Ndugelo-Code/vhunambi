@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -6,7 +8,8 @@ import '../../domain/models/content_studio_preset.dart';
 
 class AtmosphericEffectsDeck extends StatelessWidget {
   final AtmosphericEffects effects;
-  final void Function({bool? filmGrain, bool? bassPulse, bool? kenBurnsMotion}) onToggle;
+  final void Function({bool? filmGrain, bool? bassPulse, bool? kenBurnsMotion})
+  onToggle;
 
   const AtmosphericEffectsDeck({
     super.key,
@@ -21,8 +24,8 @@ class AtmosphericEffectsDeck extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(
-              Icons.auto_awesome_rounded,
+            const PhosphorIcon(
+              AppIcons.sparkle,
               size: 18,
               color: AppColors.brandPrimary,
             ),
@@ -39,7 +42,7 @@ class AtmosphericEffectsDeck extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _buildToggleTile(
-          icon: Icons.grain_rounded,
+          icon: PhosphorIconsRegular.filmStrip,
           title: '35mm Film Grain',
           subtitle: 'Organic procedural analog noise texture overlay',
           value: effects.filmGrain,
@@ -47,7 +50,7 @@ class AtmosphericEffectsDeck extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _buildToggleTile(
-          icon: Icons.graphic_eq_rounded,
+          icon: AppIcons.waveform,
           title: 'Bass-Reactive Pulse',
           subtitle: 'Subtle radial bounce reacting to log drum frequencies',
           value: effects.bassPulse,
@@ -55,7 +58,7 @@ class AtmosphericEffectsDeck extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _buildToggleTile(
-          icon: Icons.camera_enhance_rounded,
+          icon: PhosphorIconsRegular.camera,
           title: 'Ken Burns Motion',
           subtitle: 'Smooth 1.05x zoom drift and slow kinetic pan',
           value: effects.kenBurnsMotion,
@@ -85,7 +88,7 @@ class AtmosphericEffectsDeck extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
+          PhosphorIcon(
             icon,
             size: 20,
             color: value ? AppColors.brandPrimary : AppColors.textTertiary,

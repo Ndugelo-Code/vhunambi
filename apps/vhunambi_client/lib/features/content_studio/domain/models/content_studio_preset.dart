@@ -30,17 +30,23 @@ enum LyricTypographyPreset {
 enum DurationPreset {
   hook15s,
   reel30s,
+  reel60s,
+  reel90s,
   fullTrack;
 
   int get targetSeconds => switch (this) {
         DurationPreset.hook15s => 15,
         DurationPreset.reel30s => 30,
+        DurationPreset.reel60s => 60,
+        DurationPreset.reel90s => 90,
         DurationPreset.fullTrack => 180,
       };
 
   String get label => switch (this) {
         DurationPreset.hook15s => '15s Hook',
         DurationPreset.reel30s => '30s Reel',
+        DurationPreset.reel60s => '60s Reel',
+        DurationPreset.reel90s => '90s Extended',
         DurationPreset.fullTrack => 'Full Track',
       };
 }

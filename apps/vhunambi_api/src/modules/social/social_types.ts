@@ -9,7 +9,15 @@
 /** Clip visibility selector (REQ-SOC-02). */
 export type ClipVisibility = 'public' | 'followers';
 
-/** Request body for `POST /api/social/publish` (design.md §5.1). */
+/** Backdrop / capture media kind for Kinetic Reels Studio v4 (`REQ-P74-BE-01`). */
+export type ReelMediaKind =
+  | 'artwork'
+  | 'camera_video'
+  | 'gallery_video'
+  | 'gallery_photo'
+  | 'vision';
+
+/** Request body for `POST /api/social/publish` (design.md §5.1 + Phase 74 Studio v4). */
 export interface PublishClipRequest {
   trackId: string;
   title: string;
@@ -27,12 +35,22 @@ export interface PublishClipRequest {
   /** Optional media references — synthesized placeholders when omitted. */
   audioUrl?: string;
   coverUrl?: string;
+  /** Optional native camera/gallery video URL & studio metadata (Phase 74). */
+  videoUrl?: string | null;
+  mediaKind?: ReelMediaKind;
+  audioStartMs?: number;
+  audioEndMs?: number;
+  effectPreset?: string;
+  effectIntensity?: number;
+  typographyPreset?: string;
+  speedRate?: number;
+  stickerId?: string | null;
   /** Optional lineage for viral sound remixes (Phase D). */
   remixedFromClipId?: string;
   remixAttribution?: string;
 }
 
-/** Wire DTO for a published clip (design.md §1.1 PublishedClip). */
+/** Wire DTO for a published clip (design.md §1.1 PublishedClip + Phase 74). */
 export interface PublishedClipDto {
   id: string;
   trackId: string;
@@ -47,6 +65,15 @@ export interface PublishedClipDto {
   genre: string;
   audioUrl: string;
   coverUrl: string;
+  videoUrl?: string | null;
+  mediaKind?: ReelMediaKind;
+  audioStartMs?: number;
+  audioEndMs?: number;
+  effectPreset?: string;
+  effectIntensity?: number;
+  typographyPreset?: string;
+  speedRate?: number;
+  stickerId?: string | null;
   dna: Record<string, unknown>;
   playCount: number;
   likeCount: number;
@@ -54,6 +81,8 @@ export interface PublishedClipDto {
   remixCount: number;
   isLikedByMe: boolean;
   isSavedByMe: boolean;
+  reactionCounts?: Record<string, number>;
+  myReaction?: string | null;
   remixedFromClipId?: string;
   remixAttribution?: string;
   publishedAt: string;

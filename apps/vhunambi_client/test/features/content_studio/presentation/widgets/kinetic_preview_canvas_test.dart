@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_track_artwork.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/content_studio_preset.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/lyric_word_timestamp.dart';
 import 'package:vhunambi_client/features/content_studio/presentation/widgets/kinetic_preview_canvas.dart';
 
 void main() {
   group('KineticPreviewCanvas Widget Tests', () {
-    testWidgets('renders fallback artwork when coverArtUrl is null', (tester) async {
+    testWidgets('renders VhunambiTrackArtwork fallback when coverArtUrl is null', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -29,7 +30,8 @@ void main() {
       );
 
       await tester.pump();
-      expect(find.text('VHUNAMBI 9:16 COVER'), findsOneWidget);
+      expect(find.byType(VhunambiTrackArtwork), findsOneWidget);
+      expect(find.text('VHUNAMBI 9:16 COVER'), findsNothing);
       expect(find.text('♪ Instrumental Rhythms & Harmonies ♪'), findsOneWidget);
     });
 
