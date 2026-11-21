@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_dimensions.dart';
 import '../../../../../core/theme/app_typography.dart';
@@ -8,11 +9,7 @@ class OfflineIndicator extends StatelessWidget {
   final DateTime? cacheTimestamp;
   final VoidCallback? onRefresh;
 
-  const OfflineIndicator({
-    super.key,
-    this.cacheTimestamp,
-    this.onRefresh,
-  });
+  const OfflineIndicator({super.key, this.cacheTimestamp, this.onRefresh});
 
   String _formatTimeAgo(DateTime? timestamp) {
     if (timestamp == null) return 'recently';
@@ -44,8 +41,8 @@ class OfflineIndicator extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.cloud_off_rounded,
+          const PhosphorIcon(
+            PhosphorIconsRegular.cloudSlash,
             size: 18,
             color: AppColors.brandPrimary,
           ),
@@ -54,7 +51,7 @@ class OfflineIndicator extends StatelessWidget {
             child: Text(
               'Offline Mode · Showing cached profile ($timeAgo)',
               style: AppTypography.caption.copyWith(
-                color: AppColors.textPrimary,
+                color: AppColors.textPrimaryOf(context),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -64,8 +61,8 @@ class OfflineIndicator extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
               child: IconButton(
                 onPressed: onRefresh,
-                icon: const Icon(
-                  Icons.refresh_rounded,
+                icon: const PhosphorIcon(
+                  PhosphorIconsRegular.arrowsClockwise,
                   size: 18,
                   color: AppColors.brandPrimary,
                 ),

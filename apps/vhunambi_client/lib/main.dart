@@ -148,6 +148,9 @@ class _RootShellState extends ConsumerState<RootShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (ref.read(isSplashActiveProvider)) {
+        ref.read(isSplashActiveProvider.notifier).state = false;
+      }
       OnboardingNotificationsService.ensureSeededForActiveCreator(ref);
     });
   }

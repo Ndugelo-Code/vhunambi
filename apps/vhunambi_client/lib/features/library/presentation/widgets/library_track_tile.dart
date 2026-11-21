@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../domain/models/library_models.dart';
 import '../providers/library_providers.dart';
 import 'library_badges.dart';
 import 'library_cover_art.dart';
 import 'track_actions_sheet.dart';
 
-/// Dense vault list row rendering title, creator, duration, genre and the
-/// offline/cloud cache indicator (REQ-LIB-05).
+/// Dense glass vault list row rendering title, creator, duration, genre and the
+/// offline/cloud cache indicator (`REQ-LIB-05`, `REQ-P72-AV-04`, `enableLiveBlur: false`).
 class LibraryTrackTile extends ConsumerWidget {
   final LibraryTrack track;
   final bool showGenreBadge;
@@ -24,12 +26,9 @@ class LibraryTrackTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+    return VhunambiGlassSurface(
+      variant: VhunambiGlassVariant.card,
+      enableLiveBlur: false,
       child: InkWell(
         onTap: () => playLibraryTrack(ref, track),
         borderRadius: AppRadius.cardBorder,
@@ -50,6 +49,7 @@ class LibraryTrackTile extends ConsumerWidget {
                             track.title,
                             style: AppTypography.bodyLarge.copyWith(
                               fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimaryOf(context),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -66,25 +66,31 @@ class LibraryTrackTile extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            '${track.creatorName} • ${track.formattedDuration} • ${track.createdAgoLabel}',
-                            style: AppTypography.bodySmall,
+                            showGenreBadge
+                                ? '${track.creatorName} • ${track.formattedDuration} • ${track.createdAgoLabel}'
+                                : '${track.creatorName} • ${track.formattedDuration} • ${track.playCountLabel}',
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.textSecondaryOf(context),
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.xs),
-                        Icon(
-                          Icons.headphones_rounded,
-                          size: 12,
-                          color: AppColors.textTertiary,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          track.playCountLabel,
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.textSecondary,
+                        if (showGenreBadge) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          PhosphorIcon(
+                            PhosphorIconsRegular.headphones,
+                            size: 12,
+                            color: AppColors.textSecondaryOf(context),
                           ),
-                        ),
+                          const SizedBox(width: 2),
+                          Text(
+                            track.playCountLabel,
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.textSecondaryOf(context),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -93,22 +99,22 @@ class LibraryTrackTile extends ConsumerWidget {
               const SizedBox(width: AppSpacing.sm),
               SyncStatusBadge(track: track),
               const SizedBox(width: AppSpacing.xxs),
-              SizedBox(
-                width: 34,
-                height: 34,
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 child: IconButton(
                   padding: EdgeInsets.zero,
                   iconSize: 18,
                   tooltip: track.isFavorite
                       ? 'Remove from favourites'
                       : 'Add to favourites',
-                  icon: Icon(
+                  icon: PhosphorIcon(
                     track.isFavorite
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
+                        ? PhosphorIconsFill.heart
+                        : PhosphorIconsRegular.heart,
+                    size: 18,
                     color: track.isFavorite
                         ? AppColors.brandPrimary
-                        : AppColors.textTertiary,
+                        : AppColors.textSecondaryOf(context),
                   ),
                   onPressed: () {
                     HapticFeedback.selectionClick();
@@ -118,16 +124,16 @@ class LibraryTrackTile extends ConsumerWidget {
                   },
                 ),
               ),
-              SizedBox(
-                width: 34,
-                height: 34,
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 child: IconButton(
                   padding: EdgeInsets.zero,
                   iconSize: 18,
                   tooltip: 'Asset actions',
-                  icon: Icon(
-                    Icons.more_vert_rounded,
-                    color: AppColors.textSecondary,
+                  icon: PhosphorIcon(
+                    PhosphorIconsRegular.dotsThreeVertical,
+                    size: 18,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                   onPressed: () => TrackActionsSheet.show(context, track),
                 ),

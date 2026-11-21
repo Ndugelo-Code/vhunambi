@@ -270,7 +270,7 @@ class ProfileSettingsDrawer extends ConsumerWidget {
                               SnackBar(
                                 content: Text(
                                   success
-                                      ? 'Edge-Sync complete! All mutations saved to SQLite WAL ⚡'
+                                      ? 'Edge-Sync complete! All mutations saved to SQLite WAL'
                                       : 'Offline sync pending • Queued for next connection',
                                 ),
                                 backgroundColor: success
@@ -289,7 +289,7 @@ class ProfileSettingsDrawer extends ConsumerWidget {
                           'Sync Now',
                           style: AppTypography.caption.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: AppColors.textPrimaryOf(context),
                           ),
                         ),
                         style: OutlinedButton.styleFrom(

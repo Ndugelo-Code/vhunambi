@@ -8,8 +8,9 @@ import 'package:vhunambi_client/features/profile/presentation/widgets/creator_av
 
 void main() {
   group('CreatorAvatar & AvatarCustomizationModal Widget Tests', () {
-    testWidgets('CreatorAvatar renders monogram and handles tap',
-        (WidgetTester tester) async {
+    testWidgets('CreatorAvatar renders monogram and handles tap', (
+      WidgetTester tester,
+    ) async {
       bool tapped = false;
 
       await tester.pumpWidget(
@@ -33,62 +34,64 @@ void main() {
     });
 
     testWidgets(
-        'AvatarCustomizationModal renders presets and updates owner profile avatar',
-        (WidgetTester tester) async {
-      late ProviderContainer container;
+      'AvatarCustomizationModal renders presets and updates owner profile avatar',
+      (WidgetTester tester) async {
+        late ProviderContainer container;
 
-      await tester.pumpWidget(
-        ProviderScope(
-          child: Consumer(
-            builder: (context, ref, child) {
-              container = ProviderScope.containerOf(context);
-              return MaterialApp(
-                theme: AppTheme.darkTheme,
-                home: Scaffold(
-                  body: Builder(
-                    builder: (innerContext) {
-                      return ElevatedButton(
-                        key: const Key('open_modal_btn'),
-                        onPressed: () {
-                          AvatarCustomizationModal.show(innerContext);
-                        },
-                        child: const Text('Open Modal'),
-                      );
-                    },
+        await tester.pumpWidget(
+          ProviderScope(
+            child: Consumer(
+              builder: (context, ref, child) {
+                container = ProviderScope.containerOf(context);
+                return MaterialApp(
+                  theme: AppTheme.darkTheme,
+                  home: Scaffold(
+                    body: Builder(
+                      builder: (innerContext) {
+                        return ElevatedButton(
+                          key: const Key('open_modal_btn'),
+                          onPressed: () {
+                            AvatarCustomizationModal.show(innerContext);
+                          },
+                          child: const Text('Open Modal'),
+                        );
+                      },
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      // Open modal
-      await tester.tap(find.byKey(const Key('open_modal_btn')));
-      await tester.pumpAndSettle();
+        // Open modal
+        await tester.tap(find.byKey(const Key('open_modal_btn')));
+        await tester.pumpAndSettle();
 
-      // Verify header and presets
-      expect(find.text('Creator Profile Avatar'), findsOneWidget);
-      expect(find.text('Cultural AI ✨'), findsOneWidget);
-      expect(find.text('Amapiano Maestro'), findsOneWidget);
-      expect(find.text('Maskandi Bard'), findsOneWidget);
+        // Verify header and presets
+        expect(find.text('Creator Profile Avatar'), findsOneWidget);
+        expect(find.text('Cultural AI'), findsOneWidget);
+        expect(find.text('Amapiano Maestro'), findsOneWidget);
+        expect(find.text('Maskandi Bard'), findsOneWidget);
 
-      // Select Amapiano Maestro preset
-      await tester.tap(find.byKey(const Key('preset_preset_amapiano')));
-      await tester.pumpAndSettle();
+        // Select Amapiano Maestro preset
+        await tester.tap(find.byKey(const Key('preset_preset_amapiano')));
+        await tester.pumpAndSettle();
 
-      // Apply Avatar
-      await tester.tap(find.byKey(const Key('apply_avatar_button')));
-      await tester.pumpAndSettle();
+        // Apply Avatar
+        await tester.tap(find.byKey(const Key('apply_avatar_button')));
+        await tester.pumpAndSettle();
 
-      // Verify owner profile received the avatar URL
-      final owner = container.read(ownerProfileProvider);
-      expect(owner.avatarUrl, contains('images.unsplash.com'));
-    });
+        // Verify owner profile received the avatar URL
+        final owner = container.read(ownerProfileProvider);
+        expect(owner.avatarUrl, contains('images.unsplash.com'));
+      },
+    );
 
-    testWidgets('AvatarCustomizationModal allows reverting to monogram',
-        (WidgetTester tester) async {
+    testWidgets('AvatarCustomizationModal allows reverting to monogram', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
@@ -111,8 +114,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final container =
-          ProviderScope.containerOf(tester.element(find.byType(Scaffold)));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(Scaffold)),
+      );
       container
           .read(ownerProfileProvider.notifier)
           .updateAvatar('https://example.com/avatar.png');

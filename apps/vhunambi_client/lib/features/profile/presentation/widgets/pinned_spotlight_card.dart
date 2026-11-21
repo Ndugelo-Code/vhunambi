@@ -6,11 +6,14 @@ import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../../shared/models/track.dart';
 import '../../../beats/presentation/providers/beats_provider.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../player/presentation/providers/player_provider.dart';
+import '../../../track/presentation/views/track_detail_view.dart';
 
 /// Prominent hero card showcasing the creator's pinned spotlight anthem.
 ///
@@ -56,16 +59,16 @@ class PinnedSpotlightCard extends ConsumerWidget {
       audioUrl = libMatch.localAudioFilePath ?? libMatch.remoteAudioUrl;
       coverUrl = libMatch.coverImageUrl;
     } else {
-      final beatMatch =
-          beats.where((b) => b.id == pinnedTrackId).firstOrNull;
+      final beatMatch = beats.where((b) => b.id == pinnedTrackId).firstOrNull;
       if (beatMatch != null) {
         title = beatMatch.title;
         genre = beatMatch.genre;
         durationLabel = '${beatMatch.bpm} BPM';
         audioUrl = beatMatch.previewAudioUrl;
       } else {
-        final expMatch =
-            exploreTracks.where((t) => t.id == pinnedTrackId).firstOrNull;
+        final expMatch = exploreTracks
+            .where((t) => t.id == pinnedTrackId)
+            .firstOrNull;
         if (expMatch != null) {
           title = expMatch.title;
           genre = expMatch.genre;
@@ -81,170 +84,152 @@ class PinnedSpotlightCard extends ConsumerWidget {
     final isPlaying =
         playerState.isPlaying && playerState.currentTrack?.id == pinnedTrackId;
 
-    return Container(
-      key: const Key('profile_pinned_spotlight_card'),
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.brandPrimary.withAlpha(120), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.brandPrimary.withAlpha(20),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: VhunambiGlassSurface(
+        key: const Key('profile_pinned_spotlight_card'),
+        variant: VhunambiGlassVariant.card,
+        enableLiveBlur: false,
+        padding: const EdgeInsets.all(14),
+        child: InkWell(
+          borderRadius: AppRadius.cardBorder,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => TrackDetailView(trackId: pinnedTrackId!),
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const PhosphorIcon(
-                    PhosphorIconsFill.pushPin,
-                    color: AppColors.brandPrimary,
-                    size: 14,
+                  Row(
+                    children: [
+                      const PhosphorIcon(
+                        PhosphorIconsFill.pushPin,
+                        color: AppColors.brandPrimary,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'FEATURED ARTIST ANTHEM',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.brandPrimary,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'FEATURED ARTIST ANTHEM',
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.brandPrimary,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
-                      fontSize: 11,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondaryOf(context),
+                      borderRadius: AppRadius.pillBorder,
+                      border: Border.all(
+                        color: AppColors.borderSubtleOf(context),
+                      ),
+                    ),
+                    child: Text(
+                      genre,
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondaryOf(context),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
-                  borderRadius: AppRadius.pillBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: Text(
-                  genre,
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  VhunambiTrackArtwork(
+                    coverUrl: coverUrl,
+                    genre: genre,
+                    trackId: pinnedTrackId!,
+                    width: 52,
+                    height: 52,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              // Artwork / Disc Icon
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: coverUrl != null && coverUrl.isNotEmpty
-                      ? Image.network(
-                          coverUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Center(
-                            child: PhosphorIcon(
-                              AppIcons.songs,
-                              color: AppColors.brandPrimary,
-                              size: 24,
-                            ),
-                          ),
-                        )
-                      : const Center(
-                          child: PhosphorIcon(
-                            AppIcons.songs,
-                            color: AppColors.brandPrimary,
-                            size: 24,
+                  const SizedBox(width: 12),
+
+                  // Title & Metadata
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodyMedium.copyWith(
+                            color: AppColors.textPrimaryOf(context),
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Title & Metadata
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.bodyMedium.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$creator • $durationLabel',
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // 1-Tap Play/Pause Button
-              InkWell(
-                key: const Key('pinned_anthem_play_btn'),
-                onTap: () {
-                  final player = ref.read(playerStateProvider.notifier);
-                  if (isPlaying) {
-                    player.togglePlayPause();
-                  } else {
-                    player.playTrack(
-                      Track(
-                        id: pinnedTrackId!,
-                        title: title,
-                        creatorName: creator,
-                        genre: genre,
-                        audioUrl: audioUrl ??
-                            'https://r2.vhunambi.com/audio/$pinnedTrackId.mp3',
-                        coverUrl: coverUrl,
-                        duration: const Duration(minutes: 3, seconds: 24),
-                      ),
-                    );
-                  }
-                },
-                borderRadius: BorderRadius.circular(22),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: AppColors.brandPrimary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: PhosphorIcon(
-                      isPlaying ? AppIcons.pause : AppIcons.play,
-                      color: AppColors.brandContrast,
-                      size: 20,
+                        const SizedBox(height: 2),
+                        Text(
+                          '$creator • $durationLabel',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondaryOf(context),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
+
+                  // 1-Tap Play/Pause Button (>=44dp target)
+                  InkWell(
+                    key: const Key('pinned_anthem_play_btn'),
+                    onTap: () {
+                      final player = ref.read(playerStateProvider.notifier);
+                      if (isPlaying) {
+                        player.togglePlayPause();
+                      } else {
+                        player.playTrack(
+                          Track(
+                            id: pinnedTrackId!,
+                            title: title,
+                            creatorName: creator,
+                            genre: genre,
+                            audioUrl:
+                                audioUrl ??
+                                'https://r2.vhunambi.com/audio/$pinnedTrackId.mp3',
+                            coverUrl: coverUrl,
+                            duration: const Duration(minutes: 3, seconds: 24),
+                          ),
+                        );
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(22),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(
+                        color: AppColors.brandPrimary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: PhosphorIcon(
+                          isPlaying ? AppIcons.pause : AppIcons.play,
+                          color: AppColors.brandContrast,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
-

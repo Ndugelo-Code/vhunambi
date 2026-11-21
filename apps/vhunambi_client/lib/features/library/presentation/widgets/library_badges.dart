@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -13,11 +14,14 @@ class GenreBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: 3,
+      ),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
+        color: AppColors.surfaceSecondaryOf(context),
         borderRadius: AppRadius.pillBorder,
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
       ),
       child: Text(
         genre,
@@ -27,7 +31,7 @@ class GenreBadge extends StatelessWidget {
   }
 }
 
-/// Offline cache indicator: `⬇️ Offline` vs. `☁️ Cloud` (REQ-LIB-05).
+/// Offline cache indicator: Offline vs. Cloud (`REQ-LIB-05`, `STD-UIUX-001`).
 class SyncStatusBadge extends StatelessWidget {
   final LibraryTrack track;
 
@@ -39,26 +43,33 @@ class SyncStatusBadge extends StatelessWidget {
     final isOffline = track.isOfflineAvailable;
     final accent = isDownloading
         ? AppColors.brandPrimary
-        : (isOffline ? AppColors.success : AppColors.textSecondary);
+        : (isOffline ? AppColors.success : AppColors.textSecondaryOf(context));
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: 3,
+      ),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
+        color: AppColors.surfaceSecondaryOf(context),
         borderRadius: AppRadius.pillBorder,
         border: Border.all(
           color: isDownloading
               ? AppColors.brandPrimary
-              : (isOffline ? AppColors.success : AppColors.borderSubtle),
+              : (isOffline
+                    ? AppColors.success
+                    : AppColors.borderSubtleOf(context)),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          PhosphorIcon(
             isDownloading
-                ? Icons.downloading_rounded
-                : (isOffline ? Icons.download_done_rounded : Icons.cloud_outlined),
+                ? PhosphorIconsRegular.cloudArrowDown
+                : (isOffline
+                      ? PhosphorIconsRegular.checkCircle
+                      : PhosphorIconsRegular.cloud),
             size: 12,
             color: accent,
           ),

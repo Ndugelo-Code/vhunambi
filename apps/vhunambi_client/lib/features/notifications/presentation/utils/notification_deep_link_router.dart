@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/navigation/navigation_providers.dart';
+import '../../../../core/navigation/profile_navigation_helper.dart';
 import '../../../explore/domain/models/social_music_post.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
 import '../../../explore/presentation/views/kinetic_post_focus_view.dart';
 import '../../../home/presentation/widgets/subscription_upgrade_modal.dart';
-import '../../../profile/presentation/views/artist_profile_view.dart';
 import '../../../profile/presentation/widgets/creator_dna_helix_lab_sheet.dart';
 import '../../../social/presentation/providers/social_feed_provider.dart';
 import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
@@ -110,11 +110,7 @@ abstract final class NotificationDeepLinkRouter {
     if (route.startsWith('/creator/')) {
       final artistId = route.substring('/creator/'.length).trim();
       if (artistId.isNotEmpty) {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => ArtistProfileView(artistId: artistId),
-          ),
-        );
+        await navigateToCreatorProfile(context, ref, creatorId: artistId);
         return;
       }
     }

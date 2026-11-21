@@ -5,6 +5,7 @@ import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/core/utils/json_safe.dart';
 import 'package:vhunambi_client/features/social/domain/models/creator_wallet.dart';
 import 'package:vhunambi_client/features/social/domain/models/cultural_gift.dart';
+import 'package:vhunambi_client/features/social/domain/models/kinetic_reaction.dart';
 import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
 import 'package:vhunambi_client/features/social/domain/models/reel_comment.dart';
 import 'package:vhunambi_client/features/social/domain/repositories/i_social_repository.dart';
@@ -24,6 +25,15 @@ class HttpSocialRepository implements ISocialRepository {
   // In-memory fallback stores for offline/test resilience
   final Map<String, List<ReelComment>> _fallbackComments = {};
   final Map<String, ({bool liked, int likeCount})> _fallbackLikes = {};
+  final Map<
+    String,
+    ({
+      int likeCount,
+      Map<KineticReactionType, int> reactionCounts,
+      KineticReactionType? myReaction,
+    })
+  >
+  _fallbackCommentReactions = {};
   final Map<String, ({bool following, int followerCount})> _fallbackFollows =
       {};
   final Map<String, CreatorWallet> _fallbackWallets = {};
@@ -218,19 +228,40 @@ class HttpSocialRepository implements ISocialRepository {
           final replyHandleRaw = JsonSafe.asString(
             map['replyToHandle'] ?? map['reply_to_handle'],
           );
+          final gifRaw = JsonSafe.asString(map['gifUrl'] ?? map['gif_url']);
+          final stickerRaw = JsonSafe.asString(
+            map['stickerId'] ?? map['sticker_id'],
+          );
+          final parsedMyReaction = KineticReactionType.fromWire(
+            map['myReaction'] ?? map['my_reaction'],
+          );
+          final parsedReactionCounts = KineticReactionType.parseCounts(
+            map['reactionCounts'] ??
+                map['reaction_counts'] ??
+                map['reaction_counts_json'],
+          );
           parsed.add(
             ReelComment(
               id: JsonSafe.asString(map['id'], 'c_0'),
               clipId: JsonSafe.asString(map['clipId'], clipId),
               userId: JsonSafe.asString(map['userId'], 'u_listener'),
               username: JsonSafe.asString(map['username'], 'listener'),
-              displayName:
-                  JsonSafe.asString(map['displayName'], 'Listener'),
+              displayName: JsonSafe.asString(map['displayName'], 'Listener'),
               avatarUrl: avatarRaw.isEmpty ? null : avatarRaw,
               isCreator: JsonSafe.asBool(map['isCreator']),
               text: JsonSafe.asString(map['text']),
               likeCount: JsonSafe.asInt(map['likeCount']),
-              isLikedByMe: JsonSafe.asBool(map['isLikedByMe']),
+              isLikedByMe:
+                  JsonSafe.asBool(map['isLikedByMe']) ||
+                  parsedMyReaction != null,
+              reactionCounts: parsedReactionCounts,
+              myReaction: parsedMyReaction,
+              gifUrl: gifRaw.isEmpty ? null : gifRaw,
+              stickerId: stickerRaw.isEmpty ? null : stickerRaw,
+              mediaAspectRatio:
+                  ((map['mediaAspectRatio'] ?? map['media_aspect_ratio'])
+                          as num?)
+                      ?.toDouble(),
               userReelLoves: JsonSafe.asInt(map['userReelLoves']),
               giftEmoji: emojiRaw.isEmpty ? null : emojiRaw,
               giftName: giftRaw.isEmpty ? null : giftRaw,
@@ -262,6 +293,9 @@ class HttpSocialRepository implements ISocialRepository {
     String? giftName,
     String? parentCommentId,
     String? replyToHandle,
+    String? gifUrl,
+    String? stickerId,
+    double? mediaAspectRatio,
   }) async {
     if (_shouldSkipNetwork) {
       return _addCommentFallback(
@@ -274,6 +308,9 @@ class HttpSocialRepository implements ISocialRepository {
         giftName: giftName,
         parentCommentId: parentCommentId,
         replyToHandle: replyToHandle,
+        gifUrl: gifUrl,
+        stickerId: stickerId,
+        mediaAspectRatio: mediaAspectRatio,
       );
     }
 
@@ -288,6 +325,9 @@ class HttpSocialRepository implements ISocialRepository {
         'parentCommentId': parentCommentId,
       if (replyToHandle != null && replyToHandle.isNotEmpty)
         'replyToHandle': replyToHandle,
+      if (gifUrl != null && gifUrl.isNotEmpty) 'gifUrl': gifUrl,
+      if (stickerId != null && stickerId.isNotEmpty) 'stickerId': stickerId,
+      'mediaAspectRatio': ?mediaAspectRatio,
     };
 
     try {
@@ -311,12 +351,17 @@ class HttpSocialRepository implements ISocialRepository {
           text: c['text'] as String? ?? text,
           likeCount: (c['likeCount'] as num?)?.toInt() ?? 0,
           isLikedByMe: c['isLikedByMe'] as bool? ?? false,
+          reactionCounts: KineticReactionType.parseCounts(c['reactionCounts']),
+          myReaction: KineticReactionType.fromWire(c['myReaction']),
+          gifUrl: c['gifUrl'] as String? ?? gifUrl,
+          stickerId: c['stickerId'] as String? ?? stickerId,
+          mediaAspectRatio:
+              (c['mediaAspectRatio'] as num?)?.toDouble() ?? mediaAspectRatio,
           userReelLoves:
               (c['userReelLoves'] as num?)?.toInt() ?? userReelLoves ?? 0,
           giftEmoji: c['giftEmoji'] as String? ?? giftEmoji,
           giftName: c['giftName'] as String? ?? giftName,
-          parentCommentId:
-              c['parentCommentId'] as String? ?? parentCommentId,
+          parentCommentId: c['parentCommentId'] as String? ?? parentCommentId,
           replyToHandle: c['replyToHandle'] as String? ?? replyToHandle,
           createdAt:
               DateTime.tryParse(c['createdAt'] as String? ?? '') ??
@@ -340,6 +385,9 @@ class HttpSocialRepository implements ISocialRepository {
       giftName: giftName,
       parentCommentId: parentCommentId,
       replyToHandle: replyToHandle,
+      gifUrl: gifUrl,
+      stickerId: stickerId,
+      mediaAspectRatio: mediaAspectRatio,
     );
   }
 
@@ -353,6 +401,9 @@ class HttpSocialRepository implements ISocialRepository {
     String? giftName,
     String? parentCommentId,
     String? replyToHandle,
+    String? gifUrl,
+    String? stickerId,
+    double? mediaAspectRatio,
   }) {
     final fallback = ReelComment(
       id: 'c_local_${DateTime.now().millisecondsSinceEpoch}',
@@ -361,6 +412,9 @@ class HttpSocialRepository implements ISocialRepository {
       username: username ?? 'ndugelo_musician',
       displayName: displayName ?? 'Ndugelo Musician',
       text: text.trim(),
+      gifUrl: gifUrl,
+      stickerId: stickerId,
+      mediaAspectRatio: mediaAspectRatio,
       userReelLoves: userReelLoves ?? 0,
       giftEmoji: giftEmoji,
       giftName: giftName,
@@ -404,6 +458,181 @@ class HttpSocialRepository implements ISocialRepository {
     );
     _fallbackLikes[commentId] = next;
     return next;
+  }
+
+  static const List<GifSearchItem> _curatedFallbackGifs = <GifSearchItem>[
+    GifSearchItem(
+      id: 'curated_groove_01',
+      title: 'Amapiano Log Drum Groove',
+      previewUrl: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/200w.gif',
+      gifUrl: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
+      width: 480,
+      height: 270,
+    ),
+    GifSearchItem(
+      id: 'curated_studio_02',
+      title: 'Studio Fire Session',
+      previewUrl: 'https://media.giphy.com/media/artj92V8o75VPL7AeQ/200w.gif',
+      gifUrl: 'https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif',
+      width: 480,
+      height: 360,
+    ),
+    GifSearchItem(
+      id: 'curated_vibe_03',
+      title: 'Head Nod Rhythm',
+      previewUrl: 'https://media.giphy.com/media/GeimqsH0TLDt4tScGw/200w.gif',
+      gifUrl: 'https://media.giphy.com/media/GeimqsH0TLDt4tScGw/giphy.gif',
+      width: 480,
+      height: 480,
+    ),
+    GifSearchItem(
+      id: 'curated_crown_04',
+      title: 'Pure Royalty Energy',
+      previewUrl: 'https://media.giphy.com/media/okLCopqw6ElCDnIhuS/200w.gif',
+      gifUrl: 'https://media.giphy.com/media/okLCopqw6ElCDnIhuS/giphy.gif',
+      width: 480,
+      height: 360,
+    ),
+  ];
+
+  @override
+  Future<
+    ({
+      int likeCount,
+      bool isLikedByMe,
+      Map<KineticReactionType, int> reactionCounts,
+      KineticReactionType? myReaction,
+    })
+  >
+  reactToComment(String commentId, KineticReactionType? reaction) async {
+    if (_shouldSkipNetwork) {
+      return _reactToCommentFallback(commentId, reaction);
+    }
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/social/comments/$commentId/react',
+        data: <String, dynamic>{'reactionType': reaction?.wireId},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = JsonSafe.asMap(response.data);
+        final myReaction = KineticReactionType.fromWire(data['myReaction']);
+        return (
+          likeCount: JsonSafe.asInt(data['likeCount']),
+          isLikedByMe: JsonSafe.asBool(data['liked'], myReaction != null),
+          reactionCounts: KineticReactionType.parseCounts(
+            data['reactionCounts'],
+          ),
+          myReaction: myReaction,
+        );
+      }
+    } catch (e) {
+      debugPrint('[HttpSocialRepository] reactToComment fallback: $e');
+    }
+    return _reactToCommentFallback(commentId, reaction);
+  }
+
+  ({
+    int likeCount,
+    bool isLikedByMe,
+    Map<KineticReactionType, int> reactionCounts,
+    KineticReactionType? myReaction,
+  })
+  _reactToCommentFallback(String commentId, KineticReactionType? reaction) {
+    final prev =
+        _fallbackCommentReactions[commentId] ??
+        (
+          likeCount: 0,
+          reactionCounts: const <KineticReactionType, int>{},
+          myReaction: null,
+        );
+    final counts = Map<KineticReactionType, int>.from(prev.reactionCounts);
+    if (prev.myReaction != null) {
+      final nextPrev = (counts[prev.myReaction!] ?? 0) - 1;
+      if (nextPrev > 0) {
+        counts[prev.myReaction!] = nextPrev;
+      } else {
+        counts.remove(prev.myReaction!);
+      }
+    }
+    final nextMy = (reaction != null && reaction == prev.myReaction)
+        ? null
+        : reaction;
+    if (nextMy != null) {
+      counts[nextMy] = (counts[nextMy] ?? 0) + 1;
+    }
+    final total = counts.values.fold<int>(0, (a, b) => a + b);
+    final nextCounts = Map<KineticReactionType, int>.unmodifiable(counts);
+    _fallbackCommentReactions[commentId] = (
+      likeCount: total,
+      reactionCounts: nextCounts,
+      myReaction: nextMy,
+    );
+    return (
+      likeCount: total,
+      isLikedByMe: nextMy != null,
+      reactionCounts: nextCounts,
+      myReaction: nextMy,
+    );
+  }
+
+  @override
+  Future<List<GifSearchItem>> searchGifs(String query, {int limit = 16}) async {
+    if (_shouldSkipNetwork) {
+      final qLower = query.trim().toLowerCase();
+      final filtered = qLower.isEmpty
+          ? _curatedFallbackGifs
+          : _curatedFallbackGifs
+                .where((g) => g.title.toLowerCase().contains(qLower))
+                .toList(growable: false);
+      return (filtered.isNotEmpty ? filtered : _curatedFallbackGifs)
+          .take(limit)
+          .toList(growable: false);
+    }
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/social/gifs/search',
+        queryParameters: <String, dynamic>{'q': query.trim(), 'limit': limit},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final rawList = JsonSafe.asList(response.data!['items']);
+        final parsed = rawList
+            .map(JsonSafe.asMap)
+            .where((m) => m.isNotEmpty)
+            .map(GifSearchItem.fromJson)
+            .where((g) => g.gifUrl.isNotEmpty)
+            .toList(growable: false);
+        if (parsed.isNotEmpty) return parsed;
+      }
+    } catch (e) {
+      debugPrint('[HttpSocialRepository] searchGifs fallback: $e');
+    }
+    return _curatedFallbackGifs.take(limit).toList(growable: false);
+  }
+
+  @override
+  Future<List<GifSearchItem>> getTrendingGifs({int limit = 16}) async {
+    if (_shouldSkipNetwork) {
+      return _curatedFallbackGifs.take(limit).toList(growable: false);
+    }
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/social/gifs/trending',
+        queryParameters: <String, dynamic>{'limit': limit},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final rawList = JsonSafe.asList(response.data!['items']);
+        final parsed = rawList
+            .map(JsonSafe.asMap)
+            .where((m) => m.isNotEmpty)
+            .map(GifSearchItem.fromJson)
+            .where((g) => g.gifUrl.isNotEmpty)
+            .toList(growable: false);
+        if (parsed.isNotEmpty) return parsed;
+      }
+    } catch (e) {
+      debugPrint('[HttpSocialRepository] getTrendingGifs fallback: $e');
+    }
+    return _curatedFallbackGifs.take(limit).toList(growable: false);
   }
 
   @override
@@ -807,9 +1036,8 @@ class HttpSocialRepository implements ISocialRepository {
         final parsed = rawPacks
             .whereType<Map>()
             .map(
-              (entry) => PayFastCoinPack.fromJson(
-                Map<String, dynamic>.from(entry),
-              ),
+              (entry) =>
+                  PayFastCoinPack.fromJson(Map<String, dynamic>.from(entry)),
             )
             .where((pack) => pack.packId.isNotEmpty)
             .toList(growable: false);
@@ -853,9 +1081,7 @@ class HttpSocialRepository implements ISocialRepository {
         return session;
       }
     } catch (e) {
-      debugPrint(
-        '[HttpSocialRepository] initiatePayFastCheckout fallback: $e',
-      );
+      debugPrint('[HttpSocialRepository] initiatePayFastCheckout fallback: $e');
     }
     return _initiatePayFastFallback(
       creatorId: creatorId,

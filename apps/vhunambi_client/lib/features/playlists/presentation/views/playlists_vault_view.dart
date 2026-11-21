@@ -5,6 +5,8 @@ import 'package:vhunambi_client/core/theme/app_colors.dart';
 import 'package:vhunambi_client/core/theme/app_dimensions.dart';
 import 'package:vhunambi_client/core/theme/app_typography.dart';
 import 'package:vhunambi_client/core/utils/responsive_utils.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_bottom_dock_kit.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
 import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
 import 'package:vhunambi_client/features/library/presentation/providers/library_providers.dart';
 import 'package:vhunambi_client/features/library/presentation/widgets/library_empty_state.dart';
@@ -12,6 +14,7 @@ import 'package:vhunambi_client/features/playlists/domain/models/playlist_entity
 import 'package:vhunambi_client/features/playlists/presentation/providers/playlists_provider.dart';
 import 'package:vhunambi_client/features/playlists/presentation/views/playlist_detail_view.dart';
 import 'package:vhunambi_client/features/playlists/presentation/widgets/playlist_cover_art.dart';
+import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
 
 /// The Playlists tab view in User Library Vault (`/library?tab=playlists`).
@@ -150,6 +153,12 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
     final allPlaylists = ref.watch(playlistsProvider);
     final viewMode = ref.watch(libraryViewModeProvider);
     final isCloudSyncing = ref.watch(playlistCloudSyncingProvider);
+    final hasActiveTrack = ref.watch(
+      playerStateProvider.select((s) => s.hasActiveTrack),
+    );
+    final bottomInset = VhunambiBottomDockMetrics.scrollInset(
+      hasActiveTrack: hasActiveTrack,
+    );
 
     final filteredPlaylists = _searchQuery.isEmpty
         ? allPlaylists
@@ -238,8 +247,11 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: AppRadius.pillBorder,
-                        borderSide: const BorderSide(
-                          color: AppColors.brandPrimary,
+                        borderSide: BorderSide(
+                          color: AppColors.textPrimaryOf(
+                            context,
+                          ).withValues(alpha: 0.22),
+                          width: 1.0,
                         ),
                       ),
                     ),
@@ -309,11 +321,11 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
                 )
               : viewMode == LibraryViewMode.grid
               ? GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(
+                  padding: EdgeInsets.fromLTRB(
                     AppSpacing.md,
                     AppSpacing.xxs,
                     AppSpacing.md,
-                    110,
+                    bottomInset,
                   ),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: ResponsiveUtils.gridColumns(context),
@@ -342,11 +354,11 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
                   },
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(
+                  padding: EdgeInsets.fromLTRB(
                     AppSpacing.md,
                     AppSpacing.xxs,
                     AppSpacing.md,
-                    110,
+                    bottomInset,
                   ),
                   itemCount: filteredPlaylists.length,
                   separatorBuilder: (_, _) =>
@@ -395,119 +407,113 @@ class _PlaylistGridCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surfaceElevated,
-      borderRadius: AppRadius.cardBorder,
+    return VhunambiGlassSurface(
+      variant: VhunambiGlassVariant.card,
+      enableLiveBlur: false,
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: InkWell(
         onTap: onTap,
         borderRadius: AppRadius.cardBorder,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.cardBorder,
-            border: Border.all(color: AppColors.borderSubtle),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Cover Artwork
-              Expanded(
-                child: Center(
-                  child: PlaylistCoverArt(
-                    playlist: playlist,
-                    tracks: tracks,
-                    size: 120,
-                  ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cover Artwork
+            Expanded(
+              child: Center(
+                child: PlaylistCoverArt(
+                  playlist: playlist,
+                  tracks: tracks,
+                  size: 120,
                 ),
               ),
-              const SizedBox(height: AppSpacing.xs),
+            ),
+            const SizedBox(height: AppSpacing.xs),
 
-              // Title and context menu
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      playlist.title,
-                      style: AppTypography.bodyLarge.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+            // Title and context menu
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    playlist.title,
+                    style: AppTypography.bodyLarge.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimaryOf(context),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  PopupMenuButton<String>(
-                    icon: PhosphorIcon(
-                      PhosphorIconsRegular.dotsThreeVertical,
-                      size: 18,
-                      color: AppColors.textSecondary,
-                    ),
-                    color: AppColors.surfaceModal,
-                    onSelected: (action) {
-                      if (action == 'rename') onRename();
-                      if (action == 'share') onShare();
-                      if (action == 'delete') onDelete();
-                    },
-                    itemBuilder: (_) => [
-                      PopupMenuItem(
-                        value: 'rename',
-                        child: Row(
-                          children: [
-                            PhosphorIcon(
-                              PhosphorIconsRegular.pencilSimple,
-                              size: 16,
-                              color: AppColors.textPrimary,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text('Rename'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'share',
-                        child: Row(
-                          children: [
-                            PhosphorIcon(
-                              PhosphorIconsRegular.shareNetwork,
-                              size: 16,
-                              color: AppColors.brandPrimary,
-                            ),
-                            SizedBox(width: 8),
-                            Text('Share Link'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            PhosphorIcon(
-                              PhosphorIconsRegular.trash,
-                              size: 16,
-                              color: AppColors.error,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Delete',
-                              style: TextStyle(color: AppColors.error),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              // Count info
-              Text(
-                '${playlist.trackCount} ${playlist.trackCount == 1 ? 'song' : 'songs'}',
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
                 ),
+                PopupMenuButton<String>(
+                  icon: PhosphorIcon(
+                    PhosphorIconsRegular.dotsThreeVertical,
+                    size: 18,
+                    color: AppColors.textSecondaryOf(context),
+                  ),
+                  color: AppColors.surfaceModalOf(context),
+                  onSelected: (action) {
+                    if (action == 'rename') onRename();
+                    if (action == 'share') onShare();
+                    if (action == 'delete') onDelete();
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: 'rename',
+                      child: Row(
+                        children: [
+                          PhosphorIcon(
+                            PhosphorIconsRegular.pencilSimple,
+                            size: 16,
+                            color: AppColors.textPrimary,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('Rename'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'share',
+                      child: Row(
+                        children: [
+                          PhosphorIcon(
+                            PhosphorIconsRegular.shareNetwork,
+                            size: 16,
+                            color: AppColors.brandPrimary,
+                          ),
+                          SizedBox(width: 8),
+                          Text('Share Link'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          PhosphorIcon(
+                            PhosphorIconsRegular.trash,
+                            size: 16,
+                            color: AppColors.error,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Delete',
+                            style: TextStyle(color: AppColors.error),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            // Count info
+            Text(
+              '${playlist.trackCount} ${playlist.trackCount == 1 ? 'song' : 'songs'}',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textSecondaryOf(context),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -533,12 +539,9 @@ class _PlaylistListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surfaceElevated,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.cardBorder,
-        side: BorderSide(color: AppColors.borderSubtle),
-      ),
+    return VhunambiGlassSurface(
+      variant: VhunambiGlassVariant.card,
+      enableLiveBlur: false,
       child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(
@@ -548,7 +551,10 @@ class _PlaylistListTile extends StatelessWidget {
         leading: PlaylistCoverArt(playlist: playlist, tracks: tracks, size: 48),
         title: Text(
           playlist.title,
-          style: AppTypography.bodyLarge.copyWith(fontWeight: FontWeight.w600),
+          style: AppTypography.bodyLarge.copyWith(
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimaryOf(context),
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -556,7 +562,9 @@ class _PlaylistListTile extends StatelessWidget {
           playlist.description.isNotEmpty
               ? '${playlist.trackCount} ${playlist.trackCount == 1 ? 'song' : 'songs'} • ${playlist.description}'
               : '${playlist.trackCount} ${playlist.trackCount == 1 ? 'song' : 'songs'}',
-          style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+          style: AppTypography.caption.copyWith(
+            color: AppColors.textSecondaryOf(context),
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -564,9 +572,9 @@ class _PlaylistListTile extends StatelessWidget {
           icon: PhosphorIcon(
             PhosphorIconsRegular.dotsThreeVertical,
             size: 20,
-            color: AppColors.textSecondary,
+            color: AppColors.textSecondaryOf(context),
           ),
-          color: AppColors.surfaceModal,
+          color: AppColors.surfaceModalOf(context),
           onSelected: (action) {
             if (action == 'rename') onRename();
             if (action == 'share') onShare();

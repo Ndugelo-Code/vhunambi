@@ -11,8 +11,8 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/constants/app_assets.dart';
 import '../../../../core/navigation/navigation_providers.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../../shared/models/track.dart';
 import '../../domain/models/social_music_post.dart';
@@ -125,12 +125,6 @@ class _CreateKineticPostSheetState
     }
 
     if (_attachedImages.length >= 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Maximum 4 static images per Kinetic Post.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
       return;
     }
 
@@ -338,14 +332,18 @@ class _CreateKineticPostSheetState
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 const SizedBox(width: AppSpacing.xs),
-                Text(
-                  'Create Kinetic Post',
-                  style: AppTypography.titleMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                Expanded(
+                  child: Text(
+                    'Create Kinetic Post',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.titleMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: AppSpacing.xs),
                 ElevatedButton(
                   key: const Key('kpost_publish_submit_btn'),
                   onPressed: _publishKineticPost,
@@ -400,6 +398,9 @@ class _CreateKineticPostSheetState
                       color: AppColors.textSecondary,
                     ),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
                   ),
                 ),
 
@@ -421,7 +422,24 @@ class _CreateKineticPostSheetState
                           child: GestureDetector(
                             onTap: () {
                               HapticFeedback.selectionClick();
-                              setState(() => _selectedAspectRatio = ratio);
+                              setState(() {
+                                _selectedAspectRatio = ratio;
+                                for (
+                                  var i = 0;
+                                  i < _attachedImages.length;
+                                  i++
+                                ) {
+                                  final current = _attachedImages[i];
+                                  _attachedImages[i] =
+                                      KineticPostImageAttachment(
+                                        imageUrl: current.imageUrl,
+                                        isAiGeneratedVision:
+                                            current.isAiGeneratedVision,
+                                        visionPrompt: current.visionPrompt,
+                                        aspectRatio: ratio,
+                                      );
+                                }
+                              });
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -455,26 +473,31 @@ class _CreateKineticPostSheetState
                   children: [
                     // Upload Photo Button
                     Expanded(
-                      child: OutlinedButton.icon(
-                        key: const Key('kpost_upload_photo_btn'),
-                        onPressed: _mockPickImage,
-                        icon: const PhosphorIcon(
-                          PhosphorIconsRegular.image,
-                          size: 18,
-                        ),
-                        label: Text(
-                          'Add Photo (${_attachedImages.length}/4)',
-                          style: AppTypography.bodySmall.copyWith(
-                            fontWeight: FontWeight.w600,
+                      child: Opacity(
+                        opacity: _attachedImages.length >= 4 ? 0.45 : 1.0,
+                        child: OutlinedButton.icon(
+                          key: const Key('kpost_upload_photo_btn'),
+                          onPressed: _attachedImages.length >= 4
+                              ? null
+                              : _mockPickImage,
+                          icon: const PhosphorIcon(
+                            PhosphorIconsRegular.image,
+                            size: 18,
                           ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textPrimary,
-                          side: BorderSide(color: AppColors.borderSubtle),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.pillBorder,
+                          label: Text(
+                            'Add Photo (${_attachedImages.length}/4)',
+                            style: AppTypography.bodySmall.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          minimumSize: const Size(0, 44),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.textPrimary,
+                            side: BorderSide(color: AppColors.borderSubtle),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: AppRadius.pillBorder,
+                            ),
+                            minimumSize: const Size(0, 44),
+                          ),
                         ),
                       ),
                     ),
@@ -482,44 +505,71 @@ class _CreateKineticPostSheetState
 
                     // Vhunambi Vision AI Button
                     Expanded(
-                      child: ElevatedButton.icon(
-                        key: const Key('kpost_vision_ai_btn'),
-                        onPressed: _generateVisionAiArtwork,
-                        icon: const PhosphorIcon(
-                          PhosphorIconsFill.sparkle,
-                          size: 18,
-                          color: AppColors.badgeCyan,
-                        ),
-                        label: _isGeneratingVision
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    Colors.white,
+                      child: Opacity(
+                        opacity: _attachedImages.length >= 4 ? 0.45 : 1.0,
+                        child: ElevatedButton.icon(
+                          key: const Key('kpost_vision_ai_btn'),
+                          onPressed: _attachedImages.length >= 4
+                              ? null
+                              : _generateVisionAiArtwork,
+                          icon: const PhosphorIcon(
+                            PhosphorIconsFill.sparkle,
+                            size: 18,
+                            color: AppColors.badgeCyan,
+                          ),
+                          label: _isGeneratingVision
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  'Vision AI',
+                                  style: AppTypography.bodySmall.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
                                   ),
                                 ),
-                              )
-                            : Text(
-                                'Vision AI',
-                                style: AppTypography.bodySmall.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.surfaceSecondary,
-                          side: const BorderSide(color: AppColors.badgeCyan),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.pillBorder,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.surfaceSecondary,
+                            side: const BorderSide(color: AppColors.badgeCyan),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: AppRadius.pillBorder,
+                            ),
+                            minimumSize: const Size(0, 44),
                           ),
-                          minimumSize: const Size(0, 44),
                         ),
                       ),
                     ),
                   ],
                 ),
+                if (_attachedImages.length >= 4) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Container(
+                    key: const Key('kpost_max_images_badge'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondary,
+                      borderRadius: AppRadius.pillBorder,
+                      border: Border.all(color: AppColors.borderSubtle),
+                    ),
+                    child: Text(
+                      '4/4 Max images attached',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
 
                 // Vision Prompt input if user desires
                 const SizedBox(height: AppSpacing.xs),
@@ -573,49 +623,20 @@ class _CreateKineticPostSheetState
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(10),
-                              child: Image.network(
-                                img.imageUrl,
-                                width: 90,
+                              child: SizedBox(
                                 height: 90,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => Container(
-                                  width: 90,
-                                  height: 90,
-                                  decoration: BoxDecoration(
+                                child: AspectRatio(
+                                  aspectRatio: _selectedAspectRatio.ratio,
+                                  child: VhunambiTrackArtwork(
+                                    coverUrl:
+                                        AppConstants.normalizeCloudMediaUrl(
+                                          img.imageUrl,
+                                        ),
+                                    genre: _selectedTrack?.genre ?? 'Amapiano',
+                                    trackId:
+                                        '${_selectedTrack?.id ?? "vision"}_$idx',
                                     borderRadius: BorderRadius.circular(10),
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        AppColors.brandPrimary.withValues(
-                                          alpha: 0.85,
-                                        ),
-                                        AppColors.badgeCyan.withValues(
-                                          alpha: 0.85,
-                                        ),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                  ),
-                                  child: Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      Opacity(
-                                        opacity: 0.22,
-                                        child: Image.asset(
-                                          AppAssets.heritageCrateCover,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, _, _) =>
-                                              const SizedBox.shrink(),
-                                        ),
-                                      ),
-                                      const Center(
-                                        child: PhosphorIcon(
-                                          PhosphorIconsFill.sparkle,
-                                          size: 28,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ],
+                                    showSubtleBorder: false,
                                   ),
                                 ),
                               ),
@@ -868,26 +889,25 @@ class _CreateKineticPostSheetState
                       const SizedBox(height: AppSpacing.xs),
 
                       // Duration Trimming Pills (15s, 30s, 60s, Full)
-                      Row(
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
                         children: [
                           _buildTrimPill(
                             key: const Key('kpost_trim_15s'),
                             label: '15s Hook',
                             durationSec: 15.0,
                           ),
-                          const SizedBox(width: 6),
                           _buildTrimPill(
                             key: const Key('kpost_trim_30s'),
                             label: '30s Hook',
                             durationSec: 30.0,
                           ),
-                          const SizedBox(width: 6),
                           _buildTrimPill(
                             key: const Key('kpost_trim_60s'),
                             label: '60s Verse',
                             durationSec: 60.0,
                           ),
-                          const SizedBox(width: 6),
                           _buildTrimPill(
                             key: const Key('kpost_trim_full'),
                             label: 'Full Song',

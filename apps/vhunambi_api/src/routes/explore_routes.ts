@@ -98,8 +98,9 @@ exploreRoutes.get('/feed', async (c) => {
   const genre = c.req.query('genre');
   const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : 20;
   const offset = c.req.query('offset') ? parseInt(c.req.query('offset')!, 10) : 0;
+  const viewerCreatorId = c.get('authUser')?.creatorId ?? 'creator_cern';
 
-  const result = vhunambiDb.getExploreFeed({ stage, genre, limit, offset });
+  const result = vhunambiDb.getExploreFeed({ stage, genre, limit, offset, viewerCreatorId });
   return c.json(result);
 });
 
@@ -147,11 +148,12 @@ exploreRoutes.post('/posts/:id/repost', async (c) => {
 // GET /api/explore/posts/:id — Single Kinetic Post lookup (Phase 69 REQ-P69-API-01)
 exploreRoutes.get('/posts/:id', async (c) => {
   const postId = c.req.param('id');
+  const viewerCreatorId = c.get('authUser')?.creatorId ?? 'creator_cern';
   await vhunambiDb.syncExploreFromCloud(false, c);
-  let post = vhunambiDb.getKineticPostById(postId);
+  let post = vhunambiDb.getKineticPostById(postId, viewerCreatorId);
   if (!post) {
     await vhunambiDb.syncExploreFromCloud(true, c);
-    post = vhunambiDb.getKineticPostById(postId);
+    post = vhunambiDb.getKineticPostById(postId, viewerCreatorId);
   }
   if (!post) {
     return c.json({ error: 'Post not found', postId }, 404);
@@ -178,6 +180,31 @@ exploreRoutes.post('/posts', async (c) => {
   } catch (err: any) {
     return c.json({ success: false, error: err?.message || 'Invalid JSON' }, 400);
   }
+});
+
+// POST /api/explore/posts/:id/react — Phase 73 Multi-Reaction Toggle/Switch
+exploreRoutes.post('/posts/:id/react', async (c) => {
+  const postId = c.req.param('id');
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await c.req.json()) as Record<string, unknown>;
+  } catch (_) {}
+  const effectiveCreatorId = resolveEffectiveCreatorId(
+    c,
+    typeof body.creatorId === 'string' ? body.creatorId : undefined,
+    'creator_cern',
+  );
+  const rawReaction = body.reactionType ?? body.reaction ?? null;
+  const result = await vhunambiDb.reactToKineticPostAsync(
+    postId,
+    effectiveCreatorId,
+    typeof rawReaction === 'string' ? (rawReaction as any) : null,
+    c,
+  );
+  if (!result.success) {
+    return c.json({ error: 'Post not found', postId }, 404);
+  }
+  return c.json(result, 200);
 });
 
 // POST /api/explore/posts/:id/like — Optimistic post like toggle (Phase 69 REQ-P69-API-01)
@@ -219,12 +246,30 @@ exploreRoutes.post('/posts/:id/comments', async (c) => {
     return c.json({ error: 'INVALID_REQUEST' }, 400);
   }
   const text = String(body?.text ?? '').trim();
-  if (!text) {
-    return c.json({ error: 'INVALID_REQUEST', message: 'text is required' }, 400);
+  const gifUrl = typeof body?.gifUrl === 'string' ? body.gifUrl.trim() : '';
+  const stickerId =
+    typeof body?.stickerId === 'string' ? body.stickerId.trim() : '';
+  const mediaAspectRatio =
+    typeof body?.mediaAspectRatio === 'number' &&
+    Number.isFinite(body.mediaAspectRatio)
+      ? body.mediaAspectRatio
+      : undefined;
+
+  if (!text && !gifUrl && !stickerId) {
+    return c.json(
+      {
+        error: 'INVALID_REQUEST',
+        message: 'text, gifUrl, or stickerId is required',
+      },
+      400,
+    );
   }
   const authUser = c.get('authUser');
   const comment = vhunambiDb.addKineticPostComment(postId, {
     text,
+    ...(gifUrl ? { gifUrl } : {}),
+    ...(stickerId ? { stickerId } : {}),
+    ...(mediaAspectRatio ? { mediaAspectRatio } : {}),
     userId: body?.userId ?? authUser?.creatorId ?? 'creator_cern',
     username:
       body?.username ?? authUser?.handle?.replace(/^@/, '') ?? 'cern',
@@ -239,6 +284,30 @@ exploreRoutes.post('/posts/:id/comments', async (c) => {
     return c.json({ error: 'NOT_FOUND', message: `Post ${postId} not found` }, 404);
   }
   return c.json(comment, 201);
+});
+
+// POST /api/explore/comments/:id/react — Phase 73 Comment Multi-Reaction
+exploreRoutes.post('/comments/:id/react', async (c) => {
+  const commentId = c.req.param('id');
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await c.req.json()) as Record<string, unknown>;
+  } catch (_) {}
+  const actorId = c.get('authUser')?.creatorId ?? 'creator_cern';
+  const rawReaction = body.reactionType ?? body.reaction ?? null;
+  const result = await vhunambiDb.reactToCommentAsync(
+    commentId,
+    actorId,
+    typeof rawReaction === 'string' ? (rawReaction as any) : null,
+    c,
+  );
+  if (!result) {
+    return c.json(
+      { error: 'NOT_FOUND', message: `Comment ${commentId} not found` },
+      404,
+    );
+  }
+  return c.json(result, 200);
 });
 
 // POST /api/explore/comments/:id/like — Like a comment on Explore (Phase 69 REQ-P69-API-01)

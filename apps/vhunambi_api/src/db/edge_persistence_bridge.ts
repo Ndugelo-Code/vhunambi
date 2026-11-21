@@ -207,6 +207,88 @@ export interface SaBankMetadata {
   supportsPayFast: boolean;
 }
 
+export type KineticReactionWire =
+  | 'like'
+  | 'love'
+  | 'haha'
+  | 'fire'
+  | 'wow'
+  | 'angry';
+
+export const VALID_KINETIC_REACTIONS = new Set<KineticReactionWire>([
+  'like',
+  'love',
+  'haha',
+  'fire',
+  'wow',
+  'angry',
+]);
+
+export function normalizeKineticReactionWire(
+  raw: unknown,
+): KineticReactionWire | null {
+  if (typeof raw !== 'string') return null;
+  const cleaned = raw.trim().toLowerCase() as KineticReactionWire;
+  return VALID_KINETIC_REACTIONS.has(cleaned) ? cleaned : null;
+}
+
+export function normalizeReactionCounts(
+  raw: unknown,
+): Record<KineticReactionWire, number> {
+  const out: Record<KineticReactionWire, number> = {
+    like: 0,
+    love: 0,
+    haha: 0,
+    fire: 0,
+    wow: 0,
+    angry: 0,
+  };
+  let parsed: Record<string, unknown> = {};
+  if (typeof raw === 'string') {
+    try {
+      parsed = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      parsed = {};
+    }
+  } else if (raw && typeof raw === 'object') {
+    parsed = raw as Record<string, unknown>;
+  }
+  for (const key of VALID_KINETIC_REACTIONS) {
+    const val = Number(parsed[key] ?? 0);
+    out[key] = Number.isFinite(val) && val > 0 ? Math.floor(val) : 0;
+  }
+  return out;
+}
+
+export function compactReactionCounts(
+  counts: Record<KineticReactionWire, number>,
+): Partial<Record<KineticReactionWire, number>> {
+  const result: Partial<Record<KineticReactionWire, number>> = {};
+  for (const key of VALID_KINETIC_REACTIONS) {
+    if (counts[key] > 0) result[key] = counts[key];
+  }
+  return result;
+}
+
+export function sumReactionCounts(
+  counts: Record<KineticReactionWire, number>,
+): number {
+  let total = 0;
+  for (const key of VALID_KINETIC_REACTIONS) {
+    total += counts[key] || 0;
+  }
+  return total;
+}
+
+export interface KineticReactionMutationResult {
+  success: boolean;
+  targetId: string;
+  myReaction: KineticReactionWire | null;
+  reactionCounts: Partial<Record<KineticReactionWire, number>>;
+  likeCount: number;
+  liked: boolean;
+}
+
 export const SA_BANK_REGISTRY: Record<string, SaBankMetadata> = {
   capitec: {
     canonicalName: 'Capitec Bank',
@@ -431,6 +513,7 @@ export class EdgeIsolateDatabaseEngine {
   private readonly publishedClips = new Map<string, Record<string, any>>();
   private readonly reelComments = new Map<string, Record<string, any>>();
   private readonly socialInteractions = new Set<string>();
+  private readonly socialInteractionReactions = new Map<string, KineticReactionWire>();
   private readonly notifications = new Map<string, NotificationRecord>();
   private readonly creatorQuotas = new Map<string, CreatorQuotaRecord>();
 
@@ -527,6 +610,7 @@ export class EdgeIsolateDatabaseEngine {
     this.publishedClips.clear();
     this.reelComments.clear();
     this.socialInteractions.clear();
+    this.socialInteractionReactions.clear();
     this.notifications.clear();
     this.creatorQuotas.clear();
     this.seedDefaults();
@@ -808,45 +892,8 @@ export class EdgeIsolateDatabaseEngine {
 
         this.hydrateReelCommentRows(commentsRows);
 
-        for (const ma of assetsRows) {
-          if (!ma.id) continue;
-          const norm = normalizeMarketplaceAssetRow(ma);
-          const updatedIso = new Date(Number(ma.updated_at || Date.now())).toISOString();
-          this.marketplaceAssets.set(String(ma.id), {
-            id: String(ma.id),
-            title: String(ma.title ?? 'Untitled Beat'),
-            producer_id: String(ma.producer_id ?? 'creator_cern'),
-            asset_category: 'beats',
-            price_zar: Number(ma.price_zar ?? 0),
-            price_coins: Number(ma.price_coins ?? 0),
-            is_exclusive_sold: ma.is_exclusive_sold ? 1 : 0,
-            exclusive_buyer_id: ma.exclusive_buyer_id ? String(ma.exclusive_buyer_id) : null,
-            data_json: JSON.stringify(norm),
-            created_at: updatedIso,
-            updated_at: updatedIso,
-          });
-        }
-
-        for (const bl of licensesRows) {
-          if (!bl.certificate_id) continue;
-          const norm = normalizeBeatLicenseRow(bl);
-          const amtZar = Number(bl.amount_paid_zar ?? norm.amountPaidZar ?? 0);
-          const amtCoins = Number(bl.amount_paid_coins ?? norm.amountPaidCoins ?? 0);
-          this.beatLicenses.set(String(bl.certificate_id), {
-            certificate_id: String(bl.certificate_id),
-            license_hash: String(bl.license_hash ?? ''),
-            beat_id: String(bl.beat_id ?? ''),
-            producer_id: String(bl.producer_id ?? ''),
-            buyer_id: String(bl.buyer_id ?? ''),
-            tier: String(bl.tier ?? 'basic_lease'),
-            coins_paid: amtCoins,
-            zar_paid: amtZar,
-            producer_coins: Math.max(1, Math.floor(amtCoins * 0.85)),
-            producer_zar: Number((amtZar * 0.85).toFixed(2)),
-            issued_at: new Date(Number(bl.purchased_at || Date.now())).toISOString(),
-            data_json: JSON.stringify(norm),
-          });
-        }
+        this.hydrateMarketplaceAssetRows(assetsRows);
+        this.hydrateBeatLicenseRows(licensesRows);
 
         for (const ss of signaturesRows) {
           if (!ss.id) continue;
@@ -868,44 +915,8 @@ export class EdgeIsolateDatabaseEngine {
           });
         }
 
-        for (const lib of libraryRows) {
-          if (!lib.id) continue;
-          const norm = normalizeLibrarySyncRow(lib);
-          const normId = String(norm.id);
-          this.libraryItems.set(normId, {
-            id: normId,
-            creator_id: String(norm.creatorId ?? lib.creator_id ?? 'creator_cern'),
-            item_type: String(norm.itemType ?? 'track'),
-            title: String(norm.title ?? 'Untitled Track'),
-            data_json: JSON.stringify(norm),
-            created_at: String(norm.createdAt ?? norm.updatedAt ?? new Date().toISOString()),
-            updated_at: String(norm.updatedAt ?? new Date().toISOString()),
-          });
-        }
-
-        for (const pl of playlistRows) {
-          if (!pl.id) continue;
-          const norm = normalizePlaylistRow(pl);
-          const id = String(norm.id);
-          const rawShareCode = norm.shareCode ? String(norm.shareCode) : null;
-          const effectiveShareCode =
-            rawShareCode && rawShareCode.startsWith('priv_') ? null : rawShareCode;
-          const createdIso = new Date(Number(pl.created_at || Date.now())).toISOString();
-          const updatedIso = new Date(Number(pl.updated_at || Date.now())).toISOString();
-          this.playlists.set(id, {
-            id,
-            creator_id: String(norm.creatorId ?? 'usr_me'),
-            title: String(norm.title ?? 'Untitled Playlist'),
-            description: String(norm.description ?? ''),
-            cover_image_url: norm.coverImageUrl ?? null,
-            track_ids_json: JSON.stringify(norm.trackIds ?? []),
-            is_public: norm.isPublic ? 1 : 0,
-            share_code: effectiveShareCode,
-            share_url: effectiveShareCode ? `https://vhunambi.za/p/${effectiveShareCode}` : null,
-            created_at: createdIso,
-            updated_at: updatedIso,
-          });
-        }
+        this.hydrateLibraryRows(libraryRows);
+        this.hydratePlaylistRows(playlistRows);
 
         for (const gj of jobRows) {
           if (!gj.generation_id) continue;
@@ -938,12 +949,7 @@ export class EdgeIsolateDatabaseEngine {
           });
         }
 
-        for (const si of socialRows) {
-          if (!si.interaction_type || !si.target_id || !si.actor_creator_id) continue;
-          this.socialInteractions.add(
-            `${si.interaction_type}::${si.target_id}::${canonicalizeCreatorId(String(si.actor_creator_id))}`,
-          );
-        }
+        this.hydrateSocialInteractionRows(socialRows);
 
         const groupedWallet = new Map<string, Array<Record<string, any>>>();
         for (const wl of walletRows) {
@@ -1118,6 +1124,23 @@ export class EdgeIsolateDatabaseEngine {
     }
   }
 
+  private hydrateSocialInteractionRows(rows: Array<Record<string, any>>): void {
+    for (const row of rows) {
+      const interactionType = String(row.interaction_type ?? '').trim();
+      const targetId = String(row.target_id ?? '').trim();
+      const actor = canonicalizeCreatorId(
+        String(row.actor_creator_id ?? 'creator_cern'),
+      );
+      if (!interactionType || !targetId) continue;
+      const key = `${interactionType}::${targetId}::${actor}`;
+      this.socialInteractions.add(key);
+      const rx = normalizeKineticReactionWire(row.reaction_type);
+      if (rx) {
+        this.socialInteractionReactions.set(key, rx);
+      }
+    }
+  }
+
   private hydrateKineticPostRows(postsRows: Array<Record<string, any>>): void {
     for (const kp of postsRows) {
       if (!kp.id) continue;
@@ -1125,6 +1148,11 @@ export class EdgeIsolateDatabaseEngine {
         kp.data_json && typeof kp.data_json === 'object'
           ? (kp.data_json as Record<string, any>)
           : {};
+      const reactionCounts = compactReactionCounts(
+        normalizeReactionCounts(
+          kp.reaction_counts_json ?? dataObj.reactionCounts,
+        ),
+      );
       this.kineticPosts.set(String(kp.id), {
         id: String(kp.id),
         creator_id: String(kp.creator_id ?? 'creator_cern'),
@@ -1137,9 +1165,15 @@ export class EdgeIsolateDatabaseEngine {
         cosign_count: Number(kp.cosign_count ?? 0),
         cosign_target: Number(dataObj.cosignTarget ?? 25),
         repost_count: Number(kp.repost_count ?? 0),
+        reaction_counts_json: JSON.stringify(reactionCounts),
         discovery_stage: String(kp.discovery_stage ?? 'freshCrate'),
         data_json:
-          typeof kp.data_json === 'string' ? kp.data_json : JSON.stringify(dataObj),
+          typeof kp.data_json === 'string'
+            ? kp.data_json
+            : JSON.stringify({
+              ...dataObj,
+              reactionCounts,
+            }),
         created_at: new Date(Number(kp.created_at || Date.now())).toISOString(),
         updated_at: new Date(Number(kp.updated_at || Date.now())).toISOString(),
       });
@@ -1166,6 +1200,24 @@ export class EdgeIsolateDatabaseEngine {
       );
       const avatarUrl = String(rc.avatar_url ?? parsed.avatarUrl ?? '');
       const isCreator = Boolean(rc.is_creator ?? parsed.isCreator ?? false);
+      const reactionCounts = compactReactionCounts(
+        normalizeReactionCounts(rc.reaction_counts_json ?? parsed.reactionCounts),
+      );
+      const gifUrl =
+        (rc.gif_url ?? parsed.gifUrl)
+          ? String(rc.gif_url ?? parsed.gifUrl)
+          : undefined;
+      const stickerId =
+        (rc.sticker_id ?? parsed.stickerId)
+          ? String(rc.sticker_id ?? parsed.stickerId)
+          : undefined;
+      const mediaAspectRatioRaw =
+        rc.media_aspect_ratio ?? parsed.mediaAspectRatio;
+      const mediaAspectRatio =
+        typeof mediaAspectRatioRaw === 'number' &&
+          Number.isFinite(mediaAspectRatioRaw)
+          ? mediaAspectRatioRaw
+          : undefined;
 
       this.reelComments.set(String(rc.id), {
         id: String(rc.id),
@@ -1180,6 +1232,10 @@ export class EdgeIsolateDatabaseEngine {
         language_code: parsed.languageCode ? String(parsed.languageCode) : null,
         parent_comment_id: parentCommentId,
         reply_to_handle: replyToHandle,
+        reaction_counts_json: JSON.stringify(reactionCounts),
+        gif_url: gifUrl ?? null,
+        sticker_id: stickerId ?? null,
+        media_aspect_ratio: mediaAspectRatio ?? null,
         data_json: JSON.stringify({
           ...parsed,
           id: String(rc.id),
@@ -1191,6 +1247,10 @@ export class EdgeIsolateDatabaseEngine {
           isCreator,
           text: String(rc.text ?? ''),
           likeCount: likesCount,
+          reactionCounts,
+          ...(gifUrl ? { gifUrl } : {}),
+          ...(stickerId ? { stickerId } : {}),
+          ...(mediaAspectRatio ? { mediaAspectRatio } : {}),
           userReelLoves: Number(rc.user_reel_loves ?? parsed.userReelLoves ?? 0),
           ...(rc.gift_emoji ? { giftEmoji: String(rc.gift_emoji) } : {}),
           ...(rc.gift_name ? { giftName: String(rc.gift_name) } : {}),
@@ -1368,35 +1428,47 @@ export class EdgeIsolateDatabaseEngine {
     }
 
     const syncPromise = (async (): Promise<boolean> => {
-      const [tracksRes, postsRes, commentsRes] = await Promise.all([
-        EdgeIsolateDatabaseEngine.withTimeoutResult(
-          driver.selectRows<Record<string, any>>(
-            'explore_tracks',
-            'select=*&order=updated_at.desc&limit=200',
+      const [tracksRes, postsRes, commentsRes, interactionsRes] =
+        await Promise.all([
+          EdgeIsolateDatabaseEngine.withTimeoutResult(
+            driver.selectRows<Record<string, any>>(
+              'explore_tracks',
+              'select=*&order=updated_at.desc&limit=200',
+            ),
+            3500,
           ),
-          3500,
-        ),
-        EdgeIsolateDatabaseEngine.withTimeoutResult(
-          driver.selectRows<Record<string, any>>(
-            'kinetic_posts',
-            'select=*&order=created_at.desc&limit=200',
+          EdgeIsolateDatabaseEngine.withTimeoutResult(
+            driver.selectRows<Record<string, any>>(
+              'kinetic_posts',
+              'select=*&order=created_at.desc&limit=200',
+            ),
+            3500,
           ),
-          3500,
-        ),
-        EdgeIsolateDatabaseEngine.withTimeoutResult(
-          driver.selectRows<Record<string, any>>(
-            'reel_comments',
-            'select=*&order=timestamp_ms.desc&limit=400',
+          EdgeIsolateDatabaseEngine.withTimeoutResult(
+            driver.selectRows<Record<string, any>>(
+              'reel_comments',
+              'select=*&order=timestamp_ms.desc&limit=400',
+            ),
+            3500,
           ),
-          3500,
-        ),
-      ]);
+          EdgeIsolateDatabaseEngine.withTimeoutResult(
+            driver.selectRows<Record<string, any>>(
+              'social_interactions',
+              'select=*&limit=1000',
+            ),
+            3500,
+          ),
+        ]);
 
       if (tracksRes.ok) this.hydrateExploreTrackRows(tracksRes.value);
       if (postsRes.ok) this.hydrateKineticPostRows(postsRes.value);
       if (commentsRes.ok) this.hydrateReelCommentRows(commentsRes.value);
+      if (interactionsRes.ok) {
+        this.hydrateSocialInteractionRows(interactionsRes.value);
+      }
 
-      const allSucceeded = tracksRes.ok && postsRes.ok && commentsRes.ok;
+      const allSucceeded =
+        tracksRes.ok && postsRes.ok && commentsRes.ok && interactionsRes.ok;
       if (allSucceeded) {
         this.domainHydratedAtMs.set(domainKey, Date.now());
       }
@@ -1510,6 +1582,472 @@ export class EdgeIsolateDatabaseEngine {
       this.domainHydratedAtMs.set(domainKey, Date.now());
     }
     return allOk;
+  }
+
+  private hydrateLibraryRows(rows: Array<Record<string, any>>): void {
+    for (const lib of rows) {
+      if (!lib.id) continue;
+      const norm = normalizeLibrarySyncRow(lib);
+      const normId = String(norm.id);
+      const cid = canonicalizeCreatorId(
+        String(norm.creatorId ?? lib.creator_id ?? 'creator_cern'),
+      );
+      this.libraryItems.set(normId, {
+        id: normId,
+        creator_id: cid,
+        item_type: String(norm.itemType ?? lib.item_type ?? 'track'),
+        title: String(norm.title ?? lib.title ?? 'Untitled Track'),
+        data_json: JSON.stringify({ ...norm, creatorId: cid }),
+        created_at: String(
+          norm.createdAt ?? norm.updatedAt ?? new Date().toISOString(),
+        ),
+        updated_at: String(norm.updatedAt ?? new Date().toISOString()),
+      });
+    }
+  }
+
+  private hydratePlaylistRows(rows: Array<Record<string, any>>): void {
+    for (const pl of rows) {
+      if (!pl.id) continue;
+      const norm = normalizePlaylistRow(pl);
+      const id = String(norm.id);
+      const cid = canonicalizeCreatorId(
+        String(norm.creatorId ?? pl.creator_id ?? 'creator_cern'),
+      );
+      const rawShareCode = norm.shareCode ? String(norm.shareCode) : null;
+      const effectiveShareCode =
+        rawShareCode && rawShareCode.startsWith('priv_') ? null : rawShareCode;
+      const createdIso = new Date(Number(pl.created_at || Date.now())).toISOString();
+      const updatedIso = new Date(Number(pl.updated_at || Date.now())).toISOString();
+      this.playlists.set(id, {
+        id,
+        creator_id: cid,
+        title: String(norm.title ?? 'Untitled Playlist'),
+        description: String(norm.description ?? ''),
+        cover_image_url: norm.coverImageUrl ?? null,
+        track_ids_json: JSON.stringify(norm.trackIds ?? []),
+        is_public: norm.isPublic ? 1 : 0,
+        share_code: effectiveShareCode,
+        share_url: effectiveShareCode
+          ? `https://vhunambi.za/p/${effectiveShareCode}`
+          : null,
+        created_at: createdIso,
+        updated_at: updatedIso,
+      });
+    }
+  }
+
+  private hydrateBeatLicenseRows(rows: Array<Record<string, any>>): void {
+    for (const bl of rows) {
+      if (!bl.certificate_id) continue;
+      const norm = normalizeBeatLicenseRow(bl);
+      const amtZar = Number(bl.amount_paid_zar ?? norm.amountPaidZar ?? 0);
+      const amtCoins = Number(bl.amount_paid_coins ?? norm.amountPaidCoins ?? 0);
+      const buyerCid = canonicalizeCreatorId(String(bl.buyer_id ?? norm.buyerId ?? ''));
+      const producerCid = canonicalizeCreatorId(
+        String(bl.producer_id ?? norm.producerId ?? ''),
+      );
+      const enriched = {
+        ...norm,
+        buyerId: buyerCid,
+        producerId: producerCid,
+      };
+      this.beatLicenses.set(String(bl.certificate_id), {
+        certificate_id: String(bl.certificate_id),
+        license_hash: String(bl.license_hash ?? ''),
+        beat_id: String(bl.beat_id ?? ''),
+        producer_id: producerCid,
+        buyer_id: buyerCid,
+        tier: String(bl.tier ?? 'basic_lease'),
+        coins_paid: amtCoins,
+        zar_paid: amtZar,
+        producer_coins: Math.max(1, Math.floor(amtCoins * 0.85)),
+        producer_zar: Number((amtZar * 0.85).toFixed(2)),
+        issued_at: String(
+          bl.issued_at ??
+          norm.issuedAtIso8601 ??
+          norm.issuedAt ??
+          new Date(Number(bl.purchased_at || Date.now())).toISOString(),
+        ),
+        data_json: JSON.stringify(enriched),
+      });
+    }
+  }
+
+  private hydrateMarketplaceAssetRows(rows: Array<Record<string, any>>): void {
+    for (const ma of rows) {
+      if (!ma.id) continue;
+      const norm = normalizeMarketplaceAssetRow(ma);
+      const id = String(norm.id);
+      const producerCid = canonicalizeCreatorId(
+        String(norm.producerId ?? ma.producer_id ?? 'creator_cern'),
+      );
+      const updatedIso = new Date(Number(ma.updated_at || Date.now())).toISOString();
+      this.marketplaceAssets.set(id, {
+        id,
+        title: String(ma.title ?? norm.title ?? 'Untitled Beat'),
+        producer_id: producerCid,
+        asset_category: 'beats',
+        price_zar: Number(ma.price_zar ?? norm.priceZar ?? 0),
+        price_coins: Number(ma.price_coins ?? norm.priceCoins ?? 0),
+        is_exclusive_sold:
+          ma.is_exclusive_sold || norm.isExclusiveSold ? 1 : 0,
+        exclusive_buyer_id:
+          ma.exclusive_buyer_id ?? norm.exclusiveBuyerId ?? null,
+        data_json: JSON.stringify({ ...norm, producerId: producerCid }),
+        created_at: updatedIso,
+        updated_at: updatedIso,
+      });
+    }
+  }
+
+  public async syncUserLibraryFromCloud(
+    creatorId: string,
+    cOrEnv?: unknown,
+    force = false,
+  ): Promise<any[]> {
+    const cid = canonicalizeCreatorId(creatorId);
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) {
+      return this.getLibrary(cid);
+    }
+
+    const domainKey = `library:${cid}`;
+    const lastHydrated = this.domainHydratedAtMs.get(domainKey) ?? 0;
+    if (
+      !force &&
+      lastHydrated > 0 &&
+      Date.now() - lastHydrated < EdgeIsolateDatabaseEngine.DEFAULT_SWR_TTL_MS
+    ) {
+      return this.getLibrary(cid);
+    }
+
+    const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+      driver.selectRows<Record<string, any>>(
+        'user_library_sync',
+        `select=*&creator_id=eq.${encodeURIComponent(cid)}&order=updated_at.desc&limit=500`,
+      ),
+      3500,
+    );
+    if (res.ok) {
+      const remoteIds = new Set(res.value.map((r) => String(r.id ?? '')).filter(Boolean));
+      for (const [existingId, existingRow] of this.libraryItems.entries()) {
+        if (
+          canonicalizeCreatorId(String(existingRow.creator_id)) === cid &&
+          !remoteIds.has(existingId)
+        ) {
+          this.libraryItems.delete(existingId);
+        }
+      }
+      this.hydrateLibraryRows(res.value);
+      this.domainHydratedAtMs.set(domainKey, Date.now());
+    }
+    return this.getLibrary(cid);
+  }
+
+  public async syncPlaylistsFromCloud(
+    creatorId?: string,
+    cOrEnv?: unknown,
+    force = false,
+  ): Promise<boolean> {
+    const cid = creatorId ? canonicalizeCreatorId(creatorId) : '';
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) return false;
+
+    const domainKey = `playlists:${cid || 'public'}`;
+    const lastHydrated = this.domainHydratedAtMs.get(domainKey) ?? 0;
+    if (
+      !force &&
+      lastHydrated > 0 &&
+      Date.now() - lastHydrated < EdgeIsolateDatabaseEngine.DEFAULT_SWR_TTL_MS
+    ) {
+      return true;
+    }
+
+    const query = cid
+      ? `select=*&or=(creator_id.eq.${encodeURIComponent(cid)},is_public.eq.true)&order=updated_at.desc&limit=200`
+      : 'select=*&order=updated_at.desc&limit=200';
+    const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+      driver.selectRows<Record<string, any>>('playlists', query),
+      3500,
+    );
+    if (res.ok) {
+      const remoteIds = new Set(res.value.map((r) => String(r.id ?? '')).filter(Boolean));
+      if (cid) {
+        for (const [plId, row] of this.playlists.entries()) {
+          if (
+            canonicalizeCreatorId(String(row.creator_id)) === cid &&
+            !remoteIds.has(plId)
+          ) {
+            this.playlists.delete(plId);
+          }
+        }
+      }
+      this.hydratePlaylistRows(res.value);
+      this.domainHydratedAtMs.set(domainKey, Date.now());
+      return true;
+    }
+    return false;
+  }
+
+  public async syncBuyerLicensesFromCloud(
+    buyerId: string,
+    cOrEnv?: unknown,
+    force = false,
+  ): Promise<any[]> {
+    const cid = canonicalizeCreatorId(buyerId);
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) {
+      return this.getBeatLicensesByBuyer(cid);
+    }
+
+    const domainKey = `licenses:${cid}`;
+    const lastHydrated = this.domainHydratedAtMs.get(domainKey) ?? 0;
+    if (
+      !force &&
+      lastHydrated > 0 &&
+      Date.now() - lastHydrated < EdgeIsolateDatabaseEngine.DEFAULT_SWR_TTL_MS
+    ) {
+      return this.getBeatLicensesByBuyer(cid);
+    }
+
+    const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+      driver.selectRows<Record<string, any>>(
+        'beat_licenses',
+        `select=*&buyer_id=eq.${encodeURIComponent(cid)}&order=purchased_at.desc&limit=300`,
+      ),
+      3500,
+    );
+    if (res.ok) {
+      this.hydrateBeatLicenseRows(res.value);
+      this.domainHydratedAtMs.set(domainKey, Date.now());
+    }
+    return this.getBeatLicensesByBuyer(cid);
+  }
+
+  public async syncMarketplaceFromCloud(
+    force = false,
+    cOrEnv?: unknown,
+  ): Promise<boolean> {
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) return false;
+
+    const domainKey = 'marketplace:global';
+    const lastHydrated = this.domainHydratedAtMs.get(domainKey) ?? 0;
+    if (
+      !force &&
+      lastHydrated > 0 &&
+      Date.now() - lastHydrated < EdgeIsolateDatabaseEngine.DEFAULT_SWR_TTL_MS
+    ) {
+      return true;
+    }
+
+    const [assetsRes, licensesRes] = await Promise.all([
+      EdgeIsolateDatabaseEngine.withTimeoutResult(
+        driver.selectRows<Record<string, any>>(
+          'marketplace_assets',
+          'select=*&order=updated_at.desc&limit=200',
+        ),
+        3500,
+      ),
+      EdgeIsolateDatabaseEngine.withTimeoutResult(
+        driver.selectRows<Record<string, any>>(
+          'beat_licenses',
+          'select=*&order=purchased_at.desc&limit=300',
+        ),
+        3500,
+      ),
+    ]);
+
+    if (assetsRes.ok) this.hydrateMarketplaceAssetRows(assetsRes.value);
+    if (licensesRes.ok) this.hydrateBeatLicenseRows(licensesRes.value);
+
+    const ok = assetsRes.ok && licensesRes.ok;
+    if (ok) {
+      this.domainHydratedAtMs.set(domainKey, Date.now());
+    }
+    return ok;
+  }
+
+  public async syncLibraryDeltaAsync(
+    creatorId: string,
+    incomingItems: any[],
+    cOrEnv?: unknown,
+  ): Promise<ReturnType<EdgeIsolateDatabaseEngine['syncLibraryDelta']>> {
+    const cid = canonicalizeCreatorId(creatorId);
+    await this.syncUserLibraryFromCloud(cid, cOrEnv);
+    const result = this.syncLibraryDelta(cid, incomingItems, true);
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (driver.isConfigured()) {
+      for (const item of result.items) {
+        const updatedAtMs = Number(item.updatedAtMs ?? Date.now());
+        try {
+          await driver.upsertRow(
+            'user_library_sync',
+            {
+              id: String(item.id),
+              creator_id: cid,
+              item_type: String(item.itemType ?? 'track'),
+              title: String(item.title ?? 'Untitled Track'),
+              artist: String(
+                item.creatorName ?? item.artistName ?? item.artist ?? 'Vhunambi Creator',
+              ),
+              genre: String(item.genre ?? 'Amapiano'),
+              bpm: Math.round(Number(item.bpm ?? 113)),
+              duration_sec: Math.round(
+                Number(item.durationSeconds ?? item.durationSec ?? 180),
+              ),
+              audio_url: String(
+                item.remoteAudioUrl ?? item.audioUrl ?? item.masterMp3Url ?? '',
+              ),
+              cover_url: String(item.coverImageUrl ?? item.coverUrl ?? ''),
+              is_favorite: Boolean(item.isFavorite ?? false),
+              is_downloaded: Boolean(item.isDownloaded ?? false),
+              play_count: Number(item.playCount ?? 0),
+              is_licensed_beat: Boolean(item.isLicensedBeat ?? false),
+              license_tier: item.licenseTierId ?? item.licenseTier ?? null,
+              certificate_id:
+                item.licenseCertificateIdOverride ?? item.certificateId ?? null,
+              license_hash: item.licenseHash ?? null,
+              master_file_sha256: item.masterFileSha256 ?? null,
+              stems_json: item.stemPaths ?? item.stemFilesJson ?? {},
+              data_json: item,
+              created_at: Date.parse(String(item.createdAt ?? '')) || updatedAtMs,
+              updated_at: updatedAtMs,
+            },
+            'id,creator_id',
+          );
+        } catch (err) {
+          this.recordWriteThroughFailure('user_library_sync.upsert_async', err);
+        }
+      }
+      this.domainHydratedAtMs.set(`library:${cid}`, Date.now());
+    }
+    return result;
+  }
+
+  public async deleteLibraryItemAsync(
+    id: string,
+    creatorId?: string,
+    cOrEnv?: unknown,
+  ): Promise<boolean> {
+    const cid = creatorId ? canonicalizeCreatorId(creatorId) : undefined;
+    if (cid) {
+      await this.syncUserLibraryFromCloud(cid, cOrEnv);
+    }
+    const deleted = this.deleteLibraryItem(id, cid, true);
+    if (!deleted) return false;
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (driver.isConfigured()) {
+      try {
+        const filter = cid ? `&creator_id=eq.${encodeURIComponent(cid)}` : '';
+        await driver.deleteRows(
+          'user_library_sync',
+          `id=eq.${encodeURIComponent(id)}${filter}`,
+        );
+      } catch (err) {
+        this.recordWriteThroughFailure('user_library_sync.delete_async', err);
+      }
+    }
+    return true;
+  }
+
+  public async upsertPlaylistAsync(
+    input: Record<string, any>,
+    cOrEnv?: unknown,
+  ): Promise<Record<string, any>> {
+    const normalizedInput = {
+      ...input,
+      creatorId: canonicalizeCreatorId(
+        String(input.creatorId ?? input.creator_id ?? 'creator_cern'),
+      ),
+    };
+    const mapped = this.upsertPlaylist(normalizedInput, true);
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (driver.isConfigured()) {
+      try {
+        await driver.upsertRow(
+          'playlists',
+          {
+            id: String(mapped.id),
+            creator_id: canonicalizeCreatorId(String(mapped.creatorId)),
+            title: String(mapped.title),
+            description: String(mapped.description ?? ''),
+            cover_url: String(mapped.coverImageUrl ?? ''),
+            track_ids_json: mapped.trackIds ?? [],
+            is_public: Boolean(mapped.isPublic),
+            share_code: mapped.shareCode
+              ? String(mapped.shareCode)
+              : `priv_${String(mapped.id)}`,
+            data_json: mapped,
+            created_at: Date.parse(String(mapped.createdAt)) || Date.now(),
+            updated_at: Date.parse(String(mapped.updatedAt)) || Date.now(),
+          },
+          'id',
+        );
+        this.domainHydratedAtMs.set(
+          `playlists:${canonicalizeCreatorId(String(mapped.creatorId))}`,
+          Date.now(),
+        );
+      } catch (err) {
+        this.recordWriteThroughFailure('playlists.upsert_async', err);
+      }
+    }
+    return mapped;
+  }
+
+  public async deletePlaylistAsync(
+    id: string,
+    creatorId?: string,
+    cOrEnv?: unknown,
+  ): Promise<boolean> {
+    const cid = creatorId ? canonicalizeCreatorId(creatorId) : undefined;
+    await this.syncPlaylistsFromCloud(cid, cOrEnv);
+    const deleted = this.deletePlaylist(id, cid, true);
+    if (!deleted) return false;
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (driver.isConfigured()) {
+      try {
+        await driver.deleteRows('playlists', `id=eq.${encodeURIComponent(id)}`);
+      } catch (err) {
+        this.recordWriteThroughFailure('playlists.delete_async', err);
+      }
+    }
+    return true;
+  }
+
+  public async sharePlaylistAsync(
+    id: string,
+    cOrEnv?: unknown,
+  ): Promise<Record<string, any> | null> {
+    await this.syncPlaylistsFromCloud(undefined, cOrEnv);
+    const shared = this.sharePlaylist(id);
+    if (!shared) return null;
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (driver.isConfigured()) {
+      try {
+        await driver.upsertRow(
+          'playlists',
+          {
+            id: String(shared.id),
+            creator_id: canonicalizeCreatorId(String(shared.creatorId ?? 'creator_cern')),
+            title: String(shared.title ?? 'Untitled Playlist'),
+            description: String(shared.description ?? ''),
+            cover_url: String(shared.coverImageUrl ?? ''),
+            track_ids_json: shared.trackIds ?? [],
+            is_public: true,
+            share_code: String(shared.shareCode),
+            data_json: shared,
+            created_at: Date.parse(String(shared.createdAt)) || Date.now(),
+            updated_at: Date.now(),
+          },
+          'id',
+        );
+      } catch (err) {
+        this.recordWriteThroughFailure('playlists.share_async', err);
+      }
+    }
+    return shared;
   }
 
   private appendMutation(entry: {
@@ -2549,8 +3087,11 @@ export class EdgeIsolateDatabaseEngine {
   // ---------------------------------------------------------------------------
 
   public getExploreFeed(
-    options: ExploreFeedOptions = {},
+    options: ExploreFeedOptions & { viewerCreatorId?: string } = {},
   ): { posts: any[]; total: number } {
+    const viewerId = canonicalizeCreatorId(
+      options.viewerCreatorId ?? 'creator_cern',
+    );
     let posts: Record<string, any>[] = Array.from(this.kineticPosts.values()).map((r) => {
       let data: Record<string, any> = {};
       try {
@@ -2558,9 +3099,15 @@ export class EdgeIsolateDatabaseEngine {
       } catch {
         data = {};
       }
+      const postId = String(r.id);
+      const reactionCounts = compactReactionCounts(
+        normalizeReactionCounts(r.reaction_counts_json ?? data.reactionCounts),
+      );
+      const myReaction = this.getSocialReaction('post_react', postId, viewerId);
+      const hasLegacyLike = this.hasSocialInteraction('post_like', postId, viewerId);
       return {
         ...data,
-        id: r.id,
+        id: postId,
         creatorId: r.creator_id,
         creatorHandle: r.creator_handle,
         creatorName: r.creator_name,
@@ -2571,6 +3118,9 @@ export class EdgeIsolateDatabaseEngine {
         cosignCount: Number(r.cosign_count ?? data.cosignCount ?? 0),
         cosignTarget: Number(r.cosign_target ?? data.cosignTarget ?? 25),
         repostCount: Number(r.repost_count ?? data.repostCount ?? 0),
+        reactionCounts,
+        myReaction: myReaction ?? (hasLegacyLike ? 'love' : null),
+        isLikedByMe: myReaction !== null || hasLegacyLike,
         discoveryStage: r.discovery_stage,
         createdAt: r.created_at,
       };
@@ -3041,16 +3591,26 @@ export class EdgeIsolateDatabaseEngine {
     };
   }
 
-  private mapKineticPostRow(r: Record<string, any>): Record<string, any> {
+  private mapKineticPostRow(
+    r: Record<string, any>,
+    viewerCreatorId = 'creator_cern',
+  ): Record<string, any> {
     let data: Record<string, any> = {};
     try {
       data = JSON.parse(String(r.data_json || '{}'));
     } catch {
       data = {};
     }
+    const postId = String(r.id);
+    const actor = canonicalizeCreatorId(viewerCreatorId);
+    const reactionCounts = compactReactionCounts(
+      normalizeReactionCounts(r.reaction_counts_json ?? data.reactionCounts),
+    );
+    const myReaction = this.getSocialReaction('post_react', postId, actor);
+    const hasLegacyLike = this.hasSocialInteraction('post_like', postId, actor);
     return {
       ...data,
-      id: String(r.id),
+      id: postId,
       creatorId: String(r.creator_id),
       creatorHandle: String(r.creator_handle),
       creatorName: String(r.creator_name),
@@ -3061,15 +3621,21 @@ export class EdgeIsolateDatabaseEngine {
       cosignCount: Number(r.cosign_count ?? data.cosignCount ?? 0),
       cosignTarget: Number(r.cosign_target ?? data.cosignTarget ?? 25),
       repostCount: Number(r.repost_count ?? data.repostCount ?? 0),
+      reactionCounts,
+      myReaction: myReaction ?? (hasLegacyLike ? 'love' : null),
+      isLikedByMe: myReaction !== null || hasLegacyLike,
       discoveryStage: String(r.discovery_stage ?? 'freshCrate'),
       createdAt: String(r.created_at),
       updatedAt: String(r.updated_at),
     };
   }
 
-  public getKineticPostById(postId: string): Record<string, any> | null {
+  public getKineticPostById(
+    postId: string,
+    viewerCreatorId = 'creator_cern',
+  ): Record<string, any> | null {
     const row = this.kineticPosts.get(postId);
-    return row ? this.mapKineticPostRow(row) : null;
+    return row ? this.mapKineticPostRow(row, viewerCreatorId) : null;
   }
 
   public upsertKineticPost(input: Record<string, any>): Record<string, any> {
@@ -3168,6 +3734,178 @@ export class EdgeIsolateDatabaseEngine {
     return this.getKineticPostById(id)!;
   }
 
+  private parseJsonField(raw: unknown): Record<string, any> {
+    if (raw && typeof raw === 'object') {
+      return { ...(raw as Record<string, any>) };
+    }
+    try {
+      return JSON.parse(String(raw || '{}')) as Record<string, any>;
+    } catch {
+      return {};
+    }
+  }
+
+  public getSocialReaction(
+    interactionType: 'post_react' | 'comment_react',
+    targetId: string,
+    actorCreatorId = 'creator_cern',
+  ): KineticReactionWire | null {
+    const key = `${interactionType}::${targetId}::${canonicalizeCreatorId(actorCreatorId)}`;
+    return this.socialInteractionReactions.get(key) ?? null;
+  }
+
+  public reactToKineticPost(
+    postId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    skipMirror = false,
+  ): KineticReactionMutationResult {
+    const post = this.kineticPosts.get(postId);
+    if (!post) {
+      return {
+        success: false,
+        targetId: postId,
+        myReaction: null,
+        reactionCounts: {},
+        likeCount: 0,
+        liked: false,
+      };
+    }
+
+    const actor = canonicalizeCreatorId(actorCreatorId);
+    const key = `post_react::${postId}::${actor}`;
+    const prevReaction = this.socialInteractionReactions.get(key) ?? null;
+    const requested = normalizeKineticReactionWire(reactionType);
+    const nextReaction: KineticReactionWire | null =
+      requested === null || requested === prevReaction ? null : requested;
+
+    const counts = normalizeReactionCounts(
+      post.reaction_counts_json ?? this.parseJsonField(post.data_json).reactionCounts,
+    );
+    const legacyLikeCount = Math.max(0, Number(post.like_count ?? 0));
+    if (sumReactionCounts(counts) === 0 && legacyLikeCount > 0) {
+      counts.love = legacyLikeCount;
+    }
+
+    if (prevReaction) {
+      counts[prevReaction] = Math.max(0, counts[prevReaction] - 1);
+    }
+    if (nextReaction) {
+      counts[nextReaction] = counts[nextReaction] + 1;
+      this.socialInteractions.add(key);
+      this.socialInteractionReactions.set(key, nextReaction);
+    } else {
+      this.socialInteractions.delete(key);
+      this.socialInteractionReactions.delete(key);
+    }
+
+    const compact = compactReactionCounts(counts);
+    const nextLikes = Math.max(sumReactionCounts(counts), 0);
+    post.reaction_counts_json = JSON.stringify(compact);
+    post.like_count = nextLikes;
+    post.updated_at = new Date().toISOString();
+
+    const parsedData = this.parseJsonField(post.data_json);
+    parsedData.reactionCounts = compact;
+    parsedData.likeCount = nextLikes;
+    post.data_json = JSON.stringify(parsedData);
+
+    if (!skipMirror) {
+      this.mirrorWriteThrough('kinetic_posts.react', async (driver) => {
+        if (nextReaction) {
+          await driver.upsertRow(
+            'social_interactions',
+            {
+              interaction_type: 'post_react',
+              target_id: postId,
+              actor_creator_id: actor,
+              reaction_type: nextReaction,
+              created_at: Date.now(),
+            },
+            'interaction_type,target_id,actor_creator_id',
+          );
+        } else {
+          await driver.deleteRows(
+            'social_interactions',
+            `interaction_type=eq.post_react&target_id=eq.${encodeURIComponent(postId)}&actor_creator_id=eq.${encodeURIComponent(actor)}`,
+          );
+        }
+        await driver.patchRows(
+          'kinetic_posts',
+          `id=eq.${encodeURIComponent(postId)}`,
+          {
+            reaction_counts_json: compact,
+            like_count: nextLikes,
+            data_json: parsedData,
+            updated_at: Date.now(),
+          },
+        );
+      });
+    }
+
+    return {
+      success: true,
+      targetId: postId,
+      myReaction: nextReaction,
+      reactionCounts: compact,
+      likeCount: nextLikes,
+      liked: nextReaction !== null,
+    };
+  }
+
+  public async reactToKineticPostAsync(
+    postId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    cOrEnv?: unknown,
+  ): Promise<KineticReactionMutationResult> {
+    const result = this.reactToKineticPost(
+      postId,
+      actorCreatorId,
+      reactionType,
+      true,
+    );
+    if (!result.success) return result;
+    const actor = canonicalizeCreatorId(actorCreatorId);
+    const post = this.kineticPosts.get(postId);
+    const parsedData = post ? this.parseJsonField(post.data_json) : {};
+    await this.awaitWriteThrough(
+      'kinetic_posts.react',
+      async (driver) => {
+        await Promise.all([
+          result.myReaction
+            ? driver.upsertRow(
+              'social_interactions',
+              {
+                interaction_type: 'post_react',
+                target_id: postId,
+                actor_creator_id: actor,
+                reaction_type: result.myReaction,
+                created_at: Date.now(),
+              },
+              'interaction_type,target_id,actor_creator_id',
+            )
+            : driver.deleteRows(
+              'social_interactions',
+              `interaction_type=eq.post_react&target_id=eq.${encodeURIComponent(postId)}&actor_creator_id=eq.${encodeURIComponent(actor)}`,
+            ),
+          driver.patchRows(
+            'kinetic_posts',
+            `id=eq.${encodeURIComponent(postId)}`,
+            {
+              reaction_counts_json: result.reactionCounts,
+              like_count: result.likeCount,
+              data_json: parsedData,
+              updated_at: Date.now(),
+            },
+          ),
+        ]);
+      },
+      cOrEnv,
+    );
+    return result;
+  }
+
   public likeKineticPost(
     postId: string,
     actorCreatorId = 'creator_cern',
@@ -3237,15 +3975,25 @@ export class EdgeIsolateDatabaseEngine {
     viewerCreatorId = 'creator_cern',
     sort: 'relevant' | 'newest' = 'relevant',
   ): Record<string, any>[] {
+    const canonicalViewer = canonicalizeCreatorId(viewerCreatorId);
     const likedComments = this.listSocialInteractionTargets(
       'comment_like',
-      canonicalizeCreatorId(viewerCreatorId),
+      canonicalViewer,
     );
     const comments: Record<string, any>[] = this.listReelCommentsByClip(postId).map(
-      (c): Record<string, any> => ({
-        ...c,
-        isLikedByMe: likedComments.has(String(c.id)),
-      }),
+      (c): Record<string, any> => {
+        const myReaction = this.getSocialReaction(
+          'comment_react',
+          String(c.id),
+          canonicalViewer,
+        );
+        const isLegacyLiked = likedComments.has(String(c.id));
+        return {
+          ...c,
+          myReaction: myReaction ?? (isLegacyLiked ? 'love' : null),
+          isLikedByMe: myReaction !== null || isLegacyLiked,
+        };
+      },
     );
     const replyCounts = new Map<string, number>();
     for (const c of comments) {
@@ -3311,6 +4059,15 @@ export class EdgeIsolateDatabaseEngine {
     const replyToHandle = input.replyToHandle
       ? String(input.replyToHandle).trim() || undefined
       : undefined;
+    const gifUrl = input.gifUrl ? String(input.gifUrl).trim() || undefined : undefined;
+    const stickerId = input.stickerId
+      ? String(input.stickerId).trim() || undefined
+      : undefined;
+    const mediaAspectRatio =
+      typeof input.mediaAspectRatio === 'number' &&
+        Number.isFinite(input.mediaAspectRatio)
+        ? input.mediaAspectRatio
+        : undefined;
 
     const comment: Record<string, any> = {
       id: commentId,
@@ -3324,6 +4081,13 @@ export class EdgeIsolateDatabaseEngine {
       text: String(input.text ?? input.content ?? '').trim(),
       likeCount: Number(input.likeCount ?? 0),
       isLikedByMe: false,
+      reactionCounts: compactReactionCounts(
+        normalizeReactionCounts(input.reactionCounts),
+      ),
+      myReaction: null,
+      ...(gifUrl ? { gifUrl } : {}),
+      ...(stickerId ? { stickerId } : {}),
+      ...(mediaAspectRatio ? { mediaAspectRatio } : {}),
       userReelLoves: Number(input.userReelLoves ?? 0),
       ...(parentCommentId ? { parentCommentId } : {}),
       ...(replyToHandle ? { replyToHandle } : {}),
@@ -3347,6 +4111,132 @@ export class EdgeIsolateDatabaseEngine {
     return comment;
   }
 
+  public reactToComment(
+    commentId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    skipMirror = false,
+  ): KineticReactionMutationResult | null {
+    const comment = this.getReelCommentById(commentId);
+    if (!comment) return null;
+
+    const actor = canonicalizeCreatorId(actorCreatorId);
+    const key = `comment_react::${commentId}::${actor}`;
+    const prevReaction = this.socialInteractionReactions.get(key) ?? null;
+    const requested = normalizeKineticReactionWire(reactionType);
+    const nextReaction: KineticReactionWire | null =
+      requested === null || requested === prevReaction ? null : requested;
+
+    const counts = normalizeReactionCounts(comment.reactionCounts);
+    const legacyLikeCount = Math.max(0, Number(comment.likeCount ?? 0));
+    if (sumReactionCounts(counts) === 0 && legacyLikeCount > 0) {
+      counts.love = legacyLikeCount;
+    }
+
+    if (prevReaction) {
+      counts[prevReaction] = Math.max(0, counts[prevReaction] - 1);
+    }
+    if (nextReaction) {
+      counts[nextReaction] = counts[nextReaction] + 1;
+      this.socialInteractions.add(key);
+      this.socialInteractionReactions.set(key, nextReaction);
+    } else {
+      this.socialInteractions.delete(key);
+      this.socialInteractionReactions.delete(key);
+    }
+
+    const compact = compactReactionCounts(counts);
+    const nextLikes = Math.max(sumReactionCounts(counts), 0);
+    this.insertReelComment({
+      ...comment,
+      likeCount: nextLikes,
+      reactionCounts: compact,
+    });
+
+    if (!skipMirror) {
+      this.mirrorWriteThrough('reel_comments.react', async (driver) => {
+        if (nextReaction) {
+          await driver.upsertRow(
+            'social_interactions',
+            {
+              interaction_type: 'comment_react',
+              target_id: commentId,
+              actor_creator_id: actor,
+              reaction_type: nextReaction,
+              created_at: Date.now(),
+            },
+            'interaction_type,target_id,actor_creator_id',
+          );
+        } else {
+          await driver.deleteRows(
+            'social_interactions',
+            `interaction_type=eq.comment_react&target_id=eq.${encodeURIComponent(commentId)}&actor_creator_id=eq.${encodeURIComponent(actor)}`,
+          );
+        }
+      });
+    }
+
+    return {
+      success: true,
+      targetId: commentId,
+      myReaction: nextReaction,
+      reactionCounts: compact,
+      likeCount: nextLikes,
+      liked: nextReaction !== null,
+    };
+  }
+
+  public async reactToCommentAsync(
+    commentId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    cOrEnv?: unknown,
+  ): Promise<KineticReactionMutationResult | null> {
+    const result = this.reactToComment(
+      commentId,
+      actorCreatorId,
+      reactionType,
+      true,
+    );
+    if (!result) return null;
+    const actor = canonicalizeCreatorId(actorCreatorId);
+    const comment = this.getReelCommentById(commentId);
+    await this.awaitWriteThrough(
+      'reel_comments.react',
+      async (driver) => {
+        await Promise.all([
+          result.myReaction
+            ? driver.upsertRow(
+              'social_interactions',
+              {
+                interaction_type: 'comment_react',
+                target_id: commentId,
+                actor_creator_id: actor,
+                reaction_type: result.myReaction,
+                created_at: Date.now(),
+              },
+              'interaction_type,target_id,actor_creator_id',
+            )
+            : driver.deleteRows(
+              'social_interactions',
+              `interaction_type=eq.comment_react&target_id=eq.${encodeURIComponent(commentId)}&actor_creator_id=eq.${encodeURIComponent(actor)}`,
+            ),
+          driver.patchRows(
+            'reel_comments',
+            `id=eq.${encodeURIComponent(commentId)}`,
+            {
+              reaction_counts_json: result.reactionCounts,
+              likes_count: result.likeCount,
+              data_json: comment ?? {},
+            },
+          ),
+        ]);
+      },
+      cOrEnv,
+    );
+    return result;
+  }
+
   public likeCommentById(
     commentId: string,
     actorCreatorId = 'creator_cern',
@@ -3368,8 +4258,9 @@ export class EdgeIsolateDatabaseEngine {
   // ---------------------------------------------------------------------------
 
   public getLibrary(creatorId: string): any[] {
+    const cid = canonicalizeCreatorId(creatorId);
     const rows = Array.from(this.libraryItems.values())
-      .filter((r) => r.creator_id === creatorId)
+      .filter((r) => canonicalizeCreatorId(String(r.creator_id)) === cid)
       .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
     return rows.map((r) => {
       let data: Record<string, any> = {};
@@ -3380,7 +4271,7 @@ export class EdgeIsolateDatabaseEngine {
       }
       return {
         id: r.id,
-        creatorId: r.creator_id,
+        creatorId: canonicalizeCreatorId(String(r.creator_id)),
         itemType: r.item_type,
         title: r.title,
         createdAt: data.createdAt || r.created_at,
@@ -3403,11 +4294,17 @@ export class EdgeIsolateDatabaseEngine {
   ): boolean {
     const existing = this.libraryItems.get(id);
     if (!existing) return false;
-    if (creatorId && existing.creator_id !== creatorId) return false;
+    const canonicalCreator = creatorId ? canonicalizeCreatorId(creatorId) : undefined;
+    if (
+      canonicalCreator &&
+      canonicalizeCreatorId(String(existing.creator_id)) !== canonicalCreator
+    ) {
+      return false;
+    }
     this.libraryItems.delete(id);
-    this.mirrorWriteThrough(async (driver) => {
-      const creatorFilter = creatorId
-        ? `&creator_id=eq.${encodeURIComponent(creatorId)}`
+    this.mirrorWriteThrough('user_library_sync.delete', async (driver) => {
+      const creatorFilter = canonicalCreator
+        ? `&creator_id=eq.${encodeURIComponent(canonicalCreator)}`
         : '';
       await driver.deleteRows(
         'user_library_sync',
@@ -3631,13 +4528,21 @@ export class EdgeIsolateDatabaseEngine {
     creatorId?: string,
     includePublic: boolean = true,
   ): any[] {
+    const cid =
+      creatorId && creatorId.trim() !== ''
+        ? canonicalizeCreatorId(creatorId)
+        : '';
     let rows = Array.from(this.playlists.values());
-    if (creatorId && creatorId.trim() !== '') {
+    if (cid) {
       rows = includePublic
         ? rows.filter(
-          (r) => r.creator_id === creatorId || Number(r.is_public ?? 0) === 1,
+          (r) =>
+            canonicalizeCreatorId(String(r.creator_id)) === cid ||
+            Number(r.is_public ?? 0) === 1,
         )
-        : rows.filter((r) => r.creator_id === creatorId);
+        : rows.filter(
+          (r) => canonicalizeCreatorId(String(r.creator_id)) === cid,
+        );
     }
     rows.sort((a, b) =>
       String(b.updated_at).localeCompare(String(a.updated_at)),
@@ -3662,8 +4567,10 @@ export class EdgeIsolateDatabaseEngine {
     const id = String(input.id || `pl_${Date.now()}_${randomUUID().slice(0, 6)}`);
     const existing = this.playlists.get(id);
 
-    const creatorId = String(
-      input.creatorId ?? input.creator_id ?? existing?.creator_id ?? 'usr_me',
+    const creatorId = canonicalizeCreatorId(
+      String(
+        input.creatorId ?? input.creator_id ?? existing?.creator_id ?? 'creator_cern',
+      ),
     );
     const title = String(input.title ?? existing?.title ?? 'Untitled Playlist');
     const description = String(
@@ -3711,12 +4618,12 @@ export class EdgeIsolateDatabaseEngine {
     });
 
     const mapped = this.getPlaylistById(id)!;
-    this.mirrorWriteThrough(async (driver) => {
+    this.mirrorWriteThrough('playlists.upsert', async (driver) => {
       await driver.upsertRow(
         'playlists',
         {
           id,
-          creator_id: mapped.creatorId,
+          creator_id: canonicalizeCreatorId(String(mapped.creatorId)),
           title: mapped.title,
           description: mapped.description,
           cover_url: String(mapped.coverImageUrl ?? ''),
@@ -3756,16 +4663,23 @@ export class EdgeIsolateDatabaseEngine {
   ): boolean {
     const existing = this.playlists.get(id);
     if (!existing) return false;
-    if (creatorId && creatorId.trim() !== '' && existing.creator_id !== creatorId) {
+    const canonicalCreator =
+      creatorId && creatorId.trim() !== ''
+        ? canonicalizeCreatorId(creatorId)
+        : undefined;
+    if (
+      canonicalCreator &&
+      canonicalizeCreatorId(String(existing.creator_id)) !== canonicalCreator
+    ) {
       return false;
     }
     this.playlists.delete(id);
-    this.mirrorWriteThrough(async (driver) => {
+    this.mirrorWriteThrough('playlists.delete', async (driver) => {
       await driver.deleteRows('playlists', `id=eq.${encodeURIComponent(id)}`);
     });
     if (recordMutation) {
       const now = new Date().toISOString();
-      const effectiveCreator = creatorId || 'usr_me';
+      const effectiveCreator = canonicalCreator || 'creator_cern';
       this.appendMutation({
         idempotencyKey: `pl_del_${id}_${Date.now()}_${this.seqCounter + 1}`,
         entityType: 'playlist',
@@ -3800,7 +4714,7 @@ export class EdgeIsolateDatabaseEngine {
     raw.updated_at = now;
 
     const updated = this.getPlaylistById(existing.id)!;
-    this.mirrorWriteThrough(async (driver) => {
+    this.mirrorWriteThrough('playlists.share', async (driver) => {
       await driver.upsertRow(
         'playlists',
         {
@@ -4729,14 +5643,17 @@ export class EdgeIsolateDatabaseEngine {
       }
     }
 
+    const buyerCid = canonicalizeCreatorId(params.buyerId);
+    const producerCid = canonicalizeCreatorId(params.producerId);
+
     const masterDigest =
       params.masterFileSha256 ||
       createHash('sha256').update(params.beatId).digest('hex');
     const licenseHash = this.computeCanonicalLicenseHash({
       certificateId: params.certificateId,
       beatId: params.beatId,
-      producerId: params.producerId,
-      buyerId: params.buyerId,
+      producerId: producerCid,
+      buyerId: buyerCid,
       tierSlug: params.tierSlug,
       amountPaidCoins: params.amountPaidCoins,
       amountPaidZar: params.amountPaidZar,
@@ -4746,6 +5663,8 @@ export class EdgeIsolateDatabaseEngine {
 
     const payloadWithHash = {
       ...params.dataJson,
+      buyerId: buyerCid,
+      producerId: producerCid,
       licenseHash,
       masterFileSha256: masterDigest,
     };
@@ -4754,8 +5673,8 @@ export class EdgeIsolateDatabaseEngine {
       certificate_id: params.certificateId,
       license_hash: licenseHash,
       beat_id: params.beatId,
-      producer_id: params.producerId,
-      buyer_id: params.buyerId,
+      producer_id: producerCid,
+      buyer_id: buyerCid,
       tier: params.tierSlug,
       coins_paid: params.amountPaidCoins,
       zar_paid: params.amountPaidZar,
@@ -4828,7 +5747,7 @@ export class EdgeIsolateDatabaseEngine {
     }
 
     const purchasedAtMs = Date.parse(params.issuedAt) || Date.now();
-    this.mirrorWriteThrough(async (driver) => {
+    this.mirrorWriteThrough('beat_licenses.record', async (driver) => {
       const buyerCid = canonicalizeCreatorId(params.buyerId);
       const producerCid = canonicalizeCreatorId(params.producerId);
       await this.ensureCreatorRowInSupabase(driver, buyerCid);
@@ -4900,8 +5819,9 @@ export class EdgeIsolateDatabaseEngine {
   }
 
   public getBeatLicensesByBuyer(buyerId: string): any[] {
+    const cid = canonicalizeCreatorId(buyerId);
     return Array.from(this.beatLicenses.values())
-      .filter((r) => r.buyer_id === buyerId)
+      .filter((r) => canonicalizeCreatorId(String(r.buyer_id)) === cid)
       .sort((a, b) => String(b.issued_at).localeCompare(String(a.issued_at)))
       .map((r) => JSON.parse(String(r.data_json || '{}')));
   }
@@ -5904,6 +6824,18 @@ export class EdgeIsolateDatabaseEngine {
     const replyToHandle = comment.replyToHandle
       ? String(comment.replyToHandle).trim() || null
       : null;
+    const gifUrl = comment.gifUrl ? String(comment.gifUrl).trim() || null : null;
+    const stickerId = comment.stickerId
+      ? String(comment.stickerId).trim() || null
+      : null;
+    const mediaAspectRatio =
+      typeof comment.mediaAspectRatio === 'number' &&
+        Number.isFinite(comment.mediaAspectRatio)
+        ? comment.mediaAspectRatio
+        : null;
+    const reactionCounts = compactReactionCounts(
+      normalizeReactionCounts(comment.reactionCounts),
+    );
     const createdAt = String(comment.createdAt || new Date().toISOString());
     this.reelComments.set(id, {
       id,
@@ -5913,14 +6845,22 @@ export class EdgeIsolateDatabaseEngine {
       language_code: comment.languageCode ? String(comment.languageCode) : null,
       parent_comment_id: parentCommentId,
       reply_to_handle: replyToHandle,
+      reaction_counts_json: JSON.stringify(reactionCounts),
+      gif_url: gifUrl,
+      sticker_id: stickerId,
+      media_aspect_ratio: mediaAspectRatio,
       data_json: JSON.stringify({
         ...comment,
+        reactionCounts,
+        ...(gifUrl ? { gifUrl } : {}),
+        ...(stickerId ? { stickerId } : {}),
+        ...(mediaAspectRatio !== null ? { mediaAspectRatio } : {}),
         ...(parentCommentId ? { parentCommentId } : {}),
         ...(replyToHandle ? { replyToHandle } : {}),
       }),
       created_at: createdAt,
     });
-    this.mirrorWriteThrough(async (driver) => {
+    this.mirrorWriteThrough('reel_comments.upsert', async (driver) => {
       await driver.upsertRow(
         'reel_comments',
         {
@@ -5933,6 +6873,10 @@ export class EdgeIsolateDatabaseEngine {
           is_creator: Boolean(comment.isCreator ?? false),
           text: content,
           likes_count: Number(comment.likeCount ?? 0),
+          reaction_counts_json: reactionCounts,
+          gif_url: gifUrl,
+          sticker_id: stickerId,
+          media_aspect_ratio: mediaAspectRatio,
           user_reel_loves: Number(comment.userReelLoves ?? 0),
           gift_emoji: comment.giftEmoji ? String(comment.giftEmoji) : null,
           gift_name: comment.giftName ? String(comment.giftName) : null,
@@ -5967,6 +6911,13 @@ export class EdgeIsolateDatabaseEngine {
     const avatarUrl = String(data.avatarUrl ?? r.avatar_url ?? '');
     const isCreator = Boolean(data.isCreator ?? r.is_creator ?? false);
     const likeCount = Number(r.likes_count ?? data.likeCount ?? 0);
+    const reactionCounts = compactReactionCounts(
+      normalizeReactionCounts(r.reaction_counts_json ?? data.reactionCounts),
+    );
+    const gifUrl = data.gifUrl ?? r.gif_url ?? undefined;
+    const stickerId = data.stickerId ?? r.sticker_id ?? undefined;
+    const mediaAspectRatio =
+      data.mediaAspectRatio ?? r.media_aspect_ratio ?? undefined;
 
     return {
       ...data,
@@ -5979,6 +6930,13 @@ export class EdgeIsolateDatabaseEngine {
       isCreator,
       text: String(data.text ?? r.content),
       likeCount,
+      reactionCounts,
+      ...(gifUrl ? { gifUrl: String(gifUrl) } : {}),
+      ...(stickerId ? { stickerId: String(stickerId) } : {}),
+      ...(typeof mediaAspectRatio === 'number' &&
+        Number.isFinite(mediaAspectRatio)
+        ? { mediaAspectRatio }
+        : {}),
       ...(parentCommentId ? { parentCommentId: String(parentCommentId) } : {}),
       ...(replyToHandle ? { replyToHandle: String(replyToHandle) } : {}),
       createdAt: String(data.createdAt ?? r.created_at),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/beats/data/repositories/in_memory_beat_repository.dart';
 import 'package:vhunambi_client/features/beats/domain/models/producer_beat_entity.dart';
@@ -17,8 +18,9 @@ import 'package:vhunambi_client/features/marketplace/presentation/providers/mark
 /// T14.3 — BeatsVaultView + cockpit widget suite (REQ-BEAT-14 → REQ-BEAT-22).
 void main() {
   group('BeatsVaultView', () {
-    testWidgets('renders the universal empty state and its create CTA',
-        (tester) async {
+    testWidgets('renders the universal empty state and its create CTA', (
+      tester,
+    ) async {
       await _pumpVault(tester);
 
       expect(find.text('No beats yet'), findsOneWidget);
@@ -30,8 +32,9 @@ void main() {
       expect(find.text('Configure Beat Listing'), findsOneWidget);
     });
 
-    testWidgets('renders the cockpit banner, chips and grid cards',
-        (tester) async {
+    testWidgets('renders the cockpit banner, chips and grid cards', (
+      tester,
+    ) async {
       await _pumpVault(
         tester,
         seed: [
@@ -65,8 +68,9 @@ void main() {
       expect(find.text('Sophiatown Bounce'), findsOneWidget);
     });
 
-    testWidgets('the presentation toggle swaps cards for dense rows',
-        (tester) async {
+    testWidgets('the presentation toggle swaps cards for dense rows', (
+      tester,
+    ) async {
       await _pumpVault(tester, seed: [_beat(status: BeatStatus.published)]);
 
       expect(find.byType(BeatCard), findsOneWidget);
@@ -86,8 +90,9 @@ void main() {
       expect(find.byType(BeatListTile), findsNothing);
     });
 
-    testWidgets('the search field narrows the vault and offers a reset',
-        (tester) async {
+    testWidgets('the search field narrows the vault and offers a reset', (
+      tester,
+    ) async {
       await _pumpVault(
         tester,
         seed: [
@@ -111,25 +116,23 @@ void main() {
       await tester.enterText(find.byKey(const Key('beat_search')), 'zzz');
       await tester.pumpAndSettle();
 
+      expect(find.text('No beats found matching this filter'), findsOneWidget);
+      expect(find.text('Nothing matched "zzz"'), findsOneWidget);
       expect(
-        find.text('No beats found matching this filter'),
+        find.byIcon(PhosphorIconsRegular.musicNotesSimple),
         findsOneWidget,
       );
-      expect(find.text('Nothing matched "zzz"'), findsOneWidget);
-      expect(find.byIcon(Icons.music_off_outlined), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('beat_clear_filters')));
       await tester.pumpAndSettle();
 
       expect(find.byType(BeatCard), findsNWidgets(2));
-      expect(
-        find.text('No beats found matching this filter'),
-        findsNothing,
-      );
+      expect(find.text('No beats found matching this filter'), findsNothing);
     });
 
-    testWidgets('Reset Filters restores the genre dimension to All',
-        (tester) async {
+    testWidgets('Reset Filters restores the genre dimension to All', (
+      tester,
+    ) async {
       final container = await _pumpVault(
         tester,
         seed: [
@@ -143,23 +146,22 @@ void main() {
       );
 
       // No genre chip UI exists yet — drive the filter dimension directly.
-      container.read(beatsVaultFilterProvider.notifier).state =
-          container
-              .read(beatsVaultFilterProvider)
-              .copyWith(genreFilter: 'Maskandi');
+      container.read(beatsVaultFilterProvider.notifier).state = container
+          .read(beatsVaultFilterProvider)
+          .copyWith(genreFilter: 'Maskandi');
       await tester.pumpAndSettle();
 
       expect(find.byType(BeatCard), findsNothing);
-      expect(
-        find.text('No beats found matching this filter'),
-        findsOneWidget,
-      );
+      expect(find.text('No beats found matching this filter'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('beat_clear_filters')));
       await tester.pumpAndSettle();
 
       expect(container.read(beatsVaultFilterProvider).genreFilter, 'All');
-      expect(container.read(beatsVaultFilterProvider).hasActiveFilters, isFalse);
+      expect(
+        container.read(beatsVaultFilterProvider).hasActiveFilters,
+        isFalse,
+      );
       expect(find.byType(BeatCard), findsNWidgets(2));
     });
 
@@ -191,8 +193,9 @@ void main() {
       expect(find.byType(BeatCard), findsNWidgets(2));
     });
 
-    testWidgets('the New Beat dialog authors a draft into the vault',
-        (tester) async {
+    testWidgets('the New Beat dialog authors a draft into the vault', (
+      tester,
+    ) async {
       final container = await _pumpVault(tester, seed: [_beat()]);
 
       await tester.tap(find.byKey(const Key('new_beat_button')));
@@ -217,8 +220,9 @@ void main() {
       );
     });
 
-    testWidgets('publishing a draft routes through the confirmation sheet',
-        (tester) async {
+    testWidgets('publishing a draft routes through the confirmation sheet', (
+      tester,
+    ) async {
       final container = await _pumpVault(tester, seed: [_beat(stems: true)]);
 
       await tester.tap(find.byKey(const Key('beat_menu_beat_vault_1')));
@@ -242,11 +246,12 @@ void main() {
       );
     });
 
-    testWidgets('a live beat switches back to draft instantly',
-        (tester) async {
+    testWidgets('a live beat switches back to draft instantly', (tester) async {
       final container = await _pumpVault(
         tester,
-        seed: [_beat(status: BeatStatus.published, sales: const [10])],
+        seed: [
+          _beat(status: BeatStatus.published, sales: const [10]),
+        ],
       );
 
       await container
@@ -266,10 +271,7 @@ void main() {
       await tester.tap(find.text('Switch to Draft'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining('switched back to draft'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('switched back to draft'), findsOneWidget);
       expect(container.read(beatsProvider).single.isDraft, isTrue);
       expect(
         container
@@ -301,8 +303,9 @@ void main() {
       expect(find.text('No beats yet'), findsOneWidget);
     });
 
-    testWidgets('the stems sheet opens from the vault overflow menu',
-        (tester) async {
+    testWidgets('the stems sheet opens from the vault overflow menu', (
+      tester,
+    ) async {
       await _pumpVault(tester, seed: [_beat(stems: true)]);
 
       await tester.tap(find.byKey(const Key('beat_menu_beat_vault_1')));
@@ -323,8 +326,9 @@ void main() {
   });
 
   group('BeatDetailCockpitView', () {
-    testWidgets('renders the hero, marketplace, stems and ledger cards',
-        (tester) async {
+    testWidgets('renders the hero, marketplace, stems and ledger cards', (
+      tester,
+    ) async {
       final container = await _pumpCockpit(
         tester,
         beat: _beat(
@@ -341,14 +345,8 @@ void main() {
       expect(find.byKey(const Key('cockpit_audition')), findsOneWidget);
       expect(find.byKey(const Key('cockpit_edit')), findsOneWidget);
       expect(find.byKey(const Key('cockpit_export_stems')), findsOneWidget);
-      expect(
-        find.byKey(const Key('cockpit_publish_toggle')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('cockpit_export_stems_cta')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('cockpit_publish_toggle')), findsOneWidget);
+      expect(find.byKey(const Key('cockpit_export_stems_cta')), findsOneWidget);
       expect(find.byKey(const Key('stem_indicator_drums')), findsOneWidget);
       expect(find.byKey(const Key('sale_row_sale_0')), findsOneWidget);
       expect(find.text('+⚡ 10 Credits'), findsOneWidget);
@@ -356,8 +354,9 @@ void main() {
       expect(container.read(beatsProvider).single.id, equals('beat_vault_1'));
     });
 
-    testWidgets('publishing from the cockpit injects the marketplace listing',
-        (tester) async {
+    testWidgets('publishing from the cockpit injects the marketplace listing', (
+      tester,
+    ) async {
       final container = await _pumpCockpit(tester, beat: _beat(stems: true));
 
       await tester.tap(find.byKey(const Key('cockpit_publish_toggle')));
@@ -373,8 +372,9 @@ void main() {
       );
     });
 
-    testWidgets('an unknown beat renders the unavailable fallback',
-        (tester) async {
+    testWidgets('an unknown beat renders the unavailable fallback', (
+      tester,
+    ) async {
       await _pumpCockpit(tester, beat: null);
 
       expect(find.text('Beat unavailable'), findsOneWidget);
@@ -399,8 +399,9 @@ void main() {
                 seed: [_beat(status: BeatStatus.published)],
               ),
             ),
-            libraryCategoryProvider
-                .overrideWith((ref) => LibraryCategory.beats),
+            libraryCategoryProvider.overrideWith(
+              (ref) => LibraryCategory.beats,
+            ),
           ],
           child: MaterialApp(
             theme: AppTheme.darkTheme,
@@ -443,10 +444,9 @@ Future<ProviderContainer> _pumpVault(
 
   // The scope owns the container, so tearing the tree down cancels the player
   // position ticker before the framework's pending-timer assertion runs.
-  return ProviderScope.containerOf(
-    tester.element(find.byType(BeatsVaultView)),
-  );
+  return ProviderScope.containerOf(tester.element(find.byType(BeatsVaultView)));
 }
+
 /// Pumps [BeatDetailCockpitView] for [beat]; a `null` seed exercises the
 /// "beat unavailable" fallback route.
 Future<ProviderContainer> _pumpCockpit(
@@ -461,9 +461,7 @@ Future<ProviderContainer> _pumpCockpit(
     ProviderScope(
       overrides: <Override>[
         beatRepositoryProvider.overrideWithValue(
-          InMemoryBeatRepository(
-            seed: <ProducerBeatEntity>[?beat],
-          ),
+          InMemoryBeatRepository(seed: <ProducerBeatEntity>[?beat]),
         ),
       ],
       child: MaterialApp(
@@ -491,37 +489,36 @@ ProducerBeatEntity _beat({
   List<int> sales = const <int>[],
   int auditionCount = 0,
   DateTime? createdAt,
-}) =>
-    ProducerBeatEntity(
-      id: id,
-      title: title,
-      genre: genre,
-      bpm: bpm,
-      musicalKey: key,
-      priceInCredits: price,
-      status: status,
-      previewAudioUrl: 'https://cdn.vhunambi.com/beats/$id.mp3',
-      stemPackage: stems
-          ? const BeatStemPackage(
-              drumsUrl: 'drums.wav',
-              bassUrl: 'bass.wav',
-              melodyUrl: 'melody.wav',
-              otherUrl: 'fx.wav',
-              isSeparated: true,
-            )
-          : const BeatStemPackage(),
-      salesRecords: <BeatSaleRecord>[
-        for (var index = 0; index < sales.length; index++)
-          BeatSaleRecord(
-            saleId: 'sale_$index',
-            buyerId: 'creator_sipho',
-            buyerHandle: '@sipho_beats',
-            licenseTier: BeatLicenseTier.nonExclusiveCommercial,
-            creditsEarned: sales[index],
-            timestamp: DateTime(2026, 9, 24).add(Duration(hours: index)),
-          ),
-      ],
-      auditionCount: auditionCount,
-      createdAt: createdAt ?? DateTime(2026, 9, 20),
-      updatedAt: DateTime(2026, 9, 25),
-    );
+}) => ProducerBeatEntity(
+  id: id,
+  title: title,
+  genre: genre,
+  bpm: bpm,
+  musicalKey: key,
+  priceInCredits: price,
+  status: status,
+  previewAudioUrl: 'https://cdn.vhunambi.com/beats/$id.mp3',
+  stemPackage: stems
+      ? const BeatStemPackage(
+          drumsUrl: 'drums.wav',
+          bassUrl: 'bass.wav',
+          melodyUrl: 'melody.wav',
+          otherUrl: 'fx.wav',
+          isSeparated: true,
+        )
+      : const BeatStemPackage(),
+  salesRecords: <BeatSaleRecord>[
+    for (var index = 0; index < sales.length; index++)
+      BeatSaleRecord(
+        saleId: 'sale_$index',
+        buyerId: 'creator_sipho',
+        buyerHandle: '@sipho_beats',
+        licenseTier: BeatLicenseTier.nonExclusiveCommercial,
+        creditsEarned: sales[index],
+        timestamp: DateTime(2026, 9, 24).add(Duration(hours: index)),
+      ),
+  ],
+  auditionCount: auditionCount,
+  createdAt: createdAt ?? DateTime(2026, 9, 20),
+  updatedAt: DateTime(2026, 9, 25),
+);

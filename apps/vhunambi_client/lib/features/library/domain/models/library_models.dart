@@ -96,6 +96,16 @@ class LibraryTrack {
   /// Phase 59: LWW conflict-resolution timestamp in Unix epoch milliseconds.
   final int? updatedAtMs;
 
+  /// Canonical creator ID (`creator_cern`, etc.) guaranteeing `ViewerRole.owner` parity.
+  final String? creatorId;
+  final String? creatorHandle;
+  final String? mood;
+  final String? moodId;
+  final int? bpm;
+  final String? description;
+  final bool allowOpenStemsRemix;
+  final bool isPublic;
+
   const LibraryTrack({
     required this.id,
     required this.title,
@@ -121,6 +131,14 @@ class LibraryTrack {
     this.masterAudioFilePath,
     this.stemPaths = const <String, String>{},
     this.updatedAtMs,
+    this.creatorId,
+    this.creatorHandle,
+    this.mood,
+    this.moodId,
+    this.bpm,
+    this.description,
+    this.allowOpenStemsRemix = false,
+    this.isPublic = true,
   });
 
   /// Effective modification timestamp in milliseconds for LWW delta sync.
@@ -229,6 +247,14 @@ class LibraryTrack {
     String? masterAudioFilePath,
     Map<String, String>? stemPaths,
     int? updatedAtMs,
+    String? creatorId,
+    String? creatorHandle,
+    String? mood,
+    String? moodId,
+    int? bpm,
+    String? description,
+    bool? allowOpenStemsRemix,
+    bool? isPublic,
   }) {
     return LibraryTrack(
       id: id ?? this.id,
@@ -258,6 +284,14 @@ class LibraryTrack {
       masterAudioFilePath: masterAudioFilePath ?? this.masterAudioFilePath,
       stemPaths: stemPaths ?? this.stemPaths,
       updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      creatorId: creatorId ?? this.creatorId,
+      creatorHandle: creatorHandle ?? this.creatorHandle,
+      mood: mood ?? this.mood,
+      moodId: moodId ?? this.moodId,
+      bpm: bpm ?? this.bpm,
+      description: description ?? this.description,
+      allowOpenStemsRemix: allowOpenStemsRemix ?? this.allowOpenStemsRemix,
+      isPublic: isPublic ?? this.isPublic,
     );
   }
 
@@ -265,6 +299,8 @@ class LibraryTrack {
     'id': id,
     'title': title,
     'creatorName': creatorName,
+    if (creatorId != null) 'creatorId': creatorId,
+    if (creatorHandle != null) 'creatorHandle': creatorHandle,
     'genre': genre,
     'language': language,
     'durationSeconds': durationSeconds,
@@ -286,6 +322,12 @@ class LibraryTrack {
     if (licenseTierId != null) 'licenseTierId': licenseTierId,
     if (masterAudioFilePath != null) 'masterAudioFilePath': masterAudioFilePath,
     if (stemPaths.isNotEmpty) 'stemPaths': stemPaths,
+    if (mood != null) 'mood': mood,
+    if (moodId != null) 'moodId': moodId,
+    if (bpm != null) 'bpm': bpm,
+    if (description != null) 'description': description,
+    'allowOpenStemsRemix': allowOpenStemsRemix,
+    'isPublic': isPublic,
     'updatedAtMs': effectiveUpdatedAtMs,
     'updatedAt': DateTime.fromMillisecondsSinceEpoch(
       effectiveUpdatedAtMs,
@@ -358,6 +400,15 @@ class LibraryTrack {
       masterAudioFilePath: json['masterAudioFilePath'] as String?,
       stemPaths: Map<String, String>.unmodifiable(stemMap),
       updatedAtMs: updatedAtMs,
+      creatorId: (json['creatorId'] ?? json['creator_id']) as String?,
+      creatorHandle:
+          (json['creatorHandle'] ?? json['creator_handle']) as String?,
+      mood: json['mood'] as String?,
+      moodId: (json['moodId'] ?? json['mood_id']) as String?,
+      bpm: (json['bpm'] as num?)?.toInt(),
+      description: json['description'] as String?,
+      allowOpenStemsRemix: json['allowOpenStemsRemix'] as bool? ?? false,
+      isPublic: json['isPublic'] as bool? ?? true,
     );
   }
 
@@ -367,12 +418,14 @@ class LibraryTrack {
       id: id,
       title: title,
       creatorName: creatorName,
+      creatorHandle: creatorHandle,
       genre: genre,
       language: language,
       duration: duration,
       audioUrl: masterAudioFilePath ?? localAudioFilePath ?? remoteAudioUrl,
       coverUrl: coverImageUrl,
       playCount: playCount,
+      mood: mood ?? moodId,
     );
   }
 
@@ -383,6 +436,8 @@ class LibraryTrack {
         other.id == id &&
         other.title == title &&
         other.creatorName == creatorName &&
+        other.creatorId == creatorId &&
+        other.creatorHandle == creatorHandle &&
         other.genre == genre &&
         other.language == language &&
         other.durationSeconds == durationSeconds &&
@@ -402,6 +457,12 @@ class LibraryTrack {
         other.licenseHash == licenseHash &&
         other.licenseTierId == licenseTierId &&
         other.masterAudioFilePath == masterAudioFilePath &&
+        other.mood == mood &&
+        other.moodId == moodId &&
+        other.bpm == bpm &&
+        other.description == description &&
+        other.allowOpenStemsRemix == allowOpenStemsRemix &&
+        other.isPublic == isPublic &&
         other.updatedAtMs == updatedAtMs &&
         mapEquals(other.stemPaths, stemPaths);
   }
@@ -411,6 +472,8 @@ class LibraryTrack {
     id,
     title,
     creatorName,
+    creatorId,
+    creatorHandle,
     genre,
     language,
     durationSeconds,
@@ -430,6 +493,12 @@ class LibraryTrack {
     licenseHash,
     licenseTierId,
     masterAudioFilePath,
+    mood,
+    moodId,
+    bpm,
+    description,
+    allowOpenStemsRemix,
+    isPublic,
     updatedAtMs,
     Object.hashAll(stemPaths.entries.map((e) => Object.hash(e.key, e.value))),
   ]);

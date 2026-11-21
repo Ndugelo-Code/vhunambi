@@ -8,6 +8,7 @@ import '../../../notifications/domain/models/notification_entity.dart';
 import '../../../notifications/domain/models/notification_enums.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../domain/models/kinetic_reaction.dart';
 import '../../domain/models/reel_comment.dart';
 import '../../domain/repositories/i_social_repository.dart';
 import 'social_repository_provider.dart';
@@ -218,7 +219,7 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
     );
   }
 
-  /// Appends a new comment or nested reply optimistically and persists to cloud (`REQ-P69-THREAD-03..05`).
+  /// Appends a new comment or nested reply optimistically and persists to cloud (`REQ-P69-THREAD-03..05`, `EP-P73-GIF-STICKER-MEDIA`).
   Future<void> addComment({
     required String clipId,
     required String text,
@@ -232,9 +233,16 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
     String? contentCreatorId,
     String? contentCreatorHandle,
     bool isKineticPost = false,
+    String? gifUrl,
+    String? stickerId,
+    double? mediaAspectRatio,
   }) async {
     final cleanText = text.trim();
-    if (cleanText.isEmpty) return;
+    final cleanGifUrl = gifUrl?.trim();
+    final cleanStickerId = stickerId?.trim();
+    final hasGif = cleanGifUrl != null && cleanGifUrl.isNotEmpty;
+    final hasSticker = cleanStickerId != null && cleanStickerId.isNotEmpty;
+    if (cleanText.isEmpty && !hasGif && !hasSticker) return;
 
     final session = _ref?.read(authSessionProvider);
     final ownerProfile = _ref?.read(ownerProfileProvider);
@@ -282,6 +290,9 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
       userReelLoves: userReelLoves,
       giftEmoji: giftEmoji,
       giftName: giftName,
+      gifUrl: hasGif ? cleanGifUrl : null,
+      stickerId: hasSticker ? cleanStickerId : null,
+      mediaAspectRatio: (hasGif || hasSticker) ? mediaAspectRatio : null,
       parentCommentId: effectiveParentId,
       replyToHandle: effectiveReplyHandle,
       createdAt: DateTime.now(),
@@ -338,8 +349,9 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
               NotificationEntity(
                 id: 'notif_comment_${newComment.id}',
                 title: notifTitle,
-                message:
-                    '"${newComment.text}" posted to the discussion thread.',
+                message: cleanText.isNotEmpty
+                    ? '"${newComment.text}" posted to the discussion thread.'
+                    : 'Studio reaction media posted to the discussion thread.',
                 category: NotificationCategory.social,
                 priority: NotificationPriority.normal,
                 subtype: 'comment',
@@ -368,6 +380,10 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
               userReelLoves: userReelLoves,
               parentCommentId: effectiveParentId,
               replyToHandle: effectiveReplyHandle,
+              gifUrl: hasGif ? cleanGifUrl : null,
+              stickerId: hasSticker ? cleanStickerId : null,
+              mediaAspectRatio:
+                  (hasGif || hasSticker) ? mediaAspectRatio : null,
             );
         return;
       } catch (_) {}
@@ -385,6 +401,9 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
           giftName: giftName,
           parentCommentId: effectiveParentId,
           replyToHandle: effectiveReplyHandle,
+          gifUrl: hasGif ? cleanGifUrl : null,
+          stickerId: hasSticker ? cleanStickerId : null,
+          mediaAspectRatio: (hasGif || hasSticker) ? mediaAspectRatio : null,
         );
       } catch (_) {}
     }
@@ -394,15 +413,71 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
   void toggleCommentLike({required String clipId, required String commentId}) {
     final currentList = state.commentsByClipId[clipId];
     if (currentList == null) return;
+    final target = currentList.cast<ReelComment?>().firstWhere(
+      (c) => c?.id == commentId,
+      orElse: () => null,
+    );
+    if (target == null) return;
+    final currentlyActive = target.myReaction != null || target.isLikedByMe;
+    reactToComment(
+      clipId: clipId,
+      commentId: commentId,
+      reaction: currentlyActive ? null : KineticReactionType.love,
+    );
+  }
 
+  /// Applies, switches, or clears a multi-reaction on a comment/reply with legacy count preservation.
+  void reactToComment({
+    required String clipId,
+    required String commentId,
+    required KineticReactionType? reaction,
+  }) {
+    final currentList = state.commentsByClipId[clipId];
+    if (currentList == null) return;
+
+    KineticReactionType? effectiveNext;
     final updated = [
       for (final comment in currentList)
         if (comment.id == commentId)
-          comment.copyWith(
-            isLikedByMe: !comment.isLikedByMe,
-            likeCount: (comment.likeCount + (comment.isLikedByMe ? -1 : 1))
-                .clamp(0, 9999999),
-          )
+          () {
+            final counts = Map<KineticReactionType, int>.from(
+              comment.reactionCounts,
+            );
+            final sum = counts.values.fold<int>(0, (a, b) => a + b);
+            if (sum == 0 && comment.likeCount > 0) {
+              counts[KineticReactionType.love] = comment.likeCount;
+            }
+            final prevReaction =
+                comment.myReaction ??
+                (comment.isLikedByMe ? KineticReactionType.love : null);
+            if (prevReaction != null) {
+              final nextPrev = (counts[prevReaction] ?? 0) - 1;
+              if (nextPrev > 0) {
+                counts[prevReaction] = nextPrev;
+              } else {
+                counts.remove(prevReaction);
+              }
+            }
+            effectiveNext =
+                (reaction != null &&
+                    reaction == prevReaction &&
+                    comment.myReaction != null)
+                ? null
+                : reaction;
+            if (effectiveNext != null) {
+              counts[effectiveNext!] = (counts[effectiveNext!] ?? 0) + 1;
+            }
+            final nextTotal = counts.values.fold<int>(0, (a, b) => a + b);
+            return comment.copyWith(
+              reactionCounts: Map<KineticReactionType, int>.unmodifiable(
+                counts,
+              ),
+              myReaction: effectiveNext,
+              clearMyReaction: effectiveNext == null,
+              isLikedByMe: effectiveNext != null,
+              likeCount: nextTotal,
+            );
+          }()
         else
           comment,
     ];
@@ -414,11 +489,15 @@ class ReelsCommentsNotifier extends StateNotifier<ReelsCommentsState> {
     final isKineticPost =
         clipId.startsWith('post_') || clipId.startsWith('kpost_');
     if (isKineticPost && _ref != null) {
-      unawaited(_ref.read(exploreRepositoryProvider).likeComment(commentId));
+      unawaited(
+        _ref
+            .read(exploreRepositoryProvider)
+            .reactToComment(commentId, effectiveNext),
+      );
       return;
     }
     if (_repo != null) {
-      unawaited(_repo.toggleLikeComment(commentId));
+      unawaited(_repo.reactToComment(commentId, effectiveNext));
     }
   }
 

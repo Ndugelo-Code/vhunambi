@@ -29,7 +29,8 @@ marketplaceRoutes.use('*', sovereignAuthMiddleware);
  * GET /api/marketplace/beats
  * Public beat catalog feed with multi-dimensional filtering.
  */
-marketplaceRoutes.get('/beats', (c) => {
+marketplaceRoutes.get('/beats', async (c) => {
+  await vhunambiDb.syncMarketplaceFromCloud(false, c);
   const query: MarketplaceFilterQuery = {
     genre: c.req.query('genre'),
     search: c.req.query('search'),
@@ -48,7 +49,8 @@ marketplaceRoutes.get('/beats', (c) => {
  * GET /api/marketplace/beats/:id
  * Retrieve a single beat listing.
  */
-marketplaceRoutes.get('/beats/:id', (c) => {
+marketplaceRoutes.get('/beats/:id', async (c) => {
+  await vhunambiDb.syncMarketplaceFromCloud(false, c);
   const beat = getBeatById(c.req.param('id'));
   if (!beat) {
     return c.json({ error: 'Beat not found' }, 404);
@@ -169,7 +171,8 @@ marketplaceRoutes.post('/beats/:id/license', async (c) => {
  * GET /api/marketplace/licenses/verify/:certificateId
  * Verifies cryptographic SHA-256 certificate digest integrity against SQLite registry.
  */
-marketplaceRoutes.get('/licenses/verify/:certificateId', (c) => {
+marketplaceRoutes.get('/licenses/verify/:certificateId', async (c) => {
+  await vhunambiDb.syncMarketplaceFromCloud(false, c);
   const verification = vhunambiDb.verifyBeatLicense(
     c.req.param('certificateId'),
   );
@@ -186,11 +189,12 @@ marketplaceRoutes.get('/licenses/verify/:certificateId', (c) => {
  * GET /api/marketplace/licenses/:buyerId
  * Retrieves all commercial certificates and stem packages licensed by a user.
  */
-marketplaceRoutes.get('/licenses/:buyerId', (c) => {
+marketplaceRoutes.get('/licenses/:buyerId', async (c) => {
   const buyerId = c.req.param('buyerId');
   const forbidden = assertTenantCreatorAccess(c, buyerId);
   if (forbidden) return forbidden;
 
+  await vhunambiDb.syncBuyerLicensesFromCloud(buyerId, c);
   const certificates = getLicensesByBuyer(buyerId);
   return c.json({ buyerId, certificates });
 });
@@ -199,7 +203,8 @@ marketplaceRoutes.get('/licenses/:buyerId', (c) => {
  * GET /api/marketplace/producers/:producerId/beats
  * Retrieves beats published by a specific producer.
  */
-marketplaceRoutes.get('/producers/:producerId/beats', (c) => {
+marketplaceRoutes.get('/producers/:producerId/beats', async (c) => {
+  await vhunambiDb.syncMarketplaceFromCloud(false, c);
   const producerId = c.req.param('producerId');
   const beats = getProducerBeats(producerId);
   return c.json({ producerId, beats });

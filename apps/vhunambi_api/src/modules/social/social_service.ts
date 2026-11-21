@@ -286,15 +286,22 @@ export function getComments(
   viewerCreatorId = 'creator_cern',
 ): ReelCommentDto[] {
   seedSocialClips();
+  const canonicalViewer = canonicalizeCreatorId(viewerCreatorId);
   const likedComments = vhunambiDb.listSocialInteractionTargets(
     'comment_like',
-    canonicalizeCreatorId(viewerCreatorId),
+    canonicalViewer,
   );
   return vhunambiDb.listReelCommentsByClip(clipId).map((raw) => {
     const comment = raw as ReelCommentDto;
+    const myReaction = vhunambiDb.getSocialReaction(
+      'comment_react',
+      comment.id,
+      canonicalViewer,
+    );
     return {
       ...comment,
-      isLikedByMe: likedComments.has(comment.id),
+      myReaction: myReaction ?? (likedComments.has(comment.id) ? 'love' : null),
+      isLikedByMe: likedComments.has(comment.id) || myReaction !== null,
     };
   });
 }
@@ -315,6 +322,13 @@ export function addComment(
   const commentId = `c_${nanoid(8)}`;
   const parentCommentId = req.parentCommentId?.trim() || undefined;
   const replyToHandle = req.replyToHandle?.trim() || undefined;
+  const gifUrl = req.gifUrl?.trim() || undefined;
+  const stickerId = req.stickerId?.trim() || undefined;
+  const mediaAspectRatio =
+    typeof req.mediaAspectRatio === 'number' &&
+      Number.isFinite(req.mediaAspectRatio)
+      ? req.mediaAspectRatio
+      : undefined;
   const comment: ReelCommentDto = {
     id: commentId,
     clipId,
@@ -324,9 +338,14 @@ export function addComment(
     avatarUrl: req.avatarUrl,
     isCreator:
       req.userId === clip.creatorId || req.username === clip.creatorUsername,
-    text: req.text.trim(),
+    text: (req.text ?? '').trim(),
     likeCount: 0,
     isLikedByMe: false,
+    reactionCounts: {},
+    myReaction: null,
+    ...(gifUrl ? { gifUrl } : {}),
+    ...(stickerId ? { stickerId } : {}),
+    ...(mediaAspectRatio ? { mediaAspectRatio } : {}),
     userReelLoves: req.userReelLoves ?? 0,
     giftEmoji: req.giftEmoji,
     giftName: req.giftName,

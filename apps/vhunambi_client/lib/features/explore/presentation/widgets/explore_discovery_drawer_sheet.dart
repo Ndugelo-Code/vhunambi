@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
+import '../../../../core/navigation/profile_navigation_helper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../profile/presentation/views/artist_profile_view.dart';
 import '../../../profile/presentation/views/owner_profile_view.dart';
 import '../../domain/models/explore_models.dart';
 import '../providers/explore_providers.dart';
@@ -142,7 +142,8 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
               icon: AppIcons.flame,
               iconColor: AppColors.brandPrimary,
               title: 'Listening Streak & Taste DNA',
-              subtitle: '3-day listening streak • Private School Amapiano archetype',
+              subtitle:
+                  '3-day listening streak • Private School Amapiano archetype',
               onTap: () {
                 Navigator.of(context).pop();
                 _showStreakDnaSheet(context);
@@ -383,9 +384,7 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
       builder: (_) => ListView.builder(
         padding: const EdgeInsets.all(AppSpacing.md),
         itemCount: rising.length,
-        itemBuilder: (context, i) => TrackListTile(
-          track: rising[i],
-        ),
+        itemBuilder: (context, i) => TrackListTile(track: rising[i]),
       ),
     );
   }
@@ -459,10 +458,11 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
             ),
             onTap: () {
               Navigator.of(context).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ArtistProfileView(artistId: c.id),
-                ),
+              navigateToCreatorProfile(
+                context,
+                ref,
+                creatorId: c.id,
+                creatorHandle: c.handle,
               );
             },
           );
@@ -471,4 +471,3 @@ class ExploreDiscoveryDrawerSheet extends ConsumerWidget {
     );
   }
 }
-

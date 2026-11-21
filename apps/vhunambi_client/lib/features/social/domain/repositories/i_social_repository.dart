@@ -1,6 +1,43 @@
 import 'package:vhunambi_client/features/social/domain/models/creator_wallet.dart';
+import 'package:vhunambi_client/features/social/domain/models/kinetic_reaction.dart';
 import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
 import 'package:vhunambi_client/features/social/domain/models/reel_comment.dart';
+
+/// GIF catalog search/trending entry returned by `/api/social/gifs/*`.
+class GifSearchItem {
+  final String id;
+  final String title;
+  final String previewUrl;
+  final String gifUrl;
+  final int width;
+  final int height;
+
+  const GifSearchItem({
+    required this.id,
+    required this.title,
+    required this.previewUrl,
+    required this.gifUrl,
+    this.width = 480,
+    this.height = 360,
+  });
+
+  double get aspectRatio =>
+      height > 0 ? (width / height).clamp(0.5, 2.2) : 1.33;
+
+  factory GifSearchItem.fromJson(Map<String, dynamic> json) {
+    final gif = (json['gifUrl'] ?? json['gif_url'] ?? '').toString();
+    final preview =
+        (json['previewUrl'] ?? json['preview_url'] ?? gif).toString();
+    return GifSearchItem(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? 'Studio GIF').toString(),
+      previewUrl: preview,
+      gifUrl: gif,
+      width: (json['width'] as num?)?.toInt() ?? 480,
+      height: (json['height'] as num?)?.toInt() ?? 360,
+    );
+  }
+}
 
 /// Abstract contract for the Vhunambi Social Creator Network repository (REQ-SOC-01..26).
 ///
@@ -38,10 +75,30 @@ abstract class ISocialRepository {
     String? giftName,
     String? parentCommentId,
     String? replyToHandle,
+    String? gifUrl,
+    String? stickerId,
+    double? mediaAspectRatio,
   });
 
   /// Toggles like state on an individual comment.
   Future<({bool liked, int likeCount})> toggleLikeComment(String commentId);
+
+  /// Applies, switches, or clears a multi-reaction on an individual comment.
+  Future<
+    ({
+      int likeCount,
+      bool isLikedByMe,
+      Map<KineticReactionType, int> reactionCounts,
+      KineticReactionType? myReaction,
+    })
+  >
+  reactToComment(String commentId, KineticReactionType? reaction);
+
+  /// Searches curated / Tenor / Giphy studio GIFs via the backend proxy.
+  Future<List<GifSearchItem>> searchGifs(String query, {int limit = 16});
+
+  /// Fetches trending studio GIFs via the backend proxy.
+  Future<List<GifSearchItem>> getTrendingGifs({int limit = 16});
 
   /// Sends a cultural micro-gift tip to the creator of a clip.
   Future<

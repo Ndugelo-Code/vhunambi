@@ -317,9 +317,9 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
                 contentPadding: const EdgeInsets.all(AppSpacing.md),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: AppRadius.inputBorder,
-                  borderSide: const BorderSide(
-                    color: AppColors.brandPrimary,
-                    width: 1.5,
+                  borderSide: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.24),
+                    width: 1.0,
                   ),
                 ),
               ),

@@ -136,8 +136,9 @@ class _AddToPlaylistSheetState extends ConsumerState<AddToPlaylistSheet> {
                         final playlist = visible[index];
                         return _PlaylistCheckboxTile(
                           playlist: playlist,
-                          isSelected:
-                              playlist.trackIds.contains(widget.track.id),
+                          isSelected: playlist.trackIds.contains(
+                            widget.track.id,
+                          ),
                           onToggle: () => notifier.toggleTrackInPlaylist(
                             playlist.id,
                             widget.track.id,
@@ -266,13 +267,20 @@ class _NewPlaylistField extends StatelessWidget {
             style: AppTypography.bodySmall.copyWith(
               color: AppColors.textPrimary,
             ),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
               hintText: 'Playlist name',
-              border: OutlineInputBorder(borderRadius: AppRadius.inputBorder),
+              border: const OutlineInputBorder(
+                borderRadius: AppRadius.inputBorder,
+              ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: AppRadius.inputBorder,
-                borderSide: BorderSide(color: AppColors.brandPrimary),
+                borderSide: BorderSide(
+                  color: AppColors.textPrimaryOf(
+                    context,
+                  ).withValues(alpha: 0.22),
+                  width: 1.0,
+                ),
               ),
             ),
           ),
@@ -360,7 +368,10 @@ class _PlaylistCheckboxTile extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Text(playlist.trackCountLabel, style: AppTypography.caption),
+                    Text(
+                      playlist.trackCountLabel,
+                      style: AppTypography.caption,
+                    ),
                   ],
                 ),
               ),

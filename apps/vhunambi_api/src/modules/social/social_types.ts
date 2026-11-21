@@ -65,7 +65,7 @@ export interface ClipFeedPage {
   nextCursor: string | null;
 }
 
-/** Reel comment DTO (Phase C + Phase 69 Threading, mirrors `ReelComment.dart`). */
+/** Reel comment DTO (Phase C + Phase 69 Threading + Phase 73 Reactions/Media, mirrors `ReelComment.dart`). */
 export interface ReelCommentDto {
   id: string;
   clipId: string;
@@ -77,6 +77,11 @@ export interface ReelCommentDto {
   text: string;
   likeCount: number;
   isLikedByMe: boolean;
+  reactionCounts?: Record<string, number>;
+  myReaction?: string | null;
+  gifUrl?: string;
+  stickerId?: string;
+  mediaAspectRatio?: number;
   userReelLoves: number;
   giftEmoji?: string;
   giftName?: string;
@@ -97,6 +102,9 @@ export interface CreateCommentRequest {
   giftName?: string;
   parentCommentId?: string;
   replyToHandle?: string;
+  gifUrl?: string;
+  stickerId?: string;
+  mediaAspectRatio?: number;
 }
 
 /** Cultural Gift payload. */

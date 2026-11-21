@@ -470,7 +470,9 @@ class _SovereignAuthSheetState extends ConsumerState<SovereignAuthSheet> {
             : AppColors.borderSubtleOf(context),
       ),
       avatar: PhosphorIcon(
-        isActive ? PhosphorIconsFill.checkCircle : PhosphorIconsRegular.userCircle,
+        isActive
+            ? PhosphorIconsFill.checkCircle
+            : PhosphorIconsRegular.userCircle,
         size: 14,
         color: isActive
             ? AppColors.brandPrimary
@@ -530,12 +532,14 @@ class _SovereignAuthSheetState extends ConsumerState<SovereignAuthSheet> {
           borderRadius: AppRadius.inputBorder,
           borderSide: BorderSide(color: AppColors.borderSubtleOf(context)),
         ),
-        focusedBorder: const OutlineInputBorder(
+        focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.inputBorder,
-          borderSide: BorderSide(color: AppColors.brandPrimary),
+          borderSide: BorderSide(
+            color: AppColors.textPrimaryOf(context).withValues(alpha: 0.22),
+            width: 1.0,
+          ),
         ),
       ),
     );
   }
 }
-

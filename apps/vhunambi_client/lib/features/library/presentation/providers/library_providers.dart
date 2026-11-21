@@ -369,6 +369,26 @@ class LibraryTracksNotifier extends StateNotifier<List<LibraryTrack>> {
     }
   }
 
+  /// Persists Public/Private catalog visibility for an owned vault track.
+  void toggleTrackVisibility(String id) {
+    _localMutatedIds.add(id);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    LibraryTrack? updated;
+    state = [
+      for (final track in state)
+        if (track.id == id)
+          updated = track.copyWith(
+            isPublic: !track.isPublic,
+            updatedAtMs: nowMs,
+          )
+        else
+          track,
+    ];
+    if (updated != null) {
+      _persistAndQueue(updated, action: 'update');
+    }
+  }
+
   /// Updates the offline cache integrity state of a record.
   void setSyncStatus(String id, TrackSyncStatus status) {
     _localMutatedIds.add(id);
@@ -509,15 +529,19 @@ List<LibraryTrack> _seedTracks() {
       id: 'lib_track_001',
       title: 'Grateful in the Light',
       creatorName: 'cern',
+      creatorId: 'creator_cern',
+      creatorHandle: '@cern',
       genre: 'Amapiano',
       language: 'English',
+      mood: 'Uplifting',
+      moodId: 'uplifting',
+      bpm: 113,
       durationSeconds: 216,
       remoteAudioUrl: '$origin/audio/grateful-in-the-light.mp3',
       localAudioFilePath: '$vaultAudio/grateful-in-the-light.mp3',
       coverImageUrl: 'asset:${AppAssets.sunsetMelodiesCover}',
       createdAt: now.subtract(const Duration(hours: 2)),
       syncStatus: TrackSyncStatus.cachedLocally,
-      playCount: 0,
       lyrics:
           '[Intro]\nYebo! Woza!\n\n[Verse 1]\nWalking through the morning mist where memories stay\nListening to the elders teaching us the ancient way\n\n[Chorus]\nThis is our song, this is our sacred beat\nVhunambi rising strong on every township street\n\n[Outro]\nShisa!',
     ),
@@ -525,8 +549,13 @@ List<LibraryTrack> _seedTracks() {
       id: 'lib_track_002',
       title: 'Ndo Mufuna Matibe',
       creatorName: 'Fifi',
+      creatorId: 'creator_cern',
+      creatorHandle: '@cern',
       genre: 'Amapiano',
       language: 'Tshivenḓa',
+      mood: 'Soulful',
+      moodId: 'soulful',
+      bpm: 112,
       durationSeconds: 198,
       remoteAudioUrl: '$origin/audio/ndo-mufuna-matibe.mp3',
       coverImageUrl: 'asset:${AppAssets.timbreCantor}',

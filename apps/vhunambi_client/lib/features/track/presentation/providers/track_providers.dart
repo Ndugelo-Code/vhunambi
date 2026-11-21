@@ -289,10 +289,18 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
             RegExp(r'[^a-z0-9]+'),
             '_',
           );
-          final resolvedCreatorId = canonicalizeCreatorId(
-            lt.creatorName,
-            fallback: 'creator_$handleSlug',
-          );
+          final resolvedCreatorId =
+              (lt.creatorId != null && lt.creatorId!.trim().isNotEmpty)
+              ? canonicalizeCreatorId(lt.creatorId!)
+              : canonicalizeCreatorId(
+                  lt.creatorName,
+                  fallback: 'creator_$handleSlug',
+                );
+          final resolvedHandle =
+              (lt.creatorHandle != null && lt.creatorHandle!.trim().isNotEmpty)
+              ? lt.creatorHandle!.trim()
+              : handleFromCreatorId(resolvedCreatorId);
+          final canonicalMood = VhunambiMood.normalize(lt.moodId ?? lt.mood);
           return TrackDetailEntity(
             id: lt.id,
             title: lt.title,
@@ -303,15 +311,20 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
             ),
             creatorId: resolvedCreatorId,
             creatorName: lt.creatorName,
-            creatorHandle: handleFromCreatorId(resolvedCreatorId),
+            creatorHandle: resolvedHandle,
             playCount: lt.playCount,
             coverUrl: lt.coverImageUrl,
             createdAt: lt.createdAt,
-            bpm: _defaultBpmForGenre(lt.genre),
+            bpm: (lt.bpm != null && lt.bpm! > 0)
+                ? lt.bpm!
+                : _defaultBpmForGenre(lt.genre),
             musicalKey: _defaultKeyForGenre(lt.genre),
-            moodId: VhunambiMood.normalize(null).moodId,
+            moodId: canonicalMood.moodId,
             description:
-                'Mastered ${lt.genre} studio composition performed in ${lt.language}.',
+                (lt.description != null && lt.description!.trim().isNotEmpty)
+                ? lt.description!
+                : 'Mastered ${lt.genre} studio composition performed in ${lt.language}.',
+            allowOpenStemsRemix: lt.allowOpenStemsRemix,
             lyrics: lt.lyrics ?? '[Instrumental / AI Studio Track]',
             prompt:
                 'Synthesized in Vhunambi Studio (${lt.genre} · ${lt.language})',

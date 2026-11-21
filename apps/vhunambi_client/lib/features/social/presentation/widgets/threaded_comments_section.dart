@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,8 +8,12 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/safe_network_avatar.dart';
+import '../../domain/models/kinetic_reaction.dart';
 import '../../domain/models/reel_comment.dart';
+import '../../domain/models/sovereign_sticker_pack.dart';
 import '../providers/reels_comments_provider.dart';
+import 'gif_sticker_picker_sheet.dart';
+import 'reaction_tray_overlay.dart';
 
 /// Immutable descriptor for a `STD-UIUX-001` Phosphor studio reaction chip (`REQ-P69-STD-01`).
 @immutable
@@ -133,14 +138,18 @@ class ThreadedCommentsSection extends ConsumerWidget {
           Row(
             key: Key('threaded_comments_header_$clipOrPostId'),
             children: [
-              Text(
-                'Comments (${allComments.length})',
-                style: AppTypography.titleSmall.copyWith(
-                  color: AppColors.textPrimaryOf(context),
-                  fontWeight: FontWeight.w800,
+              Expanded(
+                child: Text(
+                  'Comments (${allComments.length})',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.titleSmall.copyWith(
+                    color: AppColors.textPrimaryOf(context),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               PopupMenuButton<CommentSortOrder>(
                 key: const Key('comment_sort_toggle_btn'),
                 initialValue: sortOrder,
@@ -274,6 +283,14 @@ class ThreadedCommentsSection extends ConsumerWidget {
                     commentId: node.parent.id,
                   );
                 },
+                onReact: (rx) {
+                  HapticFeedback.selectionClick();
+                  notifier.reactToComment(
+                    clipId: clipOrPostId,
+                    commentId: node.parent.id,
+                    reaction: rx,
+                  );
+                },
               ),
               if (node.replies.isNotEmpty) ...[
                 Padding(
@@ -368,6 +385,14 @@ class ThreadedCommentsSection extends ConsumerWidget {
                                   commentId: reply.id,
                                 );
                               },
+                              onReact: (rx) {
+                                HapticFeedback.selectionClick();
+                                notifier.reactToComment(
+                                  clipId: clipOrPostId,
+                                  commentId: reply.id,
+                                  reaction: rx,
+                                );
+                              },
                             ),
                         ],
                       ),
@@ -451,6 +476,7 @@ class _ThreadedCommentTile extends StatelessWidget {
   final bool isChildReply;
   final VoidCallback onReplyTap;
   final VoidCallback onLikeTap;
+  final ValueChanged<KineticReactionType>? onReact;
 
   const _ThreadedCommentTile({
     required this.comment,
@@ -458,11 +484,28 @@ class _ThreadedCommentTile extends StatelessWidget {
     required this.isChildReply,
     required this.onReplyTap,
     required this.onLikeTap,
+    this.onReact,
   });
 
   @override
   Widget build(BuildContext context) {
     final showCreatorBadge = comment.isCreator || isCreatorOverride;
+    final sticker = SovereignStickerPack.findById(comment.stickerId);
+    final hasGif =
+        sticker == null &&
+        comment.gifUrl != null &&
+        comment.gifUrl!.trim().isNotEmpty;
+    final hasText =
+        comment.text.trim().isNotEmpty ||
+        (comment.replyToHandle != null && comment.replyToHandle!.isNotEmpty);
+    final activeReaction = comment.myReaction;
+    final effectiveCount = comment.totalReactionCount;
+    final likeTint = activeReaction != null
+        ? activeReaction.accentColor
+        : (comment.isLikedByMe
+              ? AppColors.error
+              : AppColors.textSecondaryOf(context));
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -553,27 +596,68 @@ class _ThreadedCommentTile extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                RichText(
-                  text: TextSpan(
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.textPrimaryOf(context),
-                      height: 1.35,
+                if (hasText) ...[
+                  const SizedBox(height: 4),
+                  RichText(
+                    text: TextSpan(
+                      style: AppTypography.bodySmall.copyWith(
+                        color: AppColors.textPrimaryOf(context),
+                        height: 1.35,
+                      ),
+                      children: [
+                        if (comment.replyToHandle != null &&
+                            comment.replyToHandle!.isNotEmpty)
+                          TextSpan(
+                            text: '${comment.replyToHandle} ',
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.brandPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        TextSpan(text: comment.text),
+                      ],
                     ),
-                    children: [
-                      if (comment.replyToHandle != null &&
-                          comment.replyToHandle!.isNotEmpty)
-                        TextSpan(
-                          text: '${comment.replyToHandle} ',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.brandPrimary,
-                            fontWeight: FontWeight.w700,
+                  ),
+                ],
+                if (sticker != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, bottom: 2),
+                    child: SovereignStickerGraphic(
+                      key: Key('comment_sticker_media_${comment.id}'),
+                      sticker: sticker,
+                      width: 132,
+                      height: 94,
+                    ),
+                  )
+                else if (hasGif)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, bottom: 2),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 210),
+                      child: ClipRRect(
+                        key: Key('comment_gif_media_${comment.id}'),
+                        borderRadius: BorderRadius.circular(14),
+                        child: AspectRatio(
+                          aspectRatio: (comment.mediaAspectRatio ?? 1.33)
+                              .clamp(0.6, 2.0),
+                          child: CachedNetworkImage(
+                            imageUrl: comment.gifUrl!,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) => ColoredBox(
+                              color: AppColors.surfaceSecondaryOf(context),
+                              child: Center(
+                                child: PhosphorIcon(
+                                  PhosphorIconsRegular.gif,
+                                  size: 28,
+                                  color: AppColors.textSecondaryOf(context),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      TextSpan(text: comment.text),
-                    ],
+                      ),
+                    ),
                   ),
-                ),
                 const SizedBox(height: 2),
                 Row(
                   children: [
@@ -598,44 +682,62 @@ class _ThreadedCommentTile extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (comment.reactionCounts.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      ReactionClusterStack(
+                        reactionCounts: comment.reactionCounts,
+                        fallbackActive: comment.myReaction,
+                        badgeSize: 14,
+                      ),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
           const SizedBox(width: 6),
-          InkWell(
-            key: ValueKey('comment_like_${comment.id}'),
-            onTap: onLikeTap,
-            borderRadius: BorderRadius.circular(10),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  PhosphorIcon(
-                    comment.isLikedByMe
-                        ? AppIcons.heart
-                        : AppIcons.heartOutline,
-                    size: 16,
-                    color: comment.isLikedByMe
-                        ? AppColors.error
-                        : AppColors.textSecondaryOf(context),
+          GestureDetector(
+            onLongPressStart: onReact == null
+                ? null
+                : (details) => ReactionTrayOverlay.show(
+                    context: context,
+                    anchorGlobalPosition: details.globalPosition,
+                    activeReaction: comment.myReaction,
+                    onSelected: onReact!,
                   ),
-                  if (comment.likeCount > 0) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '${comment.likeCount}',
-                      style: AppTypography.caption.copyWith(
-                        color: comment.isLikedByMe
-                            ? AppColors.error
-                            : AppColors.textSecondaryOf(context),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+            child: InkWell(
+              key: ValueKey('comment_like_${comment.id}'),
+              onTap: onLikeTap,
+              borderRadius: BorderRadius.circular(10),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (activeReaction != null &&
+                        activeReaction != KineticReactionType.love)
+                      KineticReactionBadge(type: activeReaction, size: 17)
+                    else
+                      PhosphorIcon(
+                        comment.isLikedByMe
+                            ? AppIcons.heart
+                            : AppIcons.heartOutline,
+                        size: 16,
+                        color: likeTint,
                       ),
-                    ),
+                    if (effectiveCount > 0) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '$effectiveCount',
+                        style: AppTypography.caption.copyWith(
+                          color: likeTint,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -646,14 +748,17 @@ class _ThreadedCommentTile extends StatelessWidget {
 }
 
 /// Sticky bottom reply-aware comment composer bar with `STD-UIUX-001` Phosphor
-/// studio reaction chips (`REQ-P69-STD-01`, `REQ-P69-THREAD-03`).
-class StudioReactionComposerBar extends ConsumerWidget {
+/// studio reaction chips and GIF/Sticker picker (`REQ-P69-STD-01`, `REQ-P69-THREAD-03`, `REQ-P73-GIF-01..02`).
+class StudioReactionComposerBar extends ConsumerStatefulWidget {
   final String clipOrPostId;
   final String? creatorHandle;
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onSubmit;
+  final ValueChanged<SelectedCommentMedia?>? onSubmitWithMedia;
   final ValueChanged<String>? onAppendReactionText;
+  final Color? composerRingColor;
+  final Color? accentColor;
 
   const StudioReactionComposerBar({
     super.key,
@@ -662,32 +767,88 @@ class StudioReactionComposerBar extends ConsumerWidget {
     required this.controller,
     required this.focusNode,
     required this.onSubmit,
+    this.onSubmitWithMedia,
     this.onAppendReactionText,
+    this.composerRingColor,
+    this.accentColor,
   });
 
+  @override
+  ConsumerState<StudioReactionComposerBar> createState() =>
+      _StudioReactionComposerBarState();
+}
+
+class _StudioReactionComposerBarState
+    extends ConsumerState<StudioReactionComposerBar> {
+  SelectedCommentMedia? _pendingMedia;
+
+  @override
+  void dispose() {
+    ReactionTrayOverlay.dismiss();
+    super.dispose();
+  }
+
   void _appendText(String snippet) {
-    if (onAppendReactionText != null) {
-      onAppendReactionText!(snippet);
+    if (widget.onAppendReactionText != null) {
+      widget.onAppendReactionText!(snippet);
       return;
     }
-    final current = controller.text.trimRight();
-    controller.text = current.isEmpty ? snippet : '$current $snippet';
-    controller.selection = TextSelection.collapsed(
-      offset: controller.text.length,
+    final current = widget.controller.text.trimRight();
+    widget.controller.text = current.isEmpty ? snippet : '$current $snippet';
+    widget.controller.selection = TextSelection.collapsed(
+      offset: widget.controller.text.length,
     );
-    focusNode.requestFocus();
+    widget.focusNode.requestFocus();
+  }
+
+  Future<void> _pickMedia() async {
+    HapticFeedback.selectionClick();
+    final picked = await GifStickerPickerSheet.show(context);
+    if (picked == null || !mounted) return;
+    setState(() => _pendingMedia = picked);
+  }
+
+  void _handleSubmit() {
+    final text = widget.controller.text.trim();
+    final media = _pendingMedia;
+    if (text.isEmpty && media == null) return;
+    if (widget.onSubmitWithMedia != null) {
+      widget.onSubmitWithMedia!(media);
+    } else if (media != null) {
+      ref.read(reelsCommentsProvider.notifier).addComment(
+            clipId: widget.clipOrPostId,
+            text: text,
+            gifUrl: media.gifUrl,
+            stickerId: media.stickerId,
+            mediaAspectRatio: media.aspectRatio,
+          );
+      widget.controller.clear();
+      widget.focusNode.unfocus();
+    } else {
+      widget.onSubmit();
+    }
+    if (media != null && mounted) {
+      setState(() => _pendingMedia = null);
+    }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final commentsState = ref.watch(reelsCommentsProvider);
-    final activeReply = commentsState.activeReplyFor(clipOrPostId);
+    final activeReply = commentsState.activeReplyFor(widget.clipOrPostId);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final cleanHandle = creatorHandle != null && creatorHandle!.trim().isNotEmpty
-        ? (creatorHandle!.trim().startsWith('@')
-            ? creatorHandle!.trim()
-            : '@${creatorHandle!.trim()}')
+    final cleanHandle =
+        widget.creatorHandle != null && widget.creatorHandle!.trim().isNotEmpty
+        ? (widget.creatorHandle!.trim().startsWith('@')
+            ? widget.creatorHandle!.trim()
+            : '@${widget.creatorHandle!.trim()}')
         : null;
+    final resolvedAccent = widget.accentColor ?? AppColors.brandPrimary;
+    final resolvedRing =
+        widget.composerRingColor ?? AppColors.borderSubtleOf(context);
+    final pendingSticker = SovereignStickerPack.findById(
+      _pendingMedia?.stickerId,
+    );
 
     return Container(
       padding: EdgeInsets.only(
@@ -746,7 +907,7 @@ class StudioReactionComposerBar extends ConsumerWidget {
                         HapticFeedback.selectionClick();
                         ref
                             .read(reelsCommentsProvider.notifier)
-                            .clearActiveReplyTarget(clipOrPostId);
+                            .clearActiveReplyTarget(widget.clipOrPostId);
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: ConstrainedBox(
@@ -761,6 +922,69 @@ class StudioReactionComposerBar extends ConsumerWidget {
                             color: AppColors.textSecondaryOf(context),
                           ),
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (_pendingMedia != null)
+              Container(
+                key: const Key('composer_pending_media_chip'),
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceSecondaryOf(context),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: resolvedRing),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (pendingSticker != null)
+                      SovereignStickerGraphic(
+                        sticker: pendingSticker,
+                        width: 48,
+                        height: 36,
+                      )
+                    else if (_pendingMedia!.gifUrl != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: CachedNetworkImage(
+                          imageUrl: _pendingMedia!.gifUrl!,
+                          width: 44,
+                          height: 34,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, _, _) => const PhosphorIcon(
+                            PhosphorIconsFill.gif,
+                            size: 20,
+                            color: AppColors.brandPrimary,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 160),
+                      child: Text(
+                        _pendingMedia!.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textPrimaryOf(context),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      key: const Key('composer_clear_media_btn'),
+                      onTap: () => setState(() => _pendingMedia = null),
+                      child: PhosphorIcon(
+                        AppIcons.close,
+                        size: 14,
+                        color: AppColors.textSecondaryOf(context),
                       ),
                     ),
                   ],
@@ -865,22 +1089,53 @@ class StudioReactionComposerBar extends ConsumerWidget {
             // Input Row
             Row(
               children: [
+                InkWell(
+                  key: const Key('comment_media_picker_btn'),
+                  onTap: _pickMedia,
+                  borderRadius: AppRadius.pillBorder,
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: _pendingMedia != null
+                          ? resolvedAccent.withValues(alpha: 0.14)
+                          : AppColors.surfaceSecondaryOf(context),
+                      borderRadius: AppRadius.pillBorder,
+                      border: Border.all(
+                        color: _pendingMedia != null
+                            ? resolvedAccent
+                            : AppColors.borderSubtleOf(context),
+                      ),
+                    ),
+                    child: Center(
+                      child: PhosphorIcon(
+                        PhosphorIconsFill.gif,
+                        size: 18,
+                        color: _pendingMedia != null
+                            ? resolvedAccent
+                            : AppColors.textSecondaryOf(context),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
                       color: AppColors.surfaceSecondaryOf(context),
                       borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                        color: AppColors.borderSubtleOf(context),
-                      ),
+                      border: Border.all(color: resolvedRing),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: TextField(
                       key: const Key('comment_input'),
-                      controller: controller,
-                      focusNode: focusNode,
+                      controller: widget.controller,
+                      focusNode: widget.focusNode,
                       textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => onSubmit(),
+                      onSubmitted: (_) => _handleSubmit(),
                       style: AppTypography.bodySmall.copyWith(
                         color: AppColors.textPrimaryOf(context),
                       ),
@@ -894,6 +1149,9 @@ class StudioReactionComposerBar extends ConsumerWidget {
                           color: AppColors.textSecondaryOf(context),
                         ),
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
                         isDense: true,
                         contentPadding:
                             const EdgeInsets.symmetric(vertical: 10),
@@ -904,7 +1162,7 @@ class StudioReactionComposerBar extends ConsumerWidget {
                 const SizedBox(width: 8),
                 GestureDetector(
                   key: const Key('comment_send_btn'),
-                  onTap: onSubmit,
+                  onTap: _handleSubmit,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(
                       minWidth: 44,
@@ -914,14 +1172,20 @@ class StudioReactionComposerBar extends ConsumerWidget {
                       child: Container(
                         width: 40,
                         height: 40,
-                        decoration: const BoxDecoration(
-                          color: AppColors.brandPrimary,
+                        decoration: BoxDecoration(
+                          color: resolvedAccent,
                           shape: BoxShape.circle,
                         ),
-                        child: const Center(
+                        child: Center(
                           child: PhosphorIcon(
                             PhosphorIconsBold.arrowUp,
-                            color: AppColors.brandContrast,
+                            color:
+                                ThemeData.estimateBrightnessForColor(
+                                      resolvedAccent,
+                                    ) ==
+                                    Brightness.dark
+                                ? Colors.white
+                                : const Color(0xFF0A0A0C),
                             size: 18,
                           ),
                         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -59,14 +60,9 @@ class CreatorAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.brandPrimary.withAlpha(26),
         shape: BoxShape.circle,
-        border: Border.all(
-          color: effectiveBorderColor,
-          width: borderWidth,
-        ),
+        border: Border.all(color: effectiveBorderColor, width: borderWidth),
       ),
-      child: ClipOval(
-        child: avatarContent,
-      ),
+      child: ClipOval(child: avatarContent),
     );
 
     if (showEditBadge) {
@@ -84,14 +80,11 @@ class CreatorAvatar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.brandPrimary,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.surfaceCanvas,
-                  width: 2,
-                ),
+                border: Border.all(color: AppColors.surfaceCanvas, width: 2),
               ),
               child: Center(
-                child: Icon(
-                  Icons.auto_awesome_rounded,
+                child: PhosphorIcon(
+                  PhosphorIconsFill.sparkle,
                   size: badgeSize * 0.55,
                   color: AppColors.brandContrast,
                 ),
@@ -137,8 +130,8 @@ class CreatorAvatar extends StatelessWidget {
       );
     }
     return Center(
-      child: Icon(
-        Icons.person_rounded,
+      child: PhosphorIcon(
+        PhosphorIconsRegular.user,
         color: AppColors.brandPrimary,
         size: (size * 0.55).clamp(18.0, 36.0),
       ),

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../library/presentation/widgets/library_empty_state.dart';
+import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/collection_entity.dart';
 import '../providers/collections_provider.dart';
 import '../widgets/collection_artwork_placeholder.dart';
@@ -140,6 +144,12 @@ class _CollectionsVaultViewState extends ConsumerState<CollectionsVaultView> {
   Widget build(BuildContext context) {
     final allCollections = ref.watch(collectionsProvider);
     final viewMode = ref.watch(libraryViewModeProvider);
+    final hasActiveTrack = ref.watch(
+      playerStateProvider.select((s) => s.hasActiveTrack),
+    );
+    final bottomInset = VhunambiBottomDockMetrics.scrollInset(
+      hasActiveTrack: hasActiveTrack,
+    );
 
     final query = _searchQuery.toLowerCase();
     final filteredCollections = query.isEmpty
@@ -181,19 +191,31 @@ class _CollectionsVaultViewState extends ConsumerState<CollectionsVaultView> {
                     style: AppTypography.bodyLarge,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: AppColors.surfaceElevated,
+                      fillColor: AppColors.surfaceElevatedOf(context),
                       hintText: 'Search collections...',
-                      hintStyle: AppTypography.caption
-                          .copyWith(color: AppColors.textTertiary),
-                      prefixIcon: Icon(
-                        Icons.search_rounded,
-                        size: 18,
-                        color: AppColors.textSecondary,
+                      hintStyle: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: PhosphorIcon(
+                          PhosphorIconsRegular.magnifyingGlass,
+                          size: 18,
+                          color: AppColors.textSecondaryOf(context),
+                        ),
+                      ),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 38,
+                        minHeight: 38,
                       ),
                       suffixIcon: _searchQuery.isEmpty
                           ? null
                           : IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              icon: PhosphorIcon(
+                                PhosphorIconsRegular.x,
+                                size: 16,
+                                color: AppColors.textSecondaryOf(context),
+                              ),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() => _searchQuery = '');
@@ -201,8 +223,9 @@ class _CollectionsVaultViewState extends ConsumerState<CollectionsVaultView> {
                             ),
                       border: OutlineInputBorder(
                         borderRadius: AppRadius.pillBorder,
-                        borderSide:
-                            BorderSide(color: AppColors.borderSubtle),
+                        borderSide: BorderSide(
+                          color: AppColors.borderSubtleOf(context),
+                        ),
                       ),
                     ),
                   ),
@@ -215,12 +238,17 @@ class _CollectionsVaultViewState extends ConsumerState<CollectionsVaultView> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandPrimary,
                   foregroundColor: AppColors.brandContrast,
+                  minimumSize: const Size(0, 44),
                   shape: const RoundedRectangleBorder(
                     borderRadius: AppRadius.pillBorder,
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 ),
-                icon: const Icon(Icons.add_rounded, size: 18),
+                icon: const PhosphorIcon(
+                  PhosphorIconsBold.plus,
+                  size: 18,
+                  color: AppColors.brandContrast,
+                ),
                 label: const Text(
                   'New Collection',
                   style: TextStyle(fontWeight: FontWeight.bold),
@@ -243,11 +271,11 @@ class _CollectionsVaultViewState extends ConsumerState<CollectionsVaultView> {
                 )
               : viewMode == LibraryViewMode.grid
                   ? GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(
+                      padding: EdgeInsets.fromLTRB(
                         AppSpacing.md,
                         AppSpacing.xxs,
                         AppSpacing.md,
-                        110,
+                        bottomInset,
                       ),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: _gridColumns(context),
@@ -267,11 +295,11 @@ class _CollectionsVaultViewState extends ConsumerState<CollectionsVaultView> {
                       },
                     )
                   : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(
+                      padding: EdgeInsets.fromLTRB(
                         AppSpacing.md,
                         AppSpacing.xxs,
                         AppSpacing.md,
-                        110,
+                        bottomInset,
                       ),
                       itemCount: filteredCollections.length,
                       separatorBuilder: (_, _) =>
@@ -310,61 +338,57 @@ class _CollectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    return VhunambiGlassSurface(
       key: ValueKey<String>('collection_card_${collection.id}'),
-      color: AppColors.surfaceElevated,
-      borderRadius: AppRadius.cardBorder,
+      variant: VhunambiGlassVariant.card,
+      enableLiveBlur: false,
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: InkWell(
         onTap: onTap,
         borderRadius: AppRadius.cardBorder,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.cardBorder,
-            border: Border.all(color: AppColors.borderSubtle),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Center(
-                  child: CollectionArtworkPlaceholder(
-                    size: 96,
-                    iconSize: 30,
-                    gap: 3,
-                  ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Center(
+                child: CollectionArtworkPlaceholder(
+                  size: 96,
+                  iconSize: 30,
+                  gap: 3,
+                  genre: collection.genre,
+                  seedId: collection.id,
                 ),
               ),
-              const SizedBox(height: AppSpacing.xs),
-              Row(
-                children: [
-                  CollectionTypeBadge(type: collection.type),
-                  const Spacer(),
-                  _CollectionOverflowMenu(
-                    collectionId: collection.id,
-                    onRename: onRename,
-                    onDelete: onDelete,
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                collection.title,
-                style: AppTypography.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
+                CollectionTypeBadge(type: collection.type),
+                const Spacer(),
+                _CollectionOverflowMenu(
+                  collectionId: collection.id,
+                  onRename: onRename,
+                  onDelete: onDelete,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              collection.title,
+              style: AppTypography.bodyLarge.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimaryOf(context),
               ),
-              Text(
-                collection.trackCountLabel,
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              collection.trackCountLabel,
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textSecondaryOf(context),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -395,36 +419,45 @@ class _CollectionListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surfaceElevated,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.cardBorder,
-        side: BorderSide(color: AppColors.borderSubtle),
-      ),
-      child: ListTile(
-        key: ValueKey<String>('collection_tile_${collection.id}'),
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: 4,
-        ),
-        leading: const CollectionArtworkPlaceholder(size: 48),
-        title: Text(
-          collection.title,
-          style: AppTypography.bodyLarge.copyWith(fontWeight: FontWeight.w600),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          _subtitle,
-          style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: _CollectionOverflowMenu(
-          collectionId: collection.id,
-          onRename: onRename,
-          onDelete: onDelete,
+    return VhunambiGlassSurface(
+      variant: VhunambiGlassVariant.card,
+      enableLiveBlur: false,
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          key: ValueKey<String>('collection_tile_${collection.id}'),
+          onTap: onTap,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: 4,
+          ),
+          leading: CollectionArtworkPlaceholder(
+            size: 48,
+            genre: collection.genre,
+            seedId: collection.id,
+          ),
+          title: Text(
+            collection.title,
+            style: AppTypography.bodyLarge.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimaryOf(context),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            _subtitle,
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondaryOf(context),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: _CollectionOverflowMenu(
+            collectionId: collection.id,
+            onRename: onRename,
+            onDelete: onDelete,
+          ),
         ),
       ),
     );
@@ -445,41 +478,52 @@ class _CollectionOverflowMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      key: Key('collection_menu_$collectionId'),
-      icon: Icon(
-        Icons.more_vert_rounded,
-        size: 18,
-        color: AppColors.textSecondary,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      child: PopupMenuButton<String>(
+        key: Key('collection_menu_$collectionId'),
+        icon: PhosphorIcon(
+          PhosphorIconsRegular.dotsThreeVertical,
+          size: 18,
+          color: AppColors.textSecondaryOf(context),
+        ),
+        color: AppColors.surfaceModalOf(context),
+        tooltip: 'Collection actions',
+        onSelected: (action) {
+          if (action == 'rename') onRename();
+          if (action == 'delete') onDelete();
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem<String>(
+            value: 'rename',
+            child: Row(
+              children: [
+                PhosphorIcon(
+                  PhosphorIconsRegular.pencilSimple,
+                  size: 16,
+                  color: AppColors.textPrimaryOf(context),
+                ),
+                const SizedBox(width: 8),
+                const Text('Rename'),
+              ],
+            ),
+          ),
+          const PopupMenuItem<String>(
+            value: 'delete',
+            child: Row(
+              children: [
+                PhosphorIcon(
+                  PhosphorIconsRegular.trash,
+                  size: 16,
+                  color: AppColors.error,
+                ),
+                SizedBox(width: 8),
+                Text('Delete', style: TextStyle(color: AppColors.error)),
+              ],
+            ),
+          ),
+        ],
       ),
-      color: AppColors.surfaceModal,
-      tooltip: 'Collection actions',
-      onSelected: (action) {
-        if (action == 'rename') onRename();
-        if (action == 'delete') onDelete();
-      },
-      itemBuilder: (_) => [
-        PopupMenuItem<String>(
-          value: 'rename',
-          child: Row(
-            children: [
-              Icon(Icons.edit_rounded, size: 16, color: AppColors.textPrimary),
-              SizedBox(width: 8),
-              Text('Rename'),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.error),
-              SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: AppColors.error)),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

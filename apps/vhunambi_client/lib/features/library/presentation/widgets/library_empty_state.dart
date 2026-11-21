@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../domain/models/library_models.dart';
 import '../providers/library_providers.dart';
 
-/// Universal vault empty state (REQ-LIB-03 / Blueprint 04 §3.1).
-///
-/// Renders a 48x48 squircle glyph container, a category headline, muted helper
-/// copy, and a solid orange pill call-to-action.
+/// Universal vault empty state (`REQ-LIB-03`, `STD-UIUX-001`).
 class LibraryEmptyState extends ConsumerWidget {
   final LibraryCategory category;
   final String searchQuery;
@@ -46,75 +46,87 @@ class LibraryEmptyState extends ConsumerWidget {
         padding: const EdgeInsets.all(AppSpacing.xl),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 340),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Squircle glyph container
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  borderRadius: AppRadius.squircleBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: Icon(copy.icon, size: 22, color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: AppSpacing.md),
-
-              // Headline
-              Text(
-                copy.headline,
-                textAlign: TextAlign.center,
-                style: AppTypography.titleLarge.copyWith(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-
-              // Helper copy
-              Text(
-                copy.description,
-                textAlign: TextAlign.center,
-                style: AppTypography.bodyMuted.copyWith(height: 1.5),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
-              // Primary CTA
-              ElevatedButton(
-                onPressed: handleCtaTap,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.brandPrimary,
-                  foregroundColor: AppColors.brandContrast,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.sm,
+          child: VhunambiGlassSurface(
+            variant: VhunambiGlassVariant.card,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceSecondaryOf(context),
+                    borderRadius: AppRadius.squircleBorder,
+                    border: Border.all(color: AppColors.borderSubtleOf(context)),
                   ),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.pillBorder,
+                  child: Center(
+                    child: PhosphorIcon(
+                      copy.icon,
+                      size: 22,
+                      color: AppColors.textPrimaryOf(context),
+                    ),
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(copy.ctaIcon, size: 18, color: AppColors.brandContrast),
-                    const SizedBox(width: AppSpacing.xs),
-                    Flexible(
-                      child: Text(
-                        copy.ctaLabel,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.bodyLarge.copyWith(
-                          color: AppColors.brandContrast,
-                          fontWeight: FontWeight.bold,
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  copy.headline,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.titleLarge.copyWith(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimaryOf(context),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  copy.description,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodyMuted.copyWith(
+                    height: 1.5,
+                    color: AppColors.textSecondaryOf(context),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                ElevatedButton(
+                  onPressed: handleCtaTap,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(44, 44),
+                    backgroundColor: AppColors.brandPrimary,
+                    foregroundColor: AppColors.brandContrast,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.sm,
+                    ),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: AppRadius.pillBorder,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PhosphorIcon(
+                        copy.ctaIcon,
+                        size: 18,
+                        color: AppColors.brandContrast,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Flexible(
+                        child: Text(
+                          copy.ctaLabel,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodyLarge.copyWith(
+                            color: AppColors.brandContrast,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -140,63 +152,63 @@ class _EmptyStateCopy {
   factory _EmptyStateCopy.forCategory(LibraryCategory category) {
     return switch (category) {
       LibraryCategory.songs => const _EmptyStateCopy(
-          icon: Icons.music_note_rounded,
+          icon: AppIcons.songs,
           headline: 'No songs yet',
           description:
               "Head to the Studio and generate your first song — it'll appear here instantly.",
           ctaLabel: 'Create your first song',
-          ctaIcon: Icons.auto_awesome,
+          ctaIcon: PhosphorIconsRegular.sparkle,
         ),
       LibraryCategory.playlists => const _EmptyStateCopy(
-          icon: Icons.queue_music_rounded,
+          icon: PhosphorIconsRegular.queue,
           headline: 'No playlists yet',
           description:
               'Group your favourite tracks into playlists for every mood, session and stage.',
           ctaLabel: 'Create your first playlist',
-          ctaIcon: Icons.auto_awesome,
+          ctaIcon: PhosphorIconsRegular.sparkle,
         ),
       LibraryCategory.collections => const _EmptyStateCopy(
-          icon: Icons.album_outlined,
+          icon: PhosphorIconsRegular.disc,
           headline: 'No collections yet',
           description:
               'Bundle your tracks into EPs, albums and concept projects with unified artwork.',
           ctaLabel: 'Start a collection',
-          ctaIcon: Icons.auto_awesome,
+          ctaIcon: PhosphorIconsRegular.sparkle,
         ),
       LibraryCategory.beats => const _EmptyStateCopy(
-          icon: Icons.shopping_bag_outlined,
+          icon: PhosphorIconsRegular.shoppingBag,
           headline: 'No beats yet',
           description:
               'Generate an instrumental beat in the Studio — it will land here, ready to license.',
           ctaLabel: 'Create your first beat',
-          ctaIcon: Icons.auto_awesome,
+          ctaIcon: PhosphorIconsRegular.sparkle,
         ),
       LibraryCategory.licensing => const _EmptyStateCopy(
-          icon: Icons.balance_rounded,
+          icon: PhosphorIconsRegular.scales,
           headline: 'No licenses yet',
           description:
               'Commercial certificates and split sheets appear here after your first release.',
           ctaLabel: 'Create your first song',
-          ctaIcon: Icons.auto_awesome,
+          ctaIcon: PhosphorIconsRegular.sparkle,
         ),
       LibraryCategory.trash => const _EmptyStateCopy(
-          icon: Icons.delete_outline_rounded,
+          icon: AppIcons.trash,
           headline: 'Trash is empty',
           description:
               'Deleted assets stay here for 30 days before they are permanently wiped.',
           ctaLabel: 'Back to Songs',
-          ctaIcon: Icons.arrow_back_rounded,
+          ctaIcon: AppIcons.caretLeft,
         ),
     };
   }
 
   factory _EmptyStateCopy.forSearch(String query) {
     return _EmptyStateCopy(
-      icon: Icons.search_off_rounded,
+      icon: PhosphorIconsRegular.magnifyingGlassMinus,
       headline: 'No matches for "$query"',
       description: 'Try a different title, creator, genre or language.',
       ctaLabel: 'Clear search',
-      ctaIcon: Icons.close_rounded,
+      ctaIcon: PhosphorIconsRegular.x,
     );
   }
 }

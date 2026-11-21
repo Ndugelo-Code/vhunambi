@@ -3,14 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../../shared/models/track.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/widgets/library_empty_state.dart';
+import '../../../marketplace/presentation/providers/marketplace_providers.dart';
 import '../../../player/domain/models/player_state.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/producer_beat_entity.dart';
@@ -23,7 +28,6 @@ import '../widgets/beat_stats_banner.dart';
 import '../widgets/publish_beat_modal.dart';
 import '../widgets/stem_export_modal.dart';
 import 'beat_detail_cockpit_view.dart';
-import '../../../../core/theme/app_gradients.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../library/presentation/widgets/track_actions_sheet.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
@@ -245,13 +249,9 @@ class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Segmented Switcher (Produced vs Licensed)
-          Container(
+          VhunambiGlassSurface(
+            variant: VhunambiGlassVariant.pill,
             padding: const EdgeInsets.all(AppSpacing.xxs),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceSecondary,
-              borderRadius: AppRadius.pillBorder,
-              border: Border.all(color: AppColors.borderSubtle),
-            ),
             child: Row(
               children: [
                 Expanded(
@@ -268,16 +268,33 @@ class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
                             : Colors.transparent,
                         borderRadius: AppRadius.pillBorder,
                       ),
-                      child: Text(
-                        '🎛️ My Produced Beats',
-                        style: AppTypography.bodySmall.copyWith(
-                          color: _vaultMode == BeatsVaultMode.produced
-                              ? AppColors.brandContrast
-                              : AppColors.textSecondary,
-                          fontWeight: _vaultMode == BeatsVaultMode.produced
-                              ? FontWeight.bold
-                              : FontWeight.w500,
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PhosphorIcon(
+                            AppIcons.studio,
+                            size: 14,
+                            color: _vaultMode == BeatsVaultMode.produced
+                                ? AppColors.brandContrast
+                                : AppColors.textSecondaryOf(context),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'My Produced Beats',
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.bodySmall.copyWith(
+                                color: _vaultMode == BeatsVaultMode.produced
+                                    ? AppColors.brandContrast
+                                    : AppColors.textSecondaryOf(context),
+                                fontWeight: _vaultMode == BeatsVaultMode.produced
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -296,16 +313,33 @@ class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
                             : Colors.transparent,
                         borderRadius: AppRadius.pillBorder,
                       ),
-                      child: Text(
-                        '🛍️ Licensed Beats',
-                        style: AppTypography.bodySmall.copyWith(
-                          color: _vaultMode == BeatsVaultMode.licensed
-                              ? AppColors.brandContrast
-                              : AppColors.textSecondary,
-                          fontWeight: _vaultMode == BeatsVaultMode.licensed
-                              ? FontWeight.bold
-                              : FontWeight.w500,
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PhosphorIcon(
+                            PhosphorIconsRegular.shoppingBag,
+                            size: 14,
+                            color: _vaultMode == BeatsVaultMode.licensed
+                                ? AppColors.brandContrast
+                                : AppColors.textSecondaryOf(context),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Licensed Beats',
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.bodySmall.copyWith(
+                                color: _vaultMode == BeatsVaultMode.licensed
+                                    ? AppColors.brandContrast
+                                    : AppColors.textSecondaryOf(context),
+                                fontWeight: _vaultMode == BeatsVaultMode.licensed
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -404,8 +438,11 @@ class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
     final columns = isMobile ? 2 : (isTablet ? 3 : 4);
     final aspectRatio = isMobile ? 0.78 : (isTablet ? 0.82 : 0.85);
 
+    final bottomInset = VhunambiBottomDockMetrics.scrollInset(
+      hasActiveTrack: playback.hasActiveTrack,
+    );
     return GridView.builder(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: EdgeInsets.only(bottom: bottomInset),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: columns,
         mainAxisSpacing: AppSpacing.sm,
@@ -435,8 +472,11 @@ class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
     List<ProducerBeatEntity> beats, {
     required PlayerState playback,
   }) {
+    final bottomInset = VhunambiBottomDockMetrics.scrollInset(
+      hasActiveTrack: playback.hasActiveTrack,
+    );
     return ListView.separated(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: EdgeInsets.only(bottom: bottomInset),
       itemCount: beats.length,
       separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
       itemBuilder: (context, index) {
@@ -459,14 +499,56 @@ class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
     required bool isMobile,
     required bool isTablet,
   }) {
+    final activeCreatorId = ref.watch(currentCreatorIdProvider);
     final allTracks = ref.watch(libraryTracksProvider);
-    final licensedBeats = allTracks
-        .where((t) =>
-            !t.isDeleted &&
-            (t.id.startsWith('market_') ||
-                (t.isInstrumental &&
-                    t.licenseType.trim().isNotEmpty && t.licenseType != 'Commercial')))
+    final remoteLicensesAsync = ref.watch(
+      buyerLicensesFamilyProvider(activeCreatorId),
+    );
+    final localLicensed = allTracks
+        .where(
+          (t) =>
+              !t.isDeleted &&
+              (t.id.startsWith('market_') ||
+                  (t.isInstrumental &&
+                      t.licenseType.trim().isNotEmpty &&
+                      t.licenseType != 'Commercial')),
+        )
         .toList();
+    final seenCertIds = {
+      for (final t in localLicensed)
+        if (t.licenseCertificateIdOverride != null &&
+            t.licenseCertificateIdOverride!.isNotEmpty)
+          t.licenseCertificateIdOverride!,
+    };
+    final remoteAsLibraryTracks = (remoteLicensesAsync.valueOrNull ?? const [])
+        .where((cert) => !seenCertIds.contains(cert.certificateId))
+        .map(
+          (cert) => LibraryTrack(
+            id: cert.vaultTrackId.isNotEmpty
+                ? cert.vaultTrackId
+                : 'market_${cert.beatId}',
+            title: cert.beatTitle.isNotEmpty ? cert.beatTitle : 'Licensed Beat',
+            creatorName: cert.producerName,
+            creatorId: cert.producerId,
+            creatorHandle: cert.producerHandle,
+            genre: cert.genre,
+            language: 'Instrumental',
+            bpm: cert.bpm,
+            durationSeconds: 180,
+            remoteAudioUrl: cert.masterAudioFilePath,
+            createdAt: DateTime.tryParse(cert.issuedAtIso8601) ?? DateTime.now(),
+            licenseType: cert.tier.displayName,
+            isInstrumental: true,
+            licenseCertificateIdOverride: cert.certificateId,
+            licenseHash: cert.licenseHash,
+            licenseTierId: cert.tier.wireSlug,
+            masterAudioFilePath: cert.masterAudioFilePath.isNotEmpty
+                ? cert.masterAudioFilePath
+                : null,
+            stemPaths: cert.stemPaths,
+          ),
+        );
+    final licensedBeats = [...localLicensed, ...remoteAsLibraryTracks];
 
     if (licensedBeats.isEmpty) {
       return Center(
@@ -475,22 +557,24 @@ class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.shopping_bag_outlined,
+              const PhosphorIcon(
+                PhosphorIconsRegular.shoppingBag,
                 size: 48,
                 color: AppColors.brandPrimary,
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'No licensed beats yet',
-                style: AppTypography.titleMedium,
+                style: AppTypography.titleMedium.copyWith(
+                  color: AppColors.textPrimaryOf(context),
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.xxs),
               Text(
                 'Explore the Beats Marketplace to license top African instrumental beats.',
                 style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryOf(context),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -500,11 +584,17 @@ class _BeatsVaultViewState extends ConsumerState<BeatsVaultView> {
       );
     }
 
+    final hasActiveTrack = ref.watch(
+      playerStateProvider.select((s) => s.hasActiveTrack),
+    );
     final columns = isMobile ? 2 : (isTablet ? 3 : 4);
     final aspectRatio = isMobile ? 0.72 : (isTablet ? 0.76 : 0.80);
 
+    final bottomInset = VhunambiBottomDockMetrics.scrollInset(
+      hasActiveTrack: hasActiveTrack,
+    );
     return GridView.builder(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: EdgeInsets.only(bottom: bottomInset),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: columns,
         mainAxisSpacing: AppSpacing.sm,
@@ -752,10 +842,13 @@ class _VaultActionStrip extends StatelessWidget {
               isDense: true,
               filled: true,
               fillColor: AppColors.surfaceSecondary,
-              prefixIcon: Icon(
-                Icons.search_rounded,
-                size: 16,
-                color: AppColors.textTertiary,
+              prefixIcon: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: PhosphorIcon(
+                  PhosphorIconsRegular.magnifyingGlass,
+                  size: 16,
+                  color: AppColors.textSecondaryOf(context),
+                ),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 vertical: AppSpacing.sm,
@@ -794,7 +887,11 @@ class _VaultActionStrip extends StatelessWidget {
         ElevatedButton.icon(
           key: const Key('new_beat_button'),
           onPressed: onCreatePressed,
-          icon: const Icon(Icons.add_rounded, size: 16),
+          icon: const PhosphorIcon(
+            PhosphorIconsBold.plus,
+            size: 16,
+            color: AppColors.brandContrast,
+          ),
           label: const Text('New Beat'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.brandPrimary,
@@ -892,10 +989,10 @@ class _SortMenu extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.swap_vert_rounded,
+            PhosphorIcon(
+              AppIcons.sort,
               size: 14,
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryOf(context),
             ),
             const SizedBox(width: AppSpacing.xxs),
             Text(
@@ -933,14 +1030,14 @@ class _ViewModeToggle extends StatelessWidget {
         children: [
           _ViewModeButton(
             buttonKey: const Key('beat_view_grid'),
-            icon: Icons.grid_view_rounded,
+            icon: PhosphorIconsRegular.squaresFour,
             tooltip: 'Grid view',
             isActive: viewMode == LibraryViewMode.grid,
             onTap: () => onChanged(LibraryViewMode.grid),
           ),
           _ViewModeButton(
             buttonKey: const Key('beat_view_list'),
-            icon: Icons.view_list_rounded,
+            icon: PhosphorIconsRegular.listBullets,
             tooltip: 'List view',
             isActive: viewMode == LibraryViewMode.list,
             onTap: () => onChanged(LibraryViewMode.list),
@@ -982,11 +1079,11 @@ class _ViewModeButton extends StatelessWidget {
             color: isActive ? AppColors.brandPrimary : Colors.transparent,
             borderRadius: AppRadius.thumbBorder,
           ),
-          child: Icon(
+          child: PhosphorIcon(
             icon,
             size: 17,
             color:
-                isActive ? AppColors.brandContrast : AppColors.textSecondary,
+                isActive ? AppColors.brandContrast : AppColors.textSecondaryOf(context),
           ),
         ),
       ),
@@ -1013,8 +1110,8 @@ class _NoBeatsMatch extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.music_off_outlined,
+          const PhosphorIcon(
+            PhosphorIconsRegular.musicNotesSimple,
             size: 32,
             color: AppColors.brandPrimary,
           ),
@@ -1068,34 +1165,50 @@ class _LicensedBeatCard extends ConsumerWidget {
     final isPlaying = playerState.currentTrack?.id == track.id &&
         playerState.playbackStatus == PlaybackStatus.playing;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+    return VhunambiGlassSurface(
+      variant: VhunambiGlassVariant.card,
+      enableLiveBlur: false,
       padding: const EdgeInsets.all(AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cover art with genre gradient
           Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: AppGradients.forGenre(track.genre),
-                borderRadius: AppRadius.inputBorder,
-              ),
+            child: ClipRRect(
+              borderRadius: AppRadius.inputBorder,
               child: Stack(
+                fit: StackFit.expand,
                 children: [
+                  VhunambiTrackArtwork(
+                    coverUrl: track.coverImageUrl,
+                    genre: track.genre,
+                    trackId: track.id,
+                    borderRadius: AppRadius.inputBorder,
+                    showSubtleBorder: false,
+                  ),
                   Center(
                     child: IconButton(
-                      iconSize: 36,
-                      icon: Icon(
-                        isPlaying
-                            ? Icons.pause_circle_filled_rounded
-                            : Icons.play_circle_filled_rounded,
-                        color: AppColors.brandContrast,
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
+                      icon: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceCanvasOf(context)
+                              .withValues(alpha: 0.72),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.brandPrimary.withValues(alpha: 0.8),
+                          ),
+                        ),
+                        child: Center(
+                          child: PhosphorIcon(
+                            isPlaying ? AppIcons.pause : AppIcons.play,
+                            color: AppColors.brandPrimary,
+                            size: 20,
+                          ),
+                        ),
                       ),
                       onPressed: onPlay,
                     ),
@@ -1214,7 +1327,11 @@ class _LicensedBeatCard extends ConsumerWidget {
                       borderRadius: AppRadius.pillBorder,
                     ),
                   ),
-                  icon: const Icon(Icons.mic_rounded, size: 14),
+                  icon: const PhosphorIcon(
+                    PhosphorIconsRegular.microphone,
+                    size: 14,
+                    color: AppColors.brandContrast,
+                  ),
                   label: Text(
                     'Studio',
                     style: AppTypography.caption.copyWith(
@@ -1227,8 +1344,11 @@ class _LicensedBeatCard extends ConsumerWidget {
               const SizedBox(width: AppSpacing.xxs),
               IconButton(
                 key: Key('licensed_beat_cert_${track.id}'),
-                icon: const Icon(Icons.verified_rounded, size: 18),
-                color: AppColors.coinGold,
+                icon: const PhosphorIcon(
+                  PhosphorIconsFill.sealCheck,
+                  size: 18,
+                  color: AppColors.coinGold,
+                ),
                 tooltip: 'License Certificate',
                 constraints: const BoxConstraints(
                   minWidth: 44,

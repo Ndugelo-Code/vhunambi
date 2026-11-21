@@ -4,19 +4,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
+import '../../../../core/navigation/profile_navigation_helper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/post_chromatic_palette_resolver.dart';
 import '../../../../core/widgets/safe_network_avatar.dart';
+import '../../../../core/widgets/vhunambi_ambient_mesh_backdrop.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../notifications/domain/models/notification_entity.dart';
 import '../../../notifications/domain/models/notification_enums.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
-import '../../../profile/presentation/providers/profile_providers.dart';
-import '../../../profile/presentation/views/artist_profile_view.dart';
+import '../../../social/domain/models/kinetic_reaction.dart';
 import '../../../social/presentation/providers/reels_comments_provider.dart';
 import '../../../social/presentation/widgets/creator_tipping_sheet.dart';
+import '../../../social/presentation/widgets/gif_sticker_picker_sheet.dart';
 import '../../../social/presentation/widgets/open_verse_remix_cockpit_sheet.dart';
+import '../../../social/presentation/widgets/reaction_tray_overlay.dart';
 import '../../../social/presentation/widgets/remix_lineage_tree_sheet.dart';
 import '../../../social/presentation/widgets/threaded_comments_section.dart';
 import '../../domain/models/social_music_post.dart';
@@ -72,6 +77,8 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _composerFocusNode = FocusNode();
   int _currentImageIndex = 0;
+  PostChromaticPalette? _chromaticPalette;
+  String? _lastChromaticSignature;
 
   @override
   void initState() {
@@ -89,9 +96,59 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
 
   @override
   void dispose() {
+    ReactionTrayOverlay.dismiss();
     _commentController.dispose();
     _composerFocusNode.dispose();
     super.dispose();
+  }
+
+  String? _resolveArtworkUrl(SocialMusicPost post) {
+    final images = post.allImageAttachments;
+    if (images.isNotEmpty && images.first.imageUrl.trim().isNotEmpty) {
+      return images.first.imageUrl;
+    }
+    if ((post.track.coverUrl ?? '').trim().isNotEmpty) {
+      return post.track.coverUrl;
+    }
+    return null;
+  }
+
+  PostChromaticPalette _ensureChromaticPalette(
+    SocialMusicPost post,
+    Brightness brightness,
+  ) {
+    final artUrl = _resolveArtworkUrl(post);
+    final rawMood = post.track.mood;
+    final hasAudio =
+        post.audioAttachment != null ||
+        (post.track.audioUrl ?? '').trim().isNotEmpty;
+    final sig = '${brightness.name}|$rawMood|$artUrl|$hasAudio';
+    final syncPalette = PostChromaticPaletteResolver.resolveSync(
+      brightness: brightness,
+      rawMood: rawMood,
+      artworkUrl: artUrl,
+      hasAudioAttachment: hasAudio,
+    );
+    if (_lastChromaticSignature != sig) {
+      _lastChromaticSignature = sig;
+      _chromaticPalette = syncPalette;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final asyncPalette = await PostChromaticPaletteResolver.resolveAsync(
+          brightness: brightness,
+          rawMood: rawMood,
+          artworkUrl: artUrl,
+          hasAudioAttachment: hasAudio,
+        );
+        if (!mounted || _lastChromaticSignature != sig) return;
+        if (asyncPalette.primaryGlow != _chromaticPalette?.primaryGlow ||
+            asyncPalette.accent != _chromaticPalette?.accent ||
+            asyncPalette.tier != _chromaticPalette?.tier) {
+          setState(() => _chromaticPalette = asyncPalette);
+        }
+      });
+    }
+    return _chromaticPalette ?? syncPalette;
   }
 
   SocialMusicPost? _resolvePost(List<SocialMusicPost> feedPosts) {
@@ -124,9 +181,12 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
     );
   }
 
-  void _submitComment(SocialMusicPost post) {
+  void _submitComment(
+    SocialMusicPost post, {
+    SelectedCommentMedia? media,
+  }) {
     final text = _commentController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && media == null) return;
     HapticFeedback.mediumImpact();
     ref.read(reelsCommentsProvider.notifier).addComment(
           clipId: post.id,
@@ -134,6 +194,9 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
           contentCreatorId: post.creatorId,
           contentCreatorHandle: post.creatorHandle,
           isKineticPost: true,
+          gifUrl: media?.gifUrl,
+          stickerId: media?.stickerId,
+          mediaAspectRatio: media?.aspectRatio,
         );
     _commentController.clear();
     _composerFocusNode.unfocus();
@@ -179,11 +242,11 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
 
     final followingIds = ref.watch(followingCreatorIdsProvider);
     final isFollowing = followingIds.contains(post.creatorId);
-    final ownerProfile = ref.watch(ownerProfileProvider);
-    final isOwner =
-        post.creatorHandle.toLowerCase() == ownerProfile.handle.toLowerCase() ||
-        post.creatorId == ownerProfile.id ||
-        post.creatorId == 'me';
+    final isOwner = isOwnedByActiveUser(
+      ref,
+      creatorId: post.creatorId,
+      creatorHandle: post.creatorHandle,
+    );
     final comments = ref.watch(clipCommentsFamilyProvider(post.id));
     final effectiveCommentCount = comments.length > post.commentCount
         ? comments.length
@@ -193,12 +256,17 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
     final headerHandle = post.creatorHandle.startsWith('@')
         ? post.creatorHandle
         : '@${post.creatorHandle}';
+    final palette = _ensureChromaticPalette(post, Theme.of(context).brightness);
+    final activeReaction =
+        post.myReaction ?? (post.isLikedByMe ? KineticReactionType.love : null);
 
     return Scaffold(
       key: Key('kinetic_post_focus_view_${post.id}'),
       backgroundColor: AppColors.surfaceCanvasOf(context),
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceElevatedOf(context),
+        backgroundColor: AppColors.surfaceElevatedOf(
+          context,
+        ).withValues(alpha: 0.92),
         elevation: 0,
         leading: IconButton(
           key: const Key('kpost_focus_back_btn'),
@@ -248,18 +316,30 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Container(
-                    color: AppColors.surfaceElevatedOf(context),
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+      body: VhunambiAmbientMeshBackdrop(
+        key: const Key('kpost_focus_ambient_backdrop'),
+        primaryGlow: palette.primaryGlow,
+        secondaryGlow: palette.secondaryGlow,
+        child: Column(
+          children: [
+            Expanded(
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.sm,
+                        AppSpacing.sm,
+                        AppSpacing.sm,
+                        AppSpacing.xs,
+                      ),
+                      child: VhunambiGlassSurface(
+                        variant: VhunambiGlassVariant.card,
+                        borderColorOverride: palette.glassBorderTint,
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                         if (post.isRepost)
                           Padding(
                             padding:
@@ -288,12 +368,11 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
                             Expanded(
                               child: GestureDetector(
                                 onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => ArtistProfileView(
-                                        artistId: post.creatorId,
-                                      ),
-                                    ),
+                                  navigateToCreatorProfile(
+                                    context,
+                                    ref,
+                                    creatorId: post.creatorId,
+                                    creatorHandle: post.creatorHandle,
                                   );
                                 },
                                 child: Row(
@@ -508,13 +587,17 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
                                       color: AppColors.brandPrimary,
                                     ),
                                     const SizedBox(width: 5),
-                                    Text(
-                                      post.isRemix
-                                          ? 'Remix of ${post.parentCreatorHandle} · 70/30 Split'
-                                          : 'Open Stems · ${post.remixCount} Remixes',
-                                      style: AppTypography.caption.copyWith(
-                                        color: AppColors.brandPrimary,
-                                        fontWeight: FontWeight.bold,
+                                    Flexible(
+                                      child: Text(
+                                        post.isRemix
+                                            ? 'Remix of ${post.parentCreatorHandle} · 70/30 Split'
+                                            : 'Open Stems · ${post.remixCount} Remixes',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.caption.copyWith(
+                                          color: AppColors.brandPrimary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -581,31 +664,55 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
                           color: AppColors.borderSubtleOf(context),
                         ),
                         Padding(
+                          key: const Key('kpost_focus_summary_strip'),
                           padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
+                          child: Wrap(
+                            spacing: 12,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              const PhosphorIcon(
-                                AppIcons.heart,
-                                size: 14,
-                                color: AppColors.brandPrimary,
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ReactionClusterStack(
+                                    reactionCounts: post.reactionCounts,
+                                    fallbackActive: activeReaction,
+                                    badgeSize: 18,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${post.totalReactionCount} ${post.totalReactionCount == 1 ? 'Reaction' : 'Reactions'}',
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    style: AppTypography.caption.copyWith(
+                                      color: AppColors.textPrimaryOf(context),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 6),
                               Text(
-                                '${post.likeCount} Likes',
+                                '$effectiveCommentCount ${effectiveCommentCount == 1 ? 'Comment' : 'Comments'}',
+                                maxLines: 1,
+                                softWrap: false,
                                 style: AppTypography.caption.copyWith(
                                   color: AppColors.textSecondaryOf(context),
-                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const Spacer(),
-                              Flexible(
-                                child: Text(
-                                  '$effectiveCommentCount Comments · ${post.repostCount} Reposts · ${post.remixCount} Remixes',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTypography.caption.copyWith(
-                                    color: AppColors.textSecondaryOf(context),
-                                  ),
+                              Text(
+                                '${post.repostCount} ${post.repostCount == 1 ? 'Repost' : 'Reposts'}',
+                                maxLines: 1,
+                                softWrap: false,
+                                style: AppTypography.caption.copyWith(
+                                  color: AppColors.textSecondaryOf(context),
+                                ),
+                              ),
+                              Text(
+                                '${post.remixCount} ${post.remixCount == 1 ? 'Remix' : 'Remixes'}',
+                                maxLines: 1,
+                                softWrap: false,
+                                style: AppTypography.caption.copyWith(
+                                  color: AppColors.textSecondaryOf(context),
                                 ),
                               ),
                             ],
@@ -615,100 +722,101 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
                           height: 1,
                           color: AppColors.borderSubtleOf(context),
                         ),
-                        // Equal-width Action Bar
+                        // Non-Wrapping 4-Button Vertical-Stack Studio Action Bar (`SOC-01`)
                         Row(
                           children: [
                             Expanded(
-                              child: TextButton.icon(
-                                key: Key('kpost_focus_like_btn_${post.id}'),
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  ref
+                              child: GestureDetector(
+                                onLongPressStart: (details) =>
+                                    ReactionTrayOverlay.show(
+                                  context: context,
+                                  anchorGlobalPosition: details.globalPosition,
+                                  activeReaction: post.myReaction,
+                                  onSelected: (rx) => ref
                                       .read(socialFeedPostsProvider.notifier)
-                                      .toggleLike(post.id);
-                                },
-                                icon: PhosphorIcon(
-                                  post.isLikedByMe
-                                      ? AppIcons.heart
-                                      : AppIcons.heartOutline,
-                                  size: 16,
-                                  color: post.isLikedByMe
-                                      ? AppColors.brandPrimary
-                                      : AppColors.textSecondaryOf(context),
+                                      .reactToPost(post.id, rx),
                                 ),
-                                label: Text(
-                                  'Like',
-                                  style: AppTypography.caption.copyWith(
-                                    color: post.isLikedByMe
-                                        ? AppColors.brandPrimary
-                                        : AppColors.textSecondaryOf(context),
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                child: _FocusActionButton(
+                                  key: Key('kpost_focus_like_btn_${post.id}'),
+                                  onTap: () {
+                                    HapticFeedback.lightImpact();
+                                    ref
+                                        .read(socialFeedPostsProvider.notifier)
+                                        .toggleLike(post.id);
+                                  },
+                                  leading: post.myReaction != null
+                                      ? KineticReactionBadge(
+                                          type: post.myReaction!,
+                                          size: 18,
+                                        )
+                                      : PhosphorIcon(
+                                          post.isLikedByMe
+                                              ? AppIcons.heart
+                                              : AppIcons.heartOutline,
+                                          size: 18,
+                                          color: post.isLikedByMe
+                                              ? palette.accent
+                                              : AppColors.textSecondaryOf(
+                                                  context,
+                                                ),
+                                        ),
+                                  label: post.myReaction?.label ?? 'Like',
+                                  labelColor: post.myReaction != null
+                                      ? post.myReaction!.accentColor
+                                      : (post.isLikedByMe
+                                            ? palette.accent
+                                            : AppColors.textSecondaryOf(
+                                                context,
+                                              )),
                                 ),
                               ),
                             ),
                             Expanded(
-                              child: TextButton.icon(
+                              child: _FocusActionButton(
                                 key: Key('kpost_focus_comment_btn_${post.id}'),
-                                onPressed: () =>
-                                    _composerFocusNode.requestFocus(),
-                                icon: PhosphorIcon(
+                                onTap: () => _composerFocusNode.requestFocus(),
+                                leading: PhosphorIcon(
                                   AppIcons.chat,
-                                  size: 16,
+                                  size: 18,
                                   color: AppColors.textSecondaryOf(context),
                                 ),
-                                label: Text(
-                                  'Comment',
-                                  style: AppTypography.caption.copyWith(
-                                    color: AppColors.textSecondaryOf(context),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                label: 'Comment',
+                                labelColor: AppColors.textSecondaryOf(context),
                               ),
                             ),
                             Expanded(
-                              child: TextButton.icon(
+                              child: _FocusActionButton(
                                 key: Key('kpost_focus_repost_btn_${post.id}'),
-                                onPressed: () => RepostKineticPostSheet.show(
+                                onTap: () => RepostKineticPostSheet.show(
                                   context,
                                   originalPost: post,
                                 ),
-                                icon: PhosphorIcon(
+                                leading: PhosphorIcon(
                                   PhosphorIconsRegular.repeat,
-                                  size: 16,
+                                  size: 18,
                                   color: AppColors.textSecondaryOf(context),
                                 ),
-                                label: Text(
-                                  'Repost',
-                                  style: AppTypography.caption.copyWith(
-                                    color: AppColors.textSecondaryOf(context),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                label: 'Repost',
+                                labelColor: AppColors.textSecondaryOf(context),
                               ),
                             ),
                             Expanded(
-                              child: TextButton.icon(
+                              child: _FocusActionButton(
                                 key: Key('kpost_focus_remix_btn_${post.id}'),
-                                onPressed: () {
+                                onTap: () {
                                   OpenVerseRemixCockpitSheet.show(
                                     context,
                                     clip: post.toPublishedClip,
                                   );
                                   widget.onRemixSuccess?.call();
                                 },
-                                icon: const PhosphorIcon(
+                                leading: PhosphorIcon(
                                   AppIcons.remix,
-                                  size: 16,
-                                  color: AppColors.brandPrimary,
+                                  size: 18,
+                                  color: palette.accent,
                                 ),
-                                label: Text(
-                                  'Remix',
-                                  style: AppTypography.caption.copyWith(
-                                    color: AppColors.brandPrimary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                label: 'Remix',
+                                labelColor: palette.accent,
                               ),
                             ),
                           ],
@@ -716,6 +824,7 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
                       ],
                     ),
                   ),
+                ),
                 ),
                 // Integrated Threaded Discussion Section
                 SliverToBoxAdapter(
@@ -730,15 +839,68 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
               ],
             ),
           ),
-          // Sticky Reply-Aware Bottom Composer
+          // Sticky Reply-Aware Bottom Composer with Media Picker
           StudioReactionComposerBar(
             clipOrPostId: post.id,
             creatorHandle: post.creatorHandle,
             controller: _commentController,
             focusNode: _composerFocusNode,
+            composerRingColor: palette.composerRingTint,
+            accentColor: palette.accent,
             onSubmit: () => _submitComment(post),
+            onSubmitWithMedia: (media) => _submitComment(post, media: media),
           ),
         ],
+      ),
+      ),
+    );
+  }
+}
+
+class _FocusActionButton extends StatelessWidget {
+  final Widget leading;
+  final String label;
+  final Color labelColor;
+  final VoidCallback onTap;
+
+  const _FocusActionButton({
+    super.key,
+    required this.leading,
+    required this.label,
+    required this.labelColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.pillBorder,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48, minWidth: 44),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              leading,
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.visible,
+                textAlign: TextAlign.center,
+                style: AppTypography.caption.copyWith(
+                  color: labelColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

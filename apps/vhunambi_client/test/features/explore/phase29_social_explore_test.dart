@@ -88,7 +88,9 @@ void main() {
         await tester.pump();
 
         // Tap notifications button
-        await tester.tap(find.byKey(const Key('explore_open_notifications_btn')));
+        await tester.tap(
+          find.byKey(const Key('explore_open_notifications_btn')),
+        );
         await tester.pumpAndSettle();
 
         // Directly opens NotificationsView in 1 step!
@@ -110,28 +112,46 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('explore_search_view')), findsOneWidget);
-        expect(find.byKey(const Key('explore_search_back_btn')), findsOneWidget);
+        expect(
+          find.byKey(const Key('explore_search_back_btn')),
+          findsOneWidget,
+        );
         expect(find.byKey(const Key('explore_search_input')), findsOneWidget);
-        expect(find.byKey(const Key('explore_recent_clear_all')), findsOneWidget);
+        // Phase 73 hygiene: clean empty Recent Searches on fresh install.
+        expect(find.byKey(const Key('explore_recent_clear_all')), findsNothing);
         expect(find.text('You May Like'), findsOneWidget);
 
-        // Enter search query
+        // Enter search query & submit so it is persisted to Recent Searches
         await tester.enterText(
           find.byKey(const Key('explore_search_input')),
           'Amapiano',
         );
+        await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pumpAndSettle();
 
         // Multi-dimensional category tabs appear
         expect(find.byKey(const Key('explore_search_tab_top')), findsOneWidget);
-        expect(find.byKey(const Key('explore_search_tab_songs')), findsOneWidget);
-        expect(find.byKey(const Key('explore_search_tab_reels')), findsOneWidget);
-        expect(find.byKey(const Key('explore_search_tab_creators')), findsOneWidget);
+        expect(
+          find.byKey(const Key('explore_search_tab_songs')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('explore_search_tab_reels')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('explore_search_tab_creators')),
+          findsOneWidget,
+        );
 
-        // Clear query
+        // Clear query reveals Recent Searches with Clear All button
         await tester.tap(find.byKey(const Key('explore_search_clear_btn')));
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('explore_search_tab_top')), findsNothing);
+        expect(
+          find.byKey(const Key('explore_recent_clear_all')),
+          findsOneWidget,
+        );
       },
     );
 
@@ -158,16 +178,16 @@ void main() {
             ],
             child: MaterialApp(
               theme: AppTheme.darkTheme,
-              home: const Scaffold(
-                body: TrendingReelsShelf(),
-              ),
+              home: const Scaffold(body: TrendingReelsShelf()),
             ),
           ),
         );
         await tester.pumpAndSettle();
 
         // Card #0 exists
-        final postCard = find.byKey(const Key('explore_post_kinetic_reel_card'));
+        final postCard = find.byKey(
+          const Key('explore_post_kinetic_reel_card'),
+        );
         expect(postCard, findsOneWidget);
         expect(find.text('Post Reel'), findsOneWidget);
 
@@ -198,9 +218,18 @@ void main() {
         await tester.pump();
 
         expect(find.byKey(const Key('reels_modal_top_bar')), findsOneWidget);
-        expect(find.byKey(const Key('reels_modal_tab_trending')), findsOneWidget);
-        expect(find.byKey(const Key('reels_modal_tab_for_you')), findsOneWidget);
-        expect(find.byKey(const Key('reels_modal_tab_following')), findsOneWidget);
+        expect(
+          find.byKey(const Key('reels_modal_tab_trending')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('reels_modal_tab_for_you')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('reels_modal_tab_following')),
+          findsOneWidget,
+        );
         expect(find.byKey(const Key('reels_modal_tab_newest')), findsOneWidget);
         expect(find.byKey(const Key('reels_modal_search_btn')), findsOneWidget);
 
@@ -230,15 +259,16 @@ void main() {
           ProviderScope(
             child: MaterialApp(
               theme: AppTheme.darkTheme,
-              home: const Scaffold(
-                body: ExploreDiscoveryDrawerSheet(),
-              ),
+              home: const Scaffold(body: ExploreDiscoveryDrawerSheet()),
             ),
           ),
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('explore_discovery_drawer')), findsOneWidget);
+        expect(
+          find.byKey(const Key('explore_discovery_drawer')),
+          findsOneWidget,
+        );
         expect(find.byKey(const Key('drawer_item_charts')), findsOneWidget);
         expect(find.byKey(const Key('drawer_item_radio')), findsOneWidget);
         expect(find.byKey(const Key('drawer_item_rising')), findsOneWidget);
@@ -314,7 +344,10 @@ void main() {
 
         // Stories rail with Card #0
         expect(find.byType(TrendingReelsShelf), findsOneWidget);
-        expect(find.byKey(const Key('explore_post_kinetic_reel_card')), findsOneWidget);
+        expect(
+          find.byKey(const Key('explore_post_kinetic_reel_card')),
+          findsOneWidget,
+        );
 
         // Feed switcher pills
         expect(find.text('For You'), findsOneWidget);
@@ -326,7 +359,10 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('All Songs'), findsOneWidget);
-        expect(find.byKey(const Key('explore_feed_drawer_shortcut')), findsOneWidget);
+        expect(
+          find.byKey(const Key('explore_feed_drawer_shortcut')),
+          findsOneWidget,
+        );
 
         // Interleaved social post cards
         expect(find.byType(ExploreSocialPostCard), findsAtLeastNWidgets(1));
@@ -350,4 +386,3 @@ class _TestLibraryNotifier extends LibraryTracksNotifier {
     state = initial;
   }
 }
-

@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../domain/models/library_models.dart';
 import '../providers/library_providers.dart';
 
-/// Horizontally scrollable category pill rail (REQ-LIB-02 / Blueprint 04 §2).
-///
-/// Active pill: `brandPrimary` surface with `brandContrast` label.
-/// Inactive pill: `surfaceSecondary` surface with `borderSubtle` outline.
+/// Horizontally scrollable glass category pill rail (`REQ-LIB-02`, `STD-UIUX-001`).
 class LibraryCategoryRail extends ConsumerWidget {
   const LibraryCategoryRail({super.key});
 
@@ -18,32 +18,32 @@ class LibraryCategoryRail extends ConsumerWidget {
     _CategoryPillSpec(
       category: LibraryCategory.songs,
       label: 'Songs',
-      icon: Icons.music_note_rounded,
+      icon: AppIcons.songs,
     ),
     _CategoryPillSpec(
       category: LibraryCategory.playlists,
       label: 'Playlists',
-      icon: Icons.queue_music_rounded,
+      icon: PhosphorIconsRegular.queue,
     ),
     _CategoryPillSpec(
       category: LibraryCategory.collections,
       label: 'Collections',
-      icon: Icons.album_outlined,
+      icon: PhosphorIconsRegular.disc,
     ),
     _CategoryPillSpec(
       category: LibraryCategory.beats,
       label: 'Beats',
-      icon: Icons.shopping_bag_outlined,
+      icon: PhosphorIconsRegular.shoppingBag,
     ),
     _CategoryPillSpec(
       category: LibraryCategory.licensing,
       label: 'Licensing',
-      icon: Icons.balance_rounded,
+      icon: PhosphorIconsRegular.scales,
     ),
     _CategoryPillSpec(
       category: LibraryCategory.trash,
       label: 'Trash',
-      icon: Icons.delete_outline_rounded,
+      icon: AppIcons.trash,
     ),
   ];
 
@@ -69,7 +69,6 @@ class LibraryCategoryRail extends ConsumerWidget {
                 HapticFeedback.selectionClick();
                 ref.read(libraryCategoryProvider.notifier).state =
                     _specs[index].category;
-                // Reset the vault query so the new category reveals its own records.
                 ref.read(librarySearchQueryProvider.notifier).state = '';
               },
             ),
@@ -97,56 +96,72 @@ class _CategoryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background =
-        isActive ? AppColors.brandPrimary : AppColors.surfaceSecondary;
-    final foreground =
-        isActive ? AppColors.brandContrast : AppColors.textSecondary;
+    final foreground = isActive
+        ? AppColors.brandContrast
+        : AppColors.textSecondaryOf(context);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: AppRadius.pillBorder,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: AppRadius.pillBorder,
-          border: Border.all(
-            color: isActive ? AppColors.brandPrimary : AppColors.borderSubtle,
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PhosphorIcon(spec.icon, size: 16, color: foreground),
+        const SizedBox(width: AppSpacing.xxs + 2),
+        Text(
+          spec.label,
+          style: AppTypography.bodySmall.copyWith(
+            color: foreground,
+            fontSize: 13,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(spec.icon, size: 16, color: foreground),
-            const SizedBox(width: AppSpacing.xxs + 2),
-            Text(
-              spec.label,
-              style: AppTypography.bodySmall.copyWith(
-                color: foreground,
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              ),
+        if (count > 0) ...[
+          const SizedBox(width: AppSpacing.xxs + 2),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? AppColors.brandContrast.withAlpha(38)
+                  : AppColors.surfaceElevatedOf(context),
+              borderRadius: AppRadius.pillBorder,
+              border: isActive
+                  ? null
+                  : Border.all(color: AppColors.borderSubtleOf(context)),
             ),
-            if (count > 0) ...[
-              const SizedBox(width: AppSpacing.xxs + 2),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? AppColors.brandContrast.withAlpha(38)
-                      : AppColors.surfaceElevated,
-                  borderRadius: AppRadius.pillBorder,
-                  border: isActive
-                      ? null
-                      : Border.all(color: AppColors.borderSubtle),
+            child: Text(
+              '$count',
+              style: AppTypography.badge.copyWith(color: foreground),
+            ),
+          ),
+        ],
+      ],
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: Center(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.pillBorder,
+          child: isActive
+              ? Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandPrimary,
+                    borderRadius: AppRadius.pillBorder,
+                    border: Border.all(color: AppColors.brandPrimary),
+                  ),
+                  child: content,
+                )
+              : VhunambiGlassSurface(
+                  variant: VhunambiGlassVariant.pill,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 9,
+                  ),
+                  child: content,
                 ),
-                child: Text(
-                  '$count',
-                  style: AppTypography.badge.copyWith(color: foreground),
-                ),
-              ),
-            ],
-          ],
         ),
       ),
     );

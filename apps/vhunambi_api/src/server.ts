@@ -57,6 +57,12 @@ app.use('*', async (c, next) => {
       p.startsWith('/api/v1/wallet') ||
       p.startsWith('/api/explore') ||
       p.startsWith('/api/v1/explore') ||
+      p.startsWith('/api/library') ||
+      p.startsWith('/api/v1/library') ||
+      p.startsWith('/api/playlists') ||
+      p.startsWith('/api/v1/playlists') ||
+      p.startsWith('/api/marketplace') ||
+      p.startsWith('/api/v1/marketplace') ||
       p.startsWith('/v1/generations') ||
       p.startsWith('/v1/vision') ||
       p.startsWith('/v1/webhooks');

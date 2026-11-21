@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
+import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -13,6 +14,7 @@ import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../marketplace/domain/models/marketplace_models.dart';
 import '../../../marketplace/presentation/providers/marketplace_providers.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../social/presentation/providers/trending_reels_provider.dart';
 import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
 
@@ -125,12 +127,28 @@ class _DirectDawVocalUploadSheetState
     final bpm = int.tryParse(_bpmController.text.trim()) ?? 112;
     final price = int.tryParse(_creditsController.text.trim()) ?? 5;
     final now = DateTime.now();
+    final owner = ref.read(ownerProfileProvider);
+    final session = ref.read(authSessionProvider);
+    final resolvedCreatorId = owner.id.isNotEmpty && owner.id != 'me'
+        ? owner.id
+        : (session.canonicalCreatorId.isNotEmpty
+              ? session.canonicalCreatorId
+              : 'creator_cern');
+    final resolvedName = owner.displayName.isNotEmpty
+        ? owner.displayName
+        : (session.displayName.isNotEmpty ? session.displayName : 'Cern');
+    final rawHandle = owner.handle.isNotEmpty
+        ? owner.handle
+        : (session.rawUsername.isNotEmpty ? session.rawUsername : 'cern');
+    final resolvedHandle = rawHandle.startsWith('@')
+        ? rawHandle
+        : '@$rawHandle';
 
     final newTrack = Track(
       id: 'upl_track_${now.millisecondsSinceEpoch}',
       title: title.isNotEmpty ? title : 'Untitled Creation',
-      creatorName: 'You',
-      creatorHandle: '@current_user',
+      creatorName: resolvedName,
+      creatorHandle: resolvedHandle,
       genre: _selectedGenre,
       duration: const Duration(minutes: 3, seconds: 15),
       audioUrl: 'https://cdn.vhunambi.com/uploads/$_selectedFileName',
@@ -143,6 +161,8 @@ class _DirectDawVocalUploadSheetState
             id: newTrack.id,
             title: newTrack.title,
             creatorName: newTrack.creatorName,
+            creatorId: resolvedCreatorId,
+            creatorHandle: resolvedHandle,
             genre: newTrack.genre,
             language: newTrack.language,
             durationSeconds: newTrack.duration.inSeconds,
@@ -157,22 +177,23 @@ class _DirectDawVocalUploadSheetState
     if (_publishToExplore) {
       final newPost = SocialMusicPost(
         id: 'post_upl_${now.millisecondsSinceEpoch}',
-        creatorId: 'current_user',
-        creatorName: 'You',
-        creatorHandle: '@current_user',
-        isCreatorVerified: true,
+        creatorId: resolvedCreatorId,
+        creatorName: resolvedName,
+        creatorHandle: resolvedHandle,
+        creatorAvatarUrl: owner.avatarUrl,
+        isCreatorVerified: owner.isVerified,
         publishedAt: now,
         caption: _workflow == _UploadWorkflow.dawMaster
-            ? 'Fresh DAW master exported straight to Vhunambi! Stems open for co-creation. 🎛️'
-            : 'Natural acoustic recording dropped into the ecosystem! 🎙️ #LiveCraft',
+            ? 'Fresh DAW master exported straight to Vhunambi! Stems open for co-creation.'
+            : 'Natural acoustic recording dropped into the ecosystem! #LiveCraft',
         track: newTrack,
         provenanceType: _provenanceType,
         audioAttachment: KineticPostAudioAttachment(
           sourceType: KineticAudioSourceType.librarySong,
           clipStartSec: 0.0,
           clipDurationSec: 30.0,
-          originalCreatorId: 'current_user',
-          originalCreatorHandle: '@current_user',
+          originalCreatorId: resolvedCreatorId,
+          originalCreatorHandle: resolvedHandle,
         ),
       );
       ref.read(socialFeedPostsProvider.notifier).addPost(newPost);
@@ -189,9 +210,9 @@ class _DirectDawVocalUploadSheetState
       final listing = BeatListingEntity(
         id: 'mkt_upl_${now.millisecondsSinceEpoch}',
         title: newTrack.title,
-        producerId: 'current_user',
-        producerName: 'You',
-        producerHandle: '@current_user',
+        producerId: resolvedCreatorId,
+        producerName: resolvedName,
+        producerHandle: resolvedHandle,
         genre: _selectedGenre,
         bpm: bpm,
         musicalKey: _selectedKey,
@@ -343,8 +364,11 @@ class _DirectDawVocalUploadSheetState
                         BorderSide(color: AppColors.borderSubtleOf(context)),
                     borderRadius: AppRadius.inputBorder,
                   ),
-                  focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColors.brandPrimary),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: AppColors.textPrimaryOf(context)
+                          .withValues(alpha: 0.22),
+                    ),
                     borderRadius: AppRadius.inputBorder,
                   ),
                 ),

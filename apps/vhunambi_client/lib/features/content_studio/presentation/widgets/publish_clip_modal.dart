@@ -177,10 +177,7 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
               ),
               IconButton(
                 key: const Key('publish_modal_close'),
-                icon: Icon(
-                  Icons.close_rounded,
-                  color: AppColors.textSecondary,
-                ),
+                icon: Icon(Icons.close_rounded, color: AppColors.textSecondary),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
@@ -242,14 +239,15 @@ class _PublishClipModalState extends ConsumerState<PublishClipModal> {
                         ),
                         border: OutlineInputBorder(
                           borderRadius: AppRadius.inputBorder,
-                          borderSide: BorderSide(
-                            color: AppColors.borderSubtle,
-                          ),
+                          borderSide: BorderSide(color: AppColors.borderSubtle),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: AppRadius.inputBorder,
-                          borderSide: const BorderSide(
-                            color: AppColors.brandPrimary,
+                          borderSide: BorderSide(
+                            color: AppColors.textPrimaryOf(
+                              context,
+                            ).withValues(alpha: 0.22),
+                            width: 1.0,
                           ),
                         ),
                         contentPadding: const EdgeInsets.all(AppSpacing.sm),

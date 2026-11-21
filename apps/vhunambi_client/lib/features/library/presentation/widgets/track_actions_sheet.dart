@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../domain/models/library_models.dart';
 import '../../../offline/presentation/providers/offline_providers.dart';
 import '../../../playlists/presentation/widgets/add_to_playlist_sheet.dart';
+import '../../../track/presentation/views/track_detail_view.dart';
 import '../providers/library_providers.dart';
 import 'library_badges.dart';
 import 'library_cover_art.dart';
@@ -31,12 +34,12 @@ class TrackActionsSheet extends ConsumerWidget {
   static Future<void> show(BuildContext context, LibraryTrack track) {
     return showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       barrierColor: Colors.black54,
       isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
-        side: BorderSide(color: AppColors.borderSubtle),
+        side: BorderSide(color: AppColors.borderSubtleOf(context)),
       ),
       builder: (_) => TrackActionsSheet(track: track, hostContext: context),
     );
@@ -51,12 +54,12 @@ class TrackActionsSheet extends ConsumerWidget {
     void notify(String message) {
       messenger.showSnackBar(
         SnackBar(
-          backgroundColor: AppColors.surfaceModal,
+          backgroundColor: AppColors.surfaceModalOf(context),
           duration: const Duration(seconds: 3),
           content: Row(
             children: [
-              const Icon(
-                Icons.check_circle_rounded,
+              const PhosphorIcon(
+                PhosphorIconsFill.checkCircle,
                 color: AppColors.brandPrimary,
                 size: 18,
               ),
@@ -65,7 +68,7 @@ class TrackActionsSheet extends ConsumerWidget {
                 child: Text(
                   message,
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textPrimary,
+                    color: AppColors.textPrimaryOf(context),
                   ),
                 ),
               ),
@@ -94,10 +97,13 @@ class TrackActionsSheet extends ConsumerWidget {
       AddToPlaylistSheet.show(host, track.toTrack());
     }
 
-    void handleStemSeparation() {
+    void handleOpenCockpit() {
+      final host = hostContext ?? context;
       close();
-      notify(
-        'Queued 4-stem split for "${track.title}" — Vocals, Drums, Bass & Other.',
+      Navigator.of(host).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TrackDetailView(trackId: track.id),
+        ),
       );
     }
 
@@ -197,14 +203,14 @@ class TrackActionsSheet extends ConsumerWidget {
         audioUrl: track.remoteAudioUrl,
         coverArtUrl:
             track.coverImageUrl ??
-            'https://r2.vhunambi.com/visuals/default_9_16.png',
+            'asset:${AppAssets.resolveGenreCoverAsset(track.genre, seedId: track.id)}',
       );
     }
 
     void handleListInBeatstore() {
       ref.read(beatsProvider.notifier).convertTrackToBeat(track);
       close();
-      notify('Listed "${track.title}" in your Beats Vault! 💰');
+      notify('Listed "${track.title}" in your Beats Vault!');
     }
 
     return _TrackActionsLayout(
@@ -214,7 +220,7 @@ class TrackActionsSheet extends ConsumerWidget {
       onListInBeatstore: handleListInBeatstore,
       onSongDetails: handleSongDetails,
       onAddToPlaylist: handleAddToPlaylist,
-      onStemSeparation: handleStemSeparation,
+      onOpenCockpit: handleOpenCockpit,
       onDownloadOffline: handleDownloadOffline,
       onRemoveOffline: handleRemoveOffline,
       onViewLicense: handleViewLicense,
@@ -233,7 +239,7 @@ class _TrackActionsLayout extends StatelessWidget {
   final VoidCallback onListInBeatstore;
   final VoidCallback onSongDetails;
   final VoidCallback onAddToPlaylist;
-  final VoidCallback onStemSeparation;
+  final VoidCallback onOpenCockpit;
   final VoidCallback onDownloadOffline;
   final VoidCallback onRemoveOffline;
   final VoidCallback onViewLicense;
@@ -249,7 +255,7 @@ class _TrackActionsLayout extends StatelessWidget {
     required this.onListInBeatstore,
     required this.onSongDetails,
     required this.onAddToPlaylist,
-    required this.onStemSeparation,
+    required this.onOpenCockpit,
     required this.onDownloadOffline,
     required this.onRemoveOffline,
     required this.onViewLicense,
@@ -345,7 +351,7 @@ class _TrackActionsLayout extends StatelessWidget {
                 _ActionTile(
                   key: const Key('track_action_list_in_beatstore'),
                   icon: AppIcons.coin,
-                  label: '💰 List in Beatstore',
+                  label: 'List in Beatstore',
                   subtitle:
                       'Convert to sellable beat listing on the Beats Marketplace',
                   onTap: onListInBeatstore,
@@ -363,10 +369,12 @@ class _TrackActionsLayout extends StatelessWidget {
                   onTap: onAddToPlaylist,
                 ),
                 _ActionTile(
+                  key: const Key('track_action_open_cockpit'),
                   icon: AppIcons.waveform,
                   label: 'Stem Separation',
-                  subtitle: 'Split into Vocals, Drums, Bass & Other',
-                  onTap: onStemSeparation,
+                  subtitle:
+                      'Open Song Cockpit & Stems — Vocals, Drums, Bass & Other',
+                  onTap: onOpenCockpit,
                 ),
                 _ActionTile(
                   icon: AppIcons.download,
@@ -445,56 +453,62 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = isDestructive ? AppColors.error : AppColors.textPrimary;
+    final accent = isDestructive
+        ? AppColors.error
+        : AppColors.textPrimaryOf(context);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: AppRadius.inputBorder,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: AppSpacing.xs + 2,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.inputBorder,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xs,
+            vertical: AppSpacing.xs + 2,
+          ),
+          child: Row(
+            children: [
+              VhunambiGlassSurface(
+                variant: VhunambiGlassVariant.pill,
+                width: 34,
+                height: 34,
                 borderRadius: AppRadius.thumbBorder,
-                border: Border.all(color: AppColors.borderSubtle),
+                child: Center(
+                  child: PhosphorIcon(icon, size: 17, color: accent),
+                ),
               ),
-              child: Icon(icon, size: 17, color: accent),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: AppTypography.bodyLarge.copyWith(
-                      color: accent,
-                      fontWeight: FontWeight.w600,
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: AppTypography.bodyLarge.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    subtitle,
-                    style: AppTypography.caption,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                    const SizedBox(height: 1),
+                    Text(
+                      subtitle,
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 18,
-              color: AppColors.textTertiary,
-            ),
-          ],
+              PhosphorIcon(
+                AppIcons.caretRight,
+                size: 18,
+                color: AppColors.textSecondaryOf(context),
+              ),
+            ],
+          ),
         ),
       ),
     );

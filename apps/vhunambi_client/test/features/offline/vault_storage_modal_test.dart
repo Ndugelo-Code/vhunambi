@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/theme/app_colors.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
@@ -52,7 +54,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('CACHED AUDIO MASTERS'), findsOneWidget);
-      expect(find.byIcon(Icons.storage_rounded), findsOneWidget);
+      expect(find.byIcon(PhosphorIconsRegular.hardDrives), findsOneWidget);
       // Quota rail (REQ-OFF-11).
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
     });
@@ -100,7 +102,7 @@ void main() {
       expect(find.text('Ndo Mufuna Matibe'), findsOneWidget);
       expect(find.textContaining('~8.5 MB'), findsNWidgets(cachedCount));
       expect(
-        find.byIcon(Icons.delete_outline_rounded),
+        find.byIcon(AppIcons.trash),
         findsNWidgets(cachedCount),
       );
       expect(find.text('Clear All'), findsOneWidget);
@@ -123,9 +125,9 @@ void main() {
         find.textContaining('without an internet connection'),
         findsOneWidget,
       );
-      expect(find.byIcon(Icons.cloud_download_outlined), findsOneWidget);
+      expect(find.byIcon(PhosphorIconsRegular.cloudArrowDown), findsOneWidget);
       expect(find.text('Clear All'), findsNothing);
-      expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
+      expect(find.byIcon(AppIcons.trash), findsNothing);
       expect(_container.read(cacheStorageStatsProvider).cachedTrackCount, 0);
     });
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -12,13 +13,15 @@ class CulturalAvatarPreset {
   final String id;
   final String title;
   final String emoji;
+  final IconData icon;
   final String subtitle;
   final String imageUrl;
 
   const CulturalAvatarPreset({
     required this.id,
     required this.title,
-    required this.emoji,
+    this.emoji = '',
+    this.icon = PhosphorIconsFill.sparkle,
     required this.subtitle,
     required this.imageUrl,
   });
@@ -28,7 +31,7 @@ const List<CulturalAvatarPreset> kCulturalAvatarPresets = [
   CulturalAvatarPreset(
     id: 'preset_amapiano',
     title: 'Amapiano Maestro',
-    emoji: '🎹',
+    icon: PhosphorIconsFill.pianoKeys,
     subtitle: 'Cyber log-drum specialist with amber studio shades',
     imageUrl:
         'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
@@ -36,7 +39,7 @@ const List<CulturalAvatarPreset> kCulturalAvatarPresets = [
   CulturalAvatarPreset(
     id: 'preset_maskandi',
     title: 'Maskandi Bard',
-    emoji: '🎸',
+    icon: PhosphorIconsFill.guitar,
     subtitle: 'Acoustic folk virtuoso with authentic Zulu beadwork',
     imageUrl:
         'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
@@ -44,15 +47,15 @@ const List<CulturalAvatarPreset> kCulturalAvatarPresets = [
   CulturalAvatarPreset(
     id: 'preset_limpopo',
     title: 'Limpopo Queen',
-    emoji: '👑',
+    icon: PhosphorIconsFill.crown,
     subtitle: 'Regal vocal siren with ceremonial brass choker',
     imageUrl:
         'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=400&q=80',
   ),
-  CulturalCulturalPreset(
+  CulturalAvatarPreset(
     id: 'preset_soweto',
     title: 'Soweto Soul',
-    emoji: '🎙️',
+    icon: PhosphorIconsFill.microphone,
     subtitle: '1960s Sophia Town jazz vocalist in velvet',
     imageUrl:
         'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
@@ -60,7 +63,7 @@ const List<CulturalAvatarPreset> kCulturalAvatarPresets = [
   CulturalAvatarPreset(
     id: 'preset_gqom',
     title: 'Gqom Thunder',
-    emoji: '⚡',
+    icon: PhosphorIconsFill.lightning,
     subtitle: 'Durban bass architect with holographic sonic aura',
     imageUrl:
         'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=400&q=80',
@@ -68,7 +71,7 @@ const List<CulturalAvatarPreset> kCulturalAvatarPresets = [
   CulturalAvatarPreset(
     id: 'preset_cowrie',
     title: 'Golden Cowrie',
-    emoji: '🐚',
+    icon: PhosphorIconsFill.sparkle,
     subtitle: 'Ancestral synthesizer priest with cowrie headdress',
     imageUrl:
         'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80',
@@ -134,7 +137,7 @@ class _AvatarCustomizationModalState
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Profile avatar updated successfully! ✨'),
+        content: Text('Profile avatar updated successfully!'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -238,9 +241,18 @@ class _AvatarCustomizationModalState
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded),
-                  onPressed: () => Navigator.of(context).pop(),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  child: IconButton(
+                    icon: PhosphorIcon(
+                      PhosphorIconsRegular.x,
+                      color: AppColors.textPrimaryOf(context),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ),
               ],
             ),
@@ -264,11 +276,11 @@ class _AvatarCustomizationModalState
             controller: _tabController,
             indicatorColor: AppColors.brandPrimary,
             labelColor: AppColors.brandPrimary,
-            unselectedLabelColor: AppColors.textSecondary,
+            unselectedLabelColor: AppColors.textSecondaryOf(context),
             tabs: const [
-              Tab(text: 'Cultural AI ✨'),
-              Tab(text: 'Prompt Gen 🪄'),
-              Tab(text: 'Photo URL 📸'),
+              Tab(text: 'Cultural AI'),
+              Tab(text: 'Prompt Gen'),
+              Tab(text: 'Photo URL'),
             ],
           ),
 
@@ -293,8 +305,10 @@ class _AvatarCustomizationModalState
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
-              border: Border(top: BorderSide(color: AppColors.borderSubtle)),
+              color: AppColors.surfaceElevatedOf(context),
+              border: Border(
+                top: BorderSide(color: AppColors.borderSubtleOf(context)),
+              ),
             ),
             child: Row(
               children: [
@@ -303,7 +317,7 @@ class _AvatarCustomizationModalState
                   child: Text(
                     'Revert to Monogram',
                     style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.textSecondaryOf(context),
                     ),
                   ),
                 ),
@@ -323,7 +337,7 @@ class _AvatarCustomizationModalState
                   ),
                   onPressed: _applyAvatar,
                   child: Text(
-                    'Apply Avatar ✨',
+                    'Apply Avatar',
                     style: AppTypography.bodyLarge.copyWith(
                       fontWeight: FontWeight.bold,
                       color: AppColors.brandContrast,
@@ -383,9 +397,13 @@ class _AvatarCustomizationModalState
                     errorBuilder: (_, _, _) => Container(
                       width: 48,
                       height: 48,
-                      color: AppColors.surfaceCanvas,
+                      color: AppColors.surfaceCanvasOf(context),
                       child: Center(
-                        child: Text(preset.emoji, style: const TextStyle(fontSize: 20)),
+                        child: PhosphorIcon(
+                          preset.icon,
+                          size: 20,
+                          color: AppColors.brandPrimary,
+                        ),
                       ),
                     ),
                   ),
@@ -400,18 +418,23 @@ class _AvatarCustomizationModalState
                           Text(
                             preset.title,
                             style: AppTypography.bodyLarge.copyWith(
+                              color: AppColors.textPrimaryOf(context),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text(preset.emoji),
+                          PhosphorIcon(
+                            preset.icon,
+                            size: 14,
+                            color: AppColors.brandPrimary,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 2),
                       Text(
                         preset.subtitle,
                         style: AppTypography.caption.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.textSecondaryOf(context),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -420,8 +443,8 @@ class _AvatarCustomizationModalState
                   ),
                 ),
                 if (isSelected)
-                  const Icon(
-                    Icons.check_circle_rounded,
+                  const PhosphorIcon(
+                    PhosphorIconsFill.checkCircle,
                     color: AppColors.brandPrimary,
                     size: 20,
                   ),
@@ -441,12 +464,16 @@ class _AvatarCustomizationModalState
         children: [
           Text(
             'Synthesize African AI Portrait',
-            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+            style: AppTypography.titleMedium.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'Describe your creator persona, regional aesthetic, or African instruments.',
-            style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 14),
           TextField(
@@ -455,7 +482,8 @@ class _AvatarCustomizationModalState
             maxLines: 3,
             style: AppTypography.bodySmall,
             decoration: InputDecoration(
-              hintText: 'e.g. Maskandi acoustic bard with royal Zulu crown in golden sunset...',
+              hintText:
+                  'e.g. Maskandi acoustic bard with royal Zulu crown in golden sunset...',
               hintStyle: TextStyle(color: AppColors.textTertiary),
               filled: true,
               fillColor: AppColors.surfaceElevated,
@@ -469,7 +497,12 @@ class _AvatarCustomizationModalState
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.brandPrimary),
+                borderSide: BorderSide(
+                  color: AppColors.textPrimaryOf(
+                    context,
+                  ).withValues(alpha: 0.22),
+                  width: 1.0,
+                ),
               ),
             ),
           ),
@@ -480,10 +513,10 @@ class _AvatarCustomizationModalState
             spacing: 8,
             runSpacing: 8,
             children: [
-              _buildPromptChip('🎹 Amapiano Producer'),
-              _buildPromptChip('👑 Limpopo Queen'),
-              _buildPromptChip('🎸 Maskandi Guitarist'),
-              _buildPromptChip('⚡ Durban Gqom'),
+              _buildPromptChip('Amapiano Producer'),
+              _buildPromptChip('Limpopo Queen'),
+              _buildPromptChip('Maskandi Guitarist'),
+              _buildPromptChip('Durban Gqom'),
             ],
           ),
           const SizedBox(height: 18),
@@ -510,9 +543,11 @@ class _AvatarCustomizationModalState
                         color: AppColors.brandContrast,
                       ),
                     )
-                  : const Icon(Icons.auto_awesome_rounded, size: 18),
+                  : const PhosphorIcon(PhosphorIconsFill.sparkle, size: 18),
               label: Text(
-                _isGenerating ? 'Synthesizing with RunPod AI...' : 'Generate AI Portrait ✨',
+                _isGenerating
+                    ? 'Synthesizing with RunPod AI...'
+                    : 'Generate AI Portrait',
                 style: AppTypography.bodyLarge.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AppColors.brandContrast,
@@ -545,12 +580,16 @@ class _AvatarCustomizationModalState
         children: [
           Text(
             'Custom Image URL',
-            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+            style: AppTypography.titleMedium.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'Paste a direct link to your photo (PNG, JPEG, WebP).',
-            style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 14),
           TextField(
@@ -572,7 +611,12 @@ class _AvatarCustomizationModalState
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.brandPrimary),
+                borderSide: BorderSide(
+                  color: AppColors.textPrimaryOf(
+                    context,
+                  ).withValues(alpha: 0.22),
+                  width: 1.0,
+                ),
               ),
             ),
             onChanged: (val) {
@@ -594,7 +638,7 @@ class _AvatarCustomizationModalState
                 setState(() => _selectedAvatarUrl = val);
               }
             },
-            icon: const Icon(Icons.preview_rounded, size: 18),
+            icon: const PhosphorIcon(PhosphorIconsRegular.eye, size: 18),
             label: const Text('Preview Avatar'),
           ),
         ],

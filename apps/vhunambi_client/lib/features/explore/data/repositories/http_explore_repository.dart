@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/features/social/domain/models/kinetic_reaction.dart';
 import 'package:vhunambi_client/features/social/domain/models/reel_comment.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
 
@@ -303,6 +304,44 @@ class HttpExploreRepository {
     return null;
   }
 
+  /// Applies, switches, or clears a multi-reaction on a Kinetic Post via
+  /// `POST /api/explore/posts/:id/react`.
+  Future<
+    ({
+      int likeCount,
+      bool isLikedByMe,
+      Map<KineticReactionType, int> reactionCounts,
+      KineticReactionType? myReaction,
+    })?
+  >
+  reactToPost(String postId, KineticReactionType? reaction) async {
+    if (_shouldSkipNetwork) return null;
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/explore/posts/$postId/react',
+        data: <String, dynamic>{'reactionType': reaction?.wireId},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data!;
+        final myReaction = KineticReactionType.fromWire(data['myReaction']);
+        return (
+          likeCount: (data['likeCount'] as num?)?.toInt() ?? 0,
+          isLikedByMe:
+              (data['liked'] as bool?) ??
+              (data['isLikedByMe'] as bool?) ??
+              (myReaction != null),
+          reactionCounts: KineticReactionType.parseCounts(
+            data['reactionCounts'],
+          ),
+          myReaction: myReaction,
+        );
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] reactToPost fallback: $e');
+    }
+    return null;
+  }
+
   /// Fetches threaded comments for a Kinetic Post via `GET /api/explore/posts/:id/comments`.
   Future<List<ReelComment>> fetchPostComments(
     String postId, {
@@ -339,6 +378,9 @@ class HttpExploreRepository {
     int? userReelLoves,
     String? parentCommentId,
     String? replyToHandle,
+    String? gifUrl,
+    String? stickerId,
+    double? mediaAspectRatio,
   }) async {
     if (_shouldSkipNetwork) return null;
     try {
@@ -355,6 +397,10 @@ class HttpExploreRepository {
             'parentCommentId': parentCommentId,
           if (replyToHandle != null && replyToHandle.isNotEmpty)
             'replyToHandle': replyToHandle,
+          if (gifUrl != null && gifUrl.isNotEmpty) 'gifUrl': gifUrl,
+          if (stickerId != null && stickerId.isNotEmpty)
+            'stickerId': stickerId,
+          'mediaAspectRatio': ?mediaAspectRatio,
         },
       );
       if ((response.statusCode == 201 || response.statusCode == 200) &&
@@ -487,6 +533,44 @@ class HttpExploreRepository {
       }
     } catch (e) {
       debugPrint('[HttpExploreRepository] likeComment fallback: $e');
+    }
+    return null;
+  }
+
+  /// Applies, switches, or clears a multi-reaction on a Kinetic Post comment via
+  /// `POST /api/explore/comments/:id/react`.
+  Future<
+    ({
+      int likeCount,
+      bool isLikedByMe,
+      Map<KineticReactionType, int> reactionCounts,
+      KineticReactionType? myReaction,
+    })?
+  >
+  reactToComment(String commentId, KineticReactionType? reaction) async {
+    if (_shouldSkipNetwork) return null;
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_baseUrl/explore/comments/$commentId/react',
+        data: <String, dynamic>{'reactionType': reaction?.wireId},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data!;
+        final myReaction = KineticReactionType.fromWire(data['myReaction']);
+        return (
+          likeCount: (data['likeCount'] as num?)?.toInt() ?? 0,
+          isLikedByMe:
+              (data['liked'] as bool?) ??
+              (data['isLikedByMe'] as bool?) ??
+              (myReaction != null),
+          reactionCounts: KineticReactionType.parseCounts(
+            data['reactionCounts'],
+          ),
+          myReaction: myReaction,
+        );
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] reactToComment fallback: $e');
     }
     return null;
   }

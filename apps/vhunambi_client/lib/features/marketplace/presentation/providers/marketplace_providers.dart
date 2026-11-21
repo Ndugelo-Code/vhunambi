@@ -87,6 +87,17 @@ final producerBeatsFamilyProvider =
       return mergedById.values.toList();
     });
 
+/// Cloud-backed commercial beat license certificates owned by [buyerId]
+/// (`GET /api/marketplace/licenses/:buyerId`, `EP-P72-BUYER-LICENSES-HTTP`).
+final buyerLicensesFamilyProvider =
+    FutureProvider.family<List<SovereignLicenseCertificate>, String>((
+      ref,
+      buyerId,
+    ) async {
+      final repo = ref.watch(marketplaceRepositoryProvider);
+      return repo.getBuyerLicenses(buyerId);
+    });
+
 final filteredBeatsProvider = Provider<List<BeatListingEntity>>((ref) {
   return filterBeats(
     beats: ref.watch(marketplaceBeatsProvider),

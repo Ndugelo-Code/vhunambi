@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../domain/models/library_models.dart';
 import '../providers/library_providers.dart';
 import 'library_badges.dart';
 import 'library_cover_art.dart';
 import 'track_actions_sheet.dart';
 
-/// Square vault grid card with overlay badges and a centred play trigger
-/// (REQ-LIB-04 / Blueprint 04 §3.2).
+/// Square glass vault grid card with overlay badges and a centred play trigger
+/// (`REQ-LIB-04`, `REQ-P72-AV-04`, `enableLiveBlur: false`).
 class LibraryTrackGridCard extends ConsumerWidget {
   final LibraryTrack track;
 
   const LibraryTrackGridCard({super.key, required this.track});
 
-  /// Bottom readability scrim derived from the pure-black brand contrast token.
   static final LinearGradient _bottomScrim = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
@@ -28,11 +30,9 @@ class LibraryTrackGridCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+    return VhunambiGlassSurface(
+      variant: VhunambiGlassVariant.card,
+      enableLiveBlur: false,
       child: ClipRRect(
         borderRadius: AppRadius.cardBorder,
         child: InkWell(
@@ -56,7 +56,7 @@ class LibraryTrackGridCard extends ConsumerWidget {
               Positioned(
                 top: AppSpacing.xs,
                 left: AppSpacing.xs,
-                right: 40,
+                right: 48,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -68,20 +68,23 @@ class LibraryTrackGridCard extends ConsumerWidget {
                 ),
               ),
 
-              // Contextual overflow trigger
+              // Contextual overflow trigger (44x44dp target)
               Positioned(
-                top: 2,
-                right: 2,
-                child: SizedBox(
-                  width: 32,
-                  height: 32,
+                top: 0,
+                right: 0,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
                   child: IconButton(
                     padding: EdgeInsets.zero,
                     iconSize: 18,
                     tooltip: 'Asset actions',
-                    icon: Icon(
-                      Icons.more_vert_rounded,
-                      color: AppColors.textPrimary,
+                    icon: const PhosphorIcon(
+                      PhosphorIconsRegular.dotsThreeVertical,
+                      size: 18,
+                      color: AppColors.darkTextPrimary,
                     ),
                     onPressed: () => TrackActionsSheet.show(context, track),
                   ),
@@ -94,14 +97,16 @@ class LibraryTrackGridCard extends ConsumerWidget {
                   width: 46,
                   height: 46,
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceCanvas.withAlpha(170),
+                    color: AppColors.surfaceCanvasOf(context).withAlpha(185),
                     shape: BoxShape.circle,
                     border: Border.all(color: AppColors.brandPrimary),
                   ),
-                  child: const Icon(
-                    Icons.play_arrow_rounded,
-                    size: 26,
-                    color: AppColors.brandPrimary,
+                  child: const Center(
+                    child: PhosphorIcon(
+                      AppIcons.play,
+                      size: 22,
+                      color: AppColors.brandPrimary,
+                    ),
                   ),
                 ),
               ),
@@ -119,6 +124,7 @@ class LibraryTrackGridCard extends ConsumerWidget {
                       track.title,
                       style: AppTypography.bodyLarge.copyWith(
                         fontWeight: FontWeight.w700,
+                        color: AppColors.darkTextPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -130,23 +136,23 @@ class LibraryTrackGridCard extends ConsumerWidget {
                           child: Text(
                             '${track.creatorName} • ${track.formattedDuration}',
                             style: AppTypography.caption.copyWith(
-                              color: AppColors.textSecondary,
+                              color: AppColors.darkTextSecondary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: AppSpacing.xxs),
-                        Icon(
-                          Icons.headphones_rounded,
+                        const PhosphorIcon(
+                          PhosphorIconsRegular.headphones,
                           size: 11,
-                          color: AppColors.textSecondary,
+                          color: AppColors.darkTextSecondary,
                         ),
                         const SizedBox(width: 2),
                         Text(
                           track.playCountLabel,
                           style: AppTypography.caption.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.darkTextSecondary,
                           ),
                         ),
                       ],

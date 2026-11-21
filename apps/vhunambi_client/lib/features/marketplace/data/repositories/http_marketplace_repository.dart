@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/storage/sovereign_domain_repositories.dart';
+import '../../../../core/utils/creator_id_utils.dart';
 import '../../domain/models/licensing_models.dart';
 import '../../domain/models/marketplace_models.dart';
 import '../../domain/repositories/i_marketplace_repository.dart';
@@ -481,6 +482,38 @@ class HttpMarketplaceRepository implements IMarketplaceRepository {
     };
 
     return {...certPayload, 'certificate': certPayload};
+  }
+
+  @override
+  Future<List<SovereignLicenseCertificate>> getBuyerLicenses(
+    String buyerId,
+  ) async {
+    final canonicalBuyer = canonicalizeCreatorId(buyerId);
+    if (_shouldSkipNetwork) {
+      return const <SovereignLicenseCertificate>[];
+    }
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/licenses/${Uri.encodeComponent(canonicalBuyer)}',
+      );
+      if (res.statusCode == 200 && res.data != null) {
+        final rawList =
+            (res.data!['certificates'] ?? res.data!['licenses'])
+                as List<dynamic>? ??
+            const <dynamic>[];
+        return rawList
+            .whereType<Map>()
+            .map(
+              (item) => SovereignLicenseCertificate.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList(growable: false);
+      }
+    } catch (e) {
+      debugPrint('[HttpMarketplaceRepository] getBuyerLicenses fallback: $e');
+    }
+    return const <SovereignLicenseCertificate>[];
   }
 
   BeatListingEntity _fromJson(Map<String, dynamic> json) {

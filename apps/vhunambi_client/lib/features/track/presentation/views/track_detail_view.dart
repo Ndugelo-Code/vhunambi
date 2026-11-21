@@ -9,6 +9,7 @@ import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/auth/viewer_role.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/navigation/navigation_providers.dart';
+import '../../../../core/navigation/profile_navigation_helper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -26,7 +27,6 @@ import '../../../offline/domain/models/offline_models.dart';
 import '../../../offline/presentation/providers/offline_providers.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../../player/presentation/widgets/stem_mixer_deck.dart';
-import '../../../profile/presentation/views/artist_profile_view.dart';
 import '../../../social/domain/models/video_export_job.dart';
 import '../../../social/presentation/providers/creator_wallet_provider.dart';
 import '../../../social/presentation/providers/reels_comments_provider.dart';
@@ -500,11 +500,11 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                       track: track,
                       viewerRole: viewerRole,
                       onTapCreator: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                ArtistProfileView(artistId: track.creatorId),
-                          ),
+                        navigateToCreatorProfile(
+                          context,
+                          ref,
+                          creatorId: track.creatorId,
+                          creatorHandle: track.creatorHandle,
                         );
                       },
                     ),

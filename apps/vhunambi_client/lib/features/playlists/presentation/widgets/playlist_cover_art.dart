@@ -1,20 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_gradients.dart';
-import '../../../../shared/models/track.dart';
-import '../../domain/models/playlist_entity.dart';
+import 'package:vhunambi_client/core/theme/app_dimensions.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_track_artwork.dart';
+import 'package:vhunambi_client/features/playlists/domain/models/playlist_entity.dart';
+import 'package:vhunambi_client/shared/models/track.dart';
 
-/// Dynamic playlist cover art (Mission 10).
-///
-/// Resolution order:
-///   1. `playlist.coverImageUrl` — the user's custom cover image.
-///   2. `tracks.length >= 4` — a 2×2 collage of the first four song covers
-///      (genre-gradient placeholders when a song has no artwork).
-///   3. `tracks.length >= 1` — the first song's cover / gradient.
-///   4. empty — a deterministic brand gradient derived from the title hash
-///      with a centred music-note glyph.
+/// Dynamic playlist cover art backed by [VhunambiTrackArtwork] (`EP-P68-TRACK-ARTWORK`).
 class PlaylistCoverArt extends StatelessWidget {
   final PlaylistEntity playlist;
   final List<Track> tracks;
@@ -27,15 +17,6 @@ class PlaylistCoverArt extends StatelessWidget {
     this.size = 64,
   });
 
-  /// Subtle brand tokens cycled deterministically by title hash for the empty
-  /// playlist gradient. No raw hex — every value is an [AppColors] token.
-  static const List<List<Color>> _emptyPalettes = [
-    [AppColors.brandPrimary, AppColors.coinGold],
-    [AppColors.streakFire, AppColors.brandPrimary],
-    [AppColors.badgeCyan, AppColors.success],
-    [AppColors.coinGold, AppColors.streakFire],
-  ];
-
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
@@ -47,86 +28,65 @@ class PlaylistCoverArt extends StatelessWidget {
   Widget _content() {
     final coverUrl = playlist.coverImageUrl;
     if (coverUrl != null && coverUrl.isNotEmpty) {
-      return _networkCover(coverUrl, fallback: _emptyCover());
+      return VhunambiTrackArtwork(
+        coverUrl: coverUrl,
+        genre: tracks.isNotEmpty ? tracks.first.genre : 'Amapiano',
+        trackId: playlist.id,
+        width: size,
+        height: size,
+        borderRadius: BorderRadius.zero,
+        showSubtleBorder: false,
+      );
     }
 
     if (tracks.length >= 4) {
-      return _quadCollage();
+      final quad = tracks.take(4).toList(growable: false);
+      return Column(
+        children: [
+          for (var row = 0; row < 2; row++)
+            Expanded(
+              child: Row(
+                children: [
+                  for (var col = 0; col < 2; col++)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(0.5),
+                        child: VhunambiTrackArtwork(
+                          coverUrl: quad[row * 2 + col].coverUrl,
+                          genre: quad[row * 2 + col].genre,
+                          trackId: quad[row * 2 + col].id,
+                          borderRadius: BorderRadius.zero,
+                          showSubtleBorder: false,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      );
     }
 
     if (tracks.isNotEmpty) {
-      return _singleCover(tracks.first);
+      final first = tracks.first;
+      return VhunambiTrackArtwork(
+        coverUrl: first.coverUrl,
+        genre: first.genre,
+        trackId: first.id,
+        width: size,
+        height: size,
+        borderRadius: BorderRadius.zero,
+        showSubtleBorder: false,
+      );
     }
 
-    return _emptyCover();
-  }
-
-  Widget _networkCover(String url, {required Widget fallback}) {
-    return CachedNetworkImage(
-      imageUrl: url,
-      fit: BoxFit.cover,
-      placeholder: (_, _) => fallback,
-      errorWidget: (_, _, _) => fallback,
+    return VhunambiTrackArtwork(
+      genre: 'Amapiano',
+      trackId: playlist.id,
+      width: size,
+      height: size,
+      borderRadius: BorderRadius.zero,
+      showSubtleBorder: false,
     );
   }
-
-  Widget _singleCover(Track track) {
-    final url = _coverUrlOf(track);
-    if (url != null) {
-      return _networkCover(url, fallback: _gradientTile(AppGradients.forGenre(track.genre)));
-    }
-    return _gradientTile(AppGradients.forGenre(track.genre));
-  }
-
-  Widget _quadCollage() {
-    final quad = tracks.take(4).toList();
-    return Column(
-      children: [
-        for (var row = 0; row < 2; row++)
-          Expanded(
-            child: Row(
-              children: [
-                for (var col = 0; col < 2; col++)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(0.5),
-                      child: _singleCover(quad[row * 2 + col]),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _gradientTile(LinearGradient gradient) {
-    return DecoratedBox(
-      decoration: BoxDecoration(gradient: gradient),
-      child: const SizedBox.expand(),
-    );
-  }
-
-  Widget _emptyCover() {
-    final palette =
-        _emptyPalettes[playlist.title.hashCode.abs() % _emptyPalettes.length];
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: palette,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Icon(
-          Icons.music_note_rounded,
-          size: size * 0.4,
-          color: AppColors.textPrimary.withAlpha(220),
-        ),
-      ),
-    );
-  }
-
-  String? _coverUrlOf(Track track) => track.coverUrl;
 }

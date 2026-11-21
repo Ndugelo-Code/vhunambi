@@ -125,10 +125,7 @@ class _CreatorDnaHelixLabSheetState
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0F0F14) : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(
-          color: AppColors.borderSubtle,
-          width: 1.0,
-        ),
+        border: Border.all(color: AppColors.borderSubtle, width: 1.0),
       ),
       child: Column(
         children: [
@@ -347,15 +344,15 @@ class _CreatorDnaHelixLabSheetState
           color: isSelected
               ? node.accentColor.withValues(alpha: 0.22)
               : (node.isSequenced
-                  ? AppColors.surfaceElevated
-                  : AppColors.surfaceSecondary),
+                    ? AppColors.surfaceElevated
+                    : AppColors.surfaceSecondary),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? node.accentColor
                 : (node.isSequenced
-                    ? node.accentColor.withValues(alpha: 0.4)
-                    : AppColors.borderSubtle),
+                      ? node.accentColor.withValues(alpha: 0.4)
+                      : AppColors.borderSubtle),
             width: isSelected ? 1.8 : 1.0,
           ),
         ),
@@ -368,8 +365,8 @@ class _CreatorDnaHelixLabSheetState
               color: isSelected
                   ? node.accentColor
                   : (node.isSequenced
-                      ? node.accentColor.withValues(alpha: 0.8)
-                      : AppColors.textTertiary),
+                        ? node.accentColor.withValues(alpha: 0.8)
+                        : AppColors.textTertiary),
             ),
             const SizedBox(width: 4),
             Text(
@@ -380,8 +377,8 @@ class _CreatorDnaHelixLabSheetState
                 color: isSelected
                     ? node.accentColor
                     : (node.isSequenced
-                        ? AppColors.textPrimary
-                        : AppColors.textTertiary),
+                          ? AppColors.textPrimary
+                          : AppColors.textTertiary),
               ),
             ),
             if (!node.isSequenced) ...[
@@ -511,14 +508,15 @@ class _CreatorDnaHelixLabSheetState
           Text(
             node.isSequenced
                 ? node.description
-                : '🔒 Quest: ${node.questInstruction}',
+                : 'Quest: ${node.questInstruction}',
             style: AppTypography.bodySmall.copyWith(
               fontSize: 11,
               color: node.isSequenced
                   ? AppColors.textSecondary
                   : AppColors.brandPrimary,
-              fontWeight:
-                  node.isSequenced ? FontWeight.normal : FontWeight.w600,
+              fontWeight: node.isSequenced
+                  ? FontWeight.normal
+                  : FontWeight.w600,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -617,8 +615,9 @@ class _LabHelixPainter extends CustomPainter {
             rail2Color.withValues(alpha: alpha * 0.7),
           ],
         ).createShader(Rect.fromPoints(rung.p1, rung.p2))
-        ..strokeWidth =
-            rung.node.isSequenced ? (1.8 * normDepth) : (1.0 * normDepth);
+        ..strokeWidth = rung.node.isSequenced
+            ? (1.8 * normDepth)
+            : (1.0 * normDepth);
 
       canvas.drawLine(rung.p1, rung.p2, _strandPaint);
       _strandPaint.shader = null;

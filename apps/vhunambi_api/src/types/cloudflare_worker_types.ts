@@ -86,6 +86,8 @@ export interface VhunambiWorkerEnv {
   PAYFAST_MERCHANT_KEY?: string;
   PAYFAST_PASSPHRASE?: string;
   PAYFAST_SANDBOX?: string;
+  TENOR_API_KEY?: string;
+  GIPHY_API_KEY?: string;
   VHUNAMBI_VAULT?: CfR2Bucket;
   HYPERDRIVE?: CfHyperdriveBinding;
   GENERATION_DO?: CfDurableObjectNamespace;

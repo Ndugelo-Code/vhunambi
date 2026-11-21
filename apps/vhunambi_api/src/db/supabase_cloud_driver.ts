@@ -110,6 +110,23 @@ export function computeWalletTotalsFromLedgerRows(
   };
 }
 
+function parseJsonObject(raw: unknown): Record<string, unknown> {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const dec = JSON.parse(raw);
+      if (dec && typeof dec === 'object' && !Array.isArray(dec)) {
+        return dec as Record<string, unknown>;
+      }
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
 /**
  * Normalizes `beat_licenses` rows between SQLite (`coins_paid`, `zar_paid`, `issued_at`, `data_json`)
  * and PostgreSQL (`amount_paid_coins`, `amount_paid_zar`, `purchased_at`, `terms_json`, `stems_urls_json`).
@@ -117,22 +134,7 @@ export function computeWalletTotalsFromLedgerRows(
 export function normalizeBeatLicenseRow(
   row: Record<string, unknown>,
 ): Record<string, unknown> {
-  let baseData: Record<string, unknown> = {};
-  if (typeof row.data_json === 'string' && row.data_json.trim()) {
-    try {
-      baseData = JSON.parse(row.data_json) as Record<string, unknown>;
-    } catch {
-      baseData = {};
-    }
-  } else if (typeof row.terms_json === 'string' && row.terms_json.trim()) {
-    try {
-      baseData = JSON.parse(row.terms_json) as Record<string, unknown>;
-    } catch {
-      baseData = {};
-    }
-  } else if (row.terms_json && typeof row.terms_json === 'object') {
-    baseData = row.terms_json as Record<string, unknown>;
-  }
+  const baseData = parseJsonObject(row.data_json ?? row.terms_json);
   return {
     ...baseData,
     certificateId: String(row.certificate_id ?? baseData.certificateId ?? ''),
@@ -164,14 +166,7 @@ export function normalizeBeatLicenseRow(
 export function normalizeLibrarySyncRow(
   row: Record<string, unknown>,
 ): Record<string, unknown> {
-  let parsed: Record<string, unknown> = {};
-  if (typeof row.data_json === 'string' && row.data_json.trim()) {
-    try {
-      parsed = JSON.parse(row.data_json) as Record<string, unknown>;
-    } catch {
-      parsed = {};
-    }
-  }
+  const parsed = parseJsonObject(row.data_json);
   const rawUpdatedAt = row.updated_at ?? parsed.updatedAt;
   const updatedAtIso =
     typeof rawUpdatedAt === 'number'
@@ -239,14 +234,7 @@ export function normalizeSyncMutationRow(
 export function normalizePlaylistRow(
   row: Record<string, unknown>,
 ): Record<string, unknown> {
-  let parsed: Record<string, unknown> = {};
-  if (typeof row.data_json === 'string' && row.data_json.trim()) {
-    try {
-      parsed = JSON.parse(row.data_json) as Record<string, unknown>;
-    } catch {
-      parsed = {};
-    }
-  }
+  const parsed = parseJsonObject(row.data_json);
   let trackIds: string[] = Array.isArray(parsed.trackIds)
     ? (parsed.trackIds as unknown[]).map(String)
     : [];
@@ -292,14 +280,7 @@ export function normalizePlaylistRow(
 export function normalizeMarketplaceAssetRow(
   row: Record<string, unknown>,
 ): Record<string, unknown> {
-  let parsed: Record<string, unknown> = {};
-  if (typeof row.data_json === 'string' && row.data_json.trim()) {
-    try {
-      parsed = JSON.parse(row.data_json) as Record<string, unknown>;
-    } catch {
-      parsed = {};
-    }
-  }
+  const parsed = parseJsonObject(row.data_json);
   const soldRaw = row.is_exclusive_sold ?? parsed.isExclusiveSold;
   return {
     ...parsed,

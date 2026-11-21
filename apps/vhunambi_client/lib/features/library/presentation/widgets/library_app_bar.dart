@@ -1,28 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
+import '../../../home/presentation/providers/creator_allowance_provider.dart';
+import '../../../home/presentation/widgets/subscription_upgrade_modal.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../../../offline/presentation/widgets/vault_storage_modal.dart';
 import '../../../profile/presentation/widgets/studio_analytics_console_sheet.dart';
 import '../../domain/models/library_models.dart';
 import '../providers/library_providers.dart';
 
-/// Responsive vault header (REQ-LIB-01 / Blueprint 04 §1.1).
-///
-/// Mobile (< 768px): brand emblem, credit chip, notification bell, overflow
-/// menu, and a square create action.
-/// Desktop (> 1024px): back chevron, brand emblem, centred breadcrumb, credit
-/// chip, bell, analytics action, overflow menu, and the Create pill.
+/// Responsive glass vault header (`REQ-LIB-01`, `REQ-P72-AV-05`, `STD-UIUX-001`).
 class LibraryAppBar extends ConsumerWidget {
-  static const String creditBalanceLabel = '10 songs left';
-
   final VoidCallback? onCreateRequested;
 
   const LibraryAppBar({super.key, this.onCreateRequested});
@@ -31,9 +27,6 @@ class LibraryAppBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
 
-    // Root tab: no back chevron on either breakpoint (Library is an
-    // IndexedStack sibling, never pushed). Geometry is inset-aware so the row
-    // never squishes on notched devices.
     return VhunambiTopBarSurface(
       toolbarHeight: isDesktop ? 64 : 56,
       child: Padding(
@@ -47,7 +40,12 @@ class LibraryAppBar extends ConsumerWidget {
     return Row(
       children: [
         Expanded(child: _brandGroup(context, showBackChevron: false)),
-        Text('My Library', style: AppTypography.bodyMuted),
+        Text(
+          'My Library',
+          style: AppTypography.bodyMuted.copyWith(
+            color: AppColors.textSecondaryOf(context),
+          ),
+        ),
         Expanded(
           child: Align(
             alignment: Alignment.centerRight,
@@ -57,7 +55,7 @@ class LibraryAppBar extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const _CreditBalancePill(),
+                  const _AllowanceBalancePill(),
                   const SizedBox(width: AppSpacing.xs),
                   const NotificationBellButton(),
                   const SizedBox(width: AppSpacing.xxs),
@@ -96,7 +94,7 @@ class LibraryAppBar extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const _CreditBalancePill(),
+                  const _AllowanceBalancePill(),
                   const SizedBox(width: AppSpacing.xxs),
                   const NotificationBellButton(),
                   const SizedBox(width: AppSpacing.xxs),
@@ -155,6 +153,7 @@ class LibraryAppBar extends ConsumerWidget {
             style: AppTypography.titleMedium.copyWith(
               fontWeight: FontWeight.w800,
               letterSpacing: 1.0,
+              color: AppColors.textPrimaryOf(context),
             ),
           ),
         ],
@@ -163,13 +162,60 @@ class LibraryAppBar extends ConsumerWidget {
   }
 }
 
-/// `⚡ 10 songs left` credit token chip.
-class _CreditBalancePill extends StatelessWidget {
-  const _CreditBalancePill();
+/// Live monthly song quota pill (`EP-P68-CREATOR-ALLOWANCE`).
+/// Uses `PhosphorIconsFill.musicNotes` to preserve single-sparkle mobile contract.
+class _AllowanceBalancePill extends ConsumerWidget {
+  const _AllowanceBalancePill();
 
   @override
-  Widget build(BuildContext context) {
-    return const VhunambiUserCoinsChip();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final allowance = ref.watch(creatorAllowanceProvider);
+    final label = allowance.isPaidUnlimited
+        ? 'Pro Unlimited'
+        : '${allowance.freeMonthlySongsRemaining} songs left';
+    final accent = allowance.isExhausted
+        ? AppColors.error
+        : allowance.isLowQuota
+        ? AppColors.streakFire
+        : AppColors.coinGold;
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: Center(
+        child: InkWell(
+          key: const Key('library_allowance_chip'),
+          onTap: () => SubscriptionUpgradeModal.show(context),
+          borderRadius: AppRadius.pillBorder,
+          child: VhunambiGlassSurface(
+            variant: VhunambiGlassVariant.pill,
+            tintAccent: accent,
+            borderColorOverride: accent.withValues(alpha: 0.45),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 6,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PhosphorIcon(
+                  PhosphorIconsFill.musicNotes,
+                  size: 14,
+                  color: accent,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textPrimaryOf(context),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -192,7 +238,11 @@ class _HeaderIconButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         iconSize: 20,
         tooltip: tooltip,
-        icon: PhosphorIcon(icon, color: AppColors.textSecondary, size: 20),
+        icon: PhosphorIcon(
+          icon,
+          color: AppColors.textSecondaryOf(context),
+          size: 20,
+        ),
         onPressed: onPressed,
       ),
     );
@@ -222,10 +272,12 @@ class _CreateButton extends StatelessWidget {
                 color: AppColors.brandPrimary,
                 borderRadius: AppRadius.thumbBorder,
               ),
-              child: const Icon(
-                PhosphorIconsRegular.sparkle,
-                size: 18,
-                color: AppColors.brandContrast,
+              child: const Center(
+                child: PhosphorIcon(
+                  PhosphorIconsRegular.sparkle,
+                  size: 18,
+                  color: AppColors.brandContrast,
+                ),
               ),
             ),
           ),
@@ -246,7 +298,7 @@ class _CreateButton extends StatelessWidget {
           vertical: AppSpacing.xs,
         ),
       ),
-      icon: const Icon(
+      icon: const PhosphorIcon(
         PhosphorIconsRegular.sparkle,
         size: 16,
         color: AppColors.brandContrast,
@@ -262,7 +314,7 @@ class _CreateButton extends StatelessWidget {
   }
 }
 
-/// `📊 Analytics` vault summary action (desktop header only).
+/// Vault analytics console trigger (desktop header).
 class _AnalyticsButton extends ConsumerWidget {
   const _AnalyticsButton();
 
@@ -272,16 +324,12 @@ class _AnalyticsButton extends ConsumerWidget {
       key: const Key('library_vault_analytics_btn'),
       onTap: () => _showVaultAnalytics(context, ref),
       borderRadius: AppRadius.pillBorder,
-      child: Container(
+      child: VhunambiGlassSurface(
+        variant: VhunambiGlassVariant.pill,
         constraints: const BoxConstraints(minHeight: 44),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.sm,
           vertical: 6,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceElevated,
-          borderRadius: AppRadius.pillBorder,
-          border: Border.all(color: AppColors.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -289,13 +337,13 @@ class _AnalyticsButton extends ConsumerWidget {
             PhosphorIcon(
               PhosphorIconsRegular.chartLineUp,
               size: 15,
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryOf(context),
             ),
             const SizedBox(width: AppSpacing.xxs),
             Text(
               'Analytics',
               style: AppTypography.bodySmall.copyWith(
-                color: AppColors.textPrimary,
+                color: AppColors.textPrimaryOf(context),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -320,14 +368,14 @@ class _OverflowMenu extends ConsumerWidget {
         padding: EdgeInsets.zero,
         iconSize: 20,
         tooltip: 'Library options',
-        color: AppColors.surfaceModal,
+        color: AppColors.surfaceModalOf(context),
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.inputBorder,
-          side: BorderSide(color: AppColors.borderSubtle),
+          side: BorderSide(color: AppColors.borderSubtleOf(context)),
         ),
         icon: PhosphorIcon(
           PhosphorIconsRegular.dotsThreeVertical,
-          color: AppColors.textSecondary,
+          color: AppColors.textSecondaryOf(context),
         ),
         onSelected: (value) {
           if (value is LibrarySortOrder) {
@@ -350,7 +398,7 @@ class _OverflowMenu extends ConsumerWidget {
                     size: 16,
                     color: order == activeOrder
                         ? AppColors.brandPrimary
-                        : AppColors.textSecondary,
+                        : AppColors.textSecondaryOf(context),
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   Expanded(
@@ -359,7 +407,7 @@ class _OverflowMenu extends ConsumerWidget {
                       style: AppTypography.bodySmall.copyWith(
                         color: order == activeOrder
                             ? AppColors.brandPrimary
-                            : AppColors.textPrimary,
+                            : AppColors.textPrimaryOf(context),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -382,13 +430,13 @@ class _OverflowMenu extends ConsumerWidget {
                 PhosphorIcon(
                   PhosphorIconsRegular.hardDrives,
                   size: 16,
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryOf(context),
                 ),
                 const SizedBox(width: AppSpacing.xs),
                 Text(
                   'Vault Storage Quota',
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textPrimary,
+                    color: AppColors.textPrimaryOf(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -403,13 +451,13 @@ class _OverflowMenu extends ConsumerWidget {
                 PhosphorIcon(
                   PhosphorIconsRegular.chartLineUp,
                   size: 16,
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryOf(context),
                 ),
                 const SizedBox(width: AppSpacing.xs),
                 Text(
                   'Vault Analytics',
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textPrimary,
+                    color: AppColors.textPrimaryOf(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),

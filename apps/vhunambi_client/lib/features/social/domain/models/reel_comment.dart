@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'kinetic_reaction.dart';
+
 /// Sort ordering for Kinetic Post and Reel comment threads (`REQ-P69-THREAD-02`).
 enum CommentSortOrder {
   mostRelevant('Most relevant'),
@@ -46,6 +48,21 @@ class ReelComment {
   final int likeCount;
   final bool isLikedByMe;
 
+  /// Breakdown of multi-reactions by type (`EP-P73-MULTI-REACTIONS-API`).
+  final Map<KineticReactionType, int> reactionCounts;
+
+  /// Current listener's active reaction on this comment, if any.
+  final KineticReactionType? myReaction;
+
+  /// Optional external GIF URL attached to this comment (`REQ-P73-GIF-01`).
+  final String? gifUrl;
+
+  /// Optional Sovereign Sticker identifier attached to this comment (`REQ-P73-GIF-02`).
+  final String? stickerId;
+
+  /// Aspect ratio (width / height) for [gifUrl] or [stickerId] media.
+  final double? mediaAspectRatio;
+
   /// The number of times this commenter has reacted/loved the reel or post.
   final int userReelLoves;
 
@@ -74,6 +91,11 @@ class ReelComment {
     required this.text,
     this.likeCount = 0,
     this.isLikedByMe = false,
+    this.reactionCounts = const <KineticReactionType, int>{},
+    this.myReaction,
+    this.gifUrl,
+    this.stickerId,
+    this.mediaAspectRatio,
     this.userReelLoves = 0,
     this.giftEmoji,
     this.giftName,
@@ -84,6 +106,18 @@ class ReelComment {
 
   /// True when this comment is a child reply to a top-level comment.
   bool get isReply => parentCommentId != null && parentCommentId!.isNotEmpty;
+
+  /// True when this comment carries a GIF or Sovereign Sticker attachment.
+  bool get hasMedia =>
+      (gifUrl != null && gifUrl!.trim().isNotEmpty) ||
+      (stickerId != null && stickerId!.trim().isNotEmpty);
+
+  /// Total reaction count across all taxonomy types, preserving legacy likes.
+  int get totalReactionCount {
+    if (reactionCounts.isEmpty) return likeCount;
+    final sum = reactionCounts.values.fold<int>(0, (a, b) => a + b);
+    return sum > likeCount ? sum : likeCount;
+  }
 
   ReelComment copyWith({
     String? id,
@@ -96,6 +130,12 @@ class ReelComment {
     String? text,
     int? likeCount,
     bool? isLikedByMe,
+    Map<KineticReactionType, int>? reactionCounts,
+    KineticReactionType? myReaction,
+    bool clearMyReaction = false,
+    String? gifUrl,
+    String? stickerId,
+    double? mediaAspectRatio,
     int? userReelLoves,
     String? giftEmoji,
     String? giftName,
@@ -114,6 +154,11 @@ class ReelComment {
       text: text ?? this.text,
       likeCount: likeCount ?? this.likeCount,
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
+      reactionCounts: reactionCounts ?? this.reactionCounts,
+      myReaction: clearMyReaction ? null : (myReaction ?? this.myReaction),
+      gifUrl: gifUrl ?? this.gifUrl,
+      stickerId: stickerId ?? this.stickerId,
+      mediaAspectRatio: mediaAspectRatio ?? this.mediaAspectRatio,
       userReelLoves: userReelLoves ?? this.userReelLoves,
       giftEmoji: giftEmoji ?? this.giftEmoji,
       giftName: giftName ?? this.giftName,
@@ -134,6 +179,11 @@ class ReelComment {
     'text': text,
     'likeCount': likeCount,
     'isLikedByMe': isLikedByMe,
+    'reactionCounts': KineticReactionType.encodeCounts(reactionCounts),
+    if (myReaction != null) 'myReaction': myReaction!.wireId,
+    if (gifUrl != null) 'gifUrl': gifUrl,
+    if (stickerId != null) 'stickerId': stickerId,
+    if (mediaAspectRatio != null) 'mediaAspectRatio': mediaAspectRatio,
     'userReelLoves': userReelLoves,
     if (giftEmoji != null) 'giftEmoji': giftEmoji,
     if (giftName != null) 'giftName': giftName,
@@ -147,6 +197,22 @@ class ReelComment {
         (json['parentCommentId'] ?? json['parent_comment_id']) as String?;
     final rawReplyHandle =
         (json['replyToHandle'] ?? json['reply_to_handle']) as String?;
+    final rawGif = (json['gifUrl'] ?? json['gif_url']) as String?;
+    final rawSticker = (json['stickerId'] ?? json['sticker_id']) as String?;
+    final parsedMyReaction = KineticReactionType.fromWire(
+      json['myReaction'] ?? json['my_reaction'],
+    );
+    final parsedCounts = KineticReactionType.parseCounts(
+      json['reactionCounts'] ??
+          json['reaction_counts'] ??
+          json['reaction_counts_json'],
+    );
+    final parsedLikeCount =
+        (json['likeCount'] as num?)?.toInt() ??
+        (json['likes_count'] as num?)?.toInt() ??
+        0;
+    final parsedLiked =
+        (json['isLikedByMe'] as bool?) ?? (parsedMyReaction != null);
     return ReelComment(
       id: (json['id'] ?? '').toString(),
       clipId: (json['clipId'] ?? json['clip_id'] ?? json['postId'] ?? '')
@@ -164,11 +230,17 @@ class ReelComment {
           (json['is_creator'] as bool?) ??
           false,
       text: (json['text'] ?? json['content'] ?? '').toString(),
-      likeCount:
-          (json['likeCount'] as num?)?.toInt() ??
-          (json['likes_count'] as num?)?.toInt() ??
-          0,
-      isLikedByMe: (json['isLikedByMe'] as bool?) ?? false,
+      likeCount: parsedLikeCount,
+      isLikedByMe: parsedLiked,
+      reactionCounts: parsedCounts,
+      myReaction: parsedMyReaction,
+      gifUrl: rawGif != null && rawGif.trim().isNotEmpty ? rawGif.trim() : null,
+      stickerId: rawSticker != null && rawSticker.trim().isNotEmpty
+          ? rawSticker.trim()
+          : null,
+      mediaAspectRatio:
+          ((json['mediaAspectRatio'] ?? json['media_aspect_ratio']) as num?)
+              ?.toDouble(),
       userReelLoves:
           (json['userReelLoves'] as num?)?.toInt() ??
           (json['user_reel_loves'] as num?)?.toInt() ??

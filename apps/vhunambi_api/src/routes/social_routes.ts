@@ -47,18 +47,29 @@ const PublishClipSchema = z.object({
   remixAttribution: z.string().optional(),
 });
 
-const CreateCommentSchema = z.object({
-  text: z.string().min(1, 'text is required'),
-  userId: z.string().optional(),
-  username: z.string().optional(),
-  displayName: z.string().optional(),
-  avatarUrl: z.string().optional(),
-  userReelLoves: z.number().optional(),
-  giftEmoji: z.string().optional(),
-  giftName: z.string().optional(),
-  parentCommentId: z.string().optional(),
-  replyToHandle: z.string().optional(),
-});
+const CreateCommentSchema = z
+  .object({
+    text: z.string().default(''),
+    userId: z.string().optional(),
+    username: z.string().optional(),
+    displayName: z.string().optional(),
+    avatarUrl: z.string().optional(),
+    userReelLoves: z.number().optional(),
+    giftEmoji: z.string().optional(),
+    giftName: z.string().optional(),
+    parentCommentId: z.string().optional(),
+    replyToHandle: z.string().optional(),
+    gifUrl: z.string().url().optional(),
+    stickerId: z.string().min(1).optional(),
+    mediaAspectRatio: z.number().positive().optional(),
+  })
+  .refine(
+    (d) =>
+      d.text.trim().length > 0 ||
+      Boolean(d.gifUrl && d.gifUrl.trim().length > 0) ||
+      Boolean(d.stickerId && d.stickerId.trim().length > 0),
+    { message: 'text, gifUrl, or stickerId is required' },
+  );
 
 const TipSchema = z.object({
   giftId: z.string().optional(),
@@ -195,6 +206,171 @@ socialRoutes.post('/social/comments/:id/like', (c) => {
     );
   }
   return c.json(result, 200);
+});
+
+interface GifSearchItemDto {
+  id: string;
+  title: string;
+  previewUrl: string;
+  gifUrl: string;
+  width: number;
+  height: number;
+}
+
+const CURATED_STUDIO_GIFS: GifSearchItemDto[] = [
+  {
+    id: 'curated_groove_01',
+    title: 'Amapiano Log Drum Bounce',
+    previewUrl: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/200w.gif',
+    gifUrl: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
+    width: 480,
+    height: 360,
+  },
+  {
+    id: 'curated_studio_02',
+    title: 'Studio Fire Session',
+    previewUrl: 'https://media.giphy.com/media/3o7abKhOpu0NwenH3O/200w.gif',
+    gifUrl: 'https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif',
+    width: 480,
+    height: 270,
+  },
+  {
+    id: 'curated_vibe_03',
+    title: 'Head Nod Approved',
+    previewUrl: 'https://media.giphy.com/media/GeimqsH0TLDt4tScGw/200w.gif',
+    gifUrl: 'https://media.giphy.com/media/GeimqsH0TLDt4tScGw/giphy.gif',
+    width: 480,
+    height: 480,
+  },
+  {
+    id: 'curated_crown_04',
+    title: 'Pure Royalty Energy',
+    previewUrl: 'https://media.giphy.com/media/okLCopqw6ElCDnIhuS/200w.gif',
+    gifUrl: 'https://media.giphy.com/media/okLCopqw6ElCDnIhuS/giphy.gif',
+    width: 480,
+    height: 360,
+  },
+];
+
+async function proxyGifCatalog(
+  query: string,
+  limit: number,
+  env: Record<string, unknown> | undefined,
+): Promise<{ source: 'tenor' | 'giphy' | 'curated'; items: GifSearchItemDto[] }> {
+  const safeLimit = Math.min(Math.max(limit, 1), 24);
+  const tenorKey =
+    (typeof env?.TENOR_API_KEY === 'string' && env.TENOR_API_KEY.trim()) ||
+    (typeof process !== 'undefined' ? process.env?.TENOR_API_KEY?.trim() : '');
+  const giphyKey =
+    (typeof env?.GIPHY_API_KEY === 'string' && env.GIPHY_API_KEY.trim()) ||
+    (typeof process !== 'undefined' ? process.env?.GIPHY_API_KEY?.trim() : '');
+
+  if (tenorKey) {
+    try {
+      const endpoint = query
+        ? `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${encodeURIComponent(tenorKey)}&limit=${safeLimit}&media_filter=tinygif,gif`
+        : `https://tenor.googleapis.com/v2/featured?key=${encodeURIComponent(tenorKey)}&limit=${safeLimit}&media_filter=tinygif,gif`;
+      const res = await fetch(endpoint, { signal: AbortSignal.timeout(3500) });
+      if (res.ok) {
+        const json = (await res.json()) as { results?: Array<Record<string, any>> };
+        const items: GifSearchItemDto[] = (json.results ?? [])
+          .map((r) => {
+            const gif = r.media_formats?.gif;
+            const tiny = r.media_formats?.tinygif ?? gif;
+            if (!gif?.url) return null;
+            const dims = Array.isArray(gif.dims) ? gif.dims : [480, 360];
+            return {
+              id: String(r.id ?? ''),
+              title: String(r.content_description ?? 'GIF'),
+              previewUrl: String(tiny?.url ?? gif.url),
+              gifUrl: String(gif.url),
+              width: Number(dims[0] ?? 480),
+              height: Number(dims[1] ?? 360),
+            };
+          })
+          .filter((x): x is GifSearchItemDto => x !== null);
+        if (items.length > 0) return { source: 'tenor', items };
+      }
+    } catch (_) { }
+  }
+
+  if (giphyKey) {
+    try {
+      const endpoint = query
+        ? `https://api.giphy.com/v1/gifs/search?api_key=${encodeURIComponent(giphyKey)}&q=${encodeURIComponent(query)}&limit=${safeLimit}&rating=pg-13`
+        : `https://api.giphy.com/v1/gifs/trending?api_key=${encodeURIComponent(giphyKey)}&limit=${safeLimit}&rating=pg-13`;
+      const res = await fetch(endpoint, { signal: AbortSignal.timeout(3500) });
+      if (res.ok) {
+        const json = (await res.json()) as { data?: Array<Record<string, any>> };
+        const items: GifSearchItemDto[] = (json.data ?? [])
+          .map((r) => {
+            const orig = r.images?.original;
+            const preview = r.images?.fixed_width_small ?? orig;
+            if (!orig?.url) return null;
+            return {
+              id: String(r.id ?? ''),
+              title: String(r.title ?? 'GIF'),
+              previewUrl: String(preview?.url ?? orig.url),
+              gifUrl: String(orig.url),
+              width: Number(orig.width ?? 480),
+              height: Number(orig.height ?? 360),
+            };
+          })
+          .filter((x): x is GifSearchItemDto => x !== null);
+        if (items.length > 0) return { source: 'giphy', items };
+      }
+    } catch (_) { }
+  }
+
+  const qLower = query.trim().toLowerCase();
+  const filtered = qLower
+    ? CURATED_STUDIO_GIFS.filter((g) => g.title.toLowerCase().includes(qLower))
+    : CURATED_STUDIO_GIFS;
+  return {
+    source: 'curated',
+    items: (filtered.length > 0 ? filtered : CURATED_STUDIO_GIFS).slice(0, safeLimit),
+  };
+}
+
+// POST /api/social/comments/:id/react — Phase 73 Comment Multi-Reaction
+socialRoutes.post('/social/comments/:id/react', async (c) => {
+  const commentId = c.req.param('id');
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await c.req.json()) as Record<string, unknown>;
+  } catch (_) { }
+  const actorId = c.get('authUser')?.creatorId ?? 'creator_cern';
+  const rawReaction = body.reactionType ?? body.reaction ?? null;
+  const result = await vhunambiDb.reactToCommentAsync(
+    commentId,
+    actorId,
+    typeof rawReaction === 'string' ? (rawReaction as any) : null,
+    c,
+  );
+  if (!result) {
+    return c.json(
+      { error: 'NOT_FOUND', message: `Comment ${commentId} not found` },
+      404,
+    );
+  }
+  return c.json(result, 200);
+});
+
+// GET /api/social/gifs/search — Server-side Tenor/GIPHY proxy with curated fallback
+socialRoutes.get('/social/gifs/search', async (c) => {
+  const q = (c.req.query('q') ?? '').trim();
+  const limit = Number.parseInt(c.req.query('limit') ?? '16', 10);
+  const env = (c as unknown as { env?: Record<string, unknown> }).env;
+  const result = await proxyGifCatalog(q, Number.isFinite(limit) ? limit : 16, env);
+  return c.json({ success: true, ...result }, 200);
+});
+
+// GET /api/social/gifs/trending — Trending studio GIFs
+socialRoutes.get('/social/gifs/trending', async (c) => {
+  const limit = Number.parseInt(c.req.query('limit') ?? '16', 10);
+  const env = (c as unknown as { env?: Record<string, unknown> }).env;
+  const result = await proxyGifCatalog('', Number.isFinite(limit) ? limit : 16, env);
+  return c.json({ success: true, ...result }, 200);
 });
 
 // POST /api/social/clips/:id/tip — atomic cultural micro-tipping (REQ-GFT-02, REQ-GFT-03, Phase 62)

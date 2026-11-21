@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../shared/models/track.dart';
 import '../../../collections/domain/models/collection_entity.dart';
 import '../../../content_studio/domain/models/song_metadata_dna.dart';
+import '../../../social/domain/models/kinetic_reaction.dart';
 import '../../../social/domain/models/published_clip.dart';
 import '../../../social/domain/models/stem_remix_context.dart';
 
@@ -143,6 +144,8 @@ class SocialMusicPost {
   final Track track;
   final int likeCount;
   final bool isLikedByMe;
+  final Map<KineticReactionType, int> reactionCounts;
+  final KineticReactionType? myReaction;
   final int commentCount;
   final int remixCount;
   final int tipCountCoins;
@@ -182,6 +185,8 @@ class SocialMusicPost {
     required this.track,
     this.likeCount = 0,
     this.isLikedByMe = false,
+    this.reactionCounts = const <KineticReactionType, int>{},
+    this.myReaction,
     this.commentCount = 0,
     this.remixCount = 0,
     this.tipCountCoins = 0,
@@ -204,6 +209,12 @@ class SocialMusicPost {
     this.cosignCount = 0,
     this.isCosigned = false,
   });
+
+  /// Total multi-reactions across all 6 canonical types (with legacy [likeCount] floor).
+  int get totalReactionCount {
+    final sum = reactionCounts.values.fold<int>(0, (a, b) => a + b);
+    return sum > 0 ? sum : likeCount;
+  }
 
   /// Whether this post is a remix of another creator's work.
   bool get isRemix => parentClipId != null && parentClipId!.isNotEmpty;
@@ -310,6 +321,9 @@ class SocialMusicPost {
     AudioProvenanceType? provenanceType,
     int? cosignCount,
     bool? isCosigned,
+    Map<KineticReactionType, int>? reactionCounts,
+    KineticReactionType? myReaction,
+    bool clearMyReaction = false,
   }) {
     return SocialMusicPost(
       id: id ?? this.id,
@@ -346,6 +360,8 @@ class SocialMusicPost {
       provenanceType: provenanceType ?? this.provenanceType,
       cosignCount: cosignCount ?? this.cosignCount,
       isCosigned: isCosigned ?? this.isCosigned,
+      reactionCounts: reactionCounts ?? this.reactionCounts,
+      myReaction: clearMyReaction ? null : (myReaction ?? this.myReaction),
     );
   }
 
@@ -370,7 +386,9 @@ class SocialMusicPost {
         other.tipCountCoins == tipCountCoins &&
         other.isFollowingCreator == isFollowingCreator &&
         other.repostedFromPostId == repostedFromPostId &&
-        other.repostCount == repostCount;
+        other.repostCount == repostCount &&
+        other.myReaction == myReaction &&
+        mapEquals(other.reactionCounts, reactionCounts);
   }
 
   Map<String, dynamic> toJson() => {
@@ -409,6 +427,8 @@ class SocialMusicPost {
     'provenanceType': provenanceType.name,
     'cosignCount': cosignCount,
     'isCosigned': isCosigned,
+    'reactionCounts': KineticReactionType.encodeCounts(reactionCounts),
+    if (myReaction != null) 'myReaction': myReaction!.wireId,
   };
 
   factory SocialMusicPost.fromJson(Map<String, dynamic> json) {
@@ -500,6 +520,14 @@ class SocialMusicPost {
           : AudioProvenanceType.hybridCoCreation,
       cosignCount: (json['cosignCount'] as num?)?.toInt() ?? 0,
       isCosigned: json['isCosigned'] as bool? ?? false,
+      reactionCounts: KineticReactionType.parseCounts(
+        json['reactionCounts'] ??
+            json['reaction_counts'] ??
+            json['reaction_counts_json'],
+      ),
+      myReaction: KineticReactionType.fromWire(
+        json['myReaction'] ?? json['my_reaction'],
+      ),
     );
   }
 
@@ -523,6 +551,10 @@ class SocialMusicPost {
     isFollowingCreator,
     repostedFromPostId,
     repostCount,
+    myReaction,
+    Object.hashAll(
+      reactionCounts.entries.map((e) => Object.hash(e.key, e.value)),
+    ),
   );
 }
 

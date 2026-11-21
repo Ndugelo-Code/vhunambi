@@ -84,9 +84,9 @@ abstract final class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.inputBorder,
-          borderSide: const BorderSide(
-            color: AppColors.brandPrimary,
-            width: 1.5,
+          borderSide: BorderSide(
+            color: Colors.white.withValues(alpha: 0.24),
+            width: 1.0,
           ),
         ),
       ),
@@ -213,9 +213,9 @@ abstract final class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.inputBorder,
-          borderSide: const BorderSide(
-            color: AppColors.brandPrimary,
-            width: 1.5,
+          borderSide: BorderSide(
+            color: Colors.black.withValues(alpha: 0.18),
+            width: 1.0,
           ),
         ),
       ),

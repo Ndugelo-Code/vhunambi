@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/tokens/vhunambi_mood.dart';
+import '../../../../core/navigation/profile_navigation_helper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/models/track.dart';
-import '../../../profile/presentation/views/artist_profile_view.dart';
 import '../../../social/presentation/providers/trending_reels_provider.dart';
 import '../../../social/presentation/widgets/kinetic_reels_modal.dart';
 import '../../domain/models/explore_models.dart';
@@ -143,6 +144,9 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
                                 color: AppColors.textSecondary,
                               ),
                               border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(
                                 vertical: 10,
@@ -241,7 +245,9 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
                   ),
                   onPressed: () => _executeSearch(query),
                   onDeleted: () {
-                    ref.read(recentSearchesProvider.notifier).removeQuery(query);
+                    ref
+                        .read(recentSearchesProvider.notifier)
+                        .removeQuery(query);
                   },
                 ),
             ],
@@ -271,7 +277,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
           spacing: AppSpacing.xs,
           runSpacing: AppSpacing.xs,
           children: [
-            for (final tag in kAfricanTrendingQueries)
+            for (final tag in _buildDynamicSuggestions())
               ActionChip(
                 label: Text(
                   tag,
@@ -293,6 +299,39 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
     );
   }
 
+  List<String> _buildDynamicSuggestions() {
+    final tracks = ref.watch(exploreTracksProvider);
+    final seen = <String>{};
+    final out = <String>[];
+    void addTag(String raw) {
+      final t = raw.trim();
+      if (t.isNotEmpty && seen.add(t.toLowerCase()) && out.length < 8) {
+        out.add(t);
+      }
+    }
+
+    for (final t in tracks) {
+      addTag(t.genre);
+      if (out.length >= 4) break;
+    }
+    for (final mood in VhunambiMood.values) {
+      addTag(mood.label);
+    }
+    for (final t in tracks) {
+      addTag(t.title);
+    }
+    if (out.isEmpty) {
+      return const <String>[
+        'Amapiano',
+        'Gqom',
+        'Maskandi',
+        'Uplifting',
+        'Soulful',
+      ];
+    }
+    return out;
+  }
+
   Widget _buildSearchResults({
     required String query,
     required List<Track> tracks,
@@ -301,24 +340,30 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
   }) {
     final lowerQ = query.toLowerCase();
     final matchedTracks = tracks
-        .where((t) =>
-            t.title.toLowerCase().contains(lowerQ) ||
-            t.creatorName.toLowerCase().contains(lowerQ) ||
-            t.genre.toLowerCase().contains(lowerQ))
+        .where(
+          (t) =>
+              t.title.toLowerCase().contains(lowerQ) ||
+              t.creatorName.toLowerCase().contains(lowerQ) ||
+              t.genre.toLowerCase().contains(lowerQ),
+        )
         .toList();
 
     final matchedReels = reels
-        .where((r) =>
-            r.title.toLowerCase().contains(lowerQ) ||
-            r.creatorUsername.toLowerCase().contains(lowerQ) ||
-            r.genre.toLowerCase().contains(lowerQ))
+        .where(
+          (r) =>
+              r.title.toLowerCase().contains(lowerQ) ||
+              r.creatorUsername.toLowerCase().contains(lowerQ) ||
+              r.genre.toLowerCase().contains(lowerQ),
+        )
         .toList();
 
     final matchedCreators = creators
-        .where((c) =>
-            c.name.toLowerCase().contains(lowerQ) ||
-            c.handle.toLowerCase().contains(lowerQ) ||
-            c.primaryGenres.any((g) => g.toLowerCase().contains(lowerQ)))
+        .where(
+          (c) =>
+              c.name.toLowerCase().contains(lowerQ) ||
+              c.handle.toLowerCase().contains(lowerQ) ||
+              c.primaryGenres.any((g) => g.toLowerCase().contains(lowerQ)),
+        )
         .toList();
 
     return Column(
@@ -364,14 +409,15 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
         Expanded(
           child: switch (_selectedCategory) {
             ExploreSearchCategory.top => _buildTopResults(
-                matchedTracks,
-                matchedReels,
-                matchedCreators,
-              ),
+              matchedTracks,
+              matchedReels,
+              matchedCreators,
+            ),
             ExploreSearchCategory.songs => _buildSongsList(matchedTracks),
             ExploreSearchCategory.reels => _buildReelsGrid(matchedReels),
-            ExploreSearchCategory.creators =>
-              _buildCreatorsList(matchedCreators),
+            ExploreSearchCategory.creators => _buildCreatorsList(
+              matchedCreators,
+            ),
           },
         ),
       ],
@@ -391,7 +437,9 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.brandPrimary : AppColors.surfaceElevated,
+          color: isSelected
+              ? AppColors.brandPrimary
+              : AppColors.surfaceElevated,
           borderRadius: AppRadius.pillBorder,
           border: Border.all(
             color: isSelected ? AppColors.brandPrimary : AppColors.borderSubtle,
@@ -431,8 +479,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
         if (tracks.isNotEmpty) ...[
           Text('Songs', style: AppTypography.titleMedium),
           const SizedBox(height: AppSpacing.xs),
-          for (final t in tracks.take(4))
-            TrackListTile(track: t),
+          for (final t in tracks.take(4)) TrackListTile(track: t),
           const SizedBox(height: AppSpacing.md),
         ],
         if (reels.isNotEmpty) ...[
@@ -489,9 +536,7 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
     return ListView.builder(
       padding: const EdgeInsets.all(AppSpacing.md),
       itemCount: tracks.length,
-      itemBuilder: (context, i) => TrackListTile(
-        track: tracks[i],
-      ),
+      itemBuilder: (context, i) => TrackListTile(track: tracks[i]),
     );
   }
 
@@ -594,10 +639,11 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
         color: AppColors.textSecondary,
       ),
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ArtistProfileView(artistId: creator.id),
-          ),
+        navigateToCreatorProfile(
+          context,
+          ref,
+          creatorId: creator.id,
+          creatorHandle: creator.handle,
         );
       },
     );
@@ -632,4 +678,3 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
     );
   }
 }
-

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../domain/models/library_models.dart';
 import 'library_badges.dart';
 import 'library_cover_art.dart';
@@ -19,12 +21,12 @@ class TrackDetailsModal extends StatelessWidget {
   static Future<void> show(BuildContext context, LibraryTrack track) {
     return showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       barrierColor: Colors.black54,
       isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
-        side: BorderSide(color: AppColors.borderSubtle),
+        side: BorderSide(color: AppColors.borderSubtleOf(context)),
       ),
       builder: (_) => TrackDetailsModal(track: track),
     );
@@ -113,17 +115,17 @@ class TrackDetailsModal extends StatelessWidget {
                 children: [
                   GenreBadge(genre: track.genre),
                   _SpecPill(
-                    icon: Icons.translate_rounded,
+                    icon: PhosphorIconsRegular.translate,
                     label: track.language,
                   ),
                   _SpecPill(
-                    icon: Icons.headphones_rounded,
+                    icon: PhosphorIconsRegular.headphones,
                     label: track.playCountLabel,
                   ),
                   _SpecPill(
                     icon: track.isFavorite
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
+                        ? PhosphorIconsFill.heart
+                        : PhosphorIconsRegular.heart,
                     label: track.isFavorite ? 'Favourited' : 'Not favourited',
                     accent: track.isFavorite,
                   ),
@@ -194,29 +196,29 @@ class _SpecPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return VhunambiGlassSurface(
+      variant: VhunambiGlassVariant.pill,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xxs,
       ),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
-        borderRadius: AppRadius.pillBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          PhosphorIcon(
             icon,
             size: 14,
-            color: accent ? AppColors.brandPrimary : AppColors.textSecondary,
+            color: accent
+                ? AppColors.brandPrimary
+                : AppColors.textSecondaryOf(context),
           ),
           const SizedBox(width: AppSpacing.xxs),
           Text(
             label,
             style: AppTypography.caption.copyWith(
-              color: accent ? AppColors.brandPrimary : AppColors.textPrimary,
+              color: accent
+                  ? AppColors.brandPrimary
+                  : AppColors.textPrimaryOf(context),
               fontWeight: FontWeight.w600,
             ),
           ),

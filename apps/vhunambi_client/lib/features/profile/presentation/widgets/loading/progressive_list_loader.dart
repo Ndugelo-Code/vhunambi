@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_dimensions.dart';
 import '../../../../../core/theme/app_typography.dart';
@@ -79,7 +80,10 @@ class ProgressiveListLoader<T> extends StatelessWidget {
                   const SizedBox(height: AppSpacing.xs),
                   TextButton.icon(
                     onPressed: onLoadMore,
-                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    icon: const PhosphorIcon(
+                      PhosphorIconsRegular.arrowsClockwise,
+                      size: 16,
+                    ),
                     label: const Text('Retry'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.brandPrimary,

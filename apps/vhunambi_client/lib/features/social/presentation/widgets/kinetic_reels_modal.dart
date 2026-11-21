@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
+import '../../../../core/navigation/profile_navigation_helper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -33,7 +34,6 @@ import '../../../explore/presentation/views/explore_search_view.dart';
 import '../../../notifications/domain/models/notification_entity.dart';
 import '../../../notifications/domain/models/notification_enums.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
-import '../../../profile/presentation/views/artist_profile_view.dart';
 
 /// Full-screen vertical "Kinetic Reels" feed (REQ-SOC-11, REQ-SOC-26, Phase A).
 ///
@@ -674,11 +674,11 @@ class _ReelPageState extends ConsumerState<_ReelPage>
               GestureDetector(
                 key: ValueKey('reels_modal_creator_link_${clip.id}'),
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          ArtistProfileView(artistId: clip.creatorId),
-                    ),
+                  navigateToCreatorProfile(
+                    context,
+                    ref,
+                    creatorId: clip.creatorId,
+                    creatorHandle: clip.creatorUsername,
                   );
                 },
                 child: Row(

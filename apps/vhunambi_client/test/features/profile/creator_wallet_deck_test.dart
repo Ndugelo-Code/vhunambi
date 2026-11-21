@@ -27,7 +27,14 @@ void main() {
     expect(find.text('Creator Wallet'), findsOneWidget);
     expect(find.text('Lifetime Earnings'), findsOneWidget);
     expect(find.text('R1,420.00'), findsOneWidget);
-    expect(find.textContaining('4,750 🪙'), findsOneWidget);
+    expect(
+      find.textContaining('4,750 cultural coins received'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('wallet_monthly_allowance_card')),
+      findsOneWidget,
+    );
     expect(find.text('Top Supporters'), findsOneWidget);
     expect(find.text('Recent Gifts'), findsOneWidget);
   });

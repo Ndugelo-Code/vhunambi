@@ -4,14 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
+import '../../../../core/navigation/profile_navigation_helper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/safe_network_avatar.dart';
 import '../../../../core/widgets/vhunambi_track_artwork.dart';
-import '../../../profile/presentation/views/artist_profile_view.dart';
-import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../../social/domain/models/kinetic_reaction.dart';
 import '../../../social/presentation/providers/reels_comments_provider.dart';
+import '../../../social/presentation/widgets/reaction_tray_overlay.dart';
 import '../../../social/presentation/widgets/creator_tipping_sheet.dart';
 import '../../../social/presentation/widgets/open_verse_remix_cockpit_sheet.dart';
 import '../../../social/presentation/widgets/remix_lineage_tree_sheet.dart';
@@ -48,6 +49,12 @@ class ExploreSocialPostCard extends ConsumerStatefulWidget {
 
 class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
   int _currentImageIndex = 0;
+
+  @override
+  void dispose() {
+    ReactionTrayOverlay.dismiss();
+    super.dispose();
+  }
 
   void _openPostFocus(
     BuildContext context, {
@@ -158,6 +165,8 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
     final effectiveComments = liveCommentCount > post.commentCount
         ? liveCommentCount
         : post.commentCount;
+    final activeReaction =
+        post.myReaction ?? (post.isLikedByMe ? KineticReactionType.love : null);
     return InkWell(
       key: Key('social_post_engagement_strip_${post.id}'),
       onTap: () => _openPostFocus(context, autofocusComposer: false),
@@ -166,24 +175,14 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: AppColors.brandPrimary.withValues(alpha: 0.16),
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: PhosphorIcon(
-                  AppIcons.heart,
-                  size: 11,
-                  color: AppColors.brandPrimary,
-                ),
-              ),
+            ReactionClusterStack(
+              reactionCounts: post.reactionCounts,
+              fallbackActive: activeReaction,
+              badgeSize: 18,
             ),
             const SizedBox(width: 6),
             Text(
-              '${post.likeCount}',
+              '${post.totalReactionCount}',
               style: AppTypography.caption.copyWith(
                 color: AppColors.textSecondaryOf(context),
                 fontWeight: FontWeight.w600,
@@ -318,12 +317,11 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
     final post = widget.post;
     final followingIds = ref.watch(followingCreatorIdsProvider);
     final isFollowing = followingIds.contains(post.creatorId);
-    final ownerProfile = ref.watch(ownerProfileProvider);
-    final isOwner =
-        post.creatorHandle.toLowerCase() == ownerProfile.handle.toLowerCase() ||
-        post.creatorId == ownerProfile.id ||
-        post.creatorId == 'me' ||
-        post.creatorHandle == '@current_user';
+    final isOwner = isOwnedByActiveUser(
+      ref,
+      creatorId: post.creatorId,
+      creatorHandle: post.creatorHandle,
+    );
 
     final comments = ref.watch(clipCommentsFamilyProvider(post.id));
     final effectiveComments = comments.length > post.commentCount
@@ -384,11 +382,11 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
                 child: GestureDetector(
                   key: Key('social_post_creator_${post.id}'),
                   onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            ArtistProfileView(artistId: post.creatorId),
-                      ),
+                    navigateToCreatorProfile(
+                      context,
+                      ref,
+                      creatorId: post.creatorId,
+                      creatorHandle: post.creatorHandle,
                     );
                   },
                   child: Row(
@@ -748,23 +746,43 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
           // ZONE 4: Social Engagement Action Bar (Like, Comment, Repost, Remix, Tip, Share)
           Row(
             children: [
-              // 1. Like Action
+              // 1. Like / Long-Press Multi-Reaction Action
               Expanded(
-                child: _ActionButton(
-                  key: Key('social_post_like_btn_${post.id}'),
-                  icon: post.isLikedByMe
-                      ? AppIcons.heart
-                      : AppIcons.heartOutline,
-                  iconColor: post.isLikedByMe
-                      ? AppColors.brandPrimary
-                      : AppColors.textSecondaryOf(context),
-                  label: post.likeCount > 0 ? '${post.likeCount}' : '',
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    ref
+                child: GestureDetector(
+                  onLongPressStart: (details) => ReactionTrayOverlay.show(
+                    context: context,
+                    anchorGlobalPosition: details.globalPosition,
+                    activeReaction: post.myReaction,
+                    onSelected: (rx) => ref
                         .read(socialFeedPostsProvider.notifier)
-                        .toggleLike(post.id);
-                  },
+                        .reactToPost(post.id, rx),
+                  ),
+                  child: _ActionButton(
+                    key: Key('social_post_like_btn_${post.id}'),
+                    icon: post.isLikedByMe
+                        ? AppIcons.heart
+                        : AppIcons.heartOutline,
+                    customLeading: post.myReaction != null
+                        ? KineticReactionBadge(
+                            type: post.myReaction!,
+                            size: 17,
+                          )
+                        : null,
+                    iconColor: post.myReaction != null
+                        ? post.myReaction!.accentColor
+                        : (post.isLikedByMe
+                              ? AppColors.brandPrimary
+                              : AppColors.textSecondaryOf(context)),
+                    label: post.totalReactionCount > 0
+                        ? '${post.totalReactionCount}'
+                        : '',
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      ref
+                          .read(socialFeedPostsProvider.notifier)
+                          .toggleLike(post.id);
+                    },
+                  ),
                 ),
               ),
 
@@ -824,6 +842,7 @@ class _ExploreSocialPostCardState extends ConsumerState<ExploreSocialPostCard> {
 
 class _ActionButton extends StatelessWidget {
   final IconData icon;
+  final Widget? customLeading;
   final Color iconColor;
   final String label;
   final VoidCallback onTap;
@@ -831,6 +850,7 @@ class _ActionButton extends StatelessWidget {
   const _ActionButton({
     super.key,
     required this.icon,
+    this.customLeading,
     required this.iconColor,
     required this.label,
     required this.onTap,
@@ -850,7 +870,7 @@ class _ActionButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              PhosphorIcon(icon, color: iconColor, size: 16),
+              customLeading ?? PhosphorIcon(icon, color: iconColor, size: 16),
               if (showLabel) ...[
                 const SizedBox(width: 3),
                 Flexible(
@@ -860,7 +880,8 @@ class _ActionButton extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.caption.copyWith(
                       color:
-                          iconColor == AppColors.brandPrimary ||
+                          customLeading != null ||
+                              iconColor == AppColors.brandPrimary ||
                               iconColor == AppColors.badgeCyan ||
                               iconColor == AppColors.coinGold
                           ? iconColor

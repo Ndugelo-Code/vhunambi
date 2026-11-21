@@ -10,14 +10,15 @@ export const playlistRoutes = new Hono();
 
 playlistRoutes.use('*', sovereignAuthMiddleware);
 
-// GET /api/playlists — List playlists for creator (+ optional public playlists)
-playlistRoutes.get('/', (c) => {
+// GET /api/playlists — List playlists for creator (+ optional public playlists, SWR read-through)
+playlistRoutes.get('/', async (c) => {
   const requestedId = c.req.query('creatorId');
   const forbidden = assertTenantCreatorAccess(c, requestedId);
   if (forbidden) return forbidden;
 
   const authUser = c.get('authUser');
   const creatorId = authUser ? authUser.creatorId : requestedId;
+  await vhunambiDb.syncPlaylistsFromCloud(creatorId, c);
   const includePublic = c.req.query('includePublic') !== 'false';
   const items = vhunambiDb.getPlaylists(creatorId, includePublic);
   return c.json({
@@ -29,14 +30,18 @@ playlistRoutes.get('/', (c) => {
   });
 });
 
-// GET /api/playlists/:id — Fetch a single playlist by id or shareCode
-playlistRoutes.get('/:id', (c) => {
+// GET /api/playlists/:id — Fetch a single playlist by id or shareCode (SWR read-through)
+playlistRoutes.get('/:id', async (c) => {
   const id = c.req.param('id');
-  const playlist = vhunambiDb.getPlaylistById(id);
+  const authUser = c.get('authUser');
+  let playlist = vhunambiDb.getPlaylistById(id);
+  if (!playlist) {
+    await vhunambiDb.syncPlaylistsFromCloud(authUser?.creatorId, c, true);
+    playlist = vhunambiDb.getPlaylistById(id);
+  }
   if (!playlist) {
     return c.json({ success: false, error: 'Playlist not found', id }, 404);
   }
-  const authUser = c.get('authUser');
   if (
     authUser &&
     !playlist.isPublic &&
@@ -54,7 +59,7 @@ playlistRoutes.get('/:id', (c) => {
   return c.json({ success: true, playlist });
 });
 
-// POST /api/playlists — Create or upsert a playlist
+// POST /api/playlists — Create or upsert a playlist (awaited write-through)
 playlistRoutes.post('/', async (c) => {
   try {
     const body = await c.req.json();
@@ -67,6 +72,7 @@ playlistRoutes.post('/', async (c) => {
 
     const authUser = c.get('authUser');
     if (body.id) {
+      await vhunambiDb.syncPlaylistsFromCloud(authUser?.creatorId ?? body.creatorId, c);
       const ownerId = vhunambiDb.getPlaylistOwnerCreatorId(String(body.id));
       if (authUser && ownerId && ownerId !== authUser.creatorId && authUser.role !== 'admin') {
         return c.json(
@@ -82,21 +88,26 @@ playlistRoutes.post('/', async (c) => {
     const effectiveCreatorId = authUser
       ? authUser.creatorId
       : body.creatorId ?? 'usr_me';
-    const playlist = vhunambiDb.upsertPlaylist({
-      ...body,
-      creatorId: effectiveCreatorId,
-    });
+    const playlist = await vhunambiDb.upsertPlaylistAsync(
+      {
+        ...body,
+        creatorId: effectiveCreatorId,
+      },
+      c,
+    );
     return c.json({ success: true, playlist, serverSeq: vhunambiDb.getLatestSeq() }, 201);
   } catch (err: any) {
     return c.json({ success: false, error: err?.message || 'Invalid JSON body' }, 400);
   }
 });
 
-// PUT /api/playlists/:id — Update playlist metadata or track list
+// PUT /api/playlists/:id — Update playlist metadata or track list (awaited write-through)
 playlistRoutes.put('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json();
+    const authUser = c.get('authUser');
+    await vhunambiDb.syncPlaylistsFromCloud(authUser?.creatorId ?? body?.creatorId, c);
     const existing = vhunambiDb.getPlaylistById(id);
     if (!existing && (!body?.title || String(body.title).trim() === '')) {
       return c.json({ success: false, error: 'Playlist not found', id }, 404);
@@ -105,7 +116,6 @@ playlistRoutes.put('/:id', async (c) => {
     const forbidden = assertTenantCreatorAccess(c, body.creatorId);
     if (forbidden) return forbidden;
 
-    const authUser = c.get('authUser');
     if (
       authUser &&
       existing &&
@@ -124,25 +134,30 @@ playlistRoutes.put('/:id', async (c) => {
     const effectiveCreatorId = authUser
       ? authUser.creatorId
       : resolveEffectiveCreatorId(c, body.creatorId, existing?.creatorId ?? 'usr_me');
-    const playlist = vhunambiDb.upsertPlaylist({
-      ...body,
-      id,
-      creatorId: effectiveCreatorId,
-    });
+    const playlist = await vhunambiDb.upsertPlaylistAsync(
+      {
+        ...body,
+        id,
+        creatorId: effectiveCreatorId,
+      },
+      c,
+    );
     return c.json({ success: true, playlist, serverSeq: vhunambiDb.getLatestSeq() });
   } catch (err: any) {
     return c.json({ success: false, error: err?.message || 'Invalid JSON body' }, 400);
   }
 });
 
-// DELETE /api/playlists/:id — Delete playlist
-playlistRoutes.delete('/:id', (c) => {
+// DELETE /api/playlists/:id — Delete playlist (awaited write-through)
+playlistRoutes.delete('/:id', async (c) => {
   const id = c.req.param('id');
   const requestedCreatorId = c.req.query('creatorId');
   const forbidden = assertTenantCreatorAccess(c, requestedCreatorId);
   if (forbidden) return forbidden;
 
   const authUser = c.get('authUser');
+  const effectiveCreatorId = authUser ? authUser.creatorId : requestedCreatorId;
+  await vhunambiDb.syncPlaylistsFromCloud(effectiveCreatorId, c);
   if (authUser) {
     const ownerId = vhunambiDb.getPlaylistOwnerCreatorId(id);
     if (ownerId && ownerId !== authUser.creatorId && authUser.role !== 'admin') {
@@ -156,18 +171,18 @@ playlistRoutes.delete('/:id', (c) => {
     }
   }
 
-  const effectiveCreatorId = authUser ? authUser.creatorId : requestedCreatorId;
-  const deleted = vhunambiDb.deletePlaylist(id, effectiveCreatorId);
+  const deleted = await vhunambiDb.deletePlaylistAsync(id, effectiveCreatorId, c);
   if (!deleted) {
     return c.json({ success: false, error: 'Playlist not found', id }, 404);
   }
   return c.json({ success: true, id, serverSeq: vhunambiDb.getLatestSeq() });
 });
 
-// POST /api/playlists/:id/share — Generate public share link & code
-playlistRoutes.post('/:id/share', (c) => {
+// POST /api/playlists/:id/share — Generate public share link & code (awaited write-through)
+playlistRoutes.post('/:id/share', async (c) => {
   const id = c.req.param('id');
   const authUser = c.get('authUser');
+  await vhunambiDb.syncPlaylistsFromCloud(authUser?.creatorId, c);
   if (authUser) {
     const ownerId = vhunambiDb.getPlaylistOwnerCreatorId(id);
     if (ownerId && ownerId !== authUser.creatorId && authUser.role !== 'admin') {
@@ -181,7 +196,7 @@ playlistRoutes.post('/:id/share', (c) => {
     }
   }
 
-  const playlist = vhunambiDb.sharePlaylist(id);
+  const playlist = await vhunambiDb.sharePlaylistAsync(id, c);
   if (!playlist) {
     return c.json({ success: false, error: 'Playlist not found', id }, 404);
   }

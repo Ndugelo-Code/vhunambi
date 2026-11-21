@@ -1,3 +1,4 @@
+import '../../domain/models/licensing_models.dart';
 import '../../domain/models/marketplace_models.dart';
 
 abstract class IMarketplaceRepository {
@@ -14,6 +15,10 @@ abstract class IMarketplaceRepository {
   /// Fetches beats published by [producerId] via
   /// `GET /api/marketplace/producers/:producerId/beats` (`EP-P58-MKT-VERIFY-PRODUCER`).
   Future<List<BeatListingEntity>> getProducerBeats(String producerId);
+
+  /// Fetches all commercial beat licenses purchased by [buyerId] via
+  /// `GET /api/marketplace/licenses/:buyerId` (`EP-P72-BUYER-LICENSES-HTTP`).
+  Future<List<SovereignLicenseCertificate>> getBuyerLicenses(String buyerId);
 
   Future<BeatListingEntity> publishBeat(BeatListingEntity beat);
 

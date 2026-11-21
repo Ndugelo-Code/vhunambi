@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../providers/offline_providers.dart';
@@ -16,11 +19,11 @@ class VaultStorageModal extends ConsumerWidget {
   static Future<void> show(BuildContext context) {
     return showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
-        side: BorderSide(color: AppColors.borderSubtle),
+        side: BorderSide(color: AppColors.borderSubtleOf(context)),
       ),
       builder: (_) => const VaultStorageModal(),
     );
@@ -62,8 +65,8 @@ class VaultStorageModal extends ConsumerWidget {
                     color: AppColors.brandPrimary.withAlpha(30),
                     borderRadius: AppRadius.cardBorder,
                   ),
-                  child: const Icon(
-                    Icons.storage_rounded,
+                  child: const PhosphorIcon(
+                    PhosphorIconsRegular.hardDrives,
                     color: AppColors.brandPrimary,
                     size: 20,
                   ),
@@ -76,39 +79,38 @@ class VaultStorageModal extends ConsumerWidget {
                       Text(
                         'Vault Storage Quota',
                         style: AppTypography.titleMedium.copyWith(
-                          color: AppColors.textPrimary,
+                          color: AppColors.textPrimaryOf(context),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
                         '${stats.cachedTrackCount} songs cached offline • Playable anywhere',
                         style: AppTypography.caption.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.textSecondaryOf(context),
                         ),
                       ),
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: Icon(
-                    Icons.close_rounded,
-                    color: AppColors.textSecondary,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  child: IconButton(
+                    icon: PhosphorIcon(
+                      PhosphorIconsRegular.x,
+                      color: AppColors.textSecondaryOf(context),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
 
             // 2. Storage Quota Bar Card
-            Container(
+            VhunambiGlassSurface(
               key: const Key('vault_storage_meter'),
+              variant: VhunambiGlassVariant.card,
               padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
-                borderRadius: AppRadius.cardBorder,
-                border: Border.all(color: AppColors.borderSubtle),
-              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -118,13 +120,13 @@ class VaultStorageModal extends ConsumerWidget {
                       Text(
                         'Storage Used',
                         style: AppTypography.caption.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.textSecondaryOf(context),
                         ),
                       ),
                       Text(
                         '${stats.formattedBytesUsed} / ${stats.formattedStorageLimit}',
                         style: AppTypography.caption.copyWith(
-                          color: AppColors.textPrimary,
+                          color: AppColors.textPrimaryOf(context),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -137,7 +139,7 @@ class VaultStorageModal extends ConsumerWidget {
                       value: stats.quotaUsagePercentage == 0
                           ? 0.01
                           : stats.quotaUsagePercentage,
-                      backgroundColor: AppColors.surfaceSecondary,
+                      backgroundColor: AppColors.surfaceSecondaryOf(context),
                       valueColor: const AlwaysStoppedAnimation<Color>(
                         AppColors.brandPrimary,
                       ),
@@ -148,7 +150,7 @@ class VaultStorageModal extends ConsumerWidget {
                   Text(
                     '${stats.formattedRemainingBytes} free space remaining in your vault quota.',
                     style: AppTypography.caption.copyWith(
-                      color: AppColors.textTertiary,
+                      color: AppColors.textSecondaryOf(context),
                       fontSize: 11,
                     ),
                   ),
@@ -204,41 +206,39 @@ class VaultStorageModal extends ConsumerWidget {
 
             // 4. Cached Tracks List or Empty State
             if (cachedTracks.isEmpty)
-              Container(
-                width: double.infinity,
+              VhunambiGlassSurface(
+                variant: VhunambiGlassVariant.card,
                 padding: const EdgeInsets.symmetric(
                   vertical: AppSpacing.lg,
                   horizontal: AppSpacing.md,
                 ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  borderRadius: AppRadius.cardBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.cloud_download_outlined,
-                      size: 32,
-                      color: AppColors.textTertiary,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'No tracks cached offline yet',
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Column(
+                    children: [
+                      PhosphorIcon(
+                        PhosphorIconsRegular.cloudArrowDown,
+                        size: 32,
+                        color: AppColors.textSecondaryOf(context),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Tap "Download Offline" on any vault track to enable playback without an internet connection.',
-                      textAlign: TextAlign.center,
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.textSecondary,
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        'No tracks cached offline yet',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.textPrimaryOf(context),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap "Download Offline" on any vault track to enable playback without an internet connection.',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textSecondaryOf(context),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               )
             else
@@ -283,9 +283,9 @@ class VaultStorageModal extends ConsumerWidget {
                         child: Container(
                           width: 20,
                           height: 20,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.white,
+                            color: AppColors.surfaceCanvasOf(context),
                           ),
                         ),
                       ),
@@ -301,22 +301,22 @@ class VaultStorageModal extends ConsumerWidget {
                 vertical: AppSpacing.xs,
               ),
               decoration: BoxDecoration(
-                color: AppColors.surfaceSecondary,
+                color: AppColors.surfaceSecondaryOf(context),
                 borderRadius: AppRadius.cardBorder,
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.wifi_off_rounded,
+                  PhosphorIcon(
+                    PhosphorIconsRegular.wifiSlash,
                     size: 18,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   Expanded(
                     child: Text(
                       'Force Offline Simulation Mode',
                       style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
+                        color: AppColors.textPrimaryOf(context),
                       ),
                     ),
                   ),
@@ -346,7 +346,7 @@ class VaultStorageModal extends ConsumerWidget {
                     borderRadius: AppRadius.pillBorder,
                   ),
                 ),
-                icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+                icon: const PhosphorIcon(PhosphorIconsRegular.broom, size: 18),
                 label: const Text('Clear All Offline Downloads'),
                 onPressed: cachedTracks.isEmpty ? null : () => _confirmClearAll(context, ref),
               ),
@@ -362,22 +362,22 @@ class VaultStorageModal extends ConsumerWidget {
       context: context,
       builder: (dialogCtx) {
         return AlertDialog(
-          backgroundColor: AppColors.surfaceModal,
+          backgroundColor: AppColors.surfaceModalOf(dialogCtx),
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.cardBorder,
-            side: BorderSide(color: AppColors.borderSubtle),
+            side: BorderSide(color: AppColors.borderSubtleOf(dialogCtx)),
           ),
           title: Text(
             'Clear all downloaded audio?',
             style: AppTypography.titleMedium.copyWith(
-              color: AppColors.textPrimary,
+              color: AppColors.textPrimaryOf(dialogCtx),
               fontWeight: FontWeight.bold,
             ),
           ),
           content: Text(
             'This will delete all offline audio files from your device. You can download them again at any time.',
             style: AppTypography.bodySmall.copyWith(
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryOf(dialogCtx),
             ),
           ),
           actions: [
@@ -386,14 +386,14 @@ class VaultStorageModal extends ConsumerWidget {
               child: Text(
                 'Cancel',
                 style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryOf(dialogCtx),
                 ),
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.error,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.brandContrast,
                 shape: const RoundedRectangleBorder(
                   borderRadius: AppRadius.pillBorder,
                 ),
@@ -430,19 +430,13 @@ class _CachedTrackTile extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          // Genre gradient pip
-          Container(
+          VhunambiTrackArtwork(
+            coverUrl: track.coverImageUrl,
+            genre: track.genre,
+            trackId: track.id,
             width: 36,
             height: 36,
-            decoration: BoxDecoration(
-              gradient: AppGradients.forGenre(track.genre),
-              borderRadius: AppRadius.cardBorder,
-            ),
-            child: const Icon(
-              Icons.music_note_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
+            borderRadius: AppRadius.cardBorder,
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -454,26 +448,28 @@ class _CachedTrackTile extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textPrimary,
+                    color: AppColors.textPrimaryOf(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
                   '${track.genre} • ~8.5 MB',
                   style: AppTypography.caption.copyWith(
-                    color: AppColors.textTertiary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            icon: Icon(
-              Icons.delete_outline_rounded,
-              color: AppColors.textTertiary,
-              size: 18,
-            ),
-            tooltip: 'Remove offline file',
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            child: IconButton(
+              icon: PhosphorIcon(
+                AppIcons.trash,
+                color: AppColors.textSecondaryOf(context),
+                size: 18,
+              ),
+              tooltip: 'Remove offline file',
             onPressed: () {
               ref
                   .read(downloadManagerProvider.notifier)
@@ -481,10 +477,11 @@ class _CachedTrackTile extends ConsumerWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Removed "${track.title}" from offline vault.'),
-                  backgroundColor: AppColors.surfaceElevated,
+                  backgroundColor: AppColors.surfaceElevatedOf(context),
                 ),
               );
             },
+            ),
           ),
         ],
       ),

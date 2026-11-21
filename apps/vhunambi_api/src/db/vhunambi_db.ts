@@ -13,16 +13,22 @@ import {
 } from '../utils/mood_taxonomy.js';
 import {
   canonicalizeCreatorId,
+  compactReactionCounts,
   EdgeIsolateDatabaseEngine,
   EdgePersistenceBridge,
   getEdgeIsolateDatabaseEngine,
+  normalizeKineticReactionWire,
+  normalizeReactionCounts,
   SA_BANK_REGISTRY,
+  sumReactionCounts,
   type AuthTokenBundle,
   type AtomicQuotaConsumeResult,
   type BankPayoutRequest,
   type CreatorQuotaRecord,
   type ExploreFeedOptions,
   type ExploreTrackRecord,
+  type KineticReactionMutationResult,
+  type KineticReactionWire,
   type NotificationRecord,
   type PaymentRailId,
   type PlaylistRecord,
@@ -517,6 +523,18 @@ export class VhunambiDatabase {
     try {
       this.db.exec('CREATE INDEX IF NOT EXISTS idx_reel_comments_parent ON reel_comments(reel_id, parent_comment_id);');
     } catch (_) { }
+    for (const sql of [
+      "ALTER TABLE kinetic_posts ADD COLUMN reaction_counts_json TEXT NOT NULL DEFAULT '{}';",
+      "ALTER TABLE reel_comments ADD COLUMN reaction_counts_json TEXT NOT NULL DEFAULT '{}';",
+      'ALTER TABLE reel_comments ADD COLUMN gif_url TEXT;',
+      'ALTER TABLE reel_comments ADD COLUMN sticker_id TEXT;',
+      'ALTER TABLE reel_comments ADD COLUMN media_aspect_ratio REAL;',
+      'ALTER TABLE social_interactions ADD COLUMN reaction_type TEXT;',
+    ]) {
+      try {
+        this.db.exec(sql);
+      } catch (_) { }
+    }
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS generation_jobs (
@@ -562,6 +580,7 @@ export class VhunambiDatabase {
         interaction_type TEXT NOT NULL,
         target_id TEXT NOT NULL,
         actor_creator_id TEXT NOT NULL,
+        reaction_type TEXT,
         created_at INTEGER NOT NULL,
         PRIMARY KEY (interaction_type, target_id, actor_creator_id)
       );
@@ -613,6 +632,10 @@ export class VhunambiDatabase {
         updated_at TEXT NOT NULL
       );
     `);
+
+    try {
+      this.db.exec('ALTER TABLE social_interactions ADD COLUMN reaction_type TEXT;');
+    } catch (_) { }
   }
 
   private seedInitialDataIfEmpty(): void {
@@ -1782,7 +1805,9 @@ export class VhunambiDatabase {
   // Track C: Explore, Tracks Catalog & Radio Endpoints (Phase 59 Convergence)
   // ---------------------------------------------------------------------------
 
-  public getExploreFeed(options: ExploreFeedOptions = {}): { posts: any[]; total: number } {
+  public getExploreFeed(
+    options: ExploreFeedOptions & { viewerCreatorId?: string } = {},
+  ): { posts: any[]; total: number } {
     let sql = 'SELECT * FROM kinetic_posts WHERE 1=1';
     const params: any[] = [];
 
@@ -1794,15 +1819,24 @@ export class VhunambiDatabase {
     sql += ' ORDER BY cosign_count DESC, created_at DESC';
 
     const rows = this.db.prepare(sql).all(...params) as any[];
+    const viewerId = canonicalizeCreatorId(
+      options.viewerCreatorId ?? 'creator_cern',
+    );
 
     let posts = rows.map((r): Record<string, any> => {
       let data: Record<string, any> = {};
       try {
         data = JSON.parse(r.data_json);
       } catch (_) { }
+      const postId = String(r.id);
+      const reactionCounts = compactReactionCounts(
+        normalizeReactionCounts(r.reaction_counts_json ?? data.reactionCounts),
+      );
+      const myReaction = this.getSocialReaction('post_react', postId, viewerId);
+      const hasLegacyLike = this.hasSocialInteraction('post_like', postId, viewerId);
       return {
         ...data,
-        id: r.id,
+        id: postId,
         creatorId: r.creator_id,
         creatorHandle: r.creator_handle,
         creatorName: r.creator_name,
@@ -1813,6 +1847,9 @@ export class VhunambiDatabase {
         cosignCount: Number(r.cosign_count ?? data.cosignCount ?? 0),
         cosignTarget: Number(r.cosign_target ?? data.cosignTarget ?? 25),
         repostCount: Number(r.repost_count ?? data.repostCount ?? 0),
+        reactionCounts,
+        myReaction: myReaction ?? (hasLegacyLike ? 'love' : null),
+        isLikedByMe: myReaction !== null || hasLegacyLike,
         discoveryStage: r.discovery_stage,
         createdAt: r.created_at,
       };
@@ -2240,16 +2277,26 @@ export class VhunambiDatabase {
     };
   }
 
-  private mapKineticPostRow(r: Record<string, any>): Record<string, any> {
+  private mapKineticPostRow(
+    r: Record<string, any>,
+    viewerCreatorId = 'creator_cern',
+  ): Record<string, any> {
     let data: Record<string, any> = {};
     try {
       data = JSON.parse(String(r.data_json || '{}'));
     } catch {
       data = {};
     }
+    const postId = String(r.id);
+    const actor = canonicalizeCreatorId(viewerCreatorId);
+    const reactionCounts = compactReactionCounts(
+      normalizeReactionCounts(r.reaction_counts_json ?? data.reactionCounts),
+    );
+    const myReaction = this.getSocialReaction('post_react', postId, actor);
+    const hasLegacyLike = this.hasSocialInteraction('post_like', postId, actor);
     return {
       ...data,
-      id: String(r.id),
+      id: postId,
       creatorId: String(r.creator_id),
       creatorHandle: String(r.creator_handle),
       creatorName: String(r.creator_name),
@@ -2260,17 +2307,23 @@ export class VhunambiDatabase {
       cosignCount: Number(r.cosign_count ?? data.cosignCount ?? 0),
       cosignTarget: Number(r.cosign_target ?? data.cosignTarget ?? 25),
       repostCount: Number(r.repost_count ?? data.repostCount ?? 0),
+      reactionCounts,
+      myReaction: myReaction ?? (hasLegacyLike ? 'love' : null),
+      isLikedByMe: myReaction !== null || hasLegacyLike,
       discoveryStage: String(r.discovery_stage ?? 'freshCrate'),
       createdAt: String(r.created_at),
       updatedAt: String(r.updated_at),
     };
   }
 
-  public getKineticPostById(postId: string): Record<string, any> | null {
+  public getKineticPostById(
+    postId: string,
+    viewerCreatorId = 'creator_cern',
+  ): Record<string, any> | null {
     const row = this.db
       .prepare('SELECT * FROM kinetic_posts WHERE id = ?')
       .get(postId) as Record<string, any> | undefined;
-    return row ? this.mapKineticPostRow(row) : null;
+    return row ? this.mapKineticPostRow(row, viewerCreatorId) : null;
   }
 
   public upsertKineticPost(input: Record<string, any>): Record<string, any> {
@@ -2357,6 +2410,124 @@ export class VhunambiDatabase {
     return this.getKineticPostById(id)!;
   }
 
+  public getSocialReaction(
+    interactionType: 'post_react' | 'comment_react',
+    targetId: string,
+    actorCreatorId = 'creator_cern',
+  ): KineticReactionWire | null {
+    const row = this.db
+      .prepare(
+        'SELECT reaction_type FROM social_interactions WHERE interaction_type = ? AND target_id = ? AND actor_creator_id = ?',
+      )
+      .get(
+        interactionType,
+        targetId,
+        canonicalizeCreatorId(actorCreatorId),
+      ) as { reaction_type?: string | null } | undefined;
+    return normalizeKineticReactionWire(row?.reaction_type ?? null);
+  }
+
+  public reactToKineticPost(
+    postId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    _skipMirror = false,
+  ): KineticReactionMutationResult {
+    const post = this.db
+      .prepare(
+        'SELECT like_count, reaction_counts_json, data_json FROM kinetic_posts WHERE id = ?',
+      )
+      .get(postId) as
+      | {
+        like_count?: number;
+        reaction_counts_json?: string;
+        data_json?: string;
+      }
+      | undefined;
+    if (!post) {
+      return {
+        success: false,
+        targetId: postId,
+        myReaction: null,
+        reactionCounts: {},
+        likeCount: 0,
+        liked: false,
+      };
+    }
+
+    const actor = canonicalizeCreatorId(actorCreatorId);
+    const prevReaction = this.getSocialReaction('post_react', postId, actor);
+    const requested = normalizeKineticReactionWire(reactionType);
+    const nextReaction: KineticReactionWire | null =
+      requested === null || requested === prevReaction ? null : requested;
+
+    let parsedData: Record<string, any> = {};
+    try {
+      parsedData = JSON.parse(String(post.data_json || '{}'));
+    } catch (_) { }
+
+    const counts = normalizeReactionCounts(
+      post.reaction_counts_json ?? parsedData.reactionCounts,
+    );
+    const legacyLikeCount = Math.max(0, Number(post.like_count ?? 0));
+    if (sumReactionCounts(counts) === 0 && legacyLikeCount > 0) {
+      counts.love = legacyLikeCount;
+    }
+
+    if (prevReaction) {
+      counts[prevReaction] = Math.max(0, counts[prevReaction] - 1);
+    }
+    if (nextReaction) {
+      counts[nextReaction] = counts[nextReaction] + 1;
+      this.db
+        .prepare(
+          'INSERT OR REPLACE INTO social_interactions (interaction_type, target_id, actor_creator_id, reaction_type, created_at) VALUES (?, ?, ?, ?, ?)',
+        )
+        .run('post_react', postId, actor, nextReaction, Date.now());
+    } else {
+      this.db
+        .prepare(
+          'DELETE FROM social_interactions WHERE interaction_type = ? AND target_id = ? AND actor_creator_id = ?',
+        )
+        .run('post_react', postId, actor);
+    }
+
+    const compact = compactReactionCounts(counts);
+    const nextLikes = Math.max(sumReactionCounts(counts), 0);
+    parsedData.reactionCounts = compact;
+    parsedData.likeCount = nextLikes;
+
+    this.db
+      .prepare(
+        'UPDATE kinetic_posts SET reaction_counts_json = ?, like_count = ?, data_json = ?, updated_at = ? WHERE id = ?',
+      )
+      .run(
+        JSON.stringify(compact),
+        nextLikes,
+        JSON.stringify(parsedData),
+        new Date().toISOString(),
+        postId,
+      );
+
+    return {
+      success: true,
+      targetId: postId,
+      myReaction: nextReaction,
+      reactionCounts: compact,
+      likeCount: nextLikes,
+      liked: nextReaction !== null,
+    };
+  }
+
+  public async reactToKineticPostAsync(
+    postId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    _cOrEnv?: unknown,
+  ): Promise<KineticReactionMutationResult> {
+    return this.reactToKineticPost(postId, actorCreatorId, reactionType, true);
+  }
+
   public likeKineticPost(
     postId: string,
     actorCreatorId = 'creator_cern',
@@ -2418,15 +2589,25 @@ export class VhunambiDatabase {
     viewerCreatorId = 'creator_cern',
     sort: 'relevant' | 'newest' = 'relevant',
   ): Record<string, any>[] {
+    const canonicalViewer = canonicalizeCreatorId(viewerCreatorId);
     const likedComments = this.listSocialInteractionTargets(
       'comment_like',
-      canonicalizeCreatorId(viewerCreatorId),
+      canonicalViewer,
     );
     const comments: Record<string, any>[] = this.listReelCommentsByClip(postId).map(
-      (c): Record<string, any> => ({
-        ...c,
-        isLikedByMe: likedComments.has(String(c.id)),
-      }),
+      (c): Record<string, any> => {
+        const myReaction = this.getSocialReaction(
+          'comment_react',
+          String(c.id),
+          canonicalViewer,
+        );
+        const isLegacyLiked = likedComments.has(String(c.id));
+        return {
+          ...c,
+          myReaction: myReaction ?? (isLegacyLiked ? 'love' : null),
+          isLikedByMe: myReaction !== null || isLegacyLiked,
+        };
+      },
     );
     const replyCounts = new Map<string, number>();
     for (const c of comments) {
@@ -2492,6 +2673,15 @@ export class VhunambiDatabase {
     const replyToHandle = input.replyToHandle
       ? String(input.replyToHandle).trim() || undefined
       : undefined;
+    const gifUrl = input.gifUrl ? String(input.gifUrl).trim() || undefined : undefined;
+    const stickerId = input.stickerId
+      ? String(input.stickerId).trim() || undefined
+      : undefined;
+    const mediaAspectRatio =
+      typeof input.mediaAspectRatio === 'number' &&
+        Number.isFinite(input.mediaAspectRatio)
+        ? input.mediaAspectRatio
+        : undefined;
 
     const comment: Record<string, any> = {
       id: commentId,
@@ -2505,6 +2695,13 @@ export class VhunambiDatabase {
       text: String(input.text ?? input.content ?? '').trim(),
       likeCount: Number(input.likeCount ?? 0),
       isLikedByMe: false,
+      reactionCounts: compactReactionCounts(
+        normalizeReactionCounts(input.reactionCounts),
+      ),
+      myReaction: null,
+      ...(gifUrl ? { gifUrl } : {}),
+      ...(stickerId ? { stickerId } : {}),
+      ...(mediaAspectRatio ? { mediaAspectRatio } : {}),
       userReelLoves: Number(input.userReelLoves ?? 0),
       ...(parentCommentId ? { parentCommentId } : {}),
       ...(replyToHandle ? { replyToHandle } : {}),
@@ -2517,6 +2714,76 @@ export class VhunambiDatabase {
       .prepare('UPDATE kinetic_posts SET comment_count = ?, updated_at = ? WHERE id = ?')
       .run(nextComments, now, postId);
     return comment;
+  }
+
+  public reactToComment(
+    commentId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    _skipMirror = false,
+  ): KineticReactionMutationResult | null {
+    const comment = this.getReelCommentById(commentId);
+    if (!comment) return null;
+
+    const actor = canonicalizeCreatorId(actorCreatorId);
+    const prevReaction = this.getSocialReaction(
+      'comment_react',
+      commentId,
+      actor,
+    );
+    const requested = normalizeKineticReactionWire(reactionType);
+    const nextReaction: KineticReactionWire | null =
+      requested === null || requested === prevReaction ? null : requested;
+
+    const counts = normalizeReactionCounts(comment.reactionCounts);
+    const legacyLikeCount = Math.max(0, Number(comment.likeCount ?? 0));
+    if (sumReactionCounts(counts) === 0 && legacyLikeCount > 0) {
+      counts.love = legacyLikeCount;
+    }
+
+    if (prevReaction) {
+      counts[prevReaction] = Math.max(0, counts[prevReaction] - 1);
+    }
+    if (nextReaction) {
+      counts[nextReaction] = counts[nextReaction] + 1;
+      this.db
+        .prepare(
+          'INSERT OR REPLACE INTO social_interactions (interaction_type, target_id, actor_creator_id, reaction_type, created_at) VALUES (?, ?, ?, ?, ?)',
+        )
+        .run('comment_react', commentId, actor, nextReaction, Date.now());
+    } else {
+      this.db
+        .prepare(
+          'DELETE FROM social_interactions WHERE interaction_type = ? AND target_id = ? AND actor_creator_id = ?',
+        )
+        .run('comment_react', commentId, actor);
+    }
+
+    const compact = compactReactionCounts(counts);
+    const nextLikes = Math.max(sumReactionCounts(counts), 0);
+    this.insertReelComment({
+      ...comment,
+      likeCount: nextLikes,
+      reactionCounts: compact,
+    });
+
+    return {
+      success: true,
+      targetId: commentId,
+      myReaction: nextReaction,
+      reactionCounts: compact,
+      likeCount: nextLikes,
+      liked: nextReaction !== null,
+    };
+  }
+
+  public async reactToCommentAsync(
+    commentId: string,
+    actorCreatorId = 'creator_cern',
+    reactionType: KineticReactionWire | null = null,
+    _cOrEnv?: unknown,
+  ): Promise<KineticReactionMutationResult | null> {
+    return this.reactToComment(commentId, actorCreatorId, reactionType, true);
   }
 
   public likeCommentById(
@@ -4951,13 +5218,26 @@ export class VhunambiDatabase {
     const replyToHandle = comment.replyToHandle
       ? String(comment.replyToHandle).trim() || null
       : null;
+    const gifUrl = comment.gifUrl ? String(comment.gifUrl).trim() || null : null;
+    const stickerId = comment.stickerId
+      ? String(comment.stickerId).trim() || null
+      : null;
+    const mediaAspectRatio =
+      typeof comment.mediaAspectRatio === 'number' &&
+        Number.isFinite(comment.mediaAspectRatio)
+        ? comment.mediaAspectRatio
+        : null;
+    const reactionCounts = compactReactionCounts(
+      normalizeReactionCounts(comment.reactionCounts),
+    );
     const createdAt = String(comment.createdAt || new Date().toISOString());
 
     this.db
       .prepare(
         `INSERT OR REPLACE INTO reel_comments (
-          id, reel_id, creator_id, content, language_code, parent_comment_id, reply_to_handle, data_json, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, reel_id, creator_id, content, language_code, parent_comment_id, reply_to_handle,
+          reaction_counts_json, gif_url, sticker_id, media_aspect_ratio, data_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -4967,8 +5247,16 @@ export class VhunambiDatabase {
         comment.languageCode ? String(comment.languageCode) : null,
         parentCommentId,
         replyToHandle,
+        JSON.stringify(reactionCounts),
+        gifUrl,
+        stickerId,
+        mediaAspectRatio,
         JSON.stringify({
           ...comment,
+          reactionCounts,
+          ...(gifUrl ? { gifUrl } : {}),
+          ...(stickerId ? { stickerId } : {}),
+          ...(mediaAspectRatio !== null ? { mediaAspectRatio } : {}),
           ...(parentCommentId ? { parentCommentId } : {}),
           ...(replyToHandle ? { replyToHandle } : {}),
         }),
@@ -4987,6 +5275,13 @@ export class VhunambiDatabase {
       data.parentCommentId ?? r.parent_comment_id ?? undefined;
     const replyToHandle =
       data.replyToHandle ?? r.reply_to_handle ?? undefined;
+    const reactionCounts = compactReactionCounts(
+      normalizeReactionCounts(r.reaction_counts_json ?? data.reactionCounts),
+    );
+    const gifUrl = data.gifUrl ?? r.gif_url ?? undefined;
+    const stickerId = data.stickerId ?? r.sticker_id ?? undefined;
+    const mediaAspectRatio =
+      data.mediaAspectRatio ?? r.media_aspect_ratio ?? undefined;
     return {
       ...data,
       id: String(r.id),
@@ -4994,6 +5289,13 @@ export class VhunambiDatabase {
       userId: String(data.userId ?? r.creator_id),
       text: String(data.text ?? r.content),
       likeCount: Number(data.likeCount ?? 0),
+      reactionCounts,
+      ...(gifUrl ? { gifUrl: String(gifUrl) } : {}),
+      ...(stickerId ? { stickerId: String(stickerId) } : {}),
+      ...(typeof mediaAspectRatio === 'number' &&
+        Number.isFinite(mediaAspectRatio)
+        ? { mediaAspectRatio }
+        : {}),
       ...(parentCommentId ? { parentCommentId: String(parentCommentId) } : {}),
       ...(replyToHandle ? { replyToHandle: String(replyToHandle) } : {}),
       createdAt: String(data.createdAt ?? r.created_at),
@@ -5426,6 +5728,75 @@ export class VhunambiDatabase {
     _cOrEnv?: unknown,
   ): Promise<void> {
     this.upsertGenerationJob(job, creatorId, jobKind);
+  }
+
+  public async syncUserLibraryFromCloud(
+    creatorId: string,
+    _cOrEnv?: unknown,
+    _force = false,
+  ): Promise<any[]> {
+    return this.getLibrary(creatorId);
+  }
+
+  public async syncPlaylistsFromCloud(
+    _creatorId?: string,
+    _cOrEnv?: unknown,
+    _force = false,
+  ): Promise<boolean> {
+    return false;
+  }
+
+  public async syncBuyerLicensesFromCloud(
+    buyerId: string,
+    _cOrEnv?: unknown,
+    _force = false,
+  ): Promise<any[]> {
+    return this.getBeatLicensesByBuyer(buyerId);
+  }
+
+  public async syncMarketplaceFromCloud(
+    _force = false,
+    _cOrEnv?: unknown,
+  ): Promise<boolean> {
+    return false;
+  }
+
+  public async syncLibraryDeltaAsync(
+    creatorId: string,
+    incomingItems: any[],
+    _cOrEnv?: unknown,
+  ): Promise<ReturnType<VhunambiDatabase['syncLibraryDelta']>> {
+    return this.syncLibraryDelta(creatorId, incomingItems, true);
+  }
+
+  public async deleteLibraryItemAsync(
+    id: string,
+    creatorId?: string,
+    _cOrEnv?: unknown,
+  ): Promise<boolean> {
+    return this.deleteLibraryItem(id, creatorId, true);
+  }
+
+  public async upsertPlaylistAsync(
+    input: Record<string, any>,
+    _cOrEnv?: unknown,
+  ): Promise<Record<string, any>> {
+    return this.upsertPlaylist(input, true);
+  }
+
+  public async deletePlaylistAsync(
+    id: string,
+    creatorId?: string,
+    _cOrEnv?: unknown,
+  ): Promise<boolean> {
+    return this.deletePlaylist(id, creatorId, true);
+  }
+
+  public async sharePlaylistAsync(
+    id: string,
+    _cOrEnv?: unknown,
+  ): Promise<Record<string, any> | null> {
+    return this.sharePlaylist(id);
   }
 }
 

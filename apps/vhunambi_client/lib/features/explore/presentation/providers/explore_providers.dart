@@ -15,6 +15,7 @@ import 'package:vhunambi_client/features/notifications/domain/models/notificatio
 import 'package:vhunambi_client/features/notifications/domain/models/notification_enums.dart';
 import 'package:vhunambi_client/features/notifications/presentation/providers/notifications_provider.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
+import 'package:vhunambi_client/features/social/domain/models/kinetic_reaction.dart';
 import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
 import 'package:vhunambi_client/features/social/presentation/providers/trending_reels_provider.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
@@ -830,10 +831,30 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
       if (id.isEmpty) continue;
       final existing = existingById[id];
       if (existing != null) {
+        final hasReactionCounts =
+            raw.containsKey('reactionCounts') ||
+            raw.containsKey('reaction_counts_json');
+        final parsedCounts = hasReactionCounts
+            ? KineticReactionType.parseCounts(
+                raw['reactionCounts'] ?? raw['reaction_counts_json'],
+              )
+            : existing.reactionCounts;
+        final hasMyReaction =
+            raw.containsKey('myReaction') || raw.containsKey('my_reaction');
+        final parsedMyReaction = hasMyReaction
+            ? KineticReactionType.fromWire(
+                raw['myReaction'] ?? raw['my_reaction'],
+              )
+            : existing.myReaction;
         hydrated.add(
           existing.copyWith(
             likeCount:
                 (raw['likeCount'] as num?)?.toInt() ?? existing.likeCount,
+            isLikedByMe:
+                (raw['isLikedByMe'] as bool?) ?? existing.isLikedByMe,
+            reactionCounts: parsedCounts,
+            myReaction: parsedMyReaction,
+            clearMyReaction: hasMyReaction && parsedMyReaction == null,
             commentCount:
                 (raw['commentCount'] as num?)?.toInt() ?? existing.commentCount,
             cosignCount:
@@ -843,6 +864,9 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
           ),
         );
       } else {
+        final parsedMyReaction = KineticReactionType.fromWire(
+          raw['myReaction'] ?? raw['my_reaction'],
+        );
         hydrated.add(
           SocialMusicPost(
             id: id,
@@ -860,6 +884,12 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
               'genre': raw['genre'] ?? 'Amapiano',
             }),
             likeCount: (raw['likeCount'] as num?)?.toInt() ?? 0,
+            isLikedByMe:
+                (raw['isLikedByMe'] as bool?) ?? (parsedMyReaction != null),
+            reactionCounts: KineticReactionType.parseCounts(
+              raw['reactionCounts'] ?? raw['reaction_counts_json'],
+            ),
+            myReaction: parsedMyReaction,
             commentCount: (raw['commentCount'] as num?)?.toInt() ?? 0,
             cosignCount: (raw['cosignCount'] as num?)?.toInt() ?? 0,
             repostCount: (raw['repostCount'] as num?)?.toInt() ?? 0,
@@ -879,33 +909,85 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
   }
 
   void toggleLike(String postId) {
-    SocialMusicPost? newlyLiked;
+    final target = state.cast<SocialMusicPost?>().firstWhere(
+      (p) => p?.id == postId,
+      orElse: () => null,
+    );
+    if (target == null) return;
+    final currentlyActive = target.myReaction != null || target.isLikedByMe;
+    reactToPost(postId, currentlyActive ? null : KineticReactionType.love);
+  }
+
+  /// Applies, switches, or clears a multi-reaction on [postId] while preserving legacy like counts.
+  void reactToPost(String postId, KineticReactionType? reaction) {
+    SocialMusicPost? newlyReacted;
+    KineticReactionType? effectiveApplied;
+    var found = false;
+
     state = [
       for (final post in state)
         if (post.id == postId)
           () {
-            final updated = post.copyWith(
-              isLikedByMe: !post.isLikedByMe,
-              likeCount: post.isLikedByMe
-                  ? post.likeCount - 1
-                  : post.likeCount + 1,
+            found = true;
+            final counts = Map<KineticReactionType, int>.from(
+              post.reactionCounts,
             );
-            if (!post.isLikedByMe) newlyLiked = updated;
+            final sum = counts.values.fold<int>(0, (a, b) => a + b);
+            if (sum == 0 && post.likeCount > 0) {
+              counts[KineticReactionType.love] = post.likeCount;
+            }
+            final prevReaction =
+                post.myReaction ??
+                (post.isLikedByMe ? KineticReactionType.love : null);
+            if (prevReaction != null) {
+              final nextPrev = (counts[prevReaction] ?? 0) - 1;
+              if (nextPrev > 0) {
+                counts[prevReaction] = nextPrev;
+              } else {
+                counts.remove(prevReaction);
+              }
+            }
+            final effectiveNext =
+                (reaction != null &&
+                    reaction == prevReaction &&
+                    post.myReaction != null)
+                ? null
+                : reaction;
+            effectiveApplied = effectiveNext;
+            if (effectiveNext != null) {
+              counts[effectiveNext] = (counts[effectiveNext] ?? 0) + 1;
+            }
+            final nextTotal = counts.values.fold<int>(0, (a, b) => a + b);
+            final updated = post.copyWith(
+              reactionCounts: Map<KineticReactionType, int>.unmodifiable(
+                counts,
+              ),
+              myReaction: effectiveNext,
+              clearMyReaction: effectiveNext == null,
+              isLikedByMe: effectiveNext != null,
+              likeCount: nextTotal,
+            );
+            if (effectiveNext != null && prevReaction == null) {
+              newlyReacted = updated;
+            }
             return updated;
           }()
         else
           post,
     ];
-    if (newlyLiked != null) {
-      final post = newlyLiked!;
+    if (!found) return;
+
+    if (newlyReacted != null) {
+      final post = newlyReacted!;
+      final label = (effectiveApplied ?? KineticReactionType.love).label;
       try {
         ref
             ?.read(notificationsProvider.notifier)
             .addNotification(
               NotificationEntity(
                 id: 'notif_post_like_${post.id}',
-                title: 'Liked ${post.creatorHandle}\'s Post',
-                message: 'You hearted "${post.track.title}" in Explore.',
+                title: 'Reacted ($label) to ${post.creatorHandle}\'s Post',
+                message: 'You reacted to "${post.track.title}" in Explore.',
                 category: NotificationCategory.social,
                 priority: NotificationPriority.normal,
                 subtype: 'post_like',
@@ -918,36 +1000,44 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
       } catch (_) {}
     }
     _persistLikesSnapshot();
-    unawaited(_syncToggleLikeToCloud(postId));
+    _persistPostsSnapshot();
+    unawaited(_syncReactionToCloud(postId, effectiveApplied));
   }
 
-  Future<void> _syncToggleLikeToCloud(String postId) async {
+  Future<void> _syncReactionToCloud(
+    String postId,
+    KineticReactionType? reaction,
+  ) async {
     final repo = repository;
     if (repo != null && !repo.shouldSkipNetwork) {
-      final result = await repo.togglePostLike(postId);
+      final result = await repo.reactToPost(postId, reaction);
       if (result != null) {
         if (!mounted) return;
         state = [
           for (final post in state)
             if (post.id == postId)
               post.copyWith(
-                isLikedByMe: result.liked,
+                isLikedByMe: result.isLikedByMe,
                 likeCount: result.likeCount,
+                reactionCounts: result.reactionCounts,
+                myReaction: result.myReaction,
+                clearMyReaction: result.myReaction == null,
               )
             else
               post,
         ];
         _persistLikesSnapshot();
+        _persistPostsSnapshot();
         return;
       }
     }
     _outbox?.enqueue(
       SyncMutationRecord(
         idempotencyKey:
-            'mut_like_${postId}_${DateTime.now().millisecondsSinceEpoch}',
+            'mut_react_${postId}_${DateTime.now().millisecondsSinceEpoch}',
         entityType: 'post',
-        action: 'like',
-        payload: {'postId': postId},
+        action: 'react',
+        payload: {'postId': postId, 'reactionType': reaction?.wireId},
         createdAt: DateTime.now(),
       ),
     );
@@ -1139,12 +1229,7 @@ class RecentSearchesNotifier extends StateNotifier<List<String>> {
       final saved = ExploreCacheRepository.loadRecentSearches();
       if (saved != null) return List<String>.unmodifiable(saved);
     }
-    return const [
-      'Kabza de Small log drum',
-      'Amapiano 2026 drops',
-      'Makhadzi live vocals',
-      'Gqom bass kick',
-    ];
+    return const <String>[];
   }
 
   void addQuery(String query) {

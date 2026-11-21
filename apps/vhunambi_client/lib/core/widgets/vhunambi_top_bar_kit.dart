@@ -158,12 +158,15 @@ class VhunambiUserCoinsChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final creatorWallet = ref.watch(creatorWalletProvider);
-    return InkWell(
-      key: const Key('vhunambi_user_coins_chip'),
-      onTap: () => SubscriptionUpgradeModal.show(context),
-      borderRadius: AppRadius.pillBorder,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 34),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: Center(
+        child: InkWell(
+          key: const Key('vhunambi_user_coins_chip'),
+          onTap: () => SubscriptionUpgradeModal.show(context),
+          borderRadius: AppRadius.pillBorder,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 34),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.sm,
           vertical: 4,
@@ -196,6 +199,8 @@ class VhunambiUserCoinsChip extends ConsumerWidget {
               child: Text('10 songs left'),
             ),
           ],
+        ),
+      ),
         ),
       ),
     );

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/creator_id_utils.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../beats/domain/models/producer_beat_entity.dart';
 import '../../../beats/presentation/providers/beats_provider.dart';
 import '../../../beats/presentation/widgets/beat_form_dialog.dart';
@@ -36,9 +40,9 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Beat "${result.title}" added to your beatstore! 🎛️',
+                  'Beat "${result.title}" added to your beatstore!',
                 ),
-                backgroundColor: AppColors.surfaceElevated,
+                backgroundColor: AppColors.surfaceElevatedOf(context),
               ),
             );
           },
@@ -49,10 +53,11 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final vaultBeats = ref.watch(beatsProvider);
-    final marketBeats = ref.watch(
-      creatorBeatsFamilyProvider('creator_ndugelo'),
+    final creatorId = canonicalizeCreatorId(
+      ref.watch(currentCreatorIdProvider),
     );
+    final vaultBeats = ref.watch(beatsProvider);
+    final marketBeats = ref.watch(creatorBeatsFamilyProvider(creatorId));
 
     // Combined unique beat titles/ids
     final totalBeats =
@@ -85,13 +90,10 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // 1. Performance Summary Deck
-        Container(
+        VhunambiGlassSurface(
+          variant: VhunambiGlassVariant.card,
+          enableLiveBlur: false,
           padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceElevated,
-            borderRadius: AppRadius.cardBorder,
-            border: Border.all(color: AppColors.borderSubtle),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -100,8 +102,8 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(
-                        Icons.storefront_rounded,
+                      const PhosphorIcon(
+                        PhosphorIconsRegular.storefront,
                         color: AppColors.brandPrimary,
                         size: 22,
                       ),
@@ -109,6 +111,7 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
                       Text(
                         'Producer Beatstore',
                         style: AppTypography.titleMedium.copyWith(
+                          color: AppColors.textPrimaryOf(context),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -120,13 +123,15 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary,
+                      color: AppColors.surfaceSecondaryOf(context),
                       borderRadius: AppRadius.pillBorder,
-                      border: Border.all(color: AppColors.borderSubtle),
+                      border: Border.all(
+                        color: AppColors.borderSubtleOf(context),
+                      ),
                     ),
-                    child: Text(
+                    child: const Text(
                       '85% Payout Rate',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: AppColors.brandPrimary,
                         fontWeight: FontWeight.bold,
@@ -140,25 +145,28 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: _buildMetricTile(
+                      context: context,
                       label: 'Beats Listed',
                       value: '$totalBeats',
-                      icon: Icons.album_rounded,
+                      icon: PhosphorIconsRegular.disc,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: _buildMetricTile(
+                      context: context,
                       label: 'Total Sales',
                       value: '$totalSales',
-                      icon: Icons.shopping_bag_rounded,
+                      icon: PhosphorIconsRegular.bag,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: _buildMetricTile(
+                      context: context,
                       label: 'Gross Earned',
                       value: 'R$grossZar',
-                      icon: Icons.payments_rounded,
+                      icon: PhosphorIconsRegular.coins,
                       valueColor: AppColors.coinGold,
                     ),
                   ),
@@ -177,6 +185,7 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
             Text(
               'Your Catalog ($totalBeats)',
               style: AppTypography.titleMedium.copyWith(
+                color: AppColors.textPrimaryOf(context),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -187,6 +196,7 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
                 backgroundColor: AppColors.brandPrimary,
                 foregroundColor: AppColors.brandContrast,
                 elevation: 0,
+                minimumSize: const Size(0, 44),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 10,
@@ -195,8 +205,8 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
                   borderRadius: AppRadius.pillBorder,
                 ),
               ),
-              icon: const Icon(
-                Icons.add_rounded,
+              icon: const PhosphorIcon(
+                PhosphorIconsBold.plus,
                 size: 18,
                 color: AppColors.brandContrast,
               ),
@@ -212,25 +222,23 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
 
         // 3. Beat Listings or Empty State
         if (vaultBeats.isEmpty && marketBeats.isEmpty)
-          Container(
+          VhunambiGlassSurface(
             key: const Key('owner_beatstore_empty'),
+            variant: VhunambiGlassVariant.card,
+            enableLiveBlur: false,
             padding: const EdgeInsets.all(AppSpacing.xl),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
-              borderRadius: AppRadius.cardBorder,
-              border: Border.all(color: AppColors.borderSubtle),
-            ),
             child: Column(
               children: [
-                Icon(
-                  Icons.music_off_rounded,
+                PhosphorIcon(
+                  PhosphorIconsRegular.musicNotesSimple,
                   size: 36,
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryOf(context),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   'No beats in your store yet',
                   style: AppTypography.bodyLarge.copyWith(
+                    color: AppColors.textPrimaryOf(context),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -238,7 +246,7 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
                 Text(
                   'Upload instrumental productions and stems to earn direct royalties.',
                   style: AppTypography.caption.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -247,7 +255,7 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
           )
         else ...[
           // Render vault beats
-          for (final beat in vaultBeats) _buildVaultBeatRow(context, ref, beat),
+          for (final beat in vaultBeats) _buildVaultBeatRow(context, beat),
 
           // Render market beats not already in vault
           for (final mb in marketBeats)
@@ -259,6 +267,7 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
   }
 
   Widget _buildMetricTile({
+    required BuildContext context,
     required String label,
     required String value,
     required IconData icon,
@@ -267,23 +276,27 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
+        color: AppColors.surfaceSecondaryOf(context),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: AppColors.textTertiary),
+              PhosphorIcon(
+                icon,
+                size: 14,
+                color: AppColors.textSecondaryOf(context),
+              ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   label,
                   style: TextStyle(
                     fontSize: 10,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -297,7 +310,7 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: valueColor ?? AppColors.textPrimary,
+              color: valueColor ?? AppColors.textPrimaryOf(context),
             ),
           ),
         ],
@@ -305,181 +318,171 @@ class OwnerBeatstoreCockpit extends ConsumerWidget {
     );
   }
 
-  Widget _buildVaultBeatRow(
-    BuildContext context,
-    WidgetRef ref,
-    ProducerBeatEntity beat,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              gradient: AppGradients.forGenre(beat.genre),
+  Widget _buildVaultBeatRow(BuildContext context, ProducerBeatEntity beat) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: VhunambiGlassSurface(
+        variant: VhunambiGlassVariant.card,
+        enableLiveBlur: false,
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Row(
+          children: [
+            VhunambiTrackArtwork(
+              coverUrl: null,
+              genre: beat.genre,
+              trackId: beat.id,
+              width: 40,
+              height: 40,
               borderRadius: AppRadius.thumbBorder,
             ),
-            child: const Icon(
-              Icons.music_note_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  beat.title,
-                  style: AppTypography.bodySmall.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Text(
-                      '${beat.genre} • ${beat.bpm} BPM',
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    beat.title,
+                    style: AppTypography.bodySmall.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimaryOf(context),
                     ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: beat.status == BeatStatus.published
-                            ? AppColors.brandPrimary.withAlpha(40)
-                            : AppColors.surfaceSecondary,
-                        borderRadius: AppRadius.pillBorder,
-                      ),
-                      child: Text(
-                        beat.status.label,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: beat.status == BeatStatus.published
-                              ? AppColors.brandPrimary
-                              : AppColors.textTertiary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          '${beat.genre} • ${beat.bpm} BPM',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondaryOf(context),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: beat.status == BeatStatus.published
+                              ? AppColors.brandPrimary.withAlpha(40)
+                              : AppColors.surfaceSecondaryOf(context),
+                          borderRadius: AppRadius.pillBorder,
+                        ),
+                        child: Text(
+                          beat.status.label,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: beat.status == BeatStatus.published
+                                ? AppColors.brandPrimary
+                                : AppColors.textSecondaryOf(context),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${beat.priceInCredits} Coins',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.coinGold,
+                  ),
+                ),
+                Text(
+                  '${beat.totalSales} sales',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textSecondaryOf(context),
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${beat.priceInCredits} Coins',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.coinGold,
-                ),
-              ),
-              Text(
-                '${beat.totalSales} sales',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildMarketBeatRow(BuildContext context, dynamic mb) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              gradient: AppGradients.forGenre(mb.genre as String),
+    final beatId = (mb.id as String?) ?? (mb.title as String);
+    final genre = (mb.genre as String?) ?? 'Amapiano';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: VhunambiGlassSurface(
+        variant: VhunambiGlassVariant.card,
+        enableLiveBlur: false,
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Row(
+          children: [
+            VhunambiTrackArtwork(
+              coverUrl: null,
+              genre: genre,
+              trackId: beatId,
+              width: 40,
+              height: 40,
               borderRadius: AppRadius.thumbBorder,
             ),
-            child: const Icon(
-              Icons.music_note_rounded,
-              color: Colors.white,
-              size: 20,
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    mb.title as String,
+                    style: AppTypography.bodySmall.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimaryOf(context),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$genre • ${mb.bpm} BPM',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondaryOf(context),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: AppSpacing.xs),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  mb.title as String,
-                  style: AppTypography.bodySmall.copyWith(
+                  '${mb.priceInCredits} Coins',
+                  style: const TextStyle(
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: AppColors.coinGold,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
                 Text(
-                  '${mb.genre} • ${mb.bpm} BPM',
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.textSecondary,
+                  '${mb.totalSales} sales',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${mb.priceInCredits} Coins',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.coinGold,
-                ),
-              ),
-              Text(
-                '${mb.totalSales} sales',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

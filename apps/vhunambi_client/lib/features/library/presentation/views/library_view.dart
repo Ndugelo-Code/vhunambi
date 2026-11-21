@@ -1,13 +1,19 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
-import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
+import '../../../../core/widgets/vhunambi_ambient_mesh_backdrop.dart';
 import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
+import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../beats/presentation/views/beats_vault_view.dart';
 import '../../../collections/presentation/views/collections_vault_view.dart';
+import '../../../marketplace/presentation/providers/marketplace_providers.dart';
 import '../../../playlists/presentation/views/playlists_vault_view.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../domain/models/library_models.dart';
@@ -20,82 +26,235 @@ import '../widgets/library_track_grid_card.dart';
 import '../widgets/library_track_tile.dart';
 
 /// Library & User Asset Vault (`/library`) — mounted at tab index 3 of `RootShell`.
-/// Reference: `docs/phases/phase_04_library_vault/blueprint.md`
-class LibraryView extends ConsumerWidget {
-  /// Routes to the Studio cockpit (tab index 2) when the host shell provides it.
+class LibraryView extends ConsumerStatefulWidget {
   final VoidCallback? onCreateRequested;
 
   const LibraryView({super.key, this.onCreateRequested});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LibraryView> createState() => _LibraryViewState();
+}
+
+class _LibraryViewState extends ConsumerState<LibraryView> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final session = ref.read(authSessionProvider);
+      if (session.isAuthenticated) {
+        unawaited(ref.read(libraryTracksProvider.notifier).syncWithCloud());
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isMobile = ResponsiveUtils.isMobile(context);
     final category = ref.watch(libraryCategoryProvider);
     final viewMode = ref.watch(libraryViewModeProvider);
     final searchQuery = ref.watch(librarySearchQueryProvider);
-    final tracks = ref.watch(filteredLibraryTracksProvider);
+    final baseTracks = ref.watch(filteredLibraryTracksProvider);
+    final activeCreatorId = ref.watch(currentCreatorIdProvider);
+    final syncFilter = ref.watch(librarySyncFilterProvider);
 
-    // The search strip stays mounted while a query is active so it can be cleared.
+    // Merge cloud buyer beat licenses (`EP-P72-BUYER-LICENSES-HTTP`) into Licensing tab
+    final tracks = category == LibraryCategory.licensing
+        ? _mergeLicensingTracks(
+            baseTracks: baseTracks,
+            remoteCerts:
+                ref.watch(buyerLicensesFamilyProvider(activeCreatorId)).valueOrNull ??
+                const [],
+            searchQuery: searchQuery,
+            syncFilter: syncFilter,
+          )
+        : baseTracks;
+
     final showSearchStrip = tracks.isNotEmpty || searchQuery.trim().isNotEmpty;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.surfaceCanvasOf(context),
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(
           VhunambiTopBarMetrics.totalHeight(context),
         ),
-        child: LibraryAppBar(onCreateRequested: onCreateRequested),
+        child: LibraryAppBar(onCreateRequested: widget.onCreateRequested),
       ),
-      body: Column(
-        children: [
-          const LibraryCategoryRail(),
-          Expanded(
-            child: category == LibraryCategory.playlists
-                ? PlaylistsVaultView(onCreateRequested: onCreateRequested)
-                : category == LibraryCategory.collections
-                    ? CollectionsVaultView(
-                        onCreateRequested: onCreateRequested,
-                      )
-                    : category == LibraryCategory.beats
-                        ? BeatsVaultView(
-                            onCreateRequested: onCreateRequested,
-                          )
-                        : Column(
-                    children: [
-                      if (showSearchStrip)
-                        _VaultSearchStrip(
-                          category: category,
-                          viewMode: viewMode,
-                          resultCount: tracks.length,
-                        ),
-                      if (category == LibraryCategory.songs &&
-                          searchQuery.trim().isEmpty)
-                        const _RecentlyPlayedShelf(),
-                      Expanded(
-                        child: tracks.isEmpty
-                            ? LibraryEmptyState(
-                                category: category,
-                                searchQuery: searchQuery,
-                                onCreateRequested: onCreateRequested,
-                              )
-                            : viewMode == LibraryViewMode.grid
+      body: VhunambiAmbientMeshBackdrop(
+        child: Column(
+          children: [
+            const LibraryCategoryRail(),
+            Expanded(
+              child: category == LibraryCategory.playlists
+                  ? PlaylistsVaultView(
+                      onCreateRequested: widget.onCreateRequested,
+                    )
+                  : category == LibraryCategory.collections
+                  ? CollectionsVaultView(
+                      onCreateRequested: widget.onCreateRequested,
+                    )
+                  : category == LibraryCategory.beats
+                  ? BeatsVaultView(onCreateRequested: widget.onCreateRequested)
+                  : Column(
+                      children: [
+                        if (showSearchStrip)
+                          _VaultSearchStrip(
+                            category: category,
+                            viewMode: viewMode,
+                            resultCount: tracks.length,
+                          ),
+                        if (category == LibraryCategory.songs &&
+                            searchQuery.trim().isEmpty)
+                          const _RecentlyPlayedShelf(),
+                        Expanded(
+                          child: RefreshIndicator(
+                            color: AppColors.brandPrimary,
+                            onRefresh: () => ref
+                                .read(libraryTracksProvider.notifier)
+                                .syncWithCloud(),
+                            child: tracks.isEmpty
+                                ? LayoutBuilder(
+                                    builder: (context, constraints) =>
+                                        SingleChildScrollView(
+                                          physics:
+                                              const AlwaysScrollableScrollPhysics(),
+                                          child: ConstrainedBox(
+                                            constraints: BoxConstraints(
+                                              minHeight: constraints.maxHeight,
+                                            ),
+                                            child: LibraryEmptyState(
+                                              category: category,
+                                              searchQuery: searchQuery,
+                                              onCreateRequested:
+                                                  widget.onCreateRequested,
+                                            ),
+                                          ),
+                                        ),
+                                  )
+                                : viewMode == LibraryViewMode.grid
                                 ? _VaultGrid(tracks: tracks)
-                                : _VaultList(tracks: tracks, isMobile: isMobile),
-                      ),
-                    ],
-                  ),
-          ),
-        ],
+                                : _VaultList(
+                                    tracks: tracks,
+                                    isMobile: isMobile,
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<LibraryTrack> _mergeLicensingTracks({
+    required List<LibraryTrack> baseTracks,
+    required List<dynamic> remoteCerts,
+    required String searchQuery,
+    required LibrarySyncFilter syncFilter,
+  }) {
+    if (remoteCerts.isEmpty || syncFilter == LibrarySyncFilter.offlineOnly) {
+      return baseTracks;
+    }
+    final seenCerts = {
+      for (final t in baseTracks)
+        if (t.licenseCertificateIdOverride != null &&
+            t.licenseCertificateIdOverride!.isNotEmpty)
+          t.licenseCertificateIdOverride!,
+    };
+    final q = searchQuery.trim().toLowerCase();
+    final extra = <LibraryTrack>[];
+    for (final cert in remoteCerts) {
+      final certId = cert.certificateId as String;
+      if (certId.isEmpty || seenCerts.contains(certId)) continue;
+      final candidate = LibraryTrack(
+        id: (cert.vaultTrackId as String).isNotEmpty
+            ? cert.vaultTrackId as String
+            : 'market_${cert.beatId}',
+        title: (cert.beatTitle as String).isNotEmpty
+            ? cert.beatTitle as String
+            : 'Licensed Beat',
+        creatorName: cert.producerName as String,
+        creatorId: cert.producerId as String,
+        creatorHandle: cert.producerHandle as String,
+        genre: cert.genre as String,
+        language: 'Instrumental',
+        bpm: cert.bpm as int,
+        durationSeconds: 180,
+        remoteAudioUrl: cert.masterAudioFilePath as String,
+        createdAt:
+            DateTime.tryParse(cert.issuedAtIso8601 as String) ?? DateTime.now(),
+        licenseType: cert.tier.displayName as String,
+        isInstrumental: true,
+        licenseCertificateIdOverride: certId,
+        licenseHash: cert.licenseHash as String,
+        licenseTierId: cert.tier.wireSlug as String,
+      );
+      if (q.isEmpty ||
+          candidate.title.toLowerCase().contains(q) ||
+          candidate.creatorName.toLowerCase().contains(q) ||
+          candidate.genre.toLowerCase().contains(q)) {
+        extra.add(candidate);
+      }
+    }
+    if (extra.isEmpty) return baseTracks;
+    return List<LibraryTrack>.unmodifiable([...baseTracks, ...extra]);
+  }
+}
+
+class _CloudSyncStatusBadge extends ConsumerWidget {
+  const _CloudSyncStatusBadge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(libraryCloudSyncStatusProvider);
+    final (IconData icon, Color color, String label) = switch (status) {
+      LibraryCloudSyncStatus.syncing => (
+        PhosphorIconsRegular.arrowsClockwise,
+        AppColors.brandPrimary,
+        'Syncing',
+      ),
+      LibraryCloudSyncStatus.synced => (
+        PhosphorIconsRegular.cloudCheck,
+        AppColors.success,
+        'Cloud Synced',
+      ),
+      LibraryCloudSyncStatus.offline || LibraryCloudSyncStatus.error => (
+        PhosphorIconsRegular.cloudSlash,
+        AppColors.textSecondaryOf(context),
+        'Local Vault',
+      ),
+      LibraryCloudSyncStatus.idle => (
+        PhosphorIconsRegular.cloud,
+        AppColors.textSecondaryOf(context),
+        'Cloud Ready',
+      ),
+    };
+
+    return Tooltip(
+      key: const Key('library_cloud_sync_badge'),
+      message: label,
+      child: VhunambiGlassSurface(
+        variant: VhunambiGlassVariant.pill,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PhosphorIcon(icon, size: 12, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: AppTypography.badge.copyWith(color: color),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 /// Recently Played horizontal shelf (Mission 11).
-///
-/// Renders one-tap 44px cover cards for the user's most recently played songs,
-/// resolving live vault records (deleted ids are dropped by the provider).
-/// Hidden automatically when there is no history yet.
 class _RecentlyPlayedShelf extends ConsumerWidget {
   const _RecentlyPlayedShelf();
 
@@ -118,7 +277,7 @@ class _RecentlyPlayedShelf extends ConsumerWidget {
             'Recently Played',
             style: AppTypography.bodyLarge.copyWith(
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: AppColors.textPrimaryOf(context),
             ),
           ),
         ),
@@ -165,6 +324,7 @@ class _VaultList extends ConsumerWidget {
           ref.watch(playerStateProvider.select((s) => s.hasActiveTrack)),
     );
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
         AppSpacing.md,
         AppSpacing.xxs,
@@ -193,6 +353,7 @@ class _VaultGrid extends ConsumerWidget {
           ref.watch(playerStateProvider.select((s) => s.hasActiveTrack)),
     );
     return GridView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
         AppSpacing.md,
         AppSpacing.xxs,
@@ -211,7 +372,7 @@ class _VaultGrid extends ConsumerWidget {
   }
 }
 
-/// Real-time search input, local/cloud filter and grid/list view toggle (REQ-LIB-04).
+/// Real-time clearable glass search strip, visible mobile Cached Only pill, and view toggle.
 class _VaultSearchStrip extends ConsumerStatefulWidget {
   final LibraryCategory category;
   final LibraryViewMode viewMode;
@@ -245,24 +406,85 @@ class _VaultSearchStripState extends ConsumerState<_VaultSearchStrip> {
   }
 
   String get _hint => switch (widget.category) {
-        LibraryCategory.songs => 'Search my songs...',
-        LibraryCategory.playlists => 'Search my playlists...',
-        LibraryCategory.collections => 'Search my collections...',
-        LibraryCategory.beats => 'Search my beats...',
-        LibraryCategory.licensing => 'Search my licenses...',
-        LibraryCategory.trash => 'Search trash...',
-      };
+    LibraryCategory.songs => 'Search my songs...',
+    LibraryCategory.playlists => 'Search my playlists...',
+    LibraryCategory.collections => 'Search my collections...',
+    LibraryCategory.beats => 'Search my beats...',
+    LibraryCategory.licensing => 'Search my licenses...',
+    LibraryCategory.trash => 'Search trash...',
+  };
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
+    final queryText = ref.watch(librarySearchQueryProvider);
 
-    // Keep the field in sync when the query is reset elsewhere (category change).
     ref.listen(librarySearchQueryProvider, (previous, next) {
       if (_controller.text != next) {
         _controller.text = next;
       }
     });
+
+    final searchField = VhunambiGlassSurface(
+      variant: VhunambiGlassVariant.pill,
+      borderRadius: AppRadius.inputBorder,
+      constraints: const BoxConstraints(minHeight: 44),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      child: Row(
+        children: [
+          PhosphorIcon(
+            PhosphorIconsRegular.magnifyingGlass,
+            size: 18,
+            color: AppColors.textSecondaryOf(context),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Center(
+              child: TextField(
+                controller: _controller,
+                onChanged: (value) =>
+                    ref.read(librarySearchQueryProvider.notifier).state = value,
+                onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                textInputAction: TextInputAction.search,
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.textPrimaryOf(context),
+                ),
+                cursorColor: AppColors.brandPrimary,
+                decoration: InputDecoration(
+                  hintText: _hint,
+                  hintStyle: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondaryOf(context),
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+          ),
+          if (queryText.isNotEmpty)
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              child: IconButton(
+                key: const Key('vault_search_clear_btn'),
+                padding: EdgeInsets.zero,
+                tooltip: 'Reset search input',
+                icon: PhosphorIcon(
+                  PhosphorIconsRegular.x,
+                  size: 15,
+                  color: AppColors.textSecondaryOf(context),
+                ),
+                onPressed: () {
+                  _controller.clear();
+                  ref.read(librarySearchQueryProvider.notifier).state = '';
+                },
+              ),
+            ),
+        ],
+      ),
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -271,69 +493,61 @@ class _VaultSearchStripState extends ConsumerState<_VaultSearchStrip> {
         AppSpacing.md,
         AppSpacing.sm,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 40),
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceSecondary,
-                borderRadius: AppRadius.inputBorder,
-                border: Border.all(color: AppColors.borderSubtle),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.search_rounded,
-                    size: 18,
-                    color: AppColors.textTertiary,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: searchField),
+              if (isDesktop) ...[
+                const SizedBox(width: AppSpacing.xs),
+                const _CachedOnlyFilterPill(),
+                const SizedBox(width: AppSpacing.xs),
+                const _SyncFilterButton(),
+              ],
+              const SizedBox(width: AppSpacing.xs),
+              _ViewModeToggle(viewMode: widget.viewMode),
+              if (isDesktop) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  '${widget.resultCount} ${widget.resultCount == 1 ? 'asset' : 'assets'}',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondaryOf(context),
                   ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Center(
-                      child: TextField(
-                        controller: _controller,
-                        onChanged: (value) => ref
-                            .read(librarySearchQueryProvider.notifier)
-                            .state = value,
-                        textInputAction: TextInputAction.search,
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.textPrimary,
-                        ),
-                        cursorColor: AppColors.brandPrimary,
-                        decoration: InputDecoration(
-                          hintText: _hint,
-                          hintStyle: AppTypography.caption,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                const _CloudSyncStatusBadge(),
+              ],
+            ],
+          ),
+          if (!isDesktop) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        _CachedOnlyFilterPill(),
+                        SizedBox(width: AppSpacing.xs),
+                        _SyncFilterButton(),
+                        SizedBox(width: AppSpacing.xs),
+                        _CloudSyncStatusBadge(),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          if (isDesktop) ...[
-            const SizedBox(width: AppSpacing.xs),
-            const _CachedOnlyFilterPill(),
-          ] else ...[
-            const Offstage(child: _CachedOnlyFilterPill()),
-          ],
-          const SizedBox(width: AppSpacing.xs),
-          const _SyncFilterButton(),
-          const SizedBox(width: AppSpacing.xs),
-          _ViewModeToggle(viewMode: widget.viewMode),
-          if (isDesktop) ...[
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              '${widget.resultCount} ${widget.resultCount == 1 ? 'asset' : 'assets'}',
-              style: AppTypography.caption,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  '${widget.resultCount} ${widget.resultCount == 1 ? 'asset' : 'assets'}',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondaryOf(context),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -350,49 +564,48 @@ class _CachedOnlyFilterPill extends ConsumerWidget {
     final activeFilter = ref.watch(librarySyncFilterProvider);
     final isCachedOnly = activeFilter == LibrarySyncFilter.offlineOnly;
 
-    return InkWell(
-      key: const Key('vault_filter_cached_only'),
-      borderRadius: AppRadius.inputBorder,
-      onTap: () {
-        ref.read(librarySyncFilterProvider.notifier).state = isCachedOnly
-            ? LibrarySyncFilter.any
-            : LibrarySyncFilter.offlineOnly;
-      },
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: isCachedOnly
-              ? AppColors.brandPrimary.withAlpha(40)
-              : AppColors.surfaceSecondary,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: Center(
+        child: InkWell(
+          key: const Key('vault_filter_cached_only'),
           borderRadius: AppRadius.inputBorder,
-          border: Border.all(
-            color: isCachedOnly
-                ? AppColors.brandPrimary
-                : AppColors.borderSubtle,
+          onTap: () {
+            ref.read(librarySyncFilterProvider.notifier).state = isCachedOnly
+                ? LibrarySyncFilter.any
+                : LibrarySyncFilter.offlineOnly;
+          },
+          child: VhunambiGlassSurface(
+            variant: VhunambiGlassVariant.pill,
+            borderRadius: AppRadius.inputBorder,
+            tintAccent: isCachedOnly ? AppColors.brandPrimary : null,
+            borderColorOverride:
+                isCachedOnly ? AppColors.brandPrimary : null,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PhosphorIcon(
+                  PhosphorIconsRegular.checkCircle,
+                  size: 15,
+                  color: isCachedOnly
+                      ? AppColors.brandPrimary
+                      : AppColors.textSecondaryOf(context),
+                ),
+                const SizedBox(width: AppSpacing.xxs + 2),
+                Text(
+                  'Cached Only',
+                  style: AppTypography.caption.copyWith(
+                    color: isCachedOnly
+                        ? AppColors.brandPrimary
+                        : AppColors.textPrimaryOf(context),
+                    fontWeight:
+                        isCachedOnly ? FontWeight.bold : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.download_done_rounded,
-              size: 15,
-              color: isCachedOnly
-                  ? AppColors.brandPrimary
-                  : AppColors.textSecondary,
-            ),
-            const SizedBox(width: AppSpacing.xxs + 2),
-            Text(
-              'Cached Only',
-              style: AppTypography.caption.copyWith(
-                color: isCachedOnly
-                    ? AppColors.brandPrimary
-                    : AppColors.textPrimary,
-                fontWeight: isCachedOnly ? FontWeight.bold : FontWeight.w600,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -407,83 +620,82 @@ class _SyncFilterButton extends ConsumerWidget {
     final activeFilter = ref.watch(librarySyncFilterProvider);
     final isFiltered = activeFilter != LibrarySyncFilter.any;
 
-    return PopupMenuButton<LibrarySyncFilter>(
-      tooltip: 'Filter assets',
-      color: AppColors.surfaceModal,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.inputBorder,
-        side: BorderSide(color: AppColors.borderSubtle),
-      ),
-      onSelected: (filter) =>
-          ref.read(librarySyncFilterProvider.notifier).state = filter,
-      itemBuilder: (_) => [
-        for (final filter in LibrarySyncFilter.values)
-          PopupMenuItem<LibrarySyncFilter>(
-            value: filter,
-            height: 40,
-            child: Row(
-              children: [
-                Icon(
-                  _syncFilterIcon(filter),
-                  size: 16,
-                  color: filter == activeFilter
-                      ? AppColors.brandPrimary
-                      : AppColors.textSecondary,
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Expanded(
-                  child: Text(
-                    _syncFilterLabel(filter),
-                    style: AppTypography.bodySmall.copyWith(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: Center(
+        child: PopupMenuButton<LibrarySyncFilter>(
+          tooltip: 'Filter assets',
+          color: AppColors.surfaceModalOf(context),
+          shape: RoundedRectangleBorder(
+            borderRadius: AppRadius.inputBorder,
+            side: BorderSide(color: AppColors.borderSubtleOf(context)),
+          ),
+          onSelected: (filter) =>
+              ref.read(librarySyncFilterProvider.notifier).state = filter,
+          itemBuilder: (_) => [
+            for (final filter in LibrarySyncFilter.values)
+              PopupMenuItem<LibrarySyncFilter>(
+                value: filter,
+                height: 40,
+                child: Row(
+                  children: [
+                    PhosphorIcon(
+                      _syncFilterIcon(filter),
+                      size: 16,
                       color: filter == activeFilter
                           ? AppColors.brandPrimary
-                          : AppColors.textPrimary,
-                      fontWeight: FontWeight.w600,
+                          : AppColors.textSecondaryOf(context),
                     ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        _syncFilterLabel(filter),
+                        style: AppTypography.bodySmall.copyWith(
+                          color: filter == activeFilter
+                              ? AppColors.brandPrimary
+                              : AppColors.textPrimaryOf(context),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (filter == activeFilter)
+                      const PhosphorIcon(
+                        PhosphorIconsRegular.check,
+                        size: 14,
+                        color: AppColors.brandPrimary,
+                      ),
+                  ],
+                ),
+              ),
+          ],
+          child: VhunambiGlassSurface(
+            variant: VhunambiGlassVariant.pill,
+            borderRadius: AppRadius.inputBorder,
+            borderColorOverride: isFiltered ? AppColors.brandPrimary : null,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PhosphorIcon(
+                  PhosphorIconsRegular.slidersHorizontal,
+                  size: 15,
+                  color: isFiltered
+                      ? AppColors.brandPrimary
+                      : AppColors.textSecondaryOf(context),
+                ),
+                const SizedBox(width: AppSpacing.xxs + 2),
+                Text(
+                  isFiltered ? _syncFilterLabel(activeFilter) : 'Filter',
+                  style: AppTypography.caption.copyWith(
+                    color: isFiltered
+                        ? AppColors.brandPrimary
+                        : AppColors.textPrimaryOf(context),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (filter == activeFilter)
-                  const Icon(
-                    Icons.check_rounded,
-                    size: 14,
-                    color: AppColors.brandPrimary,
-                  ),
               ],
             ),
           ),
-      ],
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceSecondary,
-          borderRadius: AppRadius.inputBorder,
-          border: Border.all(
-            color:
-                isFiltered ? AppColors.brandPrimary : AppColors.borderSubtle,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.tune_rounded,
-              size: 15,
-              color: isFiltered
-                  ? AppColors.brandPrimary
-                  : AppColors.textSecondary,
-            ),
-            const SizedBox(width: AppSpacing.xxs + 2),
-            Text(
-              isFiltered ? _syncFilterLabel(activeFilter) : 'Filter',
-              style: AppTypography.caption.copyWith(
-                color: isFiltered
-                    ? AppColors.brandPrimary
-                    : AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -497,24 +709,21 @@ class _ViewModeToggle extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      height: 40,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
-        borderRadius: AppRadius.inputBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+    return VhunambiGlassSurface(
+      variant: VhunambiGlassVariant.pill,
+      borderRadius: AppRadius.inputBorder,
+      height: 44,
       child: Row(
         children: [
           _ViewModeButton(
-            icon: Icons.grid_view_rounded,
+            icon: PhosphorIconsRegular.squaresFour,
             tooltip: 'Grid view',
             isActive: viewMode == LibraryViewMode.grid,
             onTap: () => ref.read(libraryViewModeProvider.notifier).state =
                 LibraryViewMode.grid,
           ),
           _ViewModeButton(
-            icon: Icons.view_list_rounded,
+            icon: PhosphorIconsRegular.listBullets,
             tooltip: 'List view',
             isActive: viewMode == LibraryViewMode.list,
             onTap: () => ref.read(libraryViewModeProvider.notifier).state =
@@ -547,19 +756,21 @@ class _ViewModeButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: AppRadius.thumbBorder,
         child: Container(
-          width: 38,
-          height: 38,
-          margin: const EdgeInsets.all(1),
+          width: 44,
+          height: 44,
+          margin: const EdgeInsets.all(2),
           decoration: BoxDecoration(
             color: isActive ? AppColors.brandPrimary : Colors.transparent,
             borderRadius: AppRadius.thumbBorder,
           ),
-          child: Icon(
-            icon,
-            size: 17,
-            color: isActive
-                ? AppColors.brandContrast
-                : AppColors.textSecondary,
+          child: Center(
+            child: PhosphorIcon(
+              icon,
+              size: 17,
+              color: isActive
+                  ? AppColors.brandContrast
+                  : AppColors.textSecondaryOf(context),
+            ),
           ),
         ),
       ),
@@ -568,13 +779,13 @@ class _ViewModeButton extends StatelessWidget {
 }
 
 String _syncFilterLabel(LibrarySyncFilter filter) => switch (filter) {
-      LibrarySyncFilter.any => 'All tracks',
-      LibrarySyncFilter.offlineOnly => 'Offline only',
-      LibrarySyncFilter.cloudOnly => 'Cloud only',
-    };
+  LibrarySyncFilter.any => 'All tracks',
+  LibrarySyncFilter.offlineOnly => 'Offline only',
+  LibrarySyncFilter.cloudOnly => 'Cloud only',
+};
 
 IconData _syncFilterIcon(LibrarySyncFilter filter) => switch (filter) {
-      LibrarySyncFilter.any => Icons.album_outlined,
-      LibrarySyncFilter.offlineOnly => Icons.download_done_rounded,
-      LibrarySyncFilter.cloudOnly => Icons.cloud_outlined,
-    };
+  LibrarySyncFilter.any => PhosphorIconsRegular.disc,
+  LibrarySyncFilter.offlineOnly => PhosphorIconsRegular.checkCircle,
+  LibrarySyncFilter.cloudOnly => PhosphorIconsRegular.cloud,
+};

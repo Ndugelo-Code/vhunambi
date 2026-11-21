@@ -65,9 +65,10 @@ class _SplashViewState extends ConsumerState<SplashView>
       CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
 
     _footerFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
@@ -96,15 +97,16 @@ class _SplashViewState extends ConsumerState<SplashView>
   void _onSplashComplete() {
     if (!mounted) return;
     HapticFeedback.lightImpact();
-    ref.read(isSplashActiveProvider.notifier).state = false;
 
     if (widget.onFinished != null) {
+      ref.read(isSplashActiveProvider.notifier).state = false;
       widget.onFinished!();
       return;
     }
 
-    final hasCompleted =
-        ref.read(onboardingStateProvider).hasCompletedOnboarding;
+    final hasCompleted = ref
+        .read(onboardingStateProvider)
+        .hasCompletedOnboarding;
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
@@ -224,9 +226,10 @@ class _SplashViewState extends ConsumerState<SplashView>
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: AppColors.brandPrimary.withValues(
-                                          alpha: (1.0 - eased) * 0.42,
-                                        ),
+                                        color: AppColors.brandPrimary
+                                            .withValues(
+                                              alpha: (1.0 - eased) * 0.42,
+                                            ),
                                         width: 1.5,
                                       ),
                                     ),
@@ -246,9 +249,10 @@ class _SplashViewState extends ConsumerState<SplashView>
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: AppColors.brandPrimary.withValues(
-                                          alpha: (1.0 - eased) * 0.34,
-                                        ),
+                                        color: AppColors.brandPrimary
+                                            .withValues(
+                                              alpha: (1.0 - eased) * 0.34,
+                                            ),
                                         width: 1.2,
                                       ),
                                     ),
@@ -277,7 +281,9 @@ class _SplashViewState extends ConsumerState<SplashView>
                                       spreadRadius: 6,
                                     ),
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.45),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.45,
+                                      ),
                                       blurRadius: 20,
                                       offset: const Offset(0, 8),
                                     ),
@@ -297,8 +303,7 @@ class _SplashViewState extends ConsumerState<SplashView>
                                         width: 58,
                                         height: 58,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) =>
-                                            const Center(
+                                        errorBuilder: (_, _, _) => const Center(
                                           child: PhosphorIcon(
                                             PhosphorIconsFill.musicNotes,
                                             color: AppColors.brandContrast,
@@ -357,12 +362,13 @@ class _SplashViewState extends ConsumerState<SplashView>
                                     LinearProgressIndicator(
                                       value: progress,
                                       minHeight: 4,
-                                      backgroundColor:
-                                          Colors.white.withValues(alpha: 0.16),
+                                      backgroundColor: Colors.white.withValues(
+                                        alpha: 0.16,
+                                      ),
                                       valueColor:
                                           const AlwaysStoppedAnimation<Color>(
-                                        AppColors.brandPrimary,
-                                      ),
+                                            AppColors.brandPrimary,
+                                          ),
                                     ),
                                     FractionallySizedBox(
                                       alignment: Alignment.centerLeft,

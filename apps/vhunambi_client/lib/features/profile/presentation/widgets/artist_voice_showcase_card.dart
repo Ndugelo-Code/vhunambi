@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../studio/domain/models/vocal_identity_models.dart';
 import '../../../studio/presentation/providers/vocal_identity_provider.dart';
 import '../../../studio/presentation/views/studio_view.dart';
@@ -34,22 +36,18 @@ class ArtistVoiceShowcaseCard extends ConsumerWidget {
       (arch) =>
           arch.name.toLowerCase().contains(queryName) ||
           queryName.contains(arch.name.toLowerCase()) ||
-          arch.nativeLanguage.toLowerCase() == (vocalArchetypeLanguage ?? '').toLowerCase(),
+          arch.nativeLanguage.toLowerCase() ==
+              (vocalArchetypeLanguage ?? '').toLowerCase(),
       orElse: () => vocalState.activeArchetype,
     );
 
     final isPreviewing = vocalState.previewingArchetypeId == archetype.id;
 
-    return Container(
+    return VhunambiGlassSurface(
       key: const Key('artist_voice_showcase_card'),
+      variant: VhunambiGlassVariant.card,
+      enableLiveBlur: false,
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(
-          color: isPreviewing ? AppColors.brandPrimary : AppColors.borderSubtle,
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -59,13 +57,17 @@ class ArtistVoiceShowcaseCard extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  const Text('🎙️', style: TextStyle(fontSize: 20)),
+                  const PhosphorIcon(
+                    PhosphorIconsFill.microphoneStage,
+                    size: 20,
+                    color: AppColors.brandPrimary,
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     'Sovereign Vocal Identity',
                     style: AppTypography.titleMedium.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                      color: AppColors.textPrimaryOf(context),
                     ),
                   ),
                 ],
@@ -73,9 +75,9 @@ class ArtistVoiceShowcaseCard extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
+                  color: AppColors.surfaceSecondaryOf(context),
                   borderRadius: AppRadius.pillBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
+                  border: Border.all(color: AppColors.borderSubtleOf(context)),
                 ),
                 child: const Text(
                   'Zero-Shot AI Clone',
@@ -103,9 +105,12 @@ class ArtistVoiceShowcaseCard extends ConsumerWidget {
                   borderRadius: AppRadius.thumbBorder,
                 ),
                 child: Center(
-                  child: Text(
-                    archetype.gender == VocalGender.female ? '👸' : '🤴',
-                    style: const TextStyle(fontSize: 24),
+                  child: PhosphorIcon(
+                    archetype.gender == VocalGender.female
+                        ? PhosphorIconsFill.crown
+                        : PhosphorIconsFill.microphone,
+                    size: 22,
+                    color: AppColors.brandContrast,
                   ),
                 ),
               ),
@@ -162,22 +167,30 @@ class ArtistVoiceShowcaseCard extends ConsumerWidget {
                   },
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(
-                      color: isPreviewing ? AppColors.brandPrimary : AppColors.borderSubtle,
+                      color: isPreviewing
+                          ? AppColors.brandPrimary
+                          : AppColors.borderSubtle,
                     ),
-                    foregroundColor:
-                        isPreviewing ? AppColors.brandPrimary : AppColors.textPrimary,
+                    foregroundColor: isPreviewing
+                        ? AppColors.brandPrimary
+                        : AppColors.textPrimary,
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                   ),
-                  icon: Icon(
-                    isPreviewing ? Icons.stop_rounded : Icons.volume_up_rounded,
+                  icon: PhosphorIcon(
+                    isPreviewing
+                        ? PhosphorIconsFill.stop
+                        : PhosphorIconsRegular.speakerHigh,
                     size: 18,
                   ),
                   label: Text(
                     isPreviewing ? 'Stop' : 'Audition',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ),
@@ -199,7 +212,7 @@ class ArtistVoiceShowcaseCard extends ConsumerWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Selected ${archetype.name} for Studio synthesis! 🎤',
+                            'Selected ${archetype.name} for Studio synthesis!',
                           ),
                           backgroundColor: AppColors.brandPrimary,
                         ),
@@ -214,8 +227,8 @@ class ArtistVoiceShowcaseCard extends ConsumerWidget {
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                     ),
-                    icon: const Icon(
-                      Icons.mic_rounded,
+                    icon: const PhosphorIcon(
+                      PhosphorIconsFill.microphone,
                       size: 18,
                       color: AppColors.brandContrast,
                     ),
@@ -237,4 +250,3 @@ class ArtistVoiceShowcaseCard extends ConsumerWidget {
     );
   }
 }
-

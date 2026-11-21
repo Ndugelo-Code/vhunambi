@@ -211,7 +211,12 @@ class _RepostKineticPostSheetState
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: AppRadius.cardBorder,
-                borderSide: const BorderSide(color: AppColors.brandPrimary),
+                borderSide: BorderSide(
+                  color: AppColors.textPrimaryOf(
+                    context,
+                  ).withValues(alpha: 0.22),
+                  width: 1.0,
+                ),
               ),
               contentPadding: const EdgeInsets.all(AppSpacing.sm),
             ),

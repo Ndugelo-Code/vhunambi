@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_dimensions.dart';
 import '../../../../../core/theme/app_typography.dart';
@@ -15,7 +16,7 @@ class ErrorBoundary extends StatelessWidget {
     required this.message,
     this.onRetry,
     this.onContactSupport,
-    this.icon = Icons.error_outline_rounded,
+    this.icon = PhosphorIconsRegular.warningCircle,
   });
 
   @override
@@ -26,7 +27,7 @@ class ErrorBoundary extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            PhosphorIcon(
               icon,
               size: 64,
               color: AppColors.error,
@@ -36,7 +37,7 @@ class ErrorBoundary extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: AppTypography.bodyLarge.copyWith(
-                color: AppColors.textPrimary,
+                color: AppColors.textPrimaryOf(context),
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -45,7 +46,10 @@ class ErrorBoundary extends StatelessWidget {
                 constraints: const BoxConstraints(minHeight: 44, minWidth: 120),
                 child: ElevatedButton.icon(
                   onPressed: onRetry,
-                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                  icon: const PhosphorIcon(
+                    PhosphorIconsRegular.arrowsClockwise,
+                    size: 20,
+                  ),
                   label: const Text('Retry'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.brandPrimary,
@@ -66,7 +70,7 @@ class ErrorBoundary extends StatelessWidget {
                 onPressed: onContactSupport,
                 child: Text(
                   'Contact Support',
-                  style: TextStyle(color: AppColors.textSecondary),
+                  style: TextStyle(color: AppColors.textSecondaryOf(context)),
                 ),
               ),
             ],

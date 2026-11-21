@@ -43,13 +43,13 @@ void main() {
     expect(find.text('Studio Analytics'), findsOneWidget);
 
     // 3. Top Genres
-    expect(find.text('🎵 House (1)'), findsOneWidget);
-    expect(find.text('🎹 Amapiano (4)'), findsOneWidget);
+    expect(find.text('House (1)'), findsOneWidget);
+    expect(find.text('Amapiano (4)'), findsOneWidget);
 
     // 4. Studio Tracks & Inline Visibility
     expect(find.text('Your Songs'), findsOneWidget);
-    expect(find.text('ZaYN'), findsOneWidget);
-    expect(find.text('🌐 Public'), findsNWidgets(2));
+    expect(find.text('Grateful in the Light'), findsOneWidget);
+    expect(find.text('Public'), findsNWidgets(2));
 
     // Switch to Releases segment (Phase 30 REQ-PROF-STUDIO-01)
     await tester.tap(find.byKey(const Key('owner_studio_tab_releases')));
@@ -77,14 +77,14 @@ void main() {
       (WidgetTester tester) async {
     await _pumpOwnerProfile(tester);
 
-    expect(find.text('🌐 Public'), findsNWidgets(2));
+    expect(find.text('Public'), findsNWidgets(2));
 
     // Tap first visibility button
-    await tester.tap(find.text('🌐 Public').first);
+    await tester.tap(find.text('Public').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('🔒 Private'), findsOneWidget);
-    expect(find.text('🌐 Public'), findsOneWidget);
+    expect(find.text('Private'), findsOneWidget);
+    expect(find.text('Public'), findsOneWidget);
   });
 
   testWidgets('OwnerProfileView switches tip history between received and sent tabs',

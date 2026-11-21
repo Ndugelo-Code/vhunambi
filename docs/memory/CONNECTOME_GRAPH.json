@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-11-20T07:41:45.290Z",
-  "latest_completed_phase": "P71",
-  "latest_completed_order": 71,
+  "generated_at": "2026-11-21T02:40:56.673Z",
+  "latest_completed_phase": "P73",
+  "latest_completed_order": 73,
   "stats": {
-    "total_phases": 10,
-    "completed_phases": 10,
-    "total_endpoints": 33,
-    "open_count": 5,
-    "connected_extensible_count": 25,
+    "total_phases": 12,
+    "completed_phases": 12,
+    "total_endpoints": 39,
+    "open_count": 4,
+    "connected_extensible_count": 32,
     "sealed_count": 3
   },
   "phases": [
@@ -555,6 +555,200 @@
         "Always apply pending Supabase Cloud migrations via supabase_mcp BEFORE deploying vhunambi-api to Cloudflare Workers (ensureColdStartHydrated queries synced tables in Promise.all and selectRows throws on 404 PGRST205).",
         "On Windows PowerShell in this workspace, npx wrangler and npx supabase can hang; invoke apps/vhunambi_api/node_modules/.bin/wrangler.cmd directly for Worker deploys and use supabase_mcp (list_migrations, apply_migration, execute_sql, get_advisors) for Supabase Cloud DDL and diagnostics."
       ]
+    },
+    {
+      "phase_id": "P72",
+      "phase_order": 72,
+      "memory_key": "MEM-P72-ASSET-VAULT-OWNER-PROFILE-GLASS",
+      "title": "Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
+      "status": "completed",
+      "completed_at": "2026-11-21",
+      "memory_file": "docs/phases/phase_72_asset_vault_and_owner_profile_glass_overhaul/memory.md",
+      "predecessor_keys": [
+        "MEM-P68-HOME-MAIN-ROOM",
+        "MEM-P69-KINETIC-POST-FOCUS",
+        "MEM-P70-SONG-COCKPIT-VISITOR-PROFILE",
+        "MEM-P71-CLOUD-SPINE-CONNECTOME-CLOSURE"
+      ],
+      "concept_hubs": [
+        "media_artwork",
+        "ui_surface_std",
+        "identity_role",
+        "mood_taxonomy",
+        "quota_economy",
+        "sync_outbox",
+        "audio_transport",
+        "social_graph"
+      ],
+      "endpoints_defined": [
+        "EP-P72-VAULT-CLOUD-SWR",
+        "EP-P72-BUYER-LICENSES-HTTP"
+      ],
+      "consumes": [
+        "EP-P70-GLASS-SURFACE",
+        "EP-P68-TRACK-ARTWORK",
+        "EP-P70-MOOD-TAXONOMY",
+        "EP-P70-VIEWER-ROLE",
+        "EP-P68-CREATOR-ALLOWANCE",
+        "EP-P69-KPOST-FOCUS-ROUTE",
+        "EP-P68-MINIPLAYER-SUPPRESS",
+        "EP-P71-EDGE-SWR-READTHROUGH",
+        "EP-P41-WALLET-DIRECT"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/library/presentation/widgets/library_cover_art.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P68-TRACK-ARTWORK",
+          "note": "Replaces broken CachedNetworkImage('asset:...') loading across LibraryCoverArt, PlaylistCoverArt, CollectionArtworkPlaceholder, BeatsVaultView, and VaultStorageModal with VhunambiTrackArtwork"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/library/presentation/views/library_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P70-GLASS-SURFACE",
+          "note": "Wraps Asset Vault in VhunambiAmbientMeshBackdrop and VhunambiGlassSurface with enableLiveBlur: false on repeating list/grid tiles for 60 FPS Android rendering"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/track/presentation/providers/track_providers.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P70-VIEWER-ROLE",
+          "note": "Hydrates LibraryTrack.creatorId, creatorHandle, moodId, bpm, description, and allowOpenStemsRemix directly into TrackDetailNotifier so owned vault songs deterministically resolve ViewerRole.owner"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/library/presentation/widgets/library_app_bar.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P68-CREATOR-ALLOWANCE",
+          "note": "Replaces dead static '10 songs left' constant with live creatorAllowanceProvider pill in LibraryAppBar and embeds 10/10 monthly allowance card inside CreatorWalletDeck"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/profile/presentation/views/owner_profile_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P68-MINIPLAYER-SUPPRESS",
+          "note": "Ref-counts pushedFullScreenOverlayCountProvider in initState/dispose matching ArtistProfileView so MiniPlayerHost never overlaps OwnerProfileView"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/profile/presentation/views/owner_profile_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P69-KPOST-FOCUS-ROUTE",
+          "note": "Mounts live Owner Kinetic Posts shelf navigating directly to KineticPostFocusView(postId, initialPost)"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/profile/presentation/widgets/creator_wallet_deck.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P41-WALLET-DIRECT",
+          "note": "Reconciles legacy /api/wallet/summary catalog note with active GET /api/creators/:id/wallet + creatorWalletProvider and adds live creatorAllowanceProvider card inside CreatorWalletDeck"
+        },
+        {
+          "from": "apps/vhunambi_api/src/routes/library_routes.ts",
+          "relation": "CONSUMES",
+          "to": "EP-P71-EDGE-SWR-READTHROUGH",
+          "note": "Extends 12s domain-scoped SWR and awaited critical write-through to library_routes, playlist_routes, and marketplace_routes under EP-P72-VAULT-CLOUD-SWR"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/beats/presentation/views/beats_vault_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P72-BUYER-LICENSES-HTTP",
+          "note": "Hydrates remote buyer beat licenses from GET /api/marketplace/licenses/:buyerId into Licensed Beats tab"
+        }
+      ],
+      "breakthroughs": [
+        "Enriching LibraryTrack with explicit creatorId, creatorHandle, moodId, bpm, description, and allowOpenStemsRemix closes the subtle ViewerRole.visitor lockout caused by guessing ownership from display name strings when opening owned songs from LibraryView or OwnerProfileView.",
+        "Routing LibraryCoverArt, PlaylistCoverArt, CollectionArtworkPlaceholder, PinnedSpotlightCard, BeatsVaultView, and VaultStorageModal through VhunambiTrackArtwork eliminates every failed CachedNetworkImage('asset:...') load on seeded vault songs and playlists while preserving deterministic genre artwork.",
+        "Extending Phase 71's 12-second domain-scoped SWR pattern and awaited write-throughs to library_routes, playlist_routes, and marketplace_routes (with server.ts hasScopedReadThrough bypass) closes the remaining multi-isolate staleness gap for personal vaults, playlists, and purchased beat licenses."
+      ],
+      "gotchas": [
+        "library_view_test.dart#L39, #L73 asserts find.text('10 songs left') and #L79 asserts find.byIcon(PhosphorIconsRegular.sparkle) == findsOneWidget on mobile; _AllowanceBalancePill in LibraryAppBar MUST use PhosphorIconsFill.musicNotes (never PhosphorIconsRegular.sparkle) and keep the '${remaining} songs left' format.",
+        "AppColors defines surfaceElevatedOf, surfaceSecondaryOf, surfaceModalOf, borderSubtleOf, textPrimaryOf, and textSecondaryOf ONLY — there is no textTertiaryOf(context); always use AppColors.textSecondaryOf(context).",
+        "Purging STD-UIUX-001 raw Unicode emojis and hardcoded track_own_01 ('ZaYN') in OwnerProfileView, CreatorWalletDeck, and AvatarCustomizationModal requires targeted test realignments in owner_profile_view_test.dart, creator_wallet_deck_test.dart, and avatar_customization_modal_test.dart during M72.4.",
+        "Every new async SWR/write helper added to EdgeIsolateDatabaseEngine must be mirrored with an identical signature on VhunambiDatabase (vhunambi_db.ts) or tsc --noEmit fails on vhunambiDb.",
+        "Keep enableLiveBlur: false on every VhunambiGlassSurface mounted inside ListView, GridView, or repeating profile studio cards to preserve the 60 FPS Android budget."
+      ]
+    },
+    {
+      "phase_id": "P73",
+      "phase_order": 73,
+      "memory_key": "MEM-P73-KPOST-CHROMATIC-REACTIONS-HYGIENE",
+      "title": "Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
+      "status": "completed",
+      "completed_at": "2026-11-21",
+      "memory_file": "docs/phases/phase_73_kinetic_post_focus_chromatic_reactions_and_hygiene/memory.md",
+      "predecessor_keys": [
+        "MEM-P68-HOME-MAIN-ROOM",
+        "MEM-P69-KINETIC-POST-FOCUS",
+        "MEM-P70-SONG-COCKPIT-VISITOR-PROFILE",
+        "MEM-P71-CLOUD-SPINE-CONNECTOME-CLOSURE",
+        "MEM-P72-ASSET-VAULT-OWNER-PROFILE-GLASS"
+      ],
+      "concept_hubs": [
+        "social_graph",
+        "media_artwork",
+        "mood_taxonomy",
+        "ui_surface_std",
+        "identity_role",
+        "audio_transport",
+        "sync_outbox"
+      ],
+      "endpoints_defined": [
+        "EP-P73-POST-CHROMATIC-SYNTH",
+        "EP-P73-MULTI-REACTIONS-API",
+        "EP-P73-GIF-STICKER-MEDIA",
+        "EP-P73-PROFILE-ROUTER"
+      ],
+      "consumes": [
+        "EP-P70-GLASS-SURFACE",
+        "EP-P70-MOOD-TAXONOMY",
+        "EP-P70-VIEWER-ROLE",
+        "EP-P68-TRACK-ARTWORK",
+        "EP-P69-KPOST-FOCUS-ROUTE",
+        "EP-P69-THREADED-COMMENTS",
+        "EP-P68-MINIPLAYER-SUPPRESS",
+        "EP-P71-EDGE-SWR-READTHROUGH"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/explore/presentation/views/kinetic_post_focus_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P73-POST-CHROMATIC-SYNTH",
+          "note": "Synthesizes 3-tier dynamic ambient backdrop and AA-clamped glass accent from track mood and cover art"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/explore/presentation/views/kinetic_post_focus_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P73-MULTI-REACTIONS-API",
+          "note": "Renders non-wrapping 4-action focus bar with long-press ReactionTrayOverlay and top-3 vector reaction cluster"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/social/presentation/widgets/threaded_comments_section.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P73-GIF-STICKER-MEDIA",
+          "note": "Adds GIF/Sticker picker trigger, pending media preview chip, media-only comment sending, and inline GIF/sticker tiles"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/core/navigation/profile_navigation_helper.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P70-VIEWER-ROLE",
+          "note": "Prevents self-profile visitor trap by routing ViewerRole.owner to OwnerProfileView"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/main.dart",
+          "relation": "MUTATES",
+          "to": "EP-P68-MINIPLAYER-SUPPRESS",
+          "note": "Clears isSplashActiveProvider post-frame in RootShell.initState so MiniPlayerHost never flashes during SplashView 420ms fade"
+        }
+      ],
+      "breakthroughs": [
+        "Reused bundled palette_generator: 0.3.3+7 with VhunambiMood and a FLUTTER_TEST deterministic bypass to synthesize 3-tier dynamic post worlds with zero APK bloat and zero FakeAsync test hangs.",
+        "Rendered all 6 multi-reactions and 8 Sovereign Cultural Stickers via CustomPainter + PhosphorIconsFill vector badges, maintaining 100% STD-UIUX-001 compliance with zero raw OS Unicode emojis.",
+        "Eliminated the SplashView MiniPlayer bleed by moving isSplashActiveProvider=false from pre-transition SplashView into RootShell.initState post-frame callback, bypassing the above-Navigator ModalRoute blindspot."
+      ],
+      "gotchas": [
+        "Flutter InputDecorator merges global ThemeData.inputDecorationTheme.focusedBorder whenever a TextField declares only border: InputBorder.none without explicit focusedBorder: InputBorder.none.",
+        "EdgeIsolateDatabaseEngine stores boolean socialInteractions in a Set<string>; typed reactions require a companion socialInteractionReactions Map<string, KineticReactionWire> hydrated in syncExploreFromCloud, plus seeding counts.love = legacyLikeCount when reactionCounts is empty so existing likes (e.g. 1,840) are never wiped to 1.",
+        "apps/vhunambi_api uses tsc.cmd --noEmit and standalone tsx test/*.test.ts scripts (NOT vitest), and reactToKineticPostAsync/reactToCommentAsync must pass skipMirror=true into sync mutators so awaitWriteThrough does not double-write to Supabase.",
+        "Clearing hardcoded mock recent searches in RecentSearchesNotifier._initialSearches() hides Key('explore_recent_clear_all') on empty clean installs, requiring realignment of phase29_social_explore_test.dart#L115.",
+        "vhunambi_db.ts runs its top-of-constructor ALTER TABLE block BEFORE CREATE TABLE IF NOT EXISTS social_interactions; new columns on social_interactions must appear both inside CREATE TABLE and in a post-CREATE ALTER TABLE helper to avoid breaking fresh :memory: SQLite test DBs.",
+        "SovereignStickerGraphic must guard height.isFinite (infinite height in GridView) and use a compact FittedBox scale layout below 64dp (mini pending-media composer chip), while Gestured GIF cards require HitTestBehavior.opaque + placeholder box when CachedNetworkImage is loading."
+      ]
     }
   ],
   "endpoints": {
@@ -661,7 +855,7 @@
     "EP-P41-WALLET-DIRECT": {
       "id": "EP-P41-WALLET-DIRECT",
       "kind": "backend_api",
-      "state": "OPEN",
+      "state": "CONNECTED_EXTENSIBLE",
       "origin_phase": "P00_P63",
       "origin_order": 63,
       "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
@@ -671,8 +865,12 @@
       "spec_anchor": "docs/phases/phase_41_creator_sovereign_payouts_and_banking/design.md",
       "code_anchor": "apps/vhunambi_api/src/routes/wallet_routes.ts",
       "summary": "GET /api/wallet/:creatorId & POST /api/wallet/topup direct routes.",
-      "consumers": [],
-      "consumed_by_phases": [],
+      "consumers": [
+        "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR"
+      ],
+      "consumed_by_phases": [
+        "P72"
+      ],
       "open_opportunities": "Consolidate with /api/creators/:id/wallet or wire direct topup/balance callers cleanly"
     },
     "EP-P27-MELODY-PRESETS-PACKS": {
@@ -1017,11 +1215,15 @@
         "P68:horizontal_genre_track_shelf",
         "P68:now_playing_home_card",
         "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul",
-        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul",
+        "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
       ],
       "consumed_by_phases": [
         "P69",
-        "P70"
+        "P70",
+        "P72",
+        "P73"
       ],
       "open_opportunities": "Not yet adopted in TrackDetailView (936 lines, 6 stock Icons.*) or ArtistProfileView (803 lines, 10 stock Icons.*) — prime Phase 70 upgrade"
     },
@@ -1041,10 +1243,12 @@
       "summary": "CreatorAllowanceNotifier consuming GET /api/wallet/allowance with per-tenant Hive prefsBoxKey caching.",
       "consumers": [
         "P68:main_room_header",
-        "P71:Cloudflare Worker Supabase Read/Write-Through Durability, OPEN Connectome Closure (EP-P67, EP-P69, EP-P37, EP-P68) & 100% Green Test Baseline"
+        "P71:Cloudflare Worker Supabase Read/Write-Through Durability, OPEN Connectome Closure (EP-P67, EP-P69, EP-P37, EP-P68) & 100% Green Test Baseline",
+        "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR"
       ],
       "consumed_by_phases": [
-        "P71"
+        "P71",
+        "P72"
       ],
       "open_opportunities": "Mount live 10/10 quota pill inside Studio Compose header and SubscriptionUpgradeModal"
     },
@@ -1065,10 +1269,14 @@
       "consumers": [
         "P68:mini_player_host",
         "P68:home_dashboard_view",
-        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul",
+        "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
       ],
       "consumed_by_phases": [
-        "P70"
+        "P70",
+        "P72",
+        "P73"
       ],
       "open_opportunities": "Reuse inline-player suppression contract for future full-screen focus players (e.g. Song Cockpit) to avoid duplicate transports"
     },
@@ -1135,10 +1343,12 @@
       "consumers": [
         "P69:kinetic_post_focus_view",
         "P69:reels_comment_sheet",
-        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul",
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
       ],
       "consumed_by_phases": [
-        "P70"
+        "P70",
+        "P73"
       ],
       "open_opportunities": "Drop directly into TrackDetailView (Song Cockpit) to replace legacy flat track comments (Phase 70)"
     },
@@ -1160,10 +1370,14 @@
       "consumers": [
         "P69:explore_social_post_card",
         "P69:notification_deep_link_router",
-        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul",
+        "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
       ],
       "consumed_by_phases": [
-        "P70"
+        "P70",
+        "P72",
+        "P73"
       ],
       "open_opportunities": "Open KineticPostFocusView from creator post grids inside ArtistProfileView and OwnerProfileView (Phase 70)"
     },
@@ -1205,9 +1419,14 @@
       "summary": "Dual-theme 3-layer VhunambiGlassSurface & RepaintBoundary-protected VhunambiAmbientMeshBackdrop calibrated for Warm African Daylight (Morning Mist) and Obsidian Night with 60 FPS Android blur guardrails (enableLiveBlur: false default, sigma <= 16.0 opt-in).",
       "consumers": [
         "P70:TrackDetailView",
-        "P70:ArtistProfileView"
+        "P70:ArtistProfileView",
+        "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P72",
+        "P73"
+      ],
       "open_opportunities": "Adopt VhunambiGlassSurface across Home dashboard cards, Explore headers, Notifications drawer, and OwnerProfileView"
     },
     "EP-P70-MOOD-TAXONOMY": {
@@ -1227,9 +1446,14 @@
       "consumers": [
         "P70:TrackSonicTelemetryCard",
         "P70:explore_providers",
-        "P70:explore_routes"
+        "P70:explore_routes",
+        "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P72",
+        "P73"
+      ],
       "open_opportunities": "Power Mood Radio stations, interactive Explore mood pill cross-filtering from TrackDetailView, and Studio mood selector migration"
     },
     "EP-P70-VIEWER-ROLE": {
@@ -1248,9 +1472,14 @@
       "summary": "Fail-closed ViewerRole { owner, visitor } resolver backed by EP-P61-IDENTITY-UTILS isolating paid creator studio controls and personal ownership deeds from outside listeners.",
       "consumers": [
         "P70:TrackDetailView",
-        "P70:TrackHeroSection"
+        "P70:TrackHeroSection",
+        "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P72",
+        "P73"
+      ],
       "open_opportunities": "Reuse ViewerRole across KineticPostFocusView creator moderation actions, Beatstore producer edit gates, and Playlists ownership guards"
     },
     "EP-P71-EDGE-SWR-READTHROUGH": {
@@ -1274,9 +1503,14 @@
         "P71:explore_routes",
         "P71:generation_routes",
         "P71:webhook_routes",
-        "P71:vision_routes"
+        "P71:vision_routes",
+        "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P72",
+        "P73"
+      ],
       "open_opportunities": "Adopt domain-scoped SWR sync helpers in marketplace_routes, playlist_routes, library_routes, and voice_routes for full multi-isolate durability across every Cloudflare Worker endpoint"
     },
     "EP-P71-ATOMIC-QUOTA-RPC": {
@@ -1299,6 +1533,142 @@
       ],
       "consumed_by_phases": [],
       "open_opportunities": "Reuse for future subscription tier quota enforcement (Vision renders, Stem Separation credits) and PayFast upgrade tier unlocks"
+    },
+    "EP-P72-VAULT-CLOUD-SWR": {
+      "id": "EP-P72-VAULT-CLOUD-SWR",
+      "kind": "backend_persistence",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P72",
+      "origin_order": 72,
+      "memory_file": "docs/phases/phase_72_asset_vault_and_owner_profile_glass_overhaul/memory.md",
+      "hubs": [
+        "sync_outbox",
+        "quota_economy"
+      ],
+      "spec_anchor": "docs/phases/phase_72_asset_vault_and_owner_profile_glass_overhaul/design.md#1-pass-1-m721-backend-multi-isolate-swr--awaited-write-through-appsvhunambi_api",
+      "code_anchor": "apps/vhunambi_api/src/db/edge_persistence_bridge.ts",
+      "summary": "Domain-scoped 12s SWR read-through and awaited critical write-through for user_library_sync, playlists, marketplace_assets, and beat_licenses across Cloudflare Worker isolates with canonical creator/buyer ID matching and server.ts hasScopedReadThrough bypass.",
+      "consumers": [
+        "P72:library_routes",
+        "P72:playlist_routes",
+        "P72:marketplace_routes",
+        "P72:server_scoped_bypass"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Extend domain-scoped SWR read-through to voice_routes (voice_models) and social_routes (reels/clips) to complete 100% route-level multi-isolate coverage"
+    },
+    "EP-P72-BUYER-LICENSES-HTTP": {
+      "id": "EP-P72-BUYER-LICENSES-HTTP",
+      "kind": "client_repository",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P72",
+      "origin_order": 72,
+      "memory_file": "docs/phases/phase_72_asset_vault_and_owner_profile_glass_overhaul/memory.md",
+      "hubs": [
+        "sync_outbox",
+        "quota_economy"
+      ],
+      "spec_anchor": "docs/phases/phase_72_asset_vault_and_owner_profile_glass_overhaul/design.md#2-pass-1-m722-client-asset-vault-glass-overhaul-viewerroleowner--buyer-licenses-appsvhunambi_client",
+      "code_anchor": "apps/vhunambi_client/lib/features/marketplace/data/repositories/http_marketplace_repository.dart",
+      "summary": "Client HTTP caller getBuyerLicenses(buyerId) hitting GET /api/marketplace/licenses/:buyerId via buyerLicensesFamilyProvider, hydrating cross-device SovereignLicenseCertificate purchases into BeatsVaultView Licensed Beats and LibraryCategory.licensing.",
+      "consumers": [
+        "P72:BeatsVaultView",
+        "P72:LibraryView_licensing_tab"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Add offline Hive snapshot caching and certificate verification deep-link (GET /api/marketplace/licenses/verify/:certificateId) from licensed beat cards"
+    },
+    "EP-P73-POST-CHROMATIC-SYNTH": {
+      "id": "EP-P73-POST-CHROMATIC-SYNTH",
+      "kind": "ui_primitive",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P73",
+      "origin_order": 73,
+      "memory_file": "docs/phases/phase_73_kinetic_post_focus_chromatic_reactions_and_hygiene/memory.md",
+      "hubs": [
+        "media_artwork",
+        "mood_taxonomy",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_73_kinetic_post_focus_chromatic_reactions_and_hygiene/design.md#32-3-tier-dynamic-chromatic-synthesis-engine-post_chromatic_palette_resolverdart",
+      "code_anchor": "apps/vhunambi_client/lib/core/theme/post_chromatic_palette_resolver.dart",
+      "summary": "3-Tier dynamic chromatic world synthesizer (Mood+Cover -> Cover+Split-Complement -> Brand Fallback) with LRU cache, 150ms extraction guard, FLUTTER_TEST deterministic bypass, and WCAG AA contrast clamping for Light and Dark modes.",
+      "consumers": [
+        "P73:KineticPostFocusView"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Reuse in Phase 74 KineticReelStudioView backdrop tinting and TrackDetailView ambient canvas synthesis"
+    },
+    "EP-P73-MULTI-REACTIONS-API": {
+      "id": "EP-P73-MULTI-REACTIONS-API",
+      "kind": "backend_rest_and_ui",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P73",
+      "origin_order": 73,
+      "memory_file": "docs/phases/phase_73_kinetic_post_focus_chromatic_reactions_and_hygiene/memory.md",
+      "hubs": [
+        "social_graph",
+        "sync_outbox",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_73_kinetic_post_focus_chromatic_reactions_and_hygiene/design.md#2-pass-1-m731-backend-multi-reactions-comment-media--gif-search-proxy",
+      "code_anchor": "apps/vhunambi_api/src/routes/explore_routes.ts",
+      "summary": "6-reaction (like, love, haha, fire, wow, angry) Postgres/SQLite/SWR backend endpoints (POST /api/explore/posts/:id/react, POST /api/explore/comments/:id/react, POST /api/social/comments/:id/react) paired with STD-UIUX-001 custom-vector KineticReactionBadge and long-press ReactionTrayOverlay.",
+      "consumers": [
+        "P73:KineticPostFocusView",
+        "P73:ExploreSocialPostCard",
+        "P73:ThreadedCommentsSection"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Adopt ReactionTrayOverlay and POST /api/social/clips/:id/react inside Phase 74 KineticReelsModal playback V4"
+    },
+    "EP-P73-GIF-STICKER-MEDIA": {
+      "id": "EP-P73-GIF-STICKER-MEDIA",
+      "kind": "backend_rest_and_ui",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P73",
+      "origin_order": 73,
+      "memory_file": "docs/phases/phase_73_kinetic_post_focus_chromatic_reactions_and_hygiene/memory.md",
+      "hubs": [
+        "social_graph",
+        "media_artwork",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_73_kinetic_post_focus_chromatic_reactions_and_hygiene/design.md#51-sovereign-sticker-pack--gifstickerpickersheet",
+      "code_anchor": "apps/vhunambi_client/lib/features/social/presentation/widgets/gif_sticker_picker_sheet.dart",
+      "summary": "Cloudflare Worker Tenor/GIPHY proxy (GET /api/social/gifs/search & /trending with non-500 curated fallback), 8 bundled vector Sovereign Cultural Stickers, and media-only comment persistence (gif_url, sticker_id, media_aspect_ratio).",
+      "consumers": [
+        "P73:StudioReactionComposerBar",
+        "P73:ThreadedCommentsSection"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Extend sticker overlays into Phase 74 KineticReelStudioView canvas stickers and direct creator messaging"
+    },
+    "EP-P73-PROFILE-ROUTER": {
+      "id": "EP-P73-PROFILE-ROUTER",
+      "kind": "navigation_helper",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P73",
+      "origin_order": 73,
+      "memory_file": "docs/phases/phase_73_kinetic_post_focus_chromatic_reactions_and_hygiene/memory.md",
+      "hubs": [
+        "identity_role",
+        "social_graph"
+      ],
+      "spec_anchor": "docs/phases/phase_73_kinetic_post_focus_chromatic_reactions_and_hygiene/design.md#33-unified-self-aware-profile-router--current_user-purge-soc-07",
+      "code_anchor": "apps/vhunambi_client/lib/core/navigation/profile_navigation_helper.dart",
+      "summary": "Single canonical navigateToCreatorProfile() router consuming EP-P70-VIEWER-ROLE to push OwnerProfileView when viewing self and ArtistProfileView when viewing external creators across all 7 social/explore/track/notification entry points.",
+      "consumers": [
+        "P73:ExploreSocialPostCard",
+        "P73:KineticPostFocusView",
+        "P73:KineticReelsModal",
+        "P73:TrackDetailView",
+        "P73:ExploreSearchView",
+        "P73:ExploreDiscoveryDrawerSheet",
+        "P73:NotificationDeepLinkRouter"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Route all Phase 74 Reel creator badges and remix lineage chips through navigateToCreatorProfile()"
     }
   },
   "hub_index": {
@@ -1307,12 +1677,15 @@
         "EP-P61-IDENTITY-UTILS",
         "EP-P58-MKT-VERIFY-PRODUCER",
         "EP-P26-VOICE-CALIBRATION-RECIPE",
-        "EP-P70-VIEWER-ROLE"
+        "EP-P70-VIEWER-ROLE",
+        "EP-P73-PROFILE-ROUTER"
       ],
       "phases": [
         "P00_P63",
         "P69",
-        "P70"
+        "P70",
+        "P72",
+        "P73"
       ]
     },
     "media_artwork": {
@@ -1322,7 +1695,9 @@
         "EP-P68-TRACK-ARTWORK",
         "EP-P68-5-MADONI-BRANDING",
         "EP-P69-KPOST-FOCUS-ROUTE",
-        "EP-P70-GLASS-SURFACE"
+        "EP-P70-GLASS-SURFACE",
+        "EP-P73-POST-CHROMATIC-SYNTH",
+        "EP-P73-GIF-STICKER-MEDIA"
       ],
       "phases": [
         "P64",
@@ -1330,7 +1705,9 @@
         "P68",
         "P68.5",
         "P69",
-        "P70"
+        "P70",
+        "P72",
+        "P73"
       ]
     },
     "quota_economy": {
@@ -1341,14 +1718,17 @@
         "EP-P67-ONBOARDING-NOTIFS",
         "EP-P68-CREATOR-ALLOWANCE",
         "EP-P70-VIEWER-ROLE",
-        "EP-P71-ATOMIC-QUOTA-RPC"
+        "EP-P71-ATOMIC-QUOTA-RPC",
+        "EP-P72-VAULT-CLOUD-SWR",
+        "EP-P72-BUYER-LICENSES-HTTP"
       ],
       "phases": [
         "P00_P63",
         "P67",
         "P68",
         "P70",
-        "P71"
+        "P71",
+        "P72"
       ]
     },
     "audio_transport": {
@@ -1364,7 +1744,9 @@
         "P64",
         "P65",
         "P68",
-        "P70"
+        "P70",
+        "P72",
+        "P73"
       ]
     },
     "mood_taxonomy": {
@@ -1372,12 +1754,15 @@
         "EP-P66-ACESTEP-PROMPT-HYGIENE",
         "EP-P66-LYRICS-REFINE-STORY",
         "EP-P68-MOOD-FRAGMENTED",
-        "EP-P70-MOOD-TAXONOMY"
+        "EP-P70-MOOD-TAXONOMY",
+        "EP-P73-POST-CHROMATIC-SYNTH"
       ],
       "phases": [
         "P66",
         "P68",
-        "P70"
+        "P70",
+        "P72",
+        "P73"
       ]
     },
     "social_graph": {
@@ -1389,13 +1774,18 @@
         "EP-P69-KPOST-FOCUS-ROUTE",
         "EP-P69-POST-COSIGN-REPOST-HTTP",
         "EP-P70-MOOD-TAXONOMY",
-        "EP-P71-EDGE-SWR-READTHROUGH"
+        "EP-P71-EDGE-SWR-READTHROUGH",
+        "EP-P73-MULTI-REACTIONS-API",
+        "EP-P73-GIF-STICKER-MEDIA",
+        "EP-P73-PROFILE-ROUTER"
       ],
       "phases": [
         "P00_P63",
         "P69",
         "P70",
-        "P71"
+        "P71",
+        "P72",
+        "P73"
       ]
     },
     "notifications_bus": {
@@ -1424,14 +1814,19 @@
         "EP-P68-CREATOR-ALLOWANCE",
         "EP-P69-POST-COSIGN-REPOST-HTTP",
         "EP-P71-EDGE-SWR-READTHROUGH",
-        "EP-P71-ATOMIC-QUOTA-RPC"
+        "EP-P71-ATOMIC-QUOTA-RPC",
+        "EP-P72-VAULT-CLOUD-SWR",
+        "EP-P72-BUYER-LICENSES-HTTP",
+        "EP-P73-MULTI-REACTIONS-API"
       ],
       "phases": [
         "P00_P63",
         "P65",
         "P67",
         "P69",
-        "P71"
+        "P71",
+        "P72",
+        "P73"
       ]
     },
     "ui_surface_std": {
@@ -1441,7 +1836,10 @@
         "EP-P68-MINIPLAYER-SUPPRESS",
         "EP-P68-5-MADONI-BRANDING",
         "EP-P69-THREADED-COMMENTS",
-        "EP-P70-GLASS-SURFACE"
+        "EP-P70-GLASS-SURFACE",
+        "EP-P73-POST-CHROMATIC-SYNTH",
+        "EP-P73-MULTI-REACTIONS-API",
+        "EP-P73-GIF-STICKER-MEDIA"
       ],
       "phases": [
         "P00_P63",
@@ -1450,7 +1848,9 @@
         "P68.5",
         "P69",
         "P70",
-        "P71"
+        "P71",
+        "P72",
+        "P73"
       ]
     },
     "ai_synthesis_gpu": {
@@ -1551,7 +1951,8 @@
       "EP-P69-KPOST-FOCUS-ROUTE"
     ],
     "apps/vhunambi_api/src/routes/explore_routes.ts": [
-      "EP-P69-POST-COSIGN-REPOST-HTTP"
+      "EP-P69-POST-COSIGN-REPOST-HTTP",
+      "EP-P73-MULTI-REACTIONS-API"
     ],
     "apps/vhunambi_client/lib/core/widgets/vhunambi_glass_surface.dart": [
       "EP-P70-GLASS-SURFACE"
@@ -1563,10 +1964,23 @@
       "EP-P70-VIEWER-ROLE"
     ],
     "apps/vhunambi_api/src/db/edge_persistence_bridge.ts": [
-      "EP-P71-EDGE-SWR-READTHROUGH"
+      "EP-P71-EDGE-SWR-READTHROUGH",
+      "EP-P72-VAULT-CLOUD-SWR"
     ],
     "supabase/migrations/20261120000001_phase71_schema_parity_and_rpcs.sql": [
       "EP-P71-ATOMIC-QUOTA-RPC"
+    ],
+    "apps/vhunambi_client/lib/features/marketplace/data/repositories/http_marketplace_repository.dart": [
+      "EP-P72-BUYER-LICENSES-HTTP"
+    ],
+    "apps/vhunambi_client/lib/core/theme/post_chromatic_palette_resolver.dart": [
+      "EP-P73-POST-CHROMATIC-SYNTH"
+    ],
+    "apps/vhunambi_client/lib/features/social/presentation/widgets/gif_sticker_picker_sheet.dart": [
+      "EP-P73-GIF-STICKER-MEDIA"
+    ],
+    "apps/vhunambi_client/lib/core/navigation/profile_navigation_helper.dart": [
+      "EP-P73-PROFILE-ROUTER"
     ]
   }
 }
