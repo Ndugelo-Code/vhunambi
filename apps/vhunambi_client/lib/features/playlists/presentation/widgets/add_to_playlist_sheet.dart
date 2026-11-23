@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -17,14 +19,14 @@ class AddToPlaylistSheet extends ConsumerStatefulWidget {
   static Future<void> show(BuildContext context, Track track) {
     return showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       isScrollControlled: true,
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
-        side: BorderSide(color: AppColors.borderSubtle),
+        side: BorderSide(color: AppColors.borderSubtleOf(context)),
       ),
       builder: (_) => AddToPlaylistSheet(track: track),
     );
@@ -98,21 +100,21 @@ class _AddToPlaylistSheetState extends ConsumerState<AddToPlaylistSheet> {
               key: const Key('new_playlist_toggle'),
               onPressed: () => setState(() => _isCreating = !_isCreating),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
-                side: BorderSide(color: AppColors.borderSubtle),
+                foregroundColor: AppColors.textPrimaryOf(context),
+                side: BorderSide(color: AppColors.borderSubtleOf(context)),
                 shape: const RoundedRectangleBorder(
                   borderRadius: AppRadius.pillBorder,
                 ),
               ),
-              icon: const Icon(
-                Icons.add_rounded,
+              icon: const PhosphorIcon(
+                PhosphorIconsRegular.plus,
                 size: 16,
                 color: AppColors.brandPrimary,
               ),
               label: Text(
                 'Create New Playlist',
                 style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.textPrimary,
+                  color: AppColors.textPrimaryOf(context),
                 ),
               ),
             ),
@@ -186,8 +188,8 @@ class _SheetHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(
-          Icons.playlist_add_rounded,
+        const PhosphorIcon(
+          AppIcons.playlist,
           size: 20,
           color: AppColors.brandPrimary,
         ),
@@ -196,12 +198,19 @@ class _SheetHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Add to Playlist', style: AppTypography.titleMedium),
+              Text(
+                'Add to Playlist',
+                style: AppTypography.titleMedium.copyWith(
+                  color: AppColors.textPrimaryOf(context),
+                ),
+              ),
               Text(
                 trackTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.caption,
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondaryOf(context),
+                ),
               ),
             ],
           ),
@@ -220,27 +229,30 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textSecondary = AppColors.textSecondaryOf(context);
     final border = OutlineInputBorder(
       borderRadius: AppRadius.pillBorder,
-      borderSide: BorderSide(color: AppColors.borderSubtle),
+      borderSide: BorderSide(color: AppColors.borderSubtleOf(context)),
     );
 
     return TextField(
       key: const Key('playlist_search'),
       controller: controller,
       onChanged: onChanged,
-      style: AppTypography.bodySmall.copyWith(color: AppColors.textPrimary),
+      style: AppTypography.bodySmall.copyWith(
+        color: AppColors.textPrimaryOf(context),
+      ),
       decoration: InputDecoration(
         isDense: true,
         hintText: 'Search playlists...',
-        hintStyle: AppTypography.bodySmall,
-        prefixIcon: Icon(
-          Icons.search_rounded,
+        hintStyle: AppTypography.bodySmall.copyWith(color: textSecondary),
+        prefixIcon: PhosphorIcon(
+          PhosphorIconsRegular.magnifyingGlass,
           size: 18,
-          color: AppColors.textTertiary,
+          color: textSecondary.withValues(alpha: 0.72),
         ),
         filled: true,
-        fillColor: AppColors.surfaceSecondary,
+        fillColor: AppColors.surfaceSecondaryOf(context),
         border: border,
         enabledBorder: border,
       ),
@@ -323,8 +335,11 @@ class _PlaylistCheckboxTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final borderSubtle = AppColors.borderSubtleOf(context);
     return Material(
-      color: AppColors.surfaceElevated,
+      color: AppColors.surfaceElevatedOf(context),
       borderRadius: AppRadius.cardBorder,
       child: InkWell(
         key: Key('playlist_tile_${playlist.id}'),
@@ -337,7 +352,7 @@ class _PlaylistCheckboxTile extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             borderRadius: AppRadius.cardBorder,
-            border: Border.all(color: AppColors.borderSubtle),
+            border: Border.all(color: borderSubtle),
           ),
           child: Row(
             children: [
@@ -345,11 +360,11 @@ class _PlaylistCheckboxTile extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
+                  color: AppColors.surfaceSecondaryOf(context),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.album_rounded,
+                child: const PhosphorIcon(
+                  AppIcons.releasesOutline,
                   size: 16,
                   color: AppColors.brandPrimary,
                 ),
@@ -364,13 +379,15 @@ class _PlaylistCheckboxTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
+                        color: textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
                       playlist.trackCountLabel,
-                      style: AppTypography.caption,
+                      style: AppTypography.caption.copyWith(
+                        color: textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -381,7 +398,7 @@ class _PlaylistCheckboxTile extends StatelessWidget {
                 onChanged: (_) => onToggle(),
                 activeColor: AppColors.brandPrimary,
                 checkColor: AppColors.brandContrast,
-                side: BorderSide(color: AppColors.borderActive),
+                side: BorderSide(color: borderSubtle),
               ),
             ],
           ),
@@ -399,27 +416,28 @@ class _EmptyPlaylistPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textSecondary = AppColors.textSecondaryOf(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
       child: Column(
         children: [
-          Icon(
-            Icons.queue_music_rounded,
+          PhosphorIcon(
+            PhosphorIconsRegular.queue,
             size: 28,
-            color: AppColors.textTertiary,
+            color: textSecondary.withValues(alpha: 0.72),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
             query.isEmpty ? 'No playlists yet' : 'No playlists match "$query"',
             style: AppTypography.bodySmall.copyWith(
-              color: AppColors.textPrimary,
+              color: AppColors.textPrimaryOf(context),
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             'Create your first playlist above.',
-            style: AppTypography.caption,
+            style: AppTypography.caption.copyWith(color: textSecondary),
           ),
         ],
       ),

@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/design_system/services/haptics_service.dart';
-import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
-import '../../../../core/design_system/tokens/design_enums.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/services/haptics_service.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../offline/presentation/providers/offline_providers.dart';
 import '../../../playlists/presentation/widgets/add_to_playlist_sheet.dart';
 import '../../domain/models/player_state.dart';
 import '../providers/player_provider.dart';
+import 'player_chromatic_resolver_mixin.dart';
 import 'queue_drawer.dart';
 import 'waveform_bars.dart';
 
-class DesktopTransportBar extends ConsumerWidget {
+class DesktopTransportBar extends ConsumerStatefulWidget {
   final VoidCallback? onExpand;
 
   const DesktopTransportBar({
@@ -26,7 +25,14 @@ class DesktopTransportBar extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DesktopTransportBar> createState() =>
+      _DesktopTransportBarState();
+}
+
+class _DesktopTransportBarState extends ConsumerState<DesktopTransportBar>
+    with PlayerChromaticPaletteMixin<DesktopTransportBar> {
+  @override
+  Widget build(BuildContext context) {
     final playerState = ref.watch(playerStateProvider);
     final track = playerState.currentTrack;
 
@@ -35,16 +41,18 @@ class DesktopTransportBar extends ConsumerWidget {
     }
 
     final notifier = ref.read(playerStateProvider.notifier);
-    final genre = _mapStringToGenre(track.genre);
-    final extension = VhunambiThemeExtension.of(context);
-    final accent = extension.genreAccent(genre);
+    final palette = resolvePlayerChromaticPalette(context, track);
+    final accent = palette.accent;
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final borderSubtle = AppColors.borderSubtleOf(context);
 
     return Container(
       height: 72,
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.surfaceElevatedOf(context),
         border: Border(
-          top: BorderSide(color: AppColors.borderSubtle, width: 1),
+          top: BorderSide(color: palette.glassBorderTint, width: 1),
         ),
       ),
       child: Column(
@@ -68,7 +76,7 @@ class DesktopTransportBar extends ConsumerWidget {
             child: LinearProgressIndicator(
               value: playerState.progressRatio,
               minHeight: 2.5,
-              backgroundColor: AppColors.borderSubtle,
+              backgroundColor: borderSubtle,
               valueColor: AlwaysStoppedAnimation<Color>(accent),
             ),
           ),
@@ -79,14 +87,15 @@ class DesktopTransportBar extends ConsumerWidget {
               child: Row(
                 children: [
                   // 1. Leading 48x48 Album Artwork
-                  Container(
+                  VhunambiTrackArtwork(
+                    key: const Key('desktop_transport_artwork'),
+                    coverUrl: track.coverUrl,
+                    genre: track.genre,
+                    trackId: track.id,
                     width: 48,
                     height: 48,
-                    decoration: BoxDecoration(
-                      gradient: AppGradients.forGenre(track.genre),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const PhosphorIcon(AppIcons.piano, color: Colors.white, size: 26),
+                    borderRadius: BorderRadius.circular(8),
+                    badgeIconSize: 22,
                   ),
                   const SizedBox(width: 14),
 
@@ -100,13 +109,14 @@ class DesktopTransportBar extends ConsumerWidget {
                         style: AppTypography.bodyLarge.copyWith(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
+                          color: textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${track.genre} • ${playerState.formattedPosition} / ${playerState.formattedDuration}',
                         style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
+                          color: textSecondary,
                           fontSize: 12,
                         ),
                       ),
@@ -127,7 +137,7 @@ class DesktopTransportBar extends ConsumerWidget {
                   Semantics(
                     label: 'Skip previous track',
                     child: IconButton(
-                      icon: const PhosphorIcon(AppIcons.skipBack, color: Colors.white, size: 24),
+                      icon: PhosphorIcon(AppIcons.skipBack, color: textPrimary, size: 24),
                       onPressed: notifier.skipPrevious,
                       tooltip: 'Previous Track',
                     ),
@@ -144,11 +154,11 @@ class DesktopTransportBar extends ConsumerWidget {
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
-                        icon: Icon(
+                        icon: PhosphorIcon(
                           playerState.isPlaying
                               ? AppIcons.pause
                               : AppIcons.play,
-                          color: _contrastTextColor(accent),
+                          color: palette.onAccent,
                           size: 24,
                         ),
                         padding: EdgeInsets.zero,
@@ -163,7 +173,7 @@ class DesktopTransportBar extends ConsumerWidget {
                   Semantics(
                     label: 'Skip next track',
                     child: IconButton(
-                      icon: const PhosphorIcon(AppIcons.skipForward, color: Colors.white, size: 24),
+                      icon: PhosphorIcon(AppIcons.skipForward, color: textPrimary, size: 24),
                       onPressed: notifier.skipNext,
                       tooltip: 'Next Track',
                     ),
@@ -175,11 +185,9 @@ class DesktopTransportBar extends ConsumerWidget {
                     label: playerState.isShuffle ? 'Shuffle on' : 'Shuffle off',
                     child: IconButton(
                       key: const Key('transport_shuffle_button'),
-                      icon: Icon(
+                      icon: PhosphorIcon(
                         AppIcons.shuffle,
-                        color: playerState.isShuffle
-                            ? accent
-                            : AppColors.textSecondary,
+                        color: playerState.isShuffle ? accent : textSecondary,
                         size: 20,
                       ),
                       onPressed: () {
@@ -197,13 +205,11 @@ class DesktopTransportBar extends ConsumerWidget {
                             ? 'Repeat all'
                             : 'Repeat off',
                     child: IconButton(
-                      icon: Icon(
-                        playerState.repeatMode == AudioRepeatMode.one
-                            ? AppIcons.repeat
-                            : AppIcons.repeat,
+                      icon: PhosphorIcon(
+                        AppIcons.repeat,
                         color: playerState.repeatMode != AudioRepeatMode.off
                             ? accent
-                            : AppColors.textTertiary,
+                            : textSecondary.withValues(alpha: 0.65),
                         size: 20,
                       ),
                       onPressed: notifier.cycleRepeatMode,
@@ -213,7 +219,11 @@ class DesktopTransportBar extends ConsumerWidget {
 
                   PopupMenuButton<double>(
                     tooltip: 'Playback Speed',
-                    icon: Icon(Icons.speed_rounded, color: AppColors.textSecondary, size: 20),
+                    icon: PhosphorIcon(
+                      PhosphorIconsRegular.gauge,
+                      color: textSecondary,
+                      size: 20,
+                    ),
                     onSelected: notifier.setPlaybackSpeed,
                     itemBuilder: (context) => [
                       const PopupMenuItem(value: 0.75, child: Text('0.75x')),
@@ -246,19 +256,20 @@ class DesktopTransportBar extends ConsumerWidget {
                                   color: accent,
                                 ),
                               )
-                            : Icon(
+                            : PhosphorIcon(
                                 isOffline ? AppIcons.checkCircle : AppIcons.download,
-                                color: isOffline ? accent : AppColors.textSecondary,
+                                color: isOffline ? accent : textSecondary,
                                 size: 20,
                               ),
                         onPressed: () {
+                          final snackBg = AppColors.surfaceModalOf(context);
                           if (libraryTrack != null) {
                             if (!isOffline && !isDownloading) {
                               ref.read(downloadManagerProvider.notifier).downloadTrack(libraryTrack);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('Downloading "${track.title}" for offline playback...'),
-                                  backgroundColor: AppColors.surfaceModal,
+                                  backgroundColor: snackBg,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
@@ -266,7 +277,7 @@ class DesktopTransportBar extends ConsumerWidget {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('"${track.title}" is saved offline in your vault.'),
-                                  backgroundColor: AppColors.surfaceModal,
+                                  backgroundColor: snackBg,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
@@ -275,7 +286,7 @@ class DesktopTransportBar extends ConsumerWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Add "${track.title}" to library to enable offline download.'),
-                                backgroundColor: AppColors.surfaceModal,
+                                backgroundColor: snackBg,
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
@@ -295,11 +306,9 @@ class DesktopTransportBar extends ConsumerWidget {
                           .any((t) => t.id == track.id && t.isFavorite);
                       return IconButton(
                         key: const Key('transport_favorite_button'),
-                        icon: Icon(
-                          isFavorite
-                              ? AppIcons.heart
-                              : AppIcons.heartOutline,
-                          color: isFavorite ? accent : AppColors.textSecondary,
+                        icon: PhosphorIcon(
+                          isFavorite ? AppIcons.heart : AppIcons.heartOutline,
+                          color: isFavorite ? accent : textSecondary,
                           size: 20,
                         ),
                         tooltip: isFavorite
@@ -317,11 +326,15 @@ class DesktopTransportBar extends ConsumerWidget {
 
                   IconButton(
                     key: const Key('transport_add_to_playlist_button'),
-                    icon: Icon(Icons.playlist_add_rounded, color: AppColors.textSecondary, size: 22),
+                    icon: PhosphorIcon(
+                      AppIcons.playlist,
+                      color: textSecondary,
+                      size: 20,
+                    ),
                     onPressed: () {
-                      final track = ref.read(playerStateProvider).currentTrack;
-                      if (track != null) {
-                        AddToPlaylistSheet.show(context, track);
+                      final active = ref.read(playerStateProvider).currentTrack;
+                      if (active != null) {
+                        AddToPlaylistSheet.show(context, active);
                       }
                     },
                     tooltip: 'Add to Playlist',
@@ -329,7 +342,11 @@ class DesktopTransportBar extends ConsumerWidget {
 
                   IconButton(
                     key: const Key('transport_queue_button'),
-                    icon: Icon(Icons.queue_music_rounded, color: AppColors.textSecondary, size: 20),
+                    icon: PhosphorIcon(
+                      PhosphorIconsRegular.queue,
+                      color: textSecondary,
+                      size: 20,
+                    ),
                     onPressed: () => QueueDrawer.show(context),
                     tooltip: 'Queue Drawer',
                   ),
@@ -337,7 +354,7 @@ class DesktopTransportBar extends ConsumerWidget {
                   const SizedBox(width: 16),
 
                   // 5. Volume Slider & Window Controls
-                  PhosphorIcon(AppIcons.volumeHigh, color: AppColors.textSecondary, size: 20),
+                  PhosphorIcon(AppIcons.volumeHigh, color: textSecondary, size: 20),
                   SizedBox(
                     width: 90,
                     child: SliderTheme(
@@ -345,7 +362,7 @@ class DesktopTransportBar extends ConsumerWidget {
                         trackHeight: 3,
                         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                         activeTrackColor: accent,
-                        inactiveTrackColor: AppColors.borderSubtle,
+                        inactiveTrackColor: borderSubtle,
                         thumbColor: accent,
                         overlayColor: accent.withAlpha(30),
                       ),
@@ -358,13 +375,17 @@ class DesktopTransportBar extends ConsumerWidget {
                   const SizedBox(width: 10),
 
                   IconButton(
-                    icon: PhosphorIcon(AppIcons.caretUp, color: AppColors.textSecondary, size: 20),
-                    onPressed: onExpand,
+                    icon: PhosphorIcon(AppIcons.caretUp, color: textSecondary, size: 20),
+                    onPressed: widget.onExpand,
                     tooltip: 'Expand Cockpit',
                   ),
 
                   IconButton(
-                    icon: PhosphorIcon(AppIcons.close, color: AppColors.textTertiary, size: 18),
+                    icon: PhosphorIcon(
+                      AppIcons.close,
+                      color: textSecondary.withValues(alpha: 0.72),
+                      size: 18,
+                    ),
                     onPressed: notifier.dismiss,
                     tooltip: 'Dismiss Player',
                   ),
@@ -375,33 +396,5 @@ class DesktopTransportBar extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  /// Maps a free-form [genre] string from [Track] to a
-  /// [Genre] enum for the design system token registry.
-  ///
-  /// Unknown genres fall back to [Genre.amapiano].
-  Genre _mapStringToGenre(String genre) {
-    final normalized = genre.trim().toLowerCase();
-    return switch (normalized) {
-      'amapiano' => Genre.amapiano,
-      'afro house' => Genre.afroHouse,
-      'afrohouse' => Genre.afroHouse,
-      'gqom' => Genre.gqom,
-      'kwaito' => Genre.kwaito,
-      'afro pop' => Genre.afroPop,
-      'afropop' => Genre.afroPop,
-      'afrobeats' => Genre.afroPop,
-      'afro beats' => Genre.afroPop,
-      'maskandi' => Genre.maskandi,
-      'hip hop' => Genre.hipHop,
-      'hiphop' => Genre.hipHop,
-      'gospel' => Genre.gospel,
-      _ => Genre.amapiano,
-    };
-  }
-
-  Color _contrastTextColor(Color background) {
-    return background.computeLuminance() > 0.5 ? Colors.black : Colors.white;
   }
 }

@@ -133,6 +133,11 @@ const ALLOWED_SOCIAL_MEDIA_MIMES: Record<string, string> = {
   'image/webp': 'webp',
   'audio/mpeg': 'mp3',
   'audio/mp4': 'm4a',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/wave': 'wav',
+  'audio/aac': 'aac',
+  'audio/ogg': 'ogg',
 };
 
 // POST /api/social/media/upload — authenticated R2 media upload for Reels Studio v4 (REQ-P74-BE-04)

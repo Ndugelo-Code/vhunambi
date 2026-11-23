@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../profile/domain/models/creator_dna_node.dart';
 import '../providers/onboarding_providers.dart';
 
@@ -235,19 +236,20 @@ class _CreatorDnaHelixFinaleState extends ConsumerState<CreatorDnaHelixFinale>
               icon: const PhosphorIcon(
                 PhosphorIconsBold.sparkle,
                 size: 20,
-                color: Colors.white,
+                color: AppColors.brandContrast,
               ),
               label: Text(
                 'Activate My Creator DNA',
                 style: AppTypography.titleMedium.copyWith(
                   fontWeight: FontWeight.w900,
-                  color: Colors.white,
+                  color: AppColors.brandContrast,
                   letterSpacing: 0.5,
                   fontSize: 15,
                 ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.brandPrimary,
+                foregroundColor: AppColors.brandContrast,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(25),
                 ),
@@ -278,15 +280,15 @@ class _CreatorDnaHelixFinaleState extends ConsumerState<CreatorDnaHelixFinale>
           color: isSelected
               ? node.accentColor.withValues(alpha: 0.22)
               : (node.isSequenced
-                  ? AppColors.surfaceElevated
-                  : AppColors.surfaceSecondary),
+                    ? AppColors.surfaceElevatedOf(context)
+                    : AppColors.surfaceSecondaryOf(context)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? node.accentColor
                 : (node.isSequenced
-                    ? node.accentColor.withValues(alpha: 0.4)
-                    : AppColors.borderSubtle),
+                      ? node.accentColor.withValues(alpha: 0.4)
+                      : AppColors.borderSubtleOf(context)),
             width: isSelected ? 1.8 : 1.0,
           ),
         ),
@@ -299,8 +301,8 @@ class _CreatorDnaHelixFinaleState extends ConsumerState<CreatorDnaHelixFinale>
               color: isSelected
                   ? node.accentColor
                   : (node.isSequenced
-                      ? node.accentColor.withValues(alpha: 0.8)
-                      : AppColors.textTertiary),
+                        ? node.accentColor.withValues(alpha: 0.8)
+                        : AppColors.textSecondaryOf(context)),
             ),
             const SizedBox(width: 4),
             Text(
@@ -311,8 +313,8 @@ class _CreatorDnaHelixFinaleState extends ConsumerState<CreatorDnaHelixFinale>
                 color: isSelected
                     ? node.accentColor
                     : (node.isSequenced
-                        ? AppColors.textPrimary
-                        : AppColors.textTertiary),
+                          ? AppColors.textPrimaryOf(context)
+                          : AppColors.textSecondaryOf(context)),
               ),
             ),
             if (!node.isSequenced) ...[
@@ -320,7 +322,7 @@ class _CreatorDnaHelixFinaleState extends ConsumerState<CreatorDnaHelixFinale>
               PhosphorIcon(
                 PhosphorIconsBold.lock,
                 size: 10,
-                color: AppColors.textTertiary,
+                color: AppColors.textSecondaryOf(context),
               ),
             ],
           ],
@@ -330,25 +332,16 @@ class _CreatorDnaHelixFinaleState extends ConsumerState<CreatorDnaHelixFinale>
   }
 
   Widget _buildNodeInspectorCard(CreatorDnaNode node, bool isDark) {
-    return Container(
+    return VhunambiGlassSurface(
       key: const Key('dna_node_inspector_card'),
+      variant: VhunambiGlassVariant.card,
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF15151D) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: node.accentColor.withValues(alpha: 0.45),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: node.accentColor.withValues(alpha: 0.12),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
+      borderRadius: BorderRadius.circular(14),
+      enableLiveBlur: false,
+      tintAccent: node.accentColor,
+      borderColorOverride: node.accentColor.withValues(alpha: 0.45),
+      borderWidth: 1.2,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -390,7 +383,7 @@ class _CreatorDnaHelixFinaleState extends ConsumerState<CreatorDnaHelixFinale>
                       style: AppTypography.titleSmall.copyWith(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: AppColors.textPrimary,
+                        color: AppColors.textPrimaryOf(context),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -458,22 +451,45 @@ class _CreatorDnaHelixFinaleState extends ConsumerState<CreatorDnaHelixFinale>
             ],
           ),
           const SizedBox(height: 4),
-          // Description / Quest Instruction
-          Text(
-            node.isSequenced
-                ? node.description
-                : '🔒 Quest: ${node.questInstruction}',
-            style: AppTypography.bodySmall.copyWith(
-              fontSize: 11,
-              color: node.isSequenced
-                  ? AppColors.textSecondary
-                  : AppColors.brandPrimary,
-              fontWeight:
-                  node.isSequenced ? FontWeight.normal : FontWeight.w600,
+          // Description / Quest Instruction (STD-UIUX-001: zero raw emoji)
+          if (node.isSequenced)
+            Text(
+              node.description,
+              style: AppTypography.bodySmall.copyWith(
+                fontSize: 11,
+                color: AppColors.textSecondaryOf(context),
+                fontWeight: FontWeight.normal,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: PhosphorIcon(
+                    PhosphorIconsBold.lock,
+                    size: 12,
+                    color: AppColors.brandPrimary,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'Quest: ${node.questInstruction}',
+                    style: AppTypography.bodySmall.copyWith(
+                      fontSize: 11,
+                      color: AppColors.brandPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
         ],
       ),
     );
@@ -589,7 +605,9 @@ class _CreatorDnaHelixPainter extends CustomPainter {
             rail2Color.withValues(alpha: alpha * 0.7),
           ],
         ).createShader(Rect.fromPoints(rung.p1, rung.p2))
-        ..strokeWidth = rung.node.isSequenced ? (1.8 * normDepth) : (1.0 * normDepth);
+        ..strokeWidth = rung.node.isSequenced
+            ? (1.8 * normDepth)
+            : (1.0 * normDepth);
 
       canvas.drawLine(rung.p1, rung.p2, _strandPaint);
       _strandPaint.shader = null;

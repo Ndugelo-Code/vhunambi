@@ -141,6 +141,7 @@ class TrackDetailEntity {
   final String prompt;
   final StemSeparationState stemState;
   final String? coverUrl;
+  final String? audioUrl;
   final String description;
   final DateTime? createdAt;
   final int bpm;
@@ -173,6 +174,7 @@ class TrackDetailEntity {
     this.prompt = '',
     this.stemState = const StemSeparationState(),
     this.coverUrl,
+    this.audioUrl,
     this.description = '',
     this.createdAt,
     this.bpm = 113,
@@ -213,6 +215,7 @@ class TrackDetailEntity {
     String? prompt,
     StemSeparationState? stemState,
     String? coverUrl,
+    String? audioUrl,
     String? description,
     DateTime? createdAt,
     int? bpm,
@@ -239,6 +242,7 @@ class TrackDetailEntity {
       prompt: prompt ?? this.prompt,
       stemState: stemState ?? this.stemState,
       coverUrl: coverUrl ?? this.coverUrl,
+      audioUrl: audioUrl ?? this.audioUrl,
       description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
       bpm: bpm ?? this.bpm,

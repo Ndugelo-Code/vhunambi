@@ -1,33 +1,16 @@
 import 'package:flutter/foundation.dart';
 
 /// Explore discovery sub-navigation tabs (REQ-EXP-02).
-enum ExploreTab {
-  discover,
-  forYou,
-  following,
-}
+enum ExploreTab { discover, forYou, following }
 
 /// Catalog ordering applied by the Explore filter engine (REQ-EXP-08).
-enum ExploreSortBy {
-  newest,
-  mostLiked,
-}
+enum ExploreSortBy { newest, mostLiked }
 
 /// In-modal TikTok filter tabs for Kinetic Reels (REQ-EXP-REEL-TABS-01).
-enum ReelFeedTab {
-  trending,
-  forYou,
-  following,
-  newest,
-}
+enum ReelFeedTab { trending, forYou, following, newest }
 
 /// Category tabs for the dedicated TikTok search view (REQ-EXP-SEARCH-05).
-enum ExploreSearchCategory {
-  top,
-  songs,
-  reels,
-  creators,
-}
+enum ExploreSearchCategory { top, songs, reels, creators }
 
 /// Public creator identity rendered by the Explore Featured Creators deck.
 /// Reference: `docs/phases/phase_05_explore_feed/design.md` §1.2
@@ -97,15 +80,15 @@ class CreatorProfile {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        name,
-        handle,
-        initials,
-        trackCount,
-        avatarUrl,
-        Object.hashAll(primaryGenres),
-        isVerified,
-      );
+    id,
+    name,
+    handle,
+    initials,
+    trackCount,
+    avatarUrl,
+    Object.hashAll(primaryGenres),
+    isVerified,
+  );
 }
 
 /// Immutable mood chip descriptor: emoji-tagged [label] + filter [value].
@@ -136,18 +119,18 @@ const List<String> exploreGenreCatalog = [
   'Afro-Arabic',
 ];
 
-/// The 10 emoji-tagged mood filter chips (REQ-EXP-08).
+/// The 10 curated mood filter chips (REQ-EXP-08 / STD-UIUX-001 emoji-free).
 const List<ExploreMoodOption> exploreMoodCatalog = [
-  ExploreMoodOption('😊 Uplifting', 'Uplifting'),
-  ExploreMoodOption('🌧️ Melancholic', 'Melancholic'),
-  ExploreMoodOption('⚡ Energetic', 'Energetic'),
-  ExploreMoodOption('❤️ Romantic', 'Romantic'),
-  ExploreMoodOption('🕊️ Peaceful', 'Peaceful'),
-  ExploreMoodOption('🔥 Angry', 'Angry'),
-  ExploreMoodOption('📻 Nostalgic', 'Nostalgic'),
-  ExploreMoodOption('🌙 Mysterious', 'Mysterious'),
-  ExploreMoodOption('🎉 Party', 'Party'),
-  ExploreMoodOption('🖤 Dark', 'Dark'),
+  ExploreMoodOption('Uplifting', 'Uplifting'),
+  ExploreMoodOption('Melancholic', 'Melancholic'),
+  ExploreMoodOption('Energetic', 'Energetic'),
+  ExploreMoodOption('Romantic', 'Romantic'),
+  ExploreMoodOption('Peaceful', 'Peaceful'),
+  ExploreMoodOption('Angry', 'Angry'),
+  ExploreMoodOption('Nostalgic', 'Nostalgic'),
+  ExploreMoodOption('Mysterious', 'Mysterious'),
+  ExploreMoodOption('Party', 'Party'),
+  ExploreMoodOption('Dark', 'Dark'),
 ];
 
 /// South African official languages supported by the language selector.

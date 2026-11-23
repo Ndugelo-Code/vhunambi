@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -24,8 +25,9 @@ class TrackCard extends ConsumerWidget {
       playerStateProvider.select((s) => s.currentTrack?.id == track.id),
     );
     final isPlaying = ref.watch(
-      playerStateProvider
-          .select((s) => s.isPlaying && s.currentTrack?.id == track.id),
+      playerStateProvider.select(
+        (s) => s.isPlaying && s.currentTrack?.id == track.id,
+      ),
     );
 
     return InkWell(
@@ -70,10 +72,10 @@ class TrackCard extends ConsumerWidget {
                               color: AppColors.brandPrimary,
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(
+                            child: PhosphorIcon(
                               isPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
+                                  ? PhosphorIconsFill.pause
+                                  : PhosphorIconsFill.play,
                               size: 16,
                               color: AppColors.brandContrast,
                             ),
@@ -109,16 +111,16 @@ class TrackCard extends ConsumerWidget {
             // Social footer
             Row(
               children: [
-                const Icon(
-                  Icons.favorite_rounded,
+                const PhosphorIcon(
+                  PhosphorIconsFill.heart,
                   size: 12,
                   color: AppColors.error,
                 ),
                 const SizedBox(width: 3),
                 Text('${track.likeCount}', style: AppTypography.caption),
                 const SizedBox(width: AppSpacing.xs),
-                Icon(
-                  Icons.play_arrow_rounded,
+                PhosphorIcon(
+                  PhosphorIconsFill.play,
                   size: 13,
                   color: AppColors.textTertiary,
                 ),

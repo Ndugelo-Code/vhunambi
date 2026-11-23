@@ -24,6 +24,7 @@ import '../widgets/library_cover_art.dart';
 import '../widgets/library_empty_state.dart';
 import '../widgets/library_track_grid_card.dart';
 import '../widgets/library_track_tile.dart';
+import 'reels_vault_view.dart';
 
 /// Library & User Asset Vault (`/library`) — mounted at tab index 3 of `RootShell`.
 class LibraryView extends ConsumerStatefulWidget {
@@ -85,7 +86,9 @@ class _LibraryViewState extends ConsumerState<LibraryView> {
           children: [
             const LibraryCategoryRail(),
             Expanded(
-              child: category == LibraryCategory.playlists
+              child: category == LibraryCategory.reels
+                  ? ReelsVaultView(onCreateRequested: widget.onCreateRequested)
+                  : category == LibraryCategory.playlists
                   ? PlaylistsVaultView(
                       onCreateRequested: widget.onCreateRequested,
                     )
@@ -407,6 +410,7 @@ class _VaultSearchStripState extends ConsumerState<_VaultSearchStrip> {
 
   String get _hint => switch (widget.category) {
     LibraryCategory.songs => 'Search my songs...',
+    LibraryCategory.reels => 'Search my reels...',
     LibraryCategory.playlists => 'Search my playlists...',
     LibraryCategory.collections => 'Search my collections...',
     LibraryCategory.beats => 'Search my beats...',

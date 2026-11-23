@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -21,9 +22,14 @@ class CollectionFormDialog extends StatefulWidget {
     String genre,
     String description,
     DateTime? releaseDate,
-  ) onSubmitted;
+  )
+  onSubmitted;
 
-  const CollectionFormDialog({super.key, this.initial, required this.onSubmitted});
+  const CollectionFormDialog({
+    super.key,
+    this.initial,
+    required this.onSubmitted,
+  });
 
   @override
   State<CollectionFormDialog> createState() => _CollectionFormDialogState();
@@ -42,8 +48,9 @@ class _CollectionFormDialogState extends State<CollectionFormDialog> {
     final initial = widget.initial;
     _titleController = TextEditingController(text: initial?.title ?? '');
     _genreController = TextEditingController(text: initial?.genre ?? '');
-    _descriptionController =
-        TextEditingController(text: initial?.description ?? '');
+    _descriptionController = TextEditingController(
+      text: initial?.description ?? '',
+    );
     _type = initial?.type ?? CollectionType.ep;
     _releaseDate = initial?.releaseDate;
   }
@@ -86,13 +93,16 @@ class _CollectionFormDialogState extends State<CollectionFormDialog> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.initial != null;
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final surfaceModal = AppColors.surfaceModalOf(context);
 
     return AlertDialog(
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: surfaceModal,
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
       title: Text(
         isEditing ? 'Edit Collection' : 'Create New Collection',
-        style: AppTypography.titleMedium.copyWith(color: AppColors.textPrimary),
+        style: AppTypography.titleMedium.copyWith(color: textPrimary),
       ),
       content: SingleChildScrollView(
         child: Column(
@@ -104,7 +114,7 @@ class _CollectionFormDialogState extends State<CollectionFormDialog> {
               controller: _titleController,
               autofocus: true,
               onChanged: (_) => setState(() {}),
-              style: AppTypography.bodyLarge,
+              style: AppTypography.bodyLarge.copyWith(color: textPrimary),
               decoration: const InputDecoration(
                 labelText: 'Collection Title',
                 hintText: 'e.g. Ẓe Amapiano EP',
@@ -115,8 +125,8 @@ class _CollectionFormDialogState extends State<CollectionFormDialog> {
               key: const Key('collection_type_dropdown'),
               initialValue: _type,
               isExpanded: true,
-              dropdownColor: AppColors.surfaceModal,
-              style: AppTypography.bodyLarge,
+              dropdownColor: surfaceModal,
+              style: AppTypography.bodyLarge.copyWith(color: textPrimary),
               decoration: const InputDecoration(labelText: 'Collection Type'),
               items: [
                 for (final type in CollectionType.values)
@@ -133,7 +143,7 @@ class _CollectionFormDialogState extends State<CollectionFormDialog> {
             TextField(
               key: const Key('collection_genre_field'),
               controller: _genreController,
-              style: AppTypography.bodyLarge,
+              style: AppTypography.bodyLarge.copyWith(color: textPrimary),
               decoration: const InputDecoration(
                 labelText: 'Genre',
                 hintText: 'e.g. Amapiano',
@@ -143,7 +153,7 @@ class _CollectionFormDialogState extends State<CollectionFormDialog> {
             TextField(
               key: const Key('collection_description_field'),
               controller: _descriptionController,
-              style: AppTypography.bodyLarge,
+              style: AppTypography.bodyLarge.copyWith(color: textPrimary),
               decoration: const InputDecoration(
                 labelText: 'Description (optional)',
                 hintText: 'e.g. Log-drum storytelling sessions',
@@ -157,15 +167,16 @@ class _CollectionFormDialogState extends State<CollectionFormDialog> {
                     _releaseDate == null
                         ? 'No release date set'
                         : 'Release: ${formatCollectionDate(_releaseDate!)}',
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                    style: AppTypography.caption.copyWith(color: textSecondary),
                   ),
                 ),
                 TextButton.icon(
                   key: const Key('collection_release_date'),
                   onPressed: _pickReleaseDate,
-                  icon: const Icon(Icons.event_rounded, size: 16),
+                  icon: const PhosphorIcon(
+                    PhosphorIconsRegular.calendarBlank,
+                    size: 16,
+                  ),
                   label: const Text('Release Date'),
                 ),
               ],
@@ -180,7 +191,7 @@ class _CollectionFormDialogState extends State<CollectionFormDialog> {
             'Cancel',
             style: AppTypography.bodyLarge.copyWith(
               fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+              color: textSecondary,
             ),
           ),
         ),

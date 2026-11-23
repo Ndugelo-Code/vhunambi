@@ -38,6 +38,7 @@ class PublishedClip {
   final String audioUrl;
   final String coverUrl;
   final String? videoUrl;
+  final String? localVideoPath;
   final String mediaKind;
   final int audioStartMs;
   final int audioEndMs;
@@ -95,6 +96,7 @@ class PublishedClip {
     required this.audioUrl,
     required this.coverUrl,
     this.videoUrl,
+    this.localVideoPath,
     this.mediaKind = 'artwork',
     this.audioStartMs = 0,
     this.audioEndMs = 30000,
@@ -143,6 +145,7 @@ class PublishedClip {
     String? id,
     String? title,
     String? videoUrl,
+    String? localVideoPath,
     String? mediaKind,
     int? audioStartMs,
     int? audioEndMs,
@@ -187,6 +190,7 @@ class PublishedClip {
       audioUrl: audioUrl,
       coverUrl: coverUrl,
       videoUrl: videoUrl ?? this.videoUrl,
+      localVideoPath: localVideoPath ?? this.localVideoPath,
       mediaKind: mediaKind ?? this.mediaKind,
       audioStartMs: audioStartMs ?? this.audioStartMs,
       audioEndMs: audioEndMs ?? this.audioEndMs,
@@ -234,6 +238,7 @@ class PublishedClip {
     'audioUrl': audioUrl,
     'coverUrl': coverUrl,
     if (videoUrl != null) 'videoUrl': videoUrl,
+    if (localVideoPath != null) 'localVideoPath': localVideoPath,
     'mediaKind': mediaKind,
     'audioStartMs': audioStartMs,
     'audioEndMs': audioEndMs,
@@ -304,6 +309,8 @@ class PublishedClip {
         json['coverUrl'] as String? ?? '',
       ),
       videoUrl: normalizedVideoUrl.isEmpty ? null : normalizedVideoUrl,
+      localVideoPath:
+          (json['localVideoPath'] ?? json['local_video_path']) as String?,
       mediaKind: (json['mediaKind'] ?? json['media_kind'] ?? 'artwork')
           .toString(),
       audioStartMs:

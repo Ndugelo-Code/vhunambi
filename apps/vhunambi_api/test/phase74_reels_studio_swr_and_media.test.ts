@@ -187,13 +187,22 @@ async function run(): Promise<void> {
   const r2Fetch = await app.request(uploaded.url);
   assert.equal(r2Fetch.status, 200);
 
-  // Also allow audio/mpeg for imported local audio hooks
+  // Also allow audio/mpeg, audio/wav, audio/aac, audio/ogg for imported audio hooks & DAW masters
   const mp3Res = await app.request('/api/social/media/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'audio/mpeg' },
     body: new Uint8Array([0x49, 0x44, 0x33, 0x03]),
   });
   assert.equal(mp3Res.status, 201);
+
+  for (const audioMime of ['audio/wav', 'audio/x-wav', 'audio/aac', 'audio/ogg']) {
+    const audioRes = await app.request('/api/social/media/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': audioMime },
+      body: new Uint8Array([0x52, 0x49, 0x46, 0x46]),
+    });
+    assert.equal(audioRes.status, 201, `Expected 201 for ${audioMime}`);
+  }
 
   // 3. POST /api/social/publish + GET /api/social/clips/:id + POST /api/social/clips/:id/react
   const pubRes = await app.request('/api/social/publish', {

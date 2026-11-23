@@ -632,15 +632,71 @@ final Map<String, String> kBantuCuratedGlossary = {
   for (final entry in kBantuCuratedEntries) entry.phrase: entry.meaning,
 };
 
+/// Per-word definition, phonetic stress breakdown, and 9-language cognates (`REQ-P77-LYR-04`).
+class BantuWordDefinition {
+  const BantuWordDefinition({
+    required this.originalWord,
+    required this.normalizedWord,
+    required this.sourceLanguage,
+    required this.syllabifiedPhonetic,
+    required this.meaning,
+    required this.cognates,
+    this.isExactGlossaryMatch = false,
+  });
+
+  final String originalWord;
+  final String normalizedWord;
+  final BantuLanguage sourceLanguage;
+  final String syllabifiedPhonetic;
+  final String meaning;
+  final List<BantuSimilarityResult> cognates;
+  final bool isExactGlossaryMatch;
+
+  bool get hasMeaning => meaning != kMeaningUnavailable;
+
+  String get branchLabel =>
+      '${sourceLanguage.branch.label} (${sourceLanguage.branch.guthrieZone})';
+}
+
 /// Service providing deterministic lyric translation, phonetic guides, and cognate matches.
 class BantuLyricTranslationService {
   const BantuLyricTranslationService._();
+
+  /// All 9 Constitutional Southern Bantu ISO language codes supported across Vhunambi.
+  static const List<String> allBantuLanguageCodes = <String>[
+    'zu',
+    'xh',
+    'ss',
+    'nr',
+    'nso',
+    'tn',
+    'st',
+    've',
+    'ts',
+  ];
+
+  /// Normalizes display labels (e.g. `'Tshivenḓa'`, `'isiZulu'`) into 2/3-letter ISO codes.
+  static String resolveLanguageCode(String languageLabel) {
+    final lower = languageLabel.trim().toLowerCase();
+    return switch (lower) {
+      'tshivenḓa' || 'tshivenda' || 've' => 've',
+      'isizulu' || 'zulu' || 'zu' => 'zu',
+      'isixhosa' || 'xhosa' || 'xh' => 'xh',
+      'siswati' || 'swati' || 'ss' => 'ss',
+      'isindebele' || 'ndebele' || 'nr' => 'nr',
+      'sepedi' || 'nso' || 'northern sotho' => 'nso',
+      'setswana' || 'tswana' || 'tn' => 'tn',
+      'sesotho' || 'sotho' || 'st' => 'st',
+      'xitsonga' || 'tsonga' || 'ts' => 'ts',
+      _ => BantuLanguage.fromCode(lower)?.code ?? 'zu',
+    };
+  }
 
   /// Translates a multi-line lyric text into structured sing-along items.
   static List<BantuLyricTranslationItem> processLyrics({
     required String lyricsText,
     required String baseLanguageCode,
-    List<String> targetCognateLanguages = const ['zu', 'xh', 'nso', 've', 'ts'],
+    List<String> targetCognateLanguages = allBantuLanguageCodes,
   }) {
     final lines = lyricsText.split('\n');
     final results = <BantuLyricTranslationItem>[];
@@ -664,7 +720,7 @@ class BantuLyricTranslationService {
   static BantuLyricTranslationItem translateLine({
     required String line,
     required String baseLanguageCode,
-    List<String> targetCognateLanguages = const ['zu', 'xh', 'nso', 've', 'ts'],
+    List<String> targetCognateLanguages = allBantuLanguageCodes,
   }) {
     // 1. Phonetic guide with penultimate syllable stress marked (REQ-BANTU-LYR-03)
     final phonetic = generatePhoneticGuide(line);
@@ -771,6 +827,89 @@ class BantuLyricTranslationService {
       translatedMeaning: meaning,
       cognateMatches: cognates,
       isGlossaryMatch: isMatch,
+    );
+  }
+
+  /// Resolves an individual lyric word's meaning, branch, penultimate stress,
+  /// and peer-branch Southern Bantu cognates across all 9 languages.
+  static BantuWordDefinition lookupWord(
+    String rawWord, {
+    String baseLanguageCode = 'zu',
+  }) {
+    final normalized = rawWord
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\u00C0-\u017F]'), '')
+        .trim();
+    var resolvedLang =
+        BantuLanguage.fromCode(resolveLanguageCode(baseLanguageCode)) ??
+        BantuLanguage.zu;
+    var meaning = kMeaningUnavailable;
+    var isExact = false;
+
+    for (final entry in kBantuCuratedEntries) {
+      final entryNorm = entry.phrase.toLowerCase().trim();
+      if (normalized.isNotEmpty && entryNorm == normalized) {
+        meaning = entry.meaning;
+        resolvedLang = entry.language;
+        isExact = true;
+        break;
+      }
+    }
+
+    if (!isExact && normalized.length >= 3) {
+      for (final entry in kBantuCuratedEntries) {
+        final phraseWords = entry.phrase.toLowerCase().split(RegExp(r'\s+'));
+        if (phraseWords.contains(normalized)) {
+          meaning = entry.meaning;
+          resolvedLang = entry.language;
+          isExact = true;
+          break;
+        }
+      }
+    }
+
+    final cognates = <BantuSimilarityResult>[];
+    if (normalized.length >= 3) {
+      for (final targetLang in BantuLanguage.values) {
+        if (targetLang == resolvedLang) continue;
+        BantuSimilarityResult? bestForLang;
+        for (final entry in kBantuCuratedEntries) {
+          if (entry.language != targetLang) continue;
+          for (final candWord in entry.phrase.split(RegExp(r'\s+'))) {
+            final cleanCand = candWord
+                .toLowerCase()
+                .replaceAll(RegExp(r'[^\w\u00C0-\u017F]'), '')
+                .trim();
+            if (cleanCand.length < 3) continue;
+            final sim = BantuSimilarity.compare(
+              normalized,
+              resolvedLang,
+              cleanCand,
+              targetLang,
+            );
+            if (sim.score >= 60 &&
+                (bestForLang == null || sim.score > bestForLang.score)) {
+              bestForLang = sim;
+            }
+          }
+        }
+        if (bestForLang != null) {
+          cognates.add(bestForLang);
+        }
+      }
+      cognates.sort((a, b) => b.score.compareTo(a.score));
+    }
+
+    return BantuWordDefinition(
+      originalWord: rawWord.trim().isEmpty ? normalized : rawWord.trim(),
+      normalizedWord: normalized,
+      sourceLanguage: resolvedLang,
+      syllabifiedPhonetic: syllabifyAndMarkPenultimate(
+        normalized.isEmpty ? rawWord.trim() : normalized,
+      ),
+      meaning: meaning,
+      cognates: cognates.take(6).toList(growable: false),
+      isExactGlossaryMatch: isExact,
     );
   }
 

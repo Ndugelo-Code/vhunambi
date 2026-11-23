@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../../shared/models/track.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../providers/explore_providers.dart';
-import 'genre_glyph.dart';
 
 /// Dense Rising track row with a live play/pause trigger
 /// (REQ-EXP-05 / Blueprint 01 §3.5).
@@ -23,8 +23,9 @@ class TrackListTile extends ConsumerWidget {
       playerStateProvider.select((s) => s.currentTrack?.id == track.id),
     );
     final isPlaying = ref.watch(
-      playerStateProvider
-          .select((s) => s.isPlaying && s.currentTrack?.id == track.id),
+      playerStateProvider.select(
+        (s) => s.isPlaying && s.currentTrack?.id == track.id,
+      ),
     );
 
     void handlePlayPause() {
@@ -38,27 +39,24 @@ class TrackListTile extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xs + 2),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.surfaceElevatedOf(context),
         borderRadius: AppRadius.cardBorder,
         border: Border.all(
-          color: isCurrent ? AppColors.brandPrimary : AppColors.borderSubtle,
+          color: isCurrent
+              ? AppColors.brandPrimary
+              : AppColors.borderSubtleOf(context),
         ),
       ),
       child: Row(
         children: [
-          // 48x48 genre gradient thumbnail
-          Container(
+          VhunambiTrackArtwork(
+            key: Key('track_list_tile_artwork_${track.id}'),
+            coverUrl: track.coverUrl,
+            genre: track.genre,
+            trackId: track.id,
             width: 48,
             height: 48,
-            decoration: BoxDecoration(
-              gradient: AppGradients.forGenre(track.genre),
-              borderRadius: BorderRadius.circular(AppRadius.input),
-            ),
-            child: Icon(
-              exploreGenreGlyph(track.genre),
-              size: 20,
-              color: AppColors.textPrimary.withAlpha(235),
-            ),
+            borderRadius: BorderRadius.circular(AppRadius.input),
           ),
           const SizedBox(width: AppSpacing.sm),
 
@@ -91,8 +89,8 @@ class TrackListTile extends ConsumerWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.favorite_rounded,
+              const PhosphorIcon(
+                PhosphorIconsFill.heart,
                 size: 13,
                 color: AppColors.error,
               ),
@@ -116,8 +114,10 @@ class TrackListTile extends ConsumerWidget {
                     color: AppColors.brandPrimary,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  child: PhosphorIcon(
+                    isPlaying
+                        ? PhosphorIconsFill.pause
+                        : PhosphorIconsFill.play,
                     size: 20,
                     color: AppColors.brandContrast,
                   ),

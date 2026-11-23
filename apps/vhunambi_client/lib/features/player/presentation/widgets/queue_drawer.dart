@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -20,14 +22,14 @@ class QueueDrawer extends ConsumerWidget {
     if (!ResponsiveUtils.isDesktop(context)) {
       return showModalBottomSheet<void>(
         context: context,
-        backgroundColor: AppColors.surfaceModal,
+        backgroundColor: AppColors.surfaceModalOf(context),
         isScrollControlled: true,
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.modalBorder,
-          side: BorderSide(color: AppColors.borderSubtle),
+          side: BorderSide(color: AppColors.borderSubtleOf(context)),
         ),
         builder: (_) => const QueueDrawer(),
       );
@@ -55,9 +57,9 @@ class QueueDrawer extends ConsumerWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.surfaceModal,
+        color: AppColors.surfaceModalOf(context),
         borderRadius: BorderRadius.circular(AppRadius.card),
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
         boxShadow: const [
           BoxShadow(
             color: Colors.black45,
@@ -144,6 +146,8 @@ class _QueueDrawerHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
@@ -153,14 +157,17 @@ class _QueueDrawerHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.queue_music_rounded,
+          const PhosphorIcon(
+            PhosphorIconsRegular.queue,
             size: 20,
             color: AppColors.brandPrimary,
           ),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
-            child: Text('Playback Queue', style: AppTypography.titleMedium),
+            child: Text(
+              'Playback Queue',
+              style: AppTypography.titleMedium.copyWith(color: textPrimary),
+            ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(
@@ -168,15 +175,13 @@ class _QueueDrawerHeader extends StatelessWidget {
               vertical: 2,
             ),
             decoration: BoxDecoration(
-              color: AppColors.surfaceSecondary,
+              color: AppColors.surfaceSecondaryOf(context),
               borderRadius: AppRadius.pillBorder,
-              border: Border.all(color: AppColors.borderSubtle),
+              border: Border.all(color: AppColors.borderSubtleOf(context)),
             ),
             child: Text(
               trackCount == 1 ? '1 Track' : '$trackCount Tracks',
-              style: AppTypography.badge.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: AppTypography.badge.copyWith(color: textSecondary),
             ),
           ),
           const SizedBox(width: AppSpacing.xxs),
@@ -187,8 +192,8 @@ class _QueueDrawerHeader extends StatelessWidget {
             tooltip: 'Clear Queue',
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             padding: EdgeInsets.zero,
-            icon: const Icon(
-              Icons.clear_all_rounded,
+            icon: const PhosphorIcon(
+              PhosphorIconsRegular.trash,
               size: 20,
               color: AppColors.brandPrimary,
             ),
@@ -198,10 +203,10 @@ class _QueueDrawerHeader extends StatelessWidget {
             tooltip: 'Close queue',
             visualDensity: VisualDensity.compact,
             onPressed: onClose,
-            icon: Icon(
-              Icons.close_rounded,
+            icon: PhosphorIcon(
+              AppIcons.close,
               size: 18,
-              color: AppColors.textSecondary,
+              color: textSecondary,
             ),
           ),
         ],
@@ -216,6 +221,7 @@ class _EmptyQueueState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textSecondary = AppColors.textSecondaryOf(context);
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xl,
@@ -223,16 +229,16 @@ class _EmptyQueueState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.queue_music_rounded,
+          PhosphorIcon(
+            PhosphorIconsRegular.queue,
             size: 30,
-            color: AppColors.textTertiary,
+            color: textSecondary.withValues(alpha: 0.72),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
             'Nothing queued up',
             style: AppTypography.bodySmall.copyWith(
-              color: AppColors.textPrimary,
+              color: AppColors.textPrimaryOf(context),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -240,9 +246,7 @@ class _EmptyQueueState extends StatelessWidget {
           Text(
             'Add tracks from Explore and they land here.',
             textAlign: TextAlign.center,
-            style: AppTypography.caption.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: AppTypography.caption.copyWith(color: textSecondary),
           ),
         ],
       ),
@@ -259,6 +263,8 @@ class _NowPlayingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final track = state.currentTrack!;
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
 
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -270,10 +276,10 @@ class _NowPlayingCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.brandPrimary.withAlpha(30),
               borderRadius: AppRadius.thumbBorder,
-              border: Border.all(color: AppColors.borderSubtle),
+              border: Border.all(color: AppColors.borderSubtleOf(context)),
             ),
-            child: const Icon(
-              Icons.piano_rounded,
+            child: const PhosphorIcon(
+              AppIcons.piano,
               color: AppColors.brandPrimary,
               size: 22,
             ),
@@ -295,7 +301,7 @@ class _NowPlayingCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textPrimary,
+                    color: textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -303,7 +309,7 @@ class _NowPlayingCard extends StatelessWidget {
                   '${track.creatorName} • ${track.genre}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.caption,
+                  style: AppTypography.caption.copyWith(color: textSecondary),
                 ),
               ],
             ),
@@ -320,7 +326,7 @@ class _NowPlayingCard extends StatelessWidget {
               const SizedBox(height: AppSpacing.xxs),
               Text(
                 '${state.formattedPosition} / ${state.formattedDuration}',
-                style: AppTypography.caption,
+                style: AppTypography.caption.copyWith(color: textSecondary),
               ),
             ],
           ),
@@ -346,8 +352,10 @@ class _QueueTrackTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
     return Material(
-      color: AppColors.surfaceElevated,
+      color: AppColors.surfaceElevatedOf(context),
       borderRadius: AppRadius.cardBorder,
       child: InkWell(
         onTap: onTap,
@@ -359,16 +367,16 @@ class _QueueTrackTile extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             borderRadius: AppRadius.cardBorder,
-            border: Border.all(color: AppColors.borderSubtle),
+            border: Border.all(color: AppColors.borderSubtleOf(context)),
           ),
           child: Row(
             children: [
               ReorderableDragStartListener(
                 index: dragIndex,
-                child: Icon(
-                  Icons.drag_handle_rounded,
+                child: PhosphorIcon(
+                  PhosphorIconsRegular.dotsSixVertical,
                   size: 18,
-                  color: AppColors.textTertiary,
+                  color: textSecondary.withValues(alpha: 0.72),
                 ),
               ),
               const SizedBox(width: AppSpacing.xxs),
@@ -376,11 +384,11 @@ class _QueueTrackTile extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
+                  color: AppColors.surfaceSecondaryOf(context),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.music_note_rounded,
+                child: const PhosphorIcon(
+                  AppIcons.songsOutline,
                   size: 16,
                   color: AppColors.brandPrimary,
                 ),
@@ -395,7 +403,7 @@ class _QueueTrackTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
+                        color: textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -403,22 +411,25 @@ class _QueueTrackTile extends StatelessWidget {
                       '${track.creatorName} • ${track.genre}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.caption,
+                      style: AppTypography.caption.copyWith(color: textSecondary),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: AppSpacing.xxs),
-              Text(track.formattedDuration, style: AppTypography.caption),
+              Text(
+                track.formattedDuration,
+                style: AppTypography.caption.copyWith(color: textSecondary),
+              ),
               IconButton(
                 key: Key('queue_remove_${track.id}'),
                 tooltip: 'Remove from queue',
                 visualDensity: VisualDensity.compact,
                 onPressed: onRemove,
-                icon: Icon(
-                  Icons.close_rounded,
+                icon: PhosphorIcon(
+                  AppIcons.close,
                   size: 16,
-                  color: AppColors.textSecondary,
+                  color: textSecondary,
                 ),
               ),
             ],

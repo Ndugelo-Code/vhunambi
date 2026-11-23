@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -33,10 +34,7 @@ class ExploreEmptyState extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AppColors.surfaceElevated,
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.borderSubtle,
-                    width: 1.5,
-                  ),
+                  border: Border.all(color: AppColors.borderSubtle, width: 1.5),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withAlpha(60),
@@ -74,8 +72,8 @@ class ExploreEmptyState extends ConsumerWidget {
                         ),
                       ),
                       child: const Center(
-                        child: Icon(
-                          Icons.search_off_rounded,
+                        child: PhosphorIcon(
+                          PhosphorIconsRegular.magnifyingGlassMinus,
                           size: 22,
                           color: AppColors.brandPrimary,
                         ),
@@ -118,7 +116,7 @@ class ExploreEmptyState extends ConsumerWidget {
                         borderRadius: AppRadius.pillBorder,
                       ),
                     ),
-                    icon: const Icon(Icons.close_rounded, size: 16),
+                    icon: const PhosphorIcon(PhosphorIconsRegular.x, size: 16),
                     label: Text(
                       'Clear filters',
                       style: AppTypography.bodySmall.copyWith(
@@ -141,8 +139,8 @@ class ExploreEmptyState extends ConsumerWidget {
                         borderRadius: AppRadius.pillBorder,
                       ),
                     ),
-                    icon: const Icon(
-                      Icons.auto_awesome,
+                    icon: const PhosphorIcon(
+                      PhosphorIconsRegular.sparkle,
                       size: 16,
                       color: AppColors.brandContrast,
                     ),

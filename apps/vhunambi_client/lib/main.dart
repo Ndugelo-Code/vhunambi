@@ -117,6 +117,8 @@ class _VhunambiAppState extends ConsumerState<VhunambiApp> {
       themeMode: themeMode,
       builder: (context, child) {
         // Synchronize dynamic AppColors with active platform/theme brightness
+        // without keying the Navigator subtree, so live Light <-> Dark toggles
+        // preserve active modal drawers, pushed routes, and RootShell tab history.
         final platformBrightness = MediaQuery.platformBrightnessOf(context);
         final effectiveBrightness = switch (themeMode) {
           ThemeMode.light => Brightness.light,
@@ -125,10 +127,7 @@ class _VhunambiAppState extends ConsumerState<VhunambiApp> {
         };
         AppColors.syncWithBrightness(effectiveBrightness);
 
-        return KeyedSubtree(
-          key: ValueKey<Brightness>(effectiveBrightness),
-          child: Stack(children: [?child, const MiniPlayerHost()]),
-        );
+        return Stack(children: [?child, const MiniPlayerHost()]);
       },
       home: widget.initialHome ?? const SplashView(),
     );
@@ -174,10 +173,13 @@ class _RootShellState extends ConsumerState<RootShell> {
     if (index == 1) {
       resetExploreTitleFade(ref);
     }
-    // Restore mini-player to Bar form if in Auto mode when switching tabs
+    // Restore mini-player to docked Bar form when switching primary tabs
     final playerController = ref.read(miniPlayerControllerProvider);
-    if (playerController.form == PlayerForm.pill &&
-        playerController.mode == PlayerMode.auto) {
+    if (playerController.mode == PlayerMode.manual) {
+      ref
+          .read(miniPlayerControllerProvider.notifier)
+          .resetToDock(MediaQuery.maybeSizeOf(context));
+    } else if (playerController.form == PlayerForm.pill) {
       ref.read(miniPlayerControllerProvider.notifier).setForm(PlayerForm.bar);
     }
     setState(() {

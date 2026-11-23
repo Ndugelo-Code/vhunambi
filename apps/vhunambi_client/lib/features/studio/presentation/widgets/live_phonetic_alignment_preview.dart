@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -40,8 +42,8 @@ class LivePhoneticAlignmentPreview extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.record_voice_over_rounded,
+              const PhosphorIcon(
+                AppIcons.mic,
                 color: AppColors.brandPrimary,
                 size: 18,
               ),

@@ -57,10 +57,10 @@ class MoodColorChip extends ConsumerWidget {
             decoration: BoxDecoration(
               color: isSelected
                   ? surfaceTint.withValues(alpha: 0.12)
-                  : AppColors.surfaceElevated,
+                  : AppColors.surfaceElevatedOf(context),
               borderRadius: AppRadius.pillBorder,
               border: Border.all(
-                color: isSelected ? accent : AppColors.borderSubtle,
+                color: isSelected ? accent : AppColors.borderSubtleOf(context),
                 width: isSelected ? 1.5 : 1.0,
               ),
             ),

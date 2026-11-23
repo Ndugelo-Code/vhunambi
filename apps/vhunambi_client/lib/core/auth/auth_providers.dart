@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:vhunambi_client/core/auth/sovereign_auth_repository.dart';
@@ -8,6 +9,15 @@ import 'package:vhunambi_client/core/auth/sovereign_auth_session.dart';
 import 'package:vhunambi_client/core/auth/sovereign_hive_account_sanitizer.dart';
 import 'package:vhunambi_client/core/network/sovereign_api_client.dart';
 import 'package:vhunambi_client/core/utils/creator_id_utils.dart';
+
+/// Compile-time security gate controlling demo studio creator quick-switching
+/// (`REQ-P76-CORE-02`).
+///
+/// Always `true` in debug builds and `flutter test` (`kDebugMode == true`).
+/// Always `false` in production `--release` APKs unless explicitly opted in via
+/// `--dart-define=ENABLE_DEMO_CREATOR_SWITCH=true` for internal QA builds.
+const bool kEnableDemoCreatorQuickSwitch =
+    kDebugMode || bool.fromEnvironment('ENABLE_DEMO_CREATOR_SWITCH');
 
 /// Optional HTTP client override for [SovereignAuthRepository] and [SovereignApiClient].
 final sovereignAuthHttpClientProvider = Provider<http.Client?>((ref) => null);
@@ -140,13 +150,25 @@ class AuthSessionNotifier extends StateNotifier<SovereignAuthSession> {
 
   /// Switches to one of the seeded studio demo creators (`@cern`, `@makhadzi`, `@sigwa`, ...).
   ///
-  /// Uses live `/api/auth/login` first; falls back deterministically when offline
-  /// or running inside a headless unit test without a live API server.
+  /// Uses live `/api/auth/login` first; falls back deterministically ONLY when
+  /// [kEnableDemoCreatorQuickSwitch] is enabled (debug / headless tests).
+  /// Production `--release` builds fail closed with [SovereignAuthException].
   Future<SovereignAuthSession> switchToSeededCreator({
     required String handle,
     String? displayName,
     String password = defaultSeededPassword,
+    bool allowDemoSwitch = kEnableDemoCreatorQuickSwitch,
   }) async {
+    if (!allowDemoSwitch) {
+      throw const SovereignAuthException(
+        statusCode: 403,
+        code: 'DEMO_SWITCH_DISABLED_IN_RELEASE',
+        message:
+            'Quick studio demo switching is disabled in release builds. '
+            'Sign in with your creator credentials.',
+      );
+    }
+
     final prevCreatorId = state.canonicalCreatorId;
     try {
       return await signIn(identifier: handle, password: password);
@@ -155,7 +177,7 @@ class AuthSessionNotifier extends StateNotifier<SovereignAuthSession> {
         rethrow;
       }
     } catch (_) {
-      // Network unreachable: continue with local studio profile switch below.
+      // Network unreachable in debug/test: continue with local studio profile switch below.
     }
 
     final canonical = canonicalizeCreatorId(handle);

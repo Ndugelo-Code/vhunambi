@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/constants/app_assets.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -77,8 +79,8 @@ class CrateBrowserDeck extends ConsumerWidget {
                   onPressed: () {
                     MelodySketchpadModal.show(context);
                   },
-                  icon: const Icon(
-                    Icons.piano_rounded,
+                  icon: const PhosphorIcon(
+                    AppIcons.piano,
                     size: 14,
                     color: AppColors.brandPrimary,
                   ),
@@ -108,14 +110,23 @@ class CrateBrowserDeck extends ConsumerWidget {
               hintStyle: AppTypography.caption.copyWith(
                 color: AppColors.textTertiary,
               ),
-              prefixIcon: Icon(
-                Icons.search_rounded,
+              prefixIcon: PhosphorIcon(
+                AppIcons.search,
+                size: 18,
                 color: AppColors.textSecondary,
               ),
               filled: true,
               fillColor: AppColors.surfaceSecondary,
               isDense: true,
               border: const OutlineInputBorder(
+                borderRadius: AppRadius.inputBorder,
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: const OutlineInputBorder(
+                borderRadius: AppRadius.inputBorder,
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: const OutlineInputBorder(
                 borderRadius: AppRadius.inputBorder,
                 borderSide: BorderSide.none,
               ),
@@ -272,8 +283,8 @@ class _VinylDiskWidgetState extends State<_VinylDiskWidget>
                         shape: BoxShape.circle,
                         color: AppColors.brandPrimary,
                       ),
-                      child: const Icon(
-                        Icons.music_note_rounded,
+                      child: const PhosphorIcon(
+                        AppIcons.songs,
                         size: 14,
                         color: AppColors.brandContrast,
                       ),
@@ -325,12 +336,27 @@ class _CategoryChip extends StatelessWidget {
             color: isActive ? AppColors.brandPrimary : AppColors.borderSubtle,
           ),
         ),
-        child: Text(
-          '${category.emoji} ${category.label}',
-          style: AppTypography.caption.copyWith(
-            color: isActive ? AppColors.brandContrast : AppColors.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PhosphorIcon(
+              category.icon,
+              size: 14,
+              color: isActive
+                  ? AppColors.brandContrast
+                  : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              category.label,
+              style: AppTypography.caption.copyWith(
+                color: isActive
+                    ? AppColors.brandContrast
+                    : AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -376,8 +402,8 @@ class _SampleTile extends StatelessWidget {
                   color: AppColors.surfaceSecondary,
                   borderRadius: AppRadius.thumbBorder,
                 ),
-                child: const Icon(
-                  Icons.graphic_eq_rounded,
+                child: const PhosphorIcon(
+                  AppIcons.waveform,
                   color: AppColors.brandPrimary,
                   size: 20,
                 ),
@@ -410,10 +436,7 @@ class _SampleTile extends StatelessWidget {
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
-                  children: [
-                    _pill('${sample.bpm} BPM'),
-                    _pill(sample.rootKey),
-                  ],
+                  children: [_pill('${sample.bpm} BPM'), _pill(sample.rootKey)],
                 ),
               ],
             ),
@@ -423,10 +446,10 @@ class _SampleTile extends StatelessWidget {
             iconSize: 20,
             visualDensity: VisualDensity.compact,
             onPressed: onAudition,
-            icon: Icon(
+            icon: PhosphorIcon(
               isAuditioning
-                  ? Icons.pause_circle_rounded
-                  : Icons.play_circle_rounded,
+                  ? PhosphorIconsFill.pauseCircle
+                  : PhosphorIconsFill.playCircle,
               color: AppColors.brandPrimary,
             ),
           ),
@@ -435,10 +458,8 @@ class _SampleTile extends StatelessWidget {
             iconSize: 18,
             visualDensity: VisualDensity.compact,
             onPressed: onFavorite,
-            icon: Icon(
-              sample.isFavorite
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
+            icon: PhosphorIcon(
+              sample.isFavorite ? AppIcons.heart : AppIcons.heartOutline,
               color: sample.isFavorite
                   ? AppColors.brandPrimary
                   : AppColors.textTertiary,
@@ -447,8 +468,8 @@ class _SampleTile extends StatelessWidget {
           TextButton.icon(
             key: Key('chop_${sample.id}'),
             onPressed: onChop,
-            icon: const Icon(
-              Icons.content_cut_rounded,
+            icon: const PhosphorIcon(
+              PhosphorIconsRegular.scissors,
               size: 16,
               color: AppColors.coinGold,
             ),

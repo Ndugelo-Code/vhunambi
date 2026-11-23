@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../../core/utils/creator_id_utils.dart';
 import '../../../../shared/models/track.dart';
 import '../../../collections/domain/models/collection_entity.dart';
 import '../../../content_studio/domain/models/song_metadata_dna.dart';
@@ -450,12 +451,49 @@ class SocialMusicPost {
     final rawSplits = json['coCreationSplits'] as List<dynamic>?;
     final rawRemixMode = json['remixMode'] as String?;
     final rawProvenance = json['provenanceType'] as String?;
+    final rawCreatorId = (json['creatorId'] ?? '').toString().trim();
+    final lowerCreatorId = rawCreatorId.toLowerCase();
+    final isLegacyCurrentUserId =
+        lowerCreatorId == 'current_user' ||
+        lowerCreatorId == 'user_current' ||
+        lowerCreatorId == 'creator_current_user';
+    final normalizedCreatorId = isLegacyCurrentUserId
+        ? 'creator_cern'
+        : (rawCreatorId.isNotEmpty
+              ? canonicalizeCreatorId(rawCreatorId)
+              : '');
+    final rawHandle = (json['creatorHandle'] ?? '@creator').toString().trim();
+    final mappedHandle = handleFromCreatorId(
+      normalizedCreatorId.isNotEmpty ? normalizedCreatorId : 'creator_cern',
+    );
+    final normalizedCreatorHandle =
+        rawHandle.toLowerCase() == '@current_user' ||
+            rawHandle.toLowerCase() == 'current_user'
+        ? (mappedHandle.toLowerCase() == '@current_user'
+              ? '@cern'
+              : mappedHandle)
+        : rawHandle;
+    final rawCreatorName = (json['creatorName'] ?? 'Creator').toString().trim();
+    final normalizedCreatorName =
+        (isLegacyCurrentUserId ||
+                rawHandle.toLowerCase() == '@current_user') &&
+            (rawCreatorName.toLowerCase() == 'you' ||
+                rawCreatorName.toLowerCase() == 'creator')
+        ? 'Cern'
+        : rawCreatorName;
+    final rawRepostHandle = json['repostedFromCreatorHandle'] as String?;
+    final normalizedRepostHandle =
+        rawRepostHandle != null &&
+            (rawRepostHandle.trim().toLowerCase() == '@current_user' ||
+                rawRepostHandle.trim().toLowerCase() == 'current_user')
+        ? '@cern'
+        : rawRepostHandle;
 
     return SocialMusicPost(
       id: (json['id'] ?? '').toString(),
-      creatorId: (json['creatorId'] ?? '').toString(),
-      creatorName: (json['creatorName'] ?? 'Creator').toString(),
-      creatorHandle: (json['creatorHandle'] ?? '@creator').toString(),
+      creatorId: normalizedCreatorId,
+      creatorName: normalizedCreatorName,
+      creatorHandle: normalizedCreatorHandle,
       creatorAvatarUrl: json['creatorAvatarUrl'] as String?,
       isCreatorVerified: json['isCreatorVerified'] as bool? ?? false,
       publishedAt:
@@ -509,7 +547,7 @@ class SocialMusicPost {
             )
           : null,
       repostedFromPostId: json['repostedFromPostId'] as String?,
-      repostedFromCreatorHandle: json['repostedFromCreatorHandle'] as String?,
+      repostedFromCreatorHandle: normalizedRepostHandle,
       quoteComment: json['quoteComment'] as String?,
       repostCount: (json['repostCount'] as num?)?.toInt() ?? 0,
       provenanceType: rawProvenance != null

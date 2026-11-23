@@ -373,7 +373,10 @@ generationRoutes.get('/:id/manifest', async (c) => {
  */
 generationRoutes.post('/:id/master', async (c) => {
   const id = c.req.param('id');
-  const job = getJob(id);
+  let job = getJob(id);
+  if (!isNodeSqliteAvailable() && !job) {
+    job = (await vhunambiDb.syncGenerationJobFromCloud(id, c)) ?? undefined;
+  }
   const isSeededTrack = id.startsWith('trk_') || id.startsWith('seed_');
 
   if (!job && !isSeededTrack) {
@@ -413,14 +416,21 @@ generationRoutes.post('/:id/master', async (c) => {
   const enrichedManifest = enrichManifestWithMasteringRecipe(baseManifest, recipe);
 
   if (job) {
-    completeJob(id, {
-      masterMp3Url: enrichedManifest.assets.masterMp3Url,
-      stemsZipUrl: enrichedManifest.assets.stemsZipUrl,
-      stemUrls: enrichedManifest.assets.stemUrls,
-      durationSec: job.durationSec || 180,
-      manifestUrl: `/v1/generations/${id}/manifest`,
-      manifest: enrichedManifest,
-    });
+    await vhunambiDb.updateGenerationJobAsync(
+      id,
+      {
+        status: 'succeeded',
+        step: 'ready',
+        progressPct: 100,
+        masterMp3Url: enrichedManifest.assets.masterMp3Url,
+        stemsZipUrl: enrichedManifest.assets.stemsZipUrl,
+        stemUrls: enrichedManifest.assets.stemUrls,
+        durationSec: job.durationSec || 180,
+        manifestUrl: `/v1/generations/${id}/manifest`,
+        manifest: enrichedManifest,
+      },
+      c,
+    );
   }
 
   return c.json(

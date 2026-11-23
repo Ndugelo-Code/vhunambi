@@ -121,6 +121,7 @@ class PreGenR2UploadService {
     required String nativeLanguage,
     required List<String> calibrationLines,
     required double recordingDurationSec,
+    String? creatorId,
   }) async {
     if (_shouldSkipNetwork || wavBytes.isEmpty) {
       return null;
@@ -144,6 +145,9 @@ class PreGenR2UploadService {
         await _dio.post<Map<String, dynamic>>(
           '$_v1BaseUrl/voices/clone',
           data: <String, dynamic>{
+            'id': profileId,
+            if (creatorId != null && creatorId.trim().isNotEmpty)
+              'creatorId': creatorId.trim(),
             'creatorName': creatorName,
             'nativeLanguage': nativeLanguage,
             'calibrationLines': calibrationLines,

@@ -289,18 +289,45 @@ class _KineticPostFocusViewState extends ConsumerState<KineticPostFocusView> {
           ),
         ),
         actions: [
-          IconButton(
-            key: const Key('kpost_focus_tip_btn'),
-            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            tooltip: 'Tip Creator',
-            icon: const PhosphorIcon(
-              AppIcons.coin,
-              color: AppColors.coinGold,
-              size: 20,
-            ),
-            onPressed: () => CreatorTippingSheet.show(
-              context,
-              clip: post.toPublishedClip,
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: InkWell(
+                key: const Key('kpost_focus_tip_btn'),
+                borderRadius: AppRadius.pillBorder,
+                onTap: () => CreatorTippingSheet.show(
+                  context,
+                  clip: post.toPublishedClip,
+                ),
+                child: VhunambiGlassSurface(
+                  variant: VhunambiGlassVariant.pill,
+                  enableLiveBlur: false,
+                  tintAccent: AppColors.coinGold,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const PhosphorIcon(
+                        AppIcons.coin,
+                        color: AppColors.coinGold,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Tip',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textPrimaryOf(context),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
           IconButton(

@@ -249,8 +249,12 @@ class _InteractiveIdentityCardStackState
     final relativeDiff = (index - _activeIndex);
 
     // Compute 3D Card Perspective and Depth Transform (REQ-P49-CARD-01..03)
-    final double zTranslate = relativeDiff == 0 ? 0 : -35.0 * relativeDiff.abs();
-    final double yTranslate = relativeDiff == 0 ? 0 : -14.0 * relativeDiff.abs();
+    final double zTranslate = relativeDiff == 0
+        ? 0
+        : -35.0 * relativeDiff.abs();
+    final double yTranslate = relativeDiff == 0
+        ? 0
+        : -14.0 * relativeDiff.abs();
     final double xTranslate = relativeDiff * 24.0;
     final double rotationY = relativeDiff * -0.05;
     final double scale = (1.0 - (relativeDiff.abs() * 0.055)).clamp(0.78, 1.0);
@@ -281,9 +285,7 @@ class _InteractiveIdentityCardStackState
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               // 100% OPAQUE base surface: zero bleed-through from background cards (REQ-P49-CARD-01)
-              color: isSelected
-                  ? null
-                  : (isDark ? const Color(0xFF16161C) : Colors.white),
+              color: isSelected ? null : AppColors.surfaceModalOf(context),
               gradient: isSelected
                   ? LinearGradient(
                       begin: Alignment.topLeft,
@@ -291,9 +293,9 @@ class _InteractiveIdentityCardStackState
                       colors: [
                         Color.alphaBlend(
                           card.accentColor.withValues(alpha: 0.18),
-                          isDark ? const Color(0xFF16161C) : Colors.white,
+                          AppColors.surfaceModalOf(context),
                         ),
-                        isDark ? const Color(0xFF16161C) : Colors.white,
+                        AppColors.surfaceModalOf(context),
                       ],
                     )
                   : null,
@@ -396,8 +398,7 @@ class _InteractiveIdentityCardStackState
                         Container(
                           height: 48,
                           decoration: BoxDecoration(
-                            color: (isDark ? Colors.black : Colors.grey.shade100)
-                                .withValues(alpha: 0.45),
+                            color: AppColors.surfaceSecondaryOf(context),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: card.accentColor.withValues(alpha: 0.18),

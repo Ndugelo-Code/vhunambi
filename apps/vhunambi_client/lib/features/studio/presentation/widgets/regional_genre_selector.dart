@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/design_system/tokens/design_enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -31,24 +33,24 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
   ];
 
   static const List<_GenreItem> _allGenres = [
-    _GenreItem(name: 'Amapiano', icon: '🎹', region: 'South Africa'),
-    _GenreItem(name: 'Kwaito', icon: '💿', region: 'South Africa'),
-    _GenreItem(name: 'Gqom', icon: '💥', region: 'South Africa'),
-    _GenreItem(name: 'Maskandi', icon: '🎸', region: 'South Africa'),
-    _GenreItem(name: 'Mbaqanga', icon: '🪕', region: 'South Africa'),
-    _GenreItem(name: 'Marabi', icon: '🎹', region: 'South Africa'),
-    _GenreItem(name: 'Bubblegum', icon: '🍬', region: 'South Africa'),
-    _GenreItem(name: 'Afro House', icon: '🥁', region: 'South Africa'),
-    _GenreItem(name: 'Afrobeats', icon: '🔥', region: 'Africa'),
-    _GenreItem(name: 'Afro Jazz', icon: '🎷', region: 'Africa'),
-    _GenreItem(name: 'Afro Soul', icon: '🎙️', region: 'Africa'),
-    _GenreItem(name: 'Highlife', icon: '🎺', region: 'Africa'),
-    _GenreItem(name: 'Coupé-Décalé', icon: '⚡', region: 'Africa'),
-    _GenreItem(name: 'Bongo Flava', icon: '🌴', region: 'Africa'),
-    _GenreItem(name: 'Reggae', icon: '🟢', region: 'Americas'),
-    _GenreItem(name: 'Dancehall', icon: '🔊', region: 'Americas'),
-    _GenreItem(name: 'Hip Hop', icon: '🎤', region: 'Global'),
-    _GenreItem(name: 'R&B', icon: '✨', region: 'Global'),
+    _GenreItem(name: 'Amapiano', icon: AppIcons.piano, region: 'South Africa'),
+    _GenreItem(name: 'Kwaito', icon: AppIcons.releases, region: 'South Africa'),
+    _GenreItem(name: 'Gqom', icon: AppIcons.lightning, region: 'South Africa'),
+    _GenreItem(name: 'Maskandi', icon: AppIcons.guitar, region: 'South Africa'),
+    _GenreItem(name: 'Mbaqanga', icon: AppIcons.guitar, region: 'South Africa'),
+    _GenreItem(name: 'Marabi', icon: AppIcons.piano, region: 'South Africa'),
+    _GenreItem(name: 'Bubblegum', icon: AppIcons.songs, region: 'South Africa'),
+    _GenreItem(name: 'Afro House', icon: AppIcons.drums, region: 'South Africa'),
+    _GenreItem(name: 'Afrobeats', icon: AppIcons.flame, region: 'Africa'),
+    _GenreItem(name: 'Afro Jazz', icon: AppIcons.songsOutline, region: 'Africa'),
+    _GenreItem(name: 'Afro Soul', icon: AppIcons.vocals, region: 'Africa'),
+    _GenreItem(name: 'Highlife', icon: AppIcons.songs, region: 'Africa'),
+    _GenreItem(name: 'Coupé-Décalé', icon: AppIcons.lightning, region: 'Africa'),
+    _GenreItem(name: 'Bongo Flava', icon: AppIcons.waveform, region: 'Africa'),
+    _GenreItem(name: 'Reggae', icon: AppIcons.songsOutline, region: 'Americas'),
+    _GenreItem(name: 'Dancehall', icon: AppIcons.volumeHigh, region: 'Americas'),
+    _GenreItem(name: 'Hip Hop', icon: AppIcons.mic, region: 'Global'),
+    _GenreItem(name: 'R&B', icon: AppIcons.sparkle, region: 'Global'),
   ];
 
   @override
@@ -93,8 +95,8 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.music_note_rounded,
+                  const PhosphorIcon(
+                    AppIcons.songs,
                     size: 20,
                     color: AppColors.brandPrimary,
                   ),
@@ -124,10 +126,8 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                     ),
                   ),
                   const Spacer(),
-                  Icon(
-                    _isExpanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
+                  PhosphorIcon(
+                    _isExpanded ? AppIcons.caretUp : AppIcons.caretDown,
                     color: AppColors.textSecondary,
                   ),
                 ],
@@ -157,8 +157,8 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                       ),
                       cursorColor: AppColors.brandPrimary,
                       decoration: InputDecoration(
-                        prefixIcon: Icon(
-                          Icons.search_rounded,
+                        prefixIcon: PhosphorIcon(
+                          AppIcons.search,
                           size: 18,
                           color: AppColors.textSecondary,
                         ),
@@ -167,6 +167,8 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                           color: AppColors.textTertiary,
                         ),
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                         contentPadding:
                             const EdgeInsets.symmetric(vertical: 10),
                       ),
@@ -286,9 +288,10 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                                   borderRadius: AppRadius.thumbBorder,
                                 ),
                                 alignment: Alignment.center,
-                                child: Text(
+                                child: PhosphorIcon(
                                   item.icon,
-                                  style: const TextStyle(fontSize: 14),
+                                  size: 16,
+                                  color: AppColors.brandContrast,
                                 ),
                               ),
                               const SizedBox(width: AppSpacing.xs),
@@ -307,8 +310,8 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                                 ),
                               ),
                               if (isSelected)
-                                Icon(
-                                  Icons.check_circle_rounded,
+                                PhosphorIcon(
+                                  AppIcons.checkCircle,
                                   size: 16,
                                   color: accent,
                                 ),
@@ -414,7 +417,7 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
 
 class _GenreItem {
   final String name;
-  final String icon;
+  final IconData icon;
   final String region;
 
   const _GenreItem({

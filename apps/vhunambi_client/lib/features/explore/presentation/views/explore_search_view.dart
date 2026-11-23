@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/tokens/vhunambi_mood.dart';
 import '../../../../core/navigation/profile_navigation_helper.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -101,8 +102,8 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
                   height: 44,
                   child: IconButton(
                     key: const Key('explore_search_back_btn'),
-                    icon: Icon(
-                      Icons.arrow_back_rounded,
+                    icon: PhosphorIcon(
+                      PhosphorIconsRegular.arrowLeft,
                       color: AppColors.textPrimary,
                     ),
                     onPressed: () {
@@ -124,8 +125,8 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
                       children: [
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 10),
-                          child: Icon(
-                            Icons.search_rounded,
+                          child: PhosphorIcon(
+                            PhosphorIconsRegular.magnifyingGlass,
                             size: 18,
                             color: AppColors.textSecondary,
                           ),
@@ -168,8 +169,8 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
                             height: 36,
                             child: IconButton(
                               key: const Key('explore_search_clear_btn'),
-                              icon: Icon(
-                                Icons.close_rounded,
+                              icon: PhosphorIcon(
+                                PhosphorIconsRegular.x,
                                 size: 16,
                                 color: AppColors.textSecondary,
                               ),
@@ -258,8 +259,8 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
         // Trending Queries Section
         Row(
           children: [
-            const Icon(
-              Icons.trending_up_rounded,
+            const PhosphorIcon(
+              PhosphorIconsRegular.trendUp,
               color: AppColors.brandPrimary,
               size: 20,
             ),
@@ -622,8 +623,8 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
           Text(creator.name, style: AppTypography.bodyLarge),
           if (creator.isVerified) ...[
             const SizedBox(width: 4),
-            const Icon(
-              Icons.verified_rounded,
+            const PhosphorIcon(
+              PhosphorIconsFill.sealCheck,
               color: AppColors.brandPrimary,
               size: 14,
             ),
@@ -634,8 +635,8 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
         '${creator.handle} • ${creator.primaryGenreLabel}',
         style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
       ),
-      trailing: Icon(
-        Icons.chevron_right_rounded,
+      trailing: PhosphorIcon(
+        PhosphorIconsRegular.caretRight,
         color: AppColors.textSecondary,
       ),
       onTap: () {
@@ -654,8 +655,8 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.search_off_rounded,
+          PhosphorIcon(
+            PhosphorIconsRegular.magnifyingGlassMinus,
             size: 48,
             color: AppColors.textSecondary,
           ),

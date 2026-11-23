@@ -3,23 +3,17 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:palette_generator/palette_generator.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
-import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/core/design_system/services/haptics_service.dart';
-import 'package:vhunambi_client/core/design_system/theme/vhunambi_theme_extension.dart';
 import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
-import 'package:vhunambi_client/core/design_system/tokens/design_enums.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_track_artwork.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
 import 'package:vhunambi_client/features/content_studio/presentation/providers/master_media_object_provider.dart';
 import '../providers/player_provider.dart';
+import 'player_chromatic_resolver_mixin.dart';
 
-/// Pill form — minimal floating pill with cover-art reactive glow.
-///
-/// Displays circular cover art (32dp), track title, and play/pause orb.
-/// Glow intensity is driven by simulated waveform amplitude sampling at 30fps.
-/// When paused, a static breathe animation displays. Glow respects reduce-motion.
+/// Pill form — minimal floating pill with `PostChromaticPaletteResolver` reactive glow.
 class PillForm extends ConsumerStatefulWidget {
   final VoidCallback? onExpand;
 
@@ -30,11 +24,10 @@ class PillForm extends ConsumerStatefulWidget {
 }
 
 class _PillFormState extends ConsumerState<PillForm>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, PlayerChromaticPaletteMixin<PillForm> {
   late AnimationController _glowController;
   Timer? _amplitudeTimer;
   double _currentAmplitude = 0.5;
-  Color? _dominantColor;
 
   @override
   void initState() {
@@ -45,7 +38,6 @@ class _PillFormState extends ConsumerState<PillForm>
     );
 
     _startAmplitudeSampling();
-    _extractDominantColor();
   }
 
   void _startAmplitudeSampling() {
@@ -103,29 +95,6 @@ class _PillFormState extends ConsumerState<PillForm>
     }
   }
 
-  Future<void> _extractDominantColor() async {
-    final playerState = ref.read(playerStateProvider);
-    final track = playerState.currentTrack;
-    final rawCover = track?.coverUrl?.trim() ?? '';
-    if (track == null || rawCover.isEmpty) return;
-
-    final normalizedUrl = AppConstants.normalizeCloudMediaUrl(rawCover);
-    if (normalizedUrl.isEmpty) return;
-
-    try {
-      final provider = NetworkImage(normalizedUrl);
-      final palette = await PaletteGenerator.fromImageProvider(
-        provider,
-        size: const Size(32, 32),
-      ).timeout(const Duration(seconds: 4));
-      if (mounted && palette.dominantColor != null) {
-        setState(() => _dominantColor = palette.dominantColor!.color);
-      }
-    } catch (_) {
-      // Fall back to genre accent color.
-    }
-  }
-
   @override
   void dispose() {
     _glowController.dispose();
@@ -140,23 +109,24 @@ class _PillFormState extends ConsumerState<PillForm>
 
     if (track == null) return const SizedBox.shrink();
 
-    final genre = _mapStringToGenre(track.genre);
-    final extension = VhunambiThemeExtension.of(context);
-    final accent = _dominantColor ?? extension.genreAccent(genre);
-
-    final glowColor = accent.withValues(alpha: 0.2 + (_currentAmplitude * 0.3));
+    final palette = resolvePlayerChromaticPalette(context, track);
+    final accent = palette.accent;
+    final glowColor = palette.primaryGlow.withValues(
+      alpha: 0.2 + (_currentAmplitude * 0.3),
+    );
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     return GestureDetector(
       onTap: widget.onExpand,
       child: Container(
+        key: const Key('pill_chromatic_surface'),
         width: 160,
         height: 48,
         decoration: BoxDecoration(
           color: AppColors.surfaceElevatedOf(context).withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: accent.withValues(alpha: 0.3), width: 1.5),
+          border: Border.all(color: palette.glassBorderTint, width: 1.5),
           boxShadow: [
             BoxShadow(
               color: glowColor,
@@ -173,22 +143,25 @@ class _PillFormState extends ConsumerState<PillForm>
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                gradient: _genreGradient(track.genre),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: accent.withValues(alpha: 0.3),
+                    color: palette.primaryGlow.withValues(alpha: 0.3),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              child: const Center(
-                child: PhosphorIcon(
-                  AppIcons.songs,
-                  size: 16,
-                  color: Colors.white,
-                ),
+              child: VhunambiTrackArtwork(
+                key: const Key('pill_track_artwork'),
+                coverUrl: track.coverUrl,
+                genre: track.genre,
+                trackId: track.id,
+                width: 32,
+                height: 32,
+                borderRadius: BorderRadius.circular(16),
+                badgeIconSize: 16,
+                showSubtleBorder: false,
               ),
             ),
             const SizedBox(width: 8),
@@ -228,7 +201,7 @@ class _PillFormState extends ConsumerState<PillForm>
                 child: Center(
                   child: PhosphorIcon(
                     playerState.isPlaying ? AppIcons.pause : AppIcons.play,
-                    color: Colors.white,
+                    color: palette.onAccent,
                     size: 16,
                   ),
                 ),
@@ -239,71 +212,5 @@ class _PillFormState extends ConsumerState<PillForm>
         ),
       ),
     );
-  }
-
-  Genre _mapStringToGenre(String genre) {
-    final normalized = genre.trim().toLowerCase();
-    return switch (normalized) {
-      'amapiano' => Genre.amapiano,
-      'afro house' => Genre.afroHouse,
-      'afrohouse' => Genre.afroHouse,
-      'gqom' => Genre.gqom,
-      'kwaito' => Genre.kwaito,
-      'afro pop' => Genre.afroPop,
-      'afropop' => Genre.afroPop,
-      'afrobeats' => Genre.afroPop,
-      'afro beats' => Genre.afroPop,
-      'maskandi' => Genre.maskandi,
-      'hip hop' => Genre.hipHop,
-      'hiphop' => Genre.hipHop,
-      'gospel' => Genre.gospel,
-      _ => Genre.amapiano,
-    };
-  }
-
-  LinearGradient _genreGradient(String genre) {
-    final normalized = genre.trim().toLowerCase();
-    return switch (normalized) {
-      'amapiano' => const LinearGradient(
-        colors: [Color(0xFFF97316), Color(0xFFEA580C)],
-      ),
-      'afro house' => const LinearGradient(
-        colors: [Color(0xFFEA580C), Color(0xFFF59E0B)],
-      ),
-      'afrohouse' => const LinearGradient(
-        colors: [Color(0xFFEA580C), Color(0xFFF59E0B)],
-      ),
-      'gqom' => const LinearGradient(
-        colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
-      ),
-      'kwaito' => const LinearGradient(
-        colors: [Color(0xFFDC2626), Color(0xFFB91C1C)],
-      ),
-      'afro pop' => const LinearGradient(
-        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-      ),
-      'afropop' => const LinearGradient(
-        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-      ),
-      'afrobeats' => const LinearGradient(
-        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-      ),
-      'afro beats' => const LinearGradient(
-        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-      ),
-      'maskandi' => const LinearGradient(
-        colors: [Color(0xFF059669), Color(0xFF10B981)],
-      ),
-      'hip hop' => const LinearGradient(
-        colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
-      ),
-      'hiphop' => const LinearGradient(
-        colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
-      ),
-      'gospel' => const LinearGradient(
-        colors: [Color(0xFF10B981), Color(0xFF34D399)],
-      ),
-      _ => const LinearGradient(colors: [Color(0xFFF97316), Color(0xFFEA580C)]),
-    };
   }
 }

@@ -48,6 +48,9 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
   final ISocialRepository? _repo;
   static final Set<String> _seedClipIds = _seedClips().map((c) => c.id).toSet();
 
+  /// Returns `true` if [clipId] belongs to the static built-in demo seed catalog.
+  static bool isSeedClipId(String clipId) => _seedClipIds.contains(clipId);
+
   SocialFeedNotifier([this._repo])
     : super(SocialFeedState(clips: _initialClips()));
 
@@ -154,6 +157,15 @@ class SocialFeedNotifier extends StateNotifier<SocialFeedState> {
     final filtered = state.clips.where((c) => c.id != clip.id).toList();
     state = state.copyWith(clips: [clip, ...filtered]);
     _persistCustomClips();
+  }
+
+  /// Removes a clip authored by the active creator from the social feed & cache (`VA-01`).
+  void deleteClip(String clipId) {
+    final next = state.clips.where((c) => c.id != clipId).toList(growable: false);
+    if (next.length == state.clips.length) return;
+    state = state.copyWith(clips: next);
+    _persistCustomClips();
+    _persistEngagement();
   }
 
   /// Toggles the current user's like on a clip with an optimistic count bump.

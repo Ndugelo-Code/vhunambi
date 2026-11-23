@@ -6,6 +6,7 @@ import {
   signAccessJwt,
   verifyPassword,
 } from '../security/crypto_token.js';
+import { validateSovereignPassword } from '../security/password_policy.js';
 import type { GenerationJob } from '../modules/jobs/job_types.js';
 import {
   normalizeVhunambiMoodId,
@@ -4555,11 +4556,7 @@ export class VhunambiDatabase {
     if (!normalizedEmail.includes('@') || normalizedEmail.length < 5) {
       throw new Error('INVALID_EMAIL: A valid email address is required.');
     }
-    if (!input.password || input.password.length < 8) {
-      throw new Error(
-        'WEAK_PASSWORD: Password must be at least 8 characters long.',
-      );
-    }
+    validateSovereignPassword(input.password);
 
     const handleSlug = normalizedHandle.slice(1).replace(/[^a-z0-9_]/g, '_');
     const creatorId = input.creatorId?.trim() || `creator_${handleSlug}`;
@@ -5979,6 +5976,42 @@ export class VhunambiDatabase {
     _cOrEnv?: unknown,
   ): Promise<Record<string, any> | null> {
     return this.sharePlaylist(id);
+  }
+
+  public async syncVoicesFromCloud(
+    _force = false,
+    _cOrEnv?: unknown,
+  ): Promise<boolean> {
+    return false;
+  }
+
+  public async upsertVoiceCloneAsync(
+    profile: Record<string, any>,
+    _cOrEnv?: unknown,
+  ): Promise<void> {
+    this.upsertVoiceClone(profile);
+  }
+
+  public async upsertSoundSignatureAsync(
+    sig: Record<string, any>,
+    _cOrEnv?: unknown,
+  ): Promise<void> {
+    this.upsertSoundSignature(sig);
+  }
+
+  public async deleteSoundSignatureAsync(
+    sigId: string,
+    _cOrEnv?: unknown,
+  ): Promise<boolean> {
+    return this.deleteSoundSignature(sigId);
+  }
+
+  public async updateGenerationJobAsync(
+    generationId: string,
+    updates: Partial<GenerationJob>,
+    _cOrEnv?: unknown,
+  ): Promise<GenerationJob | null> {
+    return this.updateGenerationJob(generationId, updates);
   }
 }
 

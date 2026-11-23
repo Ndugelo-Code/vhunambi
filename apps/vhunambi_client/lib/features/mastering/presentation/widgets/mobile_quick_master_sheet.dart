@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../player/presentation/providers/multi_stem_audio_provider.dart';
 import '../../domain/models/stem_mastering_recipe.dart';
 import '../providers/mastering_session_provider.dart';
@@ -12,7 +16,7 @@ import '../providers/mastering_session_provider.dart';
 ///
 /// Designed for mobile ergonomics: A/B bypass preview, regional preset selector,
 /// Adobe-style vocal cleanse flavors, log-drum knock modes, and Tier B cloud bake.
-class MobileQuickMasterSheet extends ConsumerWidget {
+class MobileQuickMasterSheet extends ConsumerStatefulWidget {
   final String? trackId;
   final String? trackTitle;
   final String? genre;
@@ -25,19 +29,42 @@ class MobileQuickMasterSheet extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MobileQuickMasterSheet> createState() =>
+      _MobileQuickMasterSheetState();
+}
+
+class _MobileQuickMasterSheetState
+    extends ConsumerState<MobileQuickMasterSheet> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref
+            .read(masteringSessionProvider.notifier)
+            .syncMasteringPresetsFromCloud(genre: widget.genre),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(masteringSessionProvider);
     final notifier = ref.read(masteringSessionProvider.notifier);
     final hasRealStems =
         ref.watch(multiStemAudioEngineProvider).hasRealStems;
+    final presets = state.availablePresets.isNotEmpty
+        ? state.availablePresets
+        : kGenreMasterPresets;
 
     return Container(
       key: const Key('mobile_quick_master_sheet'),
       decoration: BoxDecoration(
-        color: AppColors.surfaceModal,
+        color: AppColors.surfaceModalOf(context),
         borderRadius: AppRadius.modalBorder,
         border: Border(
-          top: BorderSide(color: AppColors.borderSubtle, width: 1.0),
+          top: BorderSide(color: AppColors.borderSubtleOf(context), width: 1.0),
         ),
       ),
       padding: const EdgeInsets.fromLTRB(
@@ -60,7 +87,7 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                   height: 4,
                   margin: const EdgeInsets.only(top: 8, bottom: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.borderActive,
+                    color: AppColors.borderSubtleOf(context),
                     borderRadius: AppRadius.pillBorder,
                   ),
                 ),
@@ -69,8 +96,8 @@ class MobileQuickMasterSheet extends ConsumerWidget {
               // 2. Header Row
               Row(
                 children: [
-                  const Icon(
-                    Icons.auto_awesome_rounded,
+                  const PhosphorIcon(
+                    AppIcons.sparkle,
                     color: AppColors.brandPrimary,
                     size: 24,
                   ),
@@ -81,22 +108,28 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                       children: [
                         Text(
                           'Studio Master Polisher',
-                          style: AppTypography.titleLarge
-                              .copyWith(fontWeight: FontWeight.bold),
+                          style: AppTypography.titleLarge.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimaryOf(context),
+                          ),
                         ),
                         Text(
                           '${state.trackTitle} • ${state.genre}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.caption
-                              .copyWith(color: AppColors.textSecondary),
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondaryOf(context),
+                          ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close_rounded,
-                        color: AppColors.textSecondary),
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    icon: PhosphorIcon(
+                      AppIcons.close,
+                      color: AppColors.textSecondaryOf(context),
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -106,23 +139,19 @@ class MobileQuickMasterSheet extends ConsumerWidget {
 
               // 3. Honest Master-Only Mode Notice (REQ-MST-AUD-04)
               if (!hasRealStems) ...[
-                Container(
+                VhunambiGlassSurface(
                   key: const Key('mastering_master_only_notice'),
+                  enableLiveBlur: false,
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.sm,
                     vertical: AppSpacing.xs,
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceElevated,
-                    borderRadius: AppRadius.cardBorder,
-                    border: Border.all(
-                      color: AppColors.accentGold.withValues(alpha: 0.5),
-                    ),
-                  ),
+                  borderRadius: AppRadius.cardBorder,
+                  borderColorOverride: AppColors.accentGold.withValues(alpha: 0.5),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.info_outline_rounded,
+                      const PhosphorIcon(
+                        AppIcons.info,
                         color: AppColors.accentGold,
                         size: 18,
                       ),
@@ -130,8 +159,9 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           'Full stem isolation engages upon Cloud Studio Bake. Auditioning macro log-drum knock & stereo bus.',
-                          style: AppTypography.caption
-                              .copyWith(color: AppColors.textSecondary),
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondaryOf(context),
+                          ),
                         ),
                       ),
                     ],
@@ -141,16 +171,13 @@ class MobileQuickMasterSheet extends ConsumerWidget {
               ],
 
               // 4. A/B Bypass Audition Toggle (REQ-MST-AUD-03)
-              Container(
+              VhunambiGlassSurface(
+                enableLiveBlur: false,
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.md,
                   vertical: AppSpacing.xs,
                 ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  borderRadius: AppRadius.cardBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
+                borderRadius: AppRadius.cardBorder,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -165,13 +192,14 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                             fontWeight: FontWeight.bold,
                             color: state.isMasteredPreviewActive
                                 ? AppColors.brandPrimary
-                                : AppColors.textSecondary,
+                                : AppColors.textSecondaryOf(context),
                           ),
                         ),
                         Text(
                           'Instant zero-latency preview comparison',
-                          style: AppTypography.caption
-                              .copyWith(color: AppColors.textTertiary),
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondaryOf(context),
+                          ),
                         ),
                       ],
                     ),
@@ -193,19 +221,21 @@ class MobileQuickMasterSheet extends ConsumerWidget {
               // 5. Genre Master Presets Rail (REQ-MST-DOM-02)
               Text(
                 'Regional Studio Presets',
-                style: AppTypography.titleMedium
-                    .copyWith(fontWeight: FontWeight.bold),
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimaryOf(context),
+                ),
               ),
               const SizedBox(height: AppSpacing.xs),
               SizedBox(
                 height: 48,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  itemCount: kGenreMasterPresets.length,
+                  itemCount: presets.length,
                   separatorBuilder: (_, _) =>
                       const SizedBox(width: AppSpacing.xs),
                   itemBuilder: (context, index) {
-                    final preset = kGenreMasterPresets[index];
+                    final preset = presets[index];
                     final isSelected = state.recipe.presetId == preset.id;
 
                     return ConstrainedBox(
@@ -227,12 +257,12 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? AppColors.brandPrimary.withValues(alpha: 0.16)
-                                : AppColors.surfaceElevated,
+                                : AppColors.surfaceElevatedOf(context),
                             borderRadius: AppRadius.pillBorder,
                             border: Border.all(
                               color: isSelected
                                   ? AppColors.brandPrimary
-                                  : AppColors.borderSubtle,
+                                  : AppColors.borderSubtleOf(context),
                               width: isSelected ? 1.5 : 1.0,
                             ),
                           ),
@@ -241,7 +271,7 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                             style: AppTypography.bodyLarge.copyWith(
                               color: isSelected
                                   ? AppColors.brandPrimary
-                                  : AppColors.textPrimary,
+                                  : AppColors.textPrimaryOf(context),
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.w500,
@@ -258,7 +288,9 @@ class MobileQuickMasterSheet extends ConsumerWidget {
 
               // 6. Character Flavors (4 Pillars) (REQ-MST-DOM-03)
               _buildFlavorSection(
-                title: '🎙️ Vocal Cleanse (Adobe-Style)',
+                context: context,
+                icon: AppIcons.vocals,
+                title: 'Vocal Cleanse (Adobe-Style)',
                 options: VocalCleanseFlavor.values
                     .map((f) => _FlavorOption(
                           key: Key('vocal_flavor_${f.name}'),
@@ -276,7 +308,9 @@ class MobileQuickMasterSheet extends ConsumerWidget {
               const SizedBox(height: AppSpacing.sm),
 
               _buildFlavorSection(
-                title: '🪵 Log Drum & Sub Knock',
+                context: context,
+                icon: AppIcons.waveform,
+                title: 'Log Drum & Sub Knock',
                 options: BassCharacterFlavor.values
                     .map((f) => _FlavorOption(
                           key: Key('bass_flavor_${f.name}'),
@@ -294,7 +328,9 @@ class MobileQuickMasterSheet extends ConsumerWidget {
               const SizedBox(height: AppSpacing.sm),
 
               _buildFlavorSection(
-                title: '🥁 Drum Bus Snap & Punch',
+                context: context,
+                icon: AppIcons.drums,
+                title: 'Drum Bus Snap & Punch',
                 options: DrumCharacterFlavor.values
                     .map((f) => _FlavorOption(
                           key: Key('drum_flavor_${f.name}'),
@@ -312,7 +348,9 @@ class MobileQuickMasterSheet extends ConsumerWidget {
               const SizedBox(height: AppSpacing.sm),
 
               _buildFlavorSection(
-                title: '🎹 Melodic Width & Vocal Pocket',
+                context: context,
+                icon: AppIcons.piano,
+                title: 'Melodic Width & Vocal Pocket',
                 options: MelodicCharacterFlavor.values
                     .map((f) => _FlavorOption(
                           key: Key('melodic_flavor_${f.name}'),
@@ -332,8 +370,10 @@ class MobileQuickMasterSheet extends ConsumerWidget {
               // 7. Loudness Target Selector (REQ-MST-DOM-01)
               Text(
                 'Commercial Loudness Target',
-                style: AppTypography.titleMedium
-                    .copyWith(fontWeight: FontWeight.bold),
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimaryOf(context),
+                ),
               ),
               const SizedBox(height: AppSpacing.xs),
               Row(
@@ -356,12 +396,12 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                           decoration: BoxDecoration(
                             color: state.recipe.targetLufs == -9.5
                                 ? AppColors.brandPrimary.withValues(alpha: 0.16)
-                                : AppColors.surfaceElevated,
+                                : AppColors.surfaceElevatedOf(context),
                             borderRadius: AppRadius.cardBorder,
                             border: Border.all(
                               color: state.recipe.targetLufs == -9.5
                                   ? AppColors.brandPrimary
-                                  : AppColors.borderSubtle,
+                                  : AppColors.borderSubtleOf(context),
                               width: 1.5,
                             ),
                           ),
@@ -373,14 +413,15 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                                 style: AppTypography.bodyLarge.copyWith(
                                   color: state.recipe.targetLufs == -9.5
                                       ? AppColors.brandPrimary
-                                      : AppColors.textPrimary,
+                                      : AppColors.textPrimaryOf(context),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               Text(
                                 'Amapiano sound systems, TikTok & DJ sets',
-                                style: AppTypography.caption
-                                    .copyWith(color: AppColors.textSecondary),
+                                style: AppTypography.caption.copyWith(
+                                  color: AppColors.textSecondaryOf(context),
+                                ),
                               ),
                             ],
                           ),
@@ -407,12 +448,12 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                           decoration: BoxDecoration(
                             color: state.recipe.targetLufs == -14.0
                                 ? AppColors.brandPrimary.withValues(alpha: 0.16)
-                                : AppColors.surfaceElevated,
+                                : AppColors.surfaceElevatedOf(context),
                             borderRadius: AppRadius.cardBorder,
                             border: Border.all(
                               color: state.recipe.targetLufs == -14.0
                                   ? AppColors.brandPrimary
-                                  : AppColors.borderSubtle,
+                                  : AppColors.borderSubtleOf(context),
                               width: 1.5,
                             ),
                           ),
@@ -424,14 +465,15 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                                 style: AppTypography.bodyLarge.copyWith(
                                   color: state.recipe.targetLufs == -14.0
                                       ? AppColors.brandPrimary
-                                      : AppColors.textPrimary,
+                                      : AppColors.textPrimaryOf(context),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               Text(
                                 'Spotify, Apple Music & DSP standards',
-                                style: AppTypography.caption
-                                    .copyWith(color: AppColors.textSecondary),
+                                style: AppTypography.caption.copyWith(
+                                  color: AppColors.textSecondaryOf(context),
+                                ),
                               ),
                             ],
                           ),
@@ -455,14 +497,20 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                           HapticFeedback.heavyImpact();
                           final success = await notifier.bakeMaster();
                           if (context.mounted && success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '✨ Studio master baked successfully! WAV & MP3 ready.',
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                SnackBar(
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(milliseconds: 2500),
+                                  content: const Text(
+                                    'Studio master baked successfully! WAV & MP3 ready.',
+                                  ),
+                                  backgroundColor: AppColors.surfaceElevatedOf(
+                                    context,
+                                  ),
                                 ),
-                                backgroundColor: AppColors.surfaceElevated,
-                              ),
-                            );
+                              );
                           }
                         },
                   style: ElevatedButton.styleFrom(
@@ -482,7 +530,7 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                             color: AppColors.brandContrast,
                           ),
                         )
-                      : const Icon(Icons.flash_on_rounded),
+                      : const PhosphorIcon(AppIcons.lightning),
                   label: Text(
                     state.isBaking
                         ? 'Baking Studio Master on Cloud GPU…'
@@ -500,17 +548,15 @@ class MobileQuickMasterSheet extends ConsumerWidget {
               // Baked Master Success Links
               if (state.hasBakedMaster) ...[
                 const SizedBox(height: AppSpacing.sm),
-                Container(
+                VhunambiGlassSurface(
+                  enableLiveBlur: false,
                   padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceElevated,
-                    borderRadius: AppRadius.cardBorder,
-                    border: Border.all(color: AppColors.success),
-                  ),
+                  borderRadius: AppRadius.cardBorder,
+                  borderColorOverride: AppColors.success,
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.check_circle_rounded,
+                      const PhosphorIcon(
+                        AppIcons.checkCircle,
                         color: AppColors.success,
                         size: 20,
                       ),
@@ -519,7 +565,7 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                         child: Text(
                           'Cloud Studio Master Ready (Lossless 24-bit WAV & 320k MP3)',
                           style: AppTypography.caption.copyWith(
-                            color: AppColors.textPrimary,
+                            color: AppColors.textPrimaryOf(context),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -536,15 +582,26 @@ class MobileQuickMasterSheet extends ConsumerWidget {
   }
 
   Widget _buildFlavorSection({
+    required BuildContext context,
+    required IconData icon,
     required String title,
     required List<_FlavorOption> options,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: AppTypography.titleMedium.copyWith(fontSize: 14),
+        Row(
+          children: [
+            PhosphorIcon(icon, size: 15, color: AppColors.brandPrimary),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: AppTypography.titleMedium.copyWith(
+                fontSize: 14,
+                color: AppColors.textPrimaryOf(context),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: AppSpacing.xs),
         Wrap(
@@ -566,12 +623,12 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: opt.isSelected
                         ? AppColors.brandPrimary.withValues(alpha: 0.16)
-                        : AppColors.surfaceElevated,
+                        : AppColors.surfaceElevatedOf(context),
                     borderRadius: AppRadius.cardBorder,
                     border: Border.all(
                       color: opt.isSelected
                           ? AppColors.brandPrimary
-                          : AppColors.borderSubtle,
+                          : AppColors.borderSubtleOf(context),
                       width: opt.isSelected ? 1.5 : 1.0,
                     ),
                   ),
@@ -584,7 +641,7 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                         style: AppTypography.bodyLarge.copyWith(
                           color: opt.isSelected
                               ? AppColors.brandPrimary
-                              : AppColors.textPrimary,
+                              : AppColors.textPrimaryOf(context),
                           fontWeight: opt.isSelected
                               ? FontWeight.bold
                               : FontWeight.w500,
@@ -595,7 +652,7 @@ class MobileQuickMasterSheet extends ConsumerWidget {
                         opt.description,
                         style: AppTypography.caption.copyWith(
                           fontSize: 11,
-                          color: AppColors.textSecondary,
+                          color: AppColors.textSecondaryOf(context),
                         ),
                       ),
                     ],

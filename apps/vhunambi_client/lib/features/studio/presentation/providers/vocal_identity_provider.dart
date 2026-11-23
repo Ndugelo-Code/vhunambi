@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/storage/hive_compaction_scheduler.dart';
+import '../../../../core/utils/json_safe.dart';
 import '../../../mastering/domain/models/stem_mastering_recipe.dart';
 import '../../../mastering/presentation/providers/mastering_session_provider.dart';
 import '../../../sound_signature/data/sound_signature_repository.dart';
@@ -397,6 +401,91 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
     return script;
   }
 
+  static bool _isTestEnv() {
+    if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
+    try {
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  Dio _buildDio(Dio? customDio) {
+    if (customDio != null) return customDio;
+    final dio = Dio();
+    try {
+      dio.interceptors.add(_ref.read(authDioInterceptorProvider));
+    } catch (_) {}
+    return dio;
+  }
+
+  /// Extracts calibration script via `POST /v1/voices/extract-calibration` (`EP-P26`),
+  /// degrading cleanly to local [PhoneticCalibrationExtractor] offline or in headless tests.
+  Future<PhoneticCalibrationScript> prepareCalibrationFromLyricsAsync(
+    String lyrics, {
+    String language = 'Tshivenḓa',
+    Dio? dio,
+  }) async {
+    if (!_isTestEnv() || dio != null) {
+      try {
+        final client = _buildDio(dio);
+        final response = await client.post<Map<String, dynamic>>(
+          '${AppConstants.apiBaseUrl}/voices/extract-calibration',
+          data: <String, dynamic>{
+            'lyrics': lyrics,
+            'language': language,
+          },
+          options: Options(receiveTimeout: const Duration(seconds: 6)),
+        );
+        final rawScript = JsonSafe.asMap(response.data?['script']);
+        if (rawScript.isNotEmpty) {
+          final parsed = PhoneticCalibrationScript.fromJson(rawScript);
+          if (parsed.lines.isNotEmpty) {
+            if (mounted) {
+              state = state.copyWith(calibrationScript: parsed);
+            }
+            return parsed;
+          }
+        }
+      } catch (err) {
+        debugPrint('[VocalIdentity] extract-calibration fallback: $err');
+      }
+    }
+    return prepareCalibrationFromLyrics(lyrics, language: language);
+  }
+
+  /// Syncs the regional voice archetype catalog from `GET /v1/voices/catalog`.
+  Future<void> syncCatalogFromCloud({Dio? dio}) async {
+    if (_isTestEnv() && dio == null) return;
+    try {
+      final client = _buildDio(dio);
+      final response = await client.get<Map<String, dynamic>>(
+        '${AppConstants.apiBaseUrl}/voices/catalog',
+        options: Options(receiveTimeout: const Duration(seconds: 8)),
+      );
+      final rawVoices = JsonSafe.asList(response.data?['voices']);
+      if (rawVoices.isEmpty) return;
+
+      final parsed = rawVoices
+          .map((item) => RegionalVoiceArchetype.fromJson(JsonSafe.asMap(item)))
+          .where((v) => v.id.isNotEmpty)
+          .toList();
+      if (parsed.isNotEmpty && mounted) {
+        final matchingActive = parsed.firstWhere(
+          (v) => v.id == state.activeArchetype.id,
+          orElse: () => parsed.first,
+        );
+        state = state.copyWith(
+          catalog: parsed,
+          activeArchetype: matchingActive,
+        );
+      }
+    } catch (err) {
+      debugPrint('[VocalIdentity] syncCatalogFromCloud fallback: $err');
+    }
+  }
+
   /// Starts capturing the 15-20s 3-line calibration voice note (REQ-VOC-07).
   Future<void> startCalibrationRecording() async {
     final script =
@@ -454,6 +543,10 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
 
     var finalProfile = profile;
     try {
+      String? creatorId;
+      try {
+        creatorId = _ref.read(currentCreatorIdProvider);
+      } catch (_) {}
       final uploadedUrl = await _ref
           .read(preGenR2UploadServiceProvider)
           .uploadVoiceCloneReference(
@@ -463,6 +556,7 @@ class VocalIdentityNotifier extends StateNotifier<VocalIdentityState> {
             nativeLanguage: finalProfile.nativeLanguage,
             calibrationLines: finalProfile.calibrationLines,
             recordingDurationSec: finalProfile.recordingDurationSec,
+            creatorId: creatorId,
           );
       if (uploadedUrl != null && uploadedUrl.isNotEmpty && mounted) {
         finalProfile = finalProfile.copyWith(r2ReferenceUrl: uploadedUrl);

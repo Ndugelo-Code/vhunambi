@@ -14,10 +14,10 @@ import 'package:vhunambi_client/features/player/presentation/providers/player_pr
 void main() {
   group('resolveCollectionTracks', () {
     test('resolves vault ids in collection order', () {
-      final tracks = resolveCollectionTracks(
-        const ['lib_track_002', 'lib_track_001'],
-        _vault(),
-      );
+      final tracks = resolveCollectionTracks(const [
+        'lib_track_002',
+        'lib_track_001',
+      ], _vault());
 
       expect(tracks, hasLength(2));
       expect(tracks.first.id, equals('lib_track_002'));
@@ -35,9 +35,13 @@ void main() {
   });
 
   group('CollectionDetailView', () {
-    testWidgets('renders the hero header, badge and action deck',
-        (tester) async {
-      await _pumpDetail(tester, collection: _collection(trackIds: const ['lib_track_001']));
+    testWidgets('renders the hero header, badge and action deck', (
+      tester,
+    ) async {
+      await _pumpDetail(
+        tester,
+        collection: _collection(trackIds: const ['lib_track_001']),
+      );
 
       expect(find.text('Ẓe Amapiano EP'), findsWidgets);
       expect(find.text('EP'), findsOneWidget);
@@ -45,7 +49,7 @@ void main() {
       expect(find.text('1 song • 3 mins'), findsOneWidget);
       expect(find.text('Play All'), findsOneWidget);
       expect(find.text('Shuffle'), findsOneWidget);
-      expect(find.text('📄 Split Sheet'), findsOneWidget);
+      expect(find.text('Split Sheet'), findsOneWidget);
     });
 
     testWidgets('renders the empty track placeholder', (tester) async {
@@ -53,17 +57,17 @@ void main() {
 
       expect(find.textContaining('No songs added yet.'), findsOneWidget);
       expect(find.text('+ Add Track from Library'), findsOneWidget);
-      expect(
-        find.text('No collaborators added yet.'),
-        findsOneWidget,
-      );
+      expect(find.text('No collaborators added yet.'), findsOneWidget);
     });
 
-    testWidgets('resolves vault tracks and renders their metadata',
-        (tester) async {
+    testWidgets('resolves vault tracks and renders their metadata', (
+      tester,
+    ) async {
       await _pumpDetail(
         tester,
-        collection: _collection(trackIds: const ['lib_track_001', 'lib_track_002']),
+        collection: _collection(
+          trackIds: const ['lib_track_001', 'lib_track_002'],
+        ),
       );
 
       expect(find.text('Grateful in the Light'), findsOneWidget);
@@ -73,18 +77,22 @@ void main() {
       expect(find.text('2 songs • 6 mins'), findsOneWidget);
     });
 
-    testWidgets('removing a track calls removeTrack on the repository',
-        (tester) async {
+    testWidgets('removing a track calls removeTrack on the repository', (
+      tester,
+    ) async {
       final container = await _pumpDetail(
         tester,
         collection: _collection(trackIds: const ['lib_track_001']),
       );
 
-      await tester.tap(find.byKey(const Key('collection_remove_lib_track_001')));
+      await tester.tap(
+        find.byKey(const Key('collection_remove_lib_track_001')),
+      );
       await tester.pumpAndSettle();
 
-      final repository = container.read(collectionRepositoryProvider)
-          as InMemoryCollectionRepository;
+      final repository =
+          container.read(collectionRepositoryProvider)
+              as InMemoryCollectionRepository;
       final updated = await repository.getCollectionById('col_1');
       expect(updated!.trackIds, isEmpty);
     });
@@ -127,8 +135,9 @@ void main() {
       expect(player.queue, hasLength(2));
     });
 
-    testWidgets('renders participant rows and the balanced total indicator',
-        (tester) async {
+    testWidgets('renders participant rows and the balanced total indicator', (
+      tester,
+    ) async {
       await _pumpDetail(
         tester,
         collection: _collection(
@@ -154,8 +163,9 @@ void main() {
       expect(total.style?.color, equals(AppColors.success));
     });
 
-    testWidgets('flags an unbalanced split sheet in the error colour',
-        (tester) async {
+    testWidgets('flags an unbalanced split sheet in the error colour', (
+      tester,
+    ) async {
       await _pumpDetail(
         tester,
         collection: _collection(
@@ -171,8 +181,9 @@ void main() {
       expect(total.style?.color, equals(AppColors.error));
     });
 
-    testWidgets('saving a collaborator persists it through the notifier',
-        (tester) async {
+    testWidgets('saving a collaborator persists it through the notifier', (
+      tester,
+    ) async {
       final container = await _pumpDetail(
         tester,
         collection: _collection(trackIds: const ['lib_track_001']),
@@ -202,15 +213,17 @@ void main() {
 
       expect(find.text('Ndugelo Makwela'), findsOneWidget);
 
-      final repository = container.read(collectionRepositoryProvider)
-          as InMemoryCollectionRepository;
+      final repository =
+          container.read(collectionRepositoryProvider)
+              as InMemoryCollectionRepository;
       final stored = await repository.getCollectionById('col_1');
       expect(stored!.participants, hasLength(1));
       expect(stored.isSplitBalanced, isTrue);
     });
 
-    testWidgets('editing a collaborator updates the stored share',
-        (tester) async {
+    testWidgets('editing a collaborator updates the stored share', (
+      tester,
+    ) async {
       final container = await _pumpDetail(
         tester,
         collection: _collection(
@@ -234,8 +247,9 @@ void main() {
       await tester.tap(find.byKey(const Key('participant_save')));
       await tester.pumpAndSettle();
 
-      final repository = container.read(collectionRepositoryProvider)
-          as InMemoryCollectionRepository;
+      final repository =
+          container.read(collectionRepositoryProvider)
+              as InMemoryCollectionRepository;
       final stored = await repository.getCollectionById('col_1');
       expect(stored!.participants.single.sharePercent, equals(100));
     });
@@ -252,9 +266,9 @@ void main() {
       await tester.tap(find.byKey(const Key('collection_split_sheet')));
       await tester.pumpAndSettle();
 
-      expect(find.text('📄 Split Sheet — Ẓe Amapiano EP'), findsOneWidget);
+      expect(find.text('Split Sheet — Ẓe Amapiano EP'), findsOneWidget);
       expect(find.text('PARTICIPANTS'), findsOneWidget);
-      expect(find.text('⚠ Shares must sum to 100%'), findsOneWidget);
+      expect(find.text('Shares must sum to 100%'), findsOneWidget);
       expect(find.text('Copy to Clipboard'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('split_sheet_close')));
@@ -300,42 +314,41 @@ Future<ProviderContainer> _pumpDetail(
 }
 
 List<LibraryTrack> _vault() => [
-      LibraryTrack(
-        id: 'lib_track_001',
-        title: 'Grateful in the Light',
-        creatorName: 'cern',
-        genre: 'Amapiano',
-        language: 'English',
-        durationSeconds: 216,
-        remoteAudioUrl: 'https://vhunambi.com/audio/grateful-in-the-light.mp3',
-        createdAt: DateTime(2026, 9, 27),
-      ),
-      LibraryTrack(
-        id: 'lib_track_002',
-        title: 'Ndo Mufuna Matibe',
-        creatorName: 'Fifi',
-        genre: 'Amapiano',
-        language: 'Tshivenḓa',
-        durationSeconds: 198,
-        remoteAudioUrl: 'https://vhunambi.com/audio/ndo-mufuna-matibe.mp3',
-        createdAt: DateTime(2026, 9, 27),
-      ),
-    ];
+  LibraryTrack(
+    id: 'lib_track_001',
+    title: 'Grateful in the Light',
+    creatorName: 'cern',
+    genre: 'Amapiano',
+    language: 'English',
+    durationSeconds: 216,
+    remoteAudioUrl: 'https://vhunambi.com/audio/grateful-in-the-light.mp3',
+    createdAt: DateTime(2026, 9, 27),
+  ),
+  LibraryTrack(
+    id: 'lib_track_002',
+    title: 'Ndo Mufuna Matibe',
+    creatorName: 'Fifi',
+    genre: 'Amapiano',
+    language: 'Tshivenḓa',
+    durationSeconds: 198,
+    remoteAudioUrl: 'https://vhunambi.com/audio/ndo-mufuna-matibe.mp3',
+    createdAt: DateTime(2026, 9, 27),
+  ),
+];
 
 CollectionEntity _collection({
   List<String> trackIds = const ['lib_track_001'],
   List<SplitParticipant> participants = const [],
-}) =>
-    CollectionEntity(
-      id: 'col_1',
-      title: 'Ẓe Amapiano EP',
-      genre: 'Amapiano',
-      trackIds: trackIds,
-      participants: participants,
-      releaseDate: DateTime(2026, 10, 1),
-      createdAt: DateTime(2026, 9, 27),
-      updatedAt: DateTime(2026, 9, 27),
-    );
+}) => CollectionEntity(
+  id: 'col_1',
+  title: 'Ẓe Amapiano EP',
+  genre: 'Amapiano',
+  trackIds: trackIds,
+  participants: participants,
+  releaseDate: DateTime(2026, 10, 1),
+  createdAt: DateTime(2026, 9, 27),
+  updatedAt: DateTime(2026, 9, 27),
+);
 
 SplitParticipant _participant(String name, String role, double share) =>
     SplitParticipant(name: name, role: role, sharePercent: share);

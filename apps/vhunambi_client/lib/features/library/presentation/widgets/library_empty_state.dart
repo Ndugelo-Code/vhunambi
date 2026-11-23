@@ -159,6 +159,14 @@ class _EmptyStateCopy {
           ctaLabel: 'Create your first song',
           ctaIcon: PhosphorIconsRegular.sparkle,
         ),
+      LibraryCategory.reels => const _EmptyStateCopy(
+          icon: AppIcons.reels,
+          headline: 'No reels yet',
+          description:
+              'Record or craft a 9:16 Kinetic Reel in Studio — it will appear here and on Explore.',
+          ctaLabel: 'Create your first reel',
+          ctaIcon: AppIcons.reels,
+        ),
       LibraryCategory.playlists => const _EmptyStateCopy(
           icon: PhosphorIconsRegular.queue,
           headline: 'No playlists yet',

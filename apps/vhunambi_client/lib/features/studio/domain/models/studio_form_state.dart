@@ -9,18 +9,18 @@ enum TempoBracket { slow, medium, fast, veryFast }
 
 extension TempoBracketLabel on TempoBracket {
   String get label => switch (this) {
-        TempoBracket.slow => 'Slow (95-108 BPM)',
-        TempoBracket.medium => 'Medium (112-115 BPM)',
-        TempoBracket.fast => 'Fast (118-124 BPM)',
-        TempoBracket.veryFast => 'Very Fast (128+ BPM)',
-      };
+    TempoBracket.slow => 'Slow (95-108 BPM)',
+    TempoBracket.medium => 'Medium (112-115 BPM)',
+    TempoBracket.fast => 'Fast (118-124 BPM)',
+    TempoBracket.veryFast => 'Very Fast (128+ BPM)',
+  };
 
   int get defaultBpm => switch (this) {
-        TempoBracket.slow => 85,
-        TempoBracket.medium => 112,
-        TempoBracket.fast => 124,
-        TempoBracket.veryFast => 135,
-      };
+    TempoBracket.slow => 85,
+    TempoBracket.medium => 112,
+    TempoBracket.fast => 124,
+    TempoBracket.veryFast => 135,
+  };
 }
 
 enum VocalVoices { solo, duet, choir }
@@ -40,11 +40,11 @@ enum ProductionEra {
   futuristic2030;
 
   String get label => switch (this) {
-        modern => 'Modern (2020s)',
-        vintage90s => '90s Kwaito',
-        heritageOldSchool => 'Old School Heritage',
-        futuristic2030 => 'Futuristic 2030',
-      };
+    modern => 'Modern (2020s)',
+    vintage90s => '90s Kwaito',
+    heritageOldSchool => 'Old School Heritage',
+    futuristic2030 => 'Futuristic 2030',
+  };
 }
 
 typedef VocalConfiguration = VocalVoices;
@@ -53,35 +53,35 @@ typedef SongStructureType = SongStructure;
 
 extension VocalVoicesLabel on VocalVoices {
   String get label => switch (this) {
-        VocalVoices.solo => 'Solo',
-        VocalVoices.duet => 'Duet',
-        VocalVoices.choir => 'Choir',
-      };
+    VocalVoices.solo => 'Solo',
+    VocalVoices.duet => 'Duet',
+    VocalVoices.choir => 'Choir',
+  };
 }
 
 extension VocalGenderLabel on VocalGender {
   String get label => switch (this) {
-        VocalGender.male => 'Male',
-        VocalGender.female => 'Female',
-        VocalGender.mixed => 'Mixed',
-      };
+    VocalGender.male => 'Male',
+    VocalGender.female => 'Female',
+    VocalGender.mixed => 'Mixed',
+  };
 }
 
 extension VocalEnergyLabel on VocalEnergy {
   String get label => switch (this) {
-        VocalEnergy.soft => 'Soft',
-        VocalEnergy.mid => 'Mid',
-        VocalEnergy.intense => 'Intense',
-      };
+    VocalEnergy.soft => 'Soft',
+    VocalEnergy.mid => 'Mid',
+    VocalEnergy.intense => 'Intense',
+  };
 }
 
 extension SongStructureLabel on SongStructure {
   String get label => switch (this) {
-        SongStructure.standard => 'Standard',
-        SongStructure.extended => 'Extended (DJ)',
-        SongStructure.freestyle => 'Freestyle',
-        SongStructure.loop => 'Loop',
-      };
+    SongStructure.standard => 'Standard',
+    SongStructure.extended => 'Extended (DJ)',
+    SongStructure.freestyle => 'Freestyle',
+    SongStructure.loop => 'Loop',
+  };
 }
 
 enum GenerationPhase {
@@ -107,16 +107,16 @@ enum StemLockMode {
   elasticResynth;
 
   String get displayName => switch (this) {
-        StemLockMode.lockedPure44k => 'Lock Pure 44.1k',
-        StemLockMode.harmonicInpaint => 'Guided Inpaint',
-        StemLockMode.elasticResynth => 'AI Re-Imagine',
-      };
+    StemLockMode.lockedPure44k => 'Lock Pure 44.1k',
+    StemLockMode.harmonicInpaint => 'Guided Inpaint',
+    StemLockMode.elasticResynth => 'AI Re-Imagine',
+  };
 
   String get fullLabel => switch (this) {
-        StemLockMode.lockedPure44k => 'Stem-Locked (Pure 44.1 kHz)',
-        StemLockMode.harmonicInpaint => 'Guided AI Inpaint',
-        StemLockMode.elasticResynth => 'AI Style Re-Imagine',
-      };
+    StemLockMode.lockedPure44k => 'Stem-Locked (Pure 44.1 kHz)',
+    StemLockMode.harmonicInpaint => 'Guided AI Inpaint',
+    StemLockMode.elasticResynth => 'AI Style Re-Imagine',
+  };
 }
 
 @immutable
@@ -188,7 +188,6 @@ class StudioFormState {
       region: 'Limpopo / Makhado',
       timbreDescription:
           'Deep resonant chest timbre with natural dental articulation and ancestral oral storytelling cadence.',
-      iconEmoji: '👴',
       loraScale: 0.90,
       characteristicAdLibs: [
         'Ndi zwone!',
@@ -199,20 +198,21 @@ class StudioFormState {
     ),
     this.dialectInflection = const DialectInflectionConfig(),
     Map<String, StemLockMode>? branchStemLockModes,
-  })  : branchStemLockModes = branchStemLockModes ??
-            const {
-              'node_beat_tempo': StemLockMode.lockedPure44k,
-              'node_branch_beat': StemLockMode.lockedPure44k,
-              'node_sketchpad_groove': StemLockMode.lockedPure44k,
-              'node_branch_instruments': StemLockMode.lockedPure44k,
-              'node_harmony_chords': StemLockMode.lockedPure44k,
-              'node_vocal_persona': StemLockMode.harmonicInpaint,
-              'node_branch_vocal': StemLockMode.harmonicInpaint,
-              'node_emotion_mood': StemLockMode.harmonicInpaint,
-              'node_spatial_atmosphere': StemLockMode.harmonicInpaint,
-              'node_branch_sfx': StemLockMode.harmonicInpaint,
-            },
-        visibility = visibility ?? (isPublic == false ? 'private' : 'public');
+  }) : branchStemLockModes =
+           branchStemLockModes ??
+           const {
+             'node_beat_tempo': StemLockMode.lockedPure44k,
+             'node_branch_beat': StemLockMode.lockedPure44k,
+             'node_sketchpad_groove': StemLockMode.lockedPure44k,
+             'node_branch_instruments': StemLockMode.lockedPure44k,
+             'node_harmony_chords': StemLockMode.lockedPure44k,
+             'node_vocal_persona': StemLockMode.harmonicInpaint,
+             'node_branch_vocal': StemLockMode.harmonicInpaint,
+             'node_emotion_mood': StemLockMode.harmonicInpaint,
+             'node_spatial_atmosphere': StemLockMode.harmonicInpaint,
+             'node_branch_sfx': StemLockMode.harmonicInpaint,
+           },
+       visibility = visibility ?? (isPublic == false ? 'private' : 'public');
 
   /// Backward-compatible getter during VH-002 migration.
   bool get isPublic => visibility == 'public';

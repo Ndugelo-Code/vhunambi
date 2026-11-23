@@ -43,6 +43,7 @@ class PlaylistEntity {
     String? title,
     String? description,
     String? coverImageUrl,
+    bool clearCoverImage = false,
     List<String>? trackIds,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -54,7 +55,9 @@ class PlaylistEntity {
       id: id ?? this.id,
       title: title ?? this.title,
       description: description ?? this.description,
-      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
+      coverImageUrl: clearCoverImage
+          ? null
+          : (coverImageUrl ?? this.coverImageUrl),
       trackIds: trackIds ?? this.trackIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

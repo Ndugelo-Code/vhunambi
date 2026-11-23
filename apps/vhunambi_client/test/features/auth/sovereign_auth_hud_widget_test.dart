@@ -496,12 +496,29 @@ void main() {
             find.byKey(const Key('auth_email_input')),
             'zulu@vhunambi.za',
           );
+
+          // Weak password (>=8 chars but missing uppercase/symbol or common weak) blocked before network
+          await tester.enterText(
+            find.byKey(const Key('auth_password_input')),
+            'weakpass123',
+          );
+          await tester.pump();
+          expect(
+            find.byKey(const Key('auth_password_requirements_wrap')),
+            findsOneWidget,
+          );
+          final submitBtn = find.byKey(const Key('auth_submit_btn'));
+          await tester.ensureVisible(submitBtn);
+          await tester.tap(submitBtn);
+          await tester.pump();
+          expect(find.byKey(const Key('auth_error_banner')), findsOneWidget);
+
           await tester.enterText(
             find.byKey(const Key('auth_password_input')),
             'StrongPass!99',
           );
+          await tester.pump();
 
-          final submitBtn = find.byKey(const Key('auth_submit_btn'));
           await tester.ensureVisible(submitBtn);
           await tester.tap(submitBtn);
           await tester.pump();

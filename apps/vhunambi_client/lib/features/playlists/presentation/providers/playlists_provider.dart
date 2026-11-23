@@ -84,12 +84,14 @@ class PlaylistsNotifier extends StateNotifier<List<PlaylistEntity>> {
   Future<PlaylistEntity> createPlaylist(
     String title, {
     String? description,
+    String? coverImageUrl,
   }) async {
     final now = DateTime.now();
     final playlist = PlaylistEntity(
       id: 'pl_${now.microsecondsSinceEpoch}',
       title: title.trim(),
       description: description?.trim() ?? '',
+      coverImageUrl: coverImageUrl,
       createdAt: now,
       updatedAt: now,
     );
@@ -101,11 +103,13 @@ class PlaylistsNotifier extends StateNotifier<List<PlaylistEntity>> {
     return playlist;
   }
 
-  /// Renames / re-describes an existing playlist.
+  /// Renames / re-describes / updates custom cover of an existing playlist.
   Future<void> updatePlaylist(
     String id, {
     String? title,
     String? description,
+    String? coverImageUrl,
+    bool clearCoverImage = false,
   }) async {
     final index = state.indexWhere((playlist) => playlist.id == id);
     if (index < 0) return;
@@ -113,6 +117,8 @@ class PlaylistsNotifier extends StateNotifier<List<PlaylistEntity>> {
     final updated = state[index].copyWith(
       title: title?.trim(),
       description: description?.trim(),
+      coverImageUrl: coverImageUrl,
+      clearCoverImage: clearCoverImage,
       updatedAt: DateTime.now(),
     );
 

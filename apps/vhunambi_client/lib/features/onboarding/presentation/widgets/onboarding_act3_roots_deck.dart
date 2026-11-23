@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../domain/models/onboarding_models.dart';
 import '../providers/onboarding_providers.dart';
 
@@ -11,7 +13,7 @@ import '../providers/onboarding_providers.dart';
 /// Features a non-scrolling 3-Tier layout:
 /// Tier 1: Interactive Birth Year & Generation Era Dial
 /// Tier 2: Cultural Tongues & Linguistic Roots Orbs
-/// Tier 3: Era-Recommended African Genre Cards (✨ Era Match)
+/// Tier 3: Era-Recommended African Genre Cards (Era Match)
 class OnboardingAct3RootsDeck extends ConsumerWidget {
   final VoidCallback? onInteraction;
 
@@ -112,17 +114,15 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
     final era = state.generationEra;
     final currentYear = state.birthYear;
 
-    return Container(
+    return VhunambiGlassSurface(
       key: const Key('onboarding_birth_year_selector'),
+      variant: VhunambiGlassVariant.card,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF14141A) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.badgeCyan.withValues(alpha: 0.35),
-          width: 1.2,
-        ),
-      ),
+      borderRadius: BorderRadius.circular(18),
+      enableLiveBlur: false,
+      tintAccent: AppColors.badgeCyan,
+      borderColorOverride: AppColors.badgeCyan.withValues(alpha: 0.35),
+      borderWidth: 1.2,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -144,7 +144,10 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
               const SizedBox(width: 8),
               Flexible(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.badgeCyan.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(10),
@@ -193,9 +196,7 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? AppColors.brandPrimary
-                          : (isDark
-                                ? Colors.white10
-                                : Colors.black.withValues(alpha: 0.05)),
+                          : AppColors.surfaceSecondaryOf(context),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
@@ -213,7 +214,7 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                               ? FontWeight.w900
                               : FontWeight.w600,
                           color: isSelected
-                              ? Colors.black
+                              ? AppColors.brandContrast
                               : AppColors.textPrimaryOf(context),
                         ),
                       ),
@@ -284,17 +285,13 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
     OnboardingState state,
     bool isDark,
   ) {
-    return Container(
+    return VhunambiGlassSurface(
       key: const Key('onboarding_culture_language_orbs'),
+      variant: VhunambiGlassVariant.card,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF14141A) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: (isDark ? Colors.white12 : Colors.black12),
-          width: 1.0,
-        ),
-      ),
+      borderRadius: BorderRadius.circular(18),
+      enableLiveBlur: false,
+      borderColorOverride: AppColors.borderSubtleOf(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -343,9 +340,7 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? AppColors.brandPrimary.withValues(alpha: 0.18)
-                          : (isDark
-                                ? Colors.white10
-                                : Colors.black.withValues(alpha: 0.04)),
+                          : AppColors.surfaceSecondaryOf(context),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
@@ -396,17 +391,13 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
   ) {
     final eraRecs = state.generationEra.recommendedGenres;
 
-    return Container(
+    return VhunambiGlassSurface(
       key: const Key('onboarding_era_genre_deck'),
+      variant: VhunambiGlassVariant.card,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF14141A) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: (isDark ? Colors.white12 : Colors.black12),
-          width: 1.0,
-        ),
-      ),
+      borderRadius: BorderRadius.circular(18),
+      enableLiveBlur: false,
+      borderColorOverride: AppColors.borderSubtleOf(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -466,9 +457,7 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                           ? genre.accentColor.withValues(
                               alpha: isDark ? 0.22 : 0.14,
                             )
-                          : (isDark
-                                ? const Color(0xFF1C1C24)
-                                : Colors.grey.shade100),
+                          : AppColors.surfaceElevatedOf(context),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
@@ -512,13 +501,24 @@ class OnboardingAct3RootsDeck extends ConsumerWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               if (isEraMatch)
-                                const Text(
-                                  '✨ Era Match',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.brandPrimary,
-                                  ),
+                                const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    PhosphorIcon(
+                                      AppIcons.sparkle,
+                                      size: 10,
+                                      color: AppColors.brandPrimary,
+                                    ),
+                                    SizedBox(width: 3),
+                                    Text(
+                                      'Era Match',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.brandPrimary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                             ],
                           ),

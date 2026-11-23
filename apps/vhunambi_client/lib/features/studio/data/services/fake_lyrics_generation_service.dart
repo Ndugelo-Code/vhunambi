@@ -44,6 +44,73 @@ class FakeLyricsGenerationService implements ILyricsGenerationService {
   }
 
   @override
+  Future<LyricsReviewDraft> refineLyrics({
+    required String currentLyrics,
+    required String refinementInstruction,
+    String? idiomToInsert,
+    required String genre,
+    required String language,
+    String prompt = '',
+  }) async {
+    if (latency > Duration.zero) {
+      await Future<void>.delayed(latency);
+    }
+
+    final idioms = getCulturalIdioms(language);
+    final insertion = (idiomToInsert != null && idiomToInsert.trim().isNotEmpty)
+        ? idiomToInsert.trim()
+        : idioms.first;
+    final trimmed = currentLyrics.trim();
+    final updatedText = trimmed.isEmpty
+        ? composeRawLyrics(genre: genre, language: language, variant: generationCount++)
+        : trimmed.contains(insertion)
+            ? trimmed
+            : '$trimmed\n$insertion';
+
+    return LyricsReviewDraft.fromRawText(
+      prompt: prompt,
+      genre: genre,
+      language: language,
+      rawText: updatedText,
+      culturalIdioms: idioms,
+    );
+  }
+
+  @override
+  Future<LyricsReviewDraft> transformStoryToLyrics({
+    required String storyText,
+    required String genre,
+    required String language,
+    List<String>? targetCognateLanguages,
+    List<String>? mood,
+  }) async {
+    if (latency > Duration.zero) {
+      await Future<void>.delayed(latency);
+    }
+
+    final idioms = getCulturalIdioms(language);
+    final rawLines = storyText
+        .split(RegExp(r'[\r\n]+|(?<=[.!?])\s+'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final verseLines = rawLines.isEmpty
+        ? _verseBank[_normalise(language)] ?? _verseBank[_fallbackKey]!
+        : rawLines.take(4).toList();
+    final hookLine = rawLines.length >= 2 ? rawLines[1] : (verseLines.isNotEmpty ? verseLines.first : idioms.first);
+    final adLib = genreAdLibs(genre, language).first;
+    final rawText = '[Intro]\n$adLib\n\n[Verse 1]\n${verseLines.join('\n')}\n\n[Chorus]\n$hookLine\n${idioms.first}';
+
+    return LyricsReviewDraft.fromRawText(
+      prompt: storyText.trim(),
+      genre: genre,
+      language: language,
+      rawText: rawText,
+      culturalIdioms: idioms,
+    );
+  }
+
+  @override
   List<String> getCulturalIdioms(String language) =>
       List<String>.unmodifiable(culturalIdiomsFor(language));
 

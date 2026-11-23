@@ -1,6 +1,12 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import '../../../../core/auth/auth_providers.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/design_system/tokens/vhunambi_mood.dart';
 import '../../../../core/utils/creator_id_utils.dart';
+import '../../../../core/utils/json_safe.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../notifications/domain/models/notification_entity.dart';
@@ -97,8 +103,108 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
     state = state.copyWith(userReactions: userReactions, reactions: reactions);
   }
 
+  static bool _isTestEnv() {
+    if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
+    try {
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /// Hydrates real R2 stem URLs from `GET /v1/generations/:id/manifest` (`EP-P25`).
+  Future<List<StemTrackEntity>?> loadManifestFromCloud({
+    http.Client? client,
+    String? apiBaseUrl,
+  }) async {
+    if (_isTestEnv() && client == null) return null;
+
+    final ownsClient = client == null;
+    final httpClient = client ?? http.Client();
+    final origin = AppConstants.resolveApiRootUrl(overrideOrigin: apiBaseUrl);
+
+    try {
+      final headers = <String, String>{};
+      if (ref != null) {
+        try {
+          headers.addAll(ref!.read(authHeadersProvider));
+        } catch (_) {}
+      }
+      final uri = Uri.parse('$origin/v1/generations/$trackId/manifest');
+      final response = await httpClient
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+
+      final body = JsonSafe.decodeMap(response.body);
+      if (body == null) return null;
+      final assets = JsonSafe.asMap(body['assets']);
+      final stemUrls = JsonSafe.asMap(assets['stemUrls']);
+      if (stemUrls.isEmpty) return null;
+
+      String resolveStem(String rawKey, String fallbackSuffix) {
+        final raw = JsonSafe.asString(rawKey);
+        final mediaBase = AppConstants.resolveMediaBaseUrl(
+          overrideOrigin: origin,
+        );
+        if (raw.isEmpty) {
+          return '$mediaBase/stems/${trackId}_$fallbackSuffix.wav';
+        }
+        if (!raw.contains('://') && !raw.startsWith('/')) {
+          return '$mediaBase/$raw';
+        }
+        return AppConstants.normalizeCloudMediaUrl(raw, overrideOrigin: origin);
+      }
+
+      final vUrl = resolveStem(JsonSafe.asString(stemUrls['vocals']), 'vocals');
+      final dUrl = resolveStem(JsonSafe.asString(stemUrls['drums']), 'drums');
+      final bUrl = resolveStem(JsonSafe.asString(stemUrls['bass']), 'bass');
+      final iRaw = JsonSafe.asString(stemUrls['instrumental']).isNotEmpty
+          ? JsonSafe.asString(stemUrls['instrumental'])
+          : JsonSafe.asString(stemUrls['other']);
+      final iUrl = resolveStem(iRaw, 'inst');
+
+      return [
+        StemTrackEntity(
+          id: '${trackId}_vocals',
+          name: 'Vocals',
+          audioUrl: vUrl,
+          duration: state.duration,
+        ),
+        StemTrackEntity(
+          id: '${trackId}_drums',
+          name: 'Drums',
+          audioUrl: dUrl,
+          duration: state.duration,
+        ),
+        StemTrackEntity(
+          id: '${trackId}_bass',
+          name: 'Bass & Log Drums',
+          audioUrl: bUrl,
+          duration: state.duration,
+        ),
+        StemTrackEntity(
+          id: '${trackId}_inst',
+          name: 'Instrumental',
+          audioUrl: iUrl,
+          duration: state.duration,
+        ),
+      ];
+    } catch (err) {
+      debugPrint('[TrackDetail] loadManifestFromCloud fallback: $err');
+      return null;
+    } finally {
+      if (ownsClient) {
+        httpClient.close();
+      }
+    }
+  }
+
   /// Runs the 4-step stem isolation pipeline (REQ-TRK-09 / REQ-TRK-STEM-01).
-  Future<void> separateStems() async {
+  Future<void> separateStems({http.Client? client, String? apiBaseUrl}) async {
     if (state.stemState.isProcessing) return;
 
     /// Advances the FSM through the documented step ladder.
@@ -112,38 +218,49 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
     await advance(StemSeparationStatus.isolatingVocals, 0.25);
     await advance(StemSeparationStatus.isolatingDrums, 0.50);
     await advance(StemSeparationStatus.isolatingBass, 0.75);
+    final cloudStems = await loadManifestFromCloud(
+      client: client,
+      apiBaseUrl: apiBaseUrl,
+    );
     await advance(StemSeparationStatus.isolatingInstrumental, 0.90);
 
-    state = state.copyWith(
-      stemState: StemSeparationState(
-        status: StemSeparationStatus.ready,
-        progress: 1.0,
-        stems: [
+    final mediaBase = AppConstants.resolveMediaBaseUrl(
+      overrideOrigin: apiBaseUrl,
+    );
+    final resolvedStems =
+        cloudStems ??
+        [
           StemTrackEntity(
             id: '${trackId}_vocals',
             name: 'Vocals',
-            audioUrl: 'https://cdn.vhunambi.com/stems/${trackId}_vocals.wav',
+            audioUrl: '$mediaBase/stems/${trackId}_vocals.wav',
             duration: state.duration,
           ),
           StemTrackEntity(
             id: '${trackId}_drums',
             name: 'Drums',
-            audioUrl: 'https://cdn.vhunambi.com/stems/${trackId}_drums.wav',
+            audioUrl: '$mediaBase/stems/${trackId}_drums.wav',
             duration: state.duration,
           ),
           StemTrackEntity(
             id: '${trackId}_bass',
             name: 'Bass & Log Drums',
-            audioUrl: 'https://cdn.vhunambi.com/stems/${trackId}_bass.wav',
+            audioUrl: '$mediaBase/stems/${trackId}_bass.wav',
             duration: state.duration,
           ),
           StemTrackEntity(
             id: '${trackId}_inst',
             name: 'Instrumental',
-            audioUrl: 'https://cdn.vhunambi.com/stems/${trackId}_inst.wav',
+            audioUrl: '$mediaBase/stems/${trackId}_inst.wav',
             duration: state.duration,
           ),
-        ],
+        ];
+
+    state = state.copyWith(
+      stemState: StemSeparationState(
+        status: StemSeparationStatus.ready,
+        progress: 1.0,
+        stems: resolvedStems,
       ),
     );
   }
@@ -289,17 +406,31 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
             RegExp(r'[^a-z0-9]+'),
             '_',
           );
-          final resolvedCreatorId =
-              (lt.creatorId != null && lt.creatorId!.trim().isNotEmpty)
+          final isLegacyAiStudio =
+              lt.creatorName.trim().toLowerCase() == 'ai studio' ||
+              (lt.creatorId ?? '').trim().toLowerCase() == 'ai_studio' ||
+              (lt.creatorId ?? '').trim().toLowerCase() == 'creator_ai_studio' ||
+              (lt.creatorHandle ?? '').trim().toLowerCase() == '@aistudio';
+          var resolvedCreatorId = isLegacyAiStudio
+              ? canonicalizeCreatorId(ref.read(currentCreatorIdProvider))
+              : (lt.creatorId != null && lt.creatorId!.trim().isNotEmpty)
               ? canonicalizeCreatorId(lt.creatorId!)
               : canonicalizeCreatorId(
                   lt.creatorName,
                   fallback: 'creator_$handleSlug',
                 );
-          final resolvedHandle =
+          var resolvedCreatorName = lt.creatorName;
+          var resolvedHandle =
               (lt.creatorHandle != null && lt.creatorHandle!.trim().isNotEmpty)
               ? lt.creatorHandle!.trim()
               : handleFromCreatorId(resolvedCreatorId);
+          if (isLegacyAiStudio) {
+            final activeHandle = ref.read(currentCreatorHandleProvider).trim();
+            resolvedHandle = activeHandle.isNotEmpty
+                ? (activeHandle.startsWith('@') ? activeHandle : '@$activeHandle')
+                : handleFromCreatorId(resolvedCreatorId);
+            resolvedCreatorName = extractRawCreatorId(resolvedCreatorId);
+          }
           final canonicalMood = VhunambiMood.normalize(lt.moodId ?? lt.mood);
           return TrackDetailEntity(
             id: lt.id,
@@ -310,10 +441,11 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
               seconds: lt.durationSeconds > 0 ? lt.durationSeconds : 180,
             ),
             creatorId: resolvedCreatorId,
-            creatorName: lt.creatorName,
+            creatorName: resolvedCreatorName,
             creatorHandle: resolvedHandle,
             playCount: lt.playCount,
             coverUrl: lt.coverImageUrl,
+            audioUrl: lt.remoteAudioUrl,
             createdAt: lt.createdAt,
             bpm: (lt.bpm != null && lt.bpm! > 0)
                 ? lt.bpm!
@@ -354,6 +486,7 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
             playCount: et.playCount,
             likesCount: et.likeCount,
             coverUrl: et.coverUrl,
+            audioUrl: et.audioUrl,
             bpm: _defaultBpmForGenre(et.genre),
             musicalKey: _defaultKeyForGenre(et.genre),
             moodId: VhunambiMood.normalize(et.mood).moodId,

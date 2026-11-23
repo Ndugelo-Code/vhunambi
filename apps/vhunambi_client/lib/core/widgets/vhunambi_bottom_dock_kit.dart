@@ -45,32 +45,37 @@ class VhunambiFloatingTransportSurface extends StatelessWidget {
   final Widget child;
   final double height;
 
-  /// Optional ambient glow colour (e.g. sampled from the track's genre
-  /// gradient) that bleeds softly behind the pill.
+  /// Optional ambient glow colour (e.g. sampled from `PostChromaticPalette`)
+  /// that bleeds softly behind the pill.
   final Color? glow;
+
+  /// Optional adaptive chromatic hairline border tint.
+  final Color? borderTint;
 
   const VhunambiFloatingTransportSurface({
     super.key,
     required this.child,
     this.height = VhunambiBottomDockMetrics.miniPlayerHeight,
     this.glow,
+    this.borderTint,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: height,
       decoration: BoxDecoration(
         borderRadius: AppRadius.inputBorder,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(90),
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
           if (glow != null)
             BoxShadow(
-              color: glow!.withAlpha(70),
+              color: glow!.withValues(alpha: isDark ? 0.28 : 0.18),
               blurRadius: 28,
               spreadRadius: -2,
               offset: const Offset(0, 2),
@@ -83,9 +88,14 @@ class VhunambiFloatingTransportSurface extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
           child: Container(
             decoration: BoxDecoration(
-              color: AppColors.surfaceModal.withAlpha(210),
+              color: AppColors.surfaceModalOf(
+                context,
+              ).withValues(alpha: isDark ? 0.86 : 0.94),
               borderRadius: AppRadius.inputBorder,
-              border: Border.all(color: AppColors.borderSubtle, width: 1),
+              border: Border.all(
+                color: borderTint ?? AppColors.borderSubtleOf(context),
+                width: 1,
+              ),
             ),
             child: child,
           ),
@@ -109,18 +119,21 @@ class VhunambiBottomDockSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
         color: Colors.transparent,
         border: Border(
-          top: BorderSide(color: AppColors.borderSubtle, width: 1),
+          top: BorderSide(color: AppColors.borderSubtleOf(context), width: 1),
         ),
       ),
       child: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
           child: Container(
-            color: AppColors.surfaceCanvas.withAlpha(215),
+            color: AppColors.surfaceCanvasOf(
+              context,
+            ).withValues(alpha: isDark ? 0.88 : 0.95),
             child: child,
           ),
         ),

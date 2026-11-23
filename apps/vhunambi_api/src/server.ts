@@ -67,7 +67,10 @@ app.use('*', async (c, next) => {
       p.startsWith('/api/v1/marketplace') ||
       p.startsWith('/v1/generations') ||
       p.startsWith('/v1/vision') ||
-      p.startsWith('/v1/webhooks');
+      p.startsWith('/v1/webhooks') ||
+      p.startsWith('/v1/voices') ||
+      p.startsWith('/v1/melodies') ||
+      p.startsWith('/v1/lyrics');
 
     if (
       !isNodeSqliteAvailable() &&

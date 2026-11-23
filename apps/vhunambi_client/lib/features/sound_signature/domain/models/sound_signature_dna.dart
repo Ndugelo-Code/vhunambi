@@ -1,3 +1,4 @@
+import 'package:vhunambi_client/core/utils/json_safe.dart';
 import 'phonetic_articulation_profile.dart';
 import 'pitch_contour_profile.dart';
 import 'recording_quality_profile.dart';
@@ -171,38 +172,36 @@ class SoundSignatureDna {
   };
 
   factory SoundSignatureDna.fromJson(Map<String, dynamic> json) {
+    final recipeMap = JsonSafe.asMap(json['recipe']);
     return SoundSignatureDna(
-      id: json['id'] as String,
-      displayCode: json['displayCode'] as String? ?? 'VHU-SIG-0000',
-      source: SignatureSource.fromWire(json['source'] as String?),
-      createdAtIso: json['createdAtIso'] as String,
-      durationSec: (json['durationSec'] as num).toDouble(),
-      sampleRate: (json['sampleRate'] as num?)?.toInt() ?? 44100,
-      bpmHint: (json['bpmHint'] as num?)?.toDouble() ?? 112.0,
+      id: JsonSafe.asString(json['id'], 'sig_unknown'),
+      displayCode: JsonSafe.asString(json['displayCode'], 'VHU-SIG-0000'),
+      source: SignatureSource.fromWire(json['source']?.toString()),
+      createdAtIso: JsonSafe.asString(
+        json['createdAtIso'],
+        DateTime.now().toIso8601String(),
+      ),
+      durationSec: JsonSafe.asDouble(json['durationSec'], 15.0),
+      sampleRate: JsonSafe.asInt(json['sampleRate'], 44100),
+      bpmHint: JsonSafe.asDouble(json['bpmHint'], 112.0),
       identity: TimbreIdentityProfile.fromJson(
-        json['identity'] as Map<String, dynamic>? ?? const {},
+        JsonSafe.asMap(json['identity']),
       ),
-      pitch: PitchContourProfile.fromJson(
-        json['pitch'] as Map<String, dynamic>? ?? const {},
-      ),
+      pitch: PitchContourProfile.fromJson(JsonSafe.asMap(json['pitch'])),
       articulation: PhoneticArticulationProfile.fromJson(
-        json['articulation'] as Map<String, dynamic>? ?? const {},
+        JsonSafe.asMap(json['articulation']),
       ),
-      rhythm: RhythmicTransientGrid.fromJson(
-        json['rhythm'] as Map<String, dynamic>? ?? const {},
-      ),
+      rhythm: RhythmicTransientGrid.fromJson(JsonSafe.asMap(json['rhythm'])),
       quality: RecordingQualityProfile.fromJson(
-        json['quality'] as Map<String, dynamic>? ?? const {},
+        JsonSafe.asMap(json['quality']),
       ),
-      recipe: json['recipe'] != null
-          ? SoundIdealizerRecipe.fromJson(
-              json['recipe'] as Map<String, dynamic>,
-            )
+      recipe: recipeMap.isNotEmpty
+          ? SoundIdealizerRecipe.fromJson(recipeMap)
           : const SoundIdealizerRecipe(),
-      rawAudioPath: json['rawAudioPath'] as String?,
-      cloudEmbeddingRef: json['cloudEmbeddingRef'] as String?,
-      consentAtIso: json['consentAtIso'] as String?,
-      schemaVersion: (json['schemaVersion'] as num?)?.toInt() ?? 1,
+      rawAudioPath: json['rawAudioPath']?.toString(),
+      cloudEmbeddingRef: json['cloudEmbeddingRef']?.toString(),
+      consentAtIso: json['consentAtIso']?.toString(),
+      schemaVersion: JsonSafe.asInt(json['schemaVersion'], 1),
     );
   }
 }

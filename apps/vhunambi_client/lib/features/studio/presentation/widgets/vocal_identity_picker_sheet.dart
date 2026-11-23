@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -37,6 +39,16 @@ class _VocalIdentityPickerSheetState
   bool _showClonedTab = false;
 
   @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(() {
+      if (mounted) {
+        ref.read(vocalIdentityProvider.notifier).syncCatalogFromCloud();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = ref.watch(vocalIdentityProvider);
     final notifier = ref.read(vocalIdentityProvider.notifier);
@@ -51,8 +63,8 @@ class _VocalIdentityPickerSheetState
             // Header
             Row(
               children: [
-                const Icon(
-                  Icons.record_voice_over_rounded,
+                const PhosphorIcon(
+                  AppIcons.mic,
                   color: AppColors.coinGold,
                   size: 22,
                 ),
@@ -84,8 +96,8 @@ class _VocalIdentityPickerSheetState
                     minHeight: 44,
                   ),
                   onPressed: () => Navigator.of(context).maybePop(),
-                  icon: Icon(
-                    Icons.close_rounded,
+                  icon: PhosphorIcon(
+                    AppIcons.close,
                     color: AppColors.textSecondary,
                   ),
                 ),
@@ -179,8 +191,8 @@ class _VocalIdentityPickerSheetState
                   hintStyle: AppTypography.caption.copyWith(
                     color: AppColors.textTertiary,
                   ),
-                  prefixIcon: Icon(
-                    Icons.search_rounded,
+                  prefixIcon: PhosphorIcon(
+                    AppIcons.search,
                     size: 18,
                     color: AppColors.textSecondary,
                   ),
@@ -349,10 +361,10 @@ class _VocalIdentityPickerSheetState
                                   ),
                                   onPressed: () =>
                                       notifier.togglePreviewArchetype(arch.id),
-                                  icon: Icon(
+                                  icon: PhosphorIcon(
                                     isPreviewing
-                                        ? Icons.stop_circle_rounded
-                                        : Icons.play_circle_fill_rounded,
+                                        ? PhosphorIconsFill.pauseCircle
+                                        : PhosphorIconsFill.playCircle,
                                     color: isPreviewing
                                         ? AppColors.brandPrimary
                                         : AppColors.textSecondary,
@@ -396,7 +408,7 @@ class _VocalIdentityPickerSheetState
                       borderRadius: AppRadius.buttonBorder,
                     ),
                   ),
-                  icon: const Icon(Icons.mic_rounded, size: 18),
+                  icon: const PhosphorIcon(AppIcons.mic, size: 18),
                   label: Text(
                     'Record New 3-Line Voice Clone',
                     style: AppTypography.bodySmall.copyWith(
@@ -446,8 +458,8 @@ class _VocalIdentityPickerSheetState
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
-                                    Icons.graphic_eq_rounded,
+                                  const PhosphorIcon(
+                                    AppIcons.waveform,
                                     color: AppColors.brandPrimary,
                                   ),
                                   const SizedBox(width: AppSpacing.sm),
@@ -485,8 +497,8 @@ class _VocalIdentityPickerSheetState
                                     ),
                                     onPressed: () => notifier
                                         .deleteClonedProfile(profile.id),
-                                    icon: const Icon(
-                                      Icons.delete_outline_rounded,
+                                    icon: const PhosphorIcon(
+                                      AppIcons.trash,
                                       color: AppColors.error,
                                     ),
                                   ),

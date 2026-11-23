@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:vhunambi_client/core/design_system/design_system.dart';
 import 'package:vhunambi_client/core/theme/app_colors.dart';
 import 'package:vhunambi_client/core/theme/app_dimensions.dart';
@@ -56,10 +57,10 @@ class GenreColorChip extends ConsumerWidget {
             decoration: BoxDecoration(
               color: isSelected
                   ? surfaceTint.withValues(alpha: 0.15)
-                  : AppColors.surfaceElevated,
+                  : AppColors.surfaceElevatedOf(context),
               borderRadius: AppRadius.pillBorder,
               border: Border.all(
-                color: isSelected ? accent : AppColors.borderSubtle,
+                color: isSelected ? accent : AppColors.borderSubtleOf(context),
                 width: isSelected ? 2.0 : 1.0,
               ),
             ),
@@ -75,8 +76,8 @@ class GenreColorChip extends ConsumerWidget {
                 ),
                 if (isSelected) ...[
                   const SizedBox(width: AppSpacing.xs),
-                  Icon(
-                    Icons.check_circle,
+                  PhosphorIcon(
+                    AppIcons.checkCircle,
                     color: accent,
                     size: 18,
                   ),

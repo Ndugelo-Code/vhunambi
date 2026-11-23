@@ -348,9 +348,9 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
 
     final musicalKey =
         formState.referenceAudioPath?.startsWith('sketchpad://') == true
-            ? ref.read(melodySketchpadProvider).attachedPattern?.musicalKey ??
-                formState.toSongMetadataDna().musical.key
-            : formState.toSongMetadataDna().musical.key;
+        ? ref.read(melodySketchpadProvider).attachedPattern?.musicalKey ??
+              formState.toSongMetadataDna().musical.key
+        : formState.toSongMetadataDna().musical.key;
 
     ref
         .read(generationProgressProvider.notifier)
@@ -878,7 +878,7 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
                 ),
                 SizedBox(width: 6),
                 Text(
-                  '🔭 Surface Overview',
+                  'Surface Overview',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -1275,21 +1275,21 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
       child: Row(
         children: [
           _buildStemLockTab(
-            label: '🔒 Lock Pure 44k',
+            label: 'Lock Pure 44k',
             mode: StemLockMode.lockedPure44k,
             isActive: activeMode == StemLockMode.lockedPure44k,
             nodeId: node.id,
             activeColor: const Color(0xFFFFB703),
           ),
           _buildStemLockTab(
-            label: '🧬 AI Inpaint',
+            label: 'AI Inpaint',
             mode: StemLockMode.harmonicInpaint,
             isActive: activeMode == StemLockMode.harmonicInpaint,
             nodeId: node.id,
             activeColor: const Color(0xFF00F5D4),
           ),
           _buildStemLockTab(
-            label: '✨ Re-Imagine',
+            label: 'Re-Imagine',
             mode: StemLockMode.elasticResynth,
             isActive: activeMode == StemLockMode.elasticResynth,
             nodeId: node.id,

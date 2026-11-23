@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/services/haptics_service.dart';
-import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
-import '../../../../core/design_system/tokens/design_enums.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../providers/player_provider.dart';
+import 'player_chromatic_resolver_mixin.dart';
 
 class MobileMiniPlayer extends ConsumerStatefulWidget {
   final VoidCallback? onExpand;
@@ -21,7 +20,9 @@ class MobileMiniPlayer extends ConsumerStatefulWidget {
 }
 
 class _MobileMiniPlayerState extends ConsumerState<MobileMiniPlayer>
-    with TickerProviderStateMixin {
+    with
+        TickerProviderStateMixin,
+        PlayerChromaticPaletteMixin<MobileMiniPlayer> {
   // Play/pause bounce controller
   late final AnimationController _playBounce;
   late final Animation<double> _playScale;
@@ -102,22 +103,22 @@ class _MobileMiniPlayerState extends ConsumerState<MobileMiniPlayer>
     }
 
     final notifier = ref.read(playerStateProvider.notifier);
-    final genre = _mapStringToGenre(track.genre);
-    final extension = VhunambiThemeExtension.of(context);
-    final accent = extension.genreAccent(genre);
+    final palette = resolvePlayerChromaticPalette(context, track);
+    final accent = palette.accent;
 
     final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
     if (keyboardOpen) return const SizedBox.shrink();
 
     return VhunambiFloatingTransportSurface(
-      glow: accent,
+      glow: palette.primaryGlow,
+      borderTint: palette.glassBorderTint,
       child: Column(
         children: [
           // 2 px tinted progress bar
           LinearProgressIndicator(
             value: playerState.progressRatio,
             minHeight: 2,
-            backgroundColor: AppColors.borderSubtle,
+            backgroundColor: AppColors.borderSubtleOf(context),
             valueColor: AlwaysStoppedAnimation<Color>(accent),
           ),
 
@@ -160,20 +161,27 @@ class _MobileMiniPlayerState extends ConsumerState<MobileMiniPlayer>
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            gradient: AppGradients.forGenre(track.genre),
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
-                                color: accent.withValues(alpha: 0.28),
+                                color: palette.primaryGlow.withValues(
+                                  alpha: 0.28,
+                                ),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          child: const PhosphorIcon(
-                            AppIcons.piano,
-                            color: Colors.white,
-                            size: 20,
+                          child: VhunambiTrackArtwork(
+                            key: const Key('mini_player_artwork'),
+                            coverUrl: track.coverUrl,
+                            genre: track.genre,
+                            trackId: track.id,
+                            width: 44,
+                            height: 44,
+                            borderRadius: BorderRadius.circular(10),
+                            badgeIconSize: 20,
+                            showSubtleBorder: false,
                           ),
                         ),
                       ),
@@ -194,6 +202,7 @@ class _MobileMiniPlayerState extends ConsumerState<MobileMiniPlayer>
                               style: AppTypography.bodyLarge.copyWith(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimaryOf(context),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -202,7 +211,7 @@ class _MobileMiniPlayerState extends ConsumerState<MobileMiniPlayer>
                             Text(
                               '${track.genre} • ${playerState.formattedPosition} / ${playerState.formattedDuration}',
                               style: AppTypography.caption.copyWith(
-                                color: AppColors.textSecondary,
+                                color: AppColors.textSecondaryOf(context),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -244,6 +253,7 @@ class _MobileMiniPlayerState extends ConsumerState<MobileMiniPlayer>
                           key: const Key('mini_player_play_pause'),
                           isPlaying: playerState.isPlaying,
                           accent: accent,
+                          onAccent: palette.onAccent,
                           onPressed: () {
                             HapticsService().mediumImpact();
                             _playBounce.forward(from: 0);
@@ -284,26 +294,6 @@ class _MobileMiniPlayerState extends ConsumerState<MobileMiniPlayer>
       ),
     );
   }
-
-  Genre _mapStringToGenre(String genre) {
-    final normalized = genre.trim().toLowerCase();
-    return switch (normalized) {
-      'amapiano' => Genre.amapiano,
-      'afro house' => Genre.afroHouse,
-      'afrohouse' => Genre.afroHouse,
-      'gqom' => Genre.gqom,
-      'kwaito' => Genre.kwaito,
-      'afro pop' => Genre.afroPop,
-      'afropop' => Genre.afroPop,
-      'afrobeats' => Genre.afroPop,
-      'afro beats' => Genre.afroPop,
-      'maskandi' => Genre.maskandi,
-      'hip hop' => Genre.hipHop,
-      'hiphop' => Genre.hipHop,
-      'gospel' => Genre.gospel,
-      _ => Genre.amapiano,
-    };
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -331,14 +321,20 @@ class _SoftIconButton extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: AppColors.surfaceModal.withValues(alpha: 0.14),
+          color: AppColors.surfaceSecondaryOf(context).withValues(alpha: 0.72),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.borderSubtle.withValues(alpha: 0.5),
+            color: AppColors.borderSubtleOf(context).withValues(alpha: 0.65),
             width: 1,
           ),
         ),
-        child: Center(child: PhosphorIcon(icon, color: Colors.white, size: 20)),
+        child: Center(
+          child: PhosphorIcon(
+            icon,
+            color: AppColors.textPrimaryOf(context),
+            size: 20,
+          ),
+        ),
       ),
     );
   }
@@ -350,18 +346,16 @@ class _SoftIconButton extends StatelessWidget {
 class _PlayPauseOrb extends StatelessWidget {
   final bool isPlaying;
   final Color accent;
+  final Color onAccent;
   final VoidCallback onPressed;
 
   const _PlayPauseOrb({
     super.key,
     required this.isPlaying,
     required this.accent,
+    required this.onAccent,
     required this.onPressed,
   });
-
-  Color _contrastColor(Color bg) {
-    return bg.computeLuminance() > 0.5 ? Colors.black : Colors.white;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -390,7 +384,7 @@ class _PlayPauseOrb extends StatelessWidget {
             child: PhosphorIcon(
               isPlaying ? AppIcons.pause : AppIcons.play,
               key: ValueKey<bool>(isPlaying),
-              color: _contrastColor(accent),
+              color: onAccent,
               size: 24,
             ),
           ),

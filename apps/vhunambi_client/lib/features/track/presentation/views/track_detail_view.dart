@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/auth/viewer_role.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/navigation/navigation_providers.dart';
 import '../../../../core/navigation/profile_navigation_helper.dart';
@@ -27,11 +28,10 @@ import '../../../offline/domain/models/offline_models.dart';
 import '../../../offline/presentation/providers/offline_providers.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../../player/presentation/widgets/stem_mixer_deck.dart';
-import '../../../social/domain/models/video_export_job.dart';
 import '../../../social/presentation/providers/creator_wallet_provider.dart';
 import '../../../social/presentation/providers/reels_comments_provider.dart';
 import '../../../social/presentation/widgets/threaded_comments_section.dart';
-import '../../../social/presentation/widgets/video_export_modal.dart';
+import '../../../content_studio/presentation/views/kinetic_reel_studio_view.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import '../../domain/models/track_detail_models.dart';
 import '../providers/track_providers.dart';
@@ -389,7 +389,9 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                     language: track.language,
                     durationSeconds: track.duration.inSeconds,
                     remoteAudioUrl:
-                        'https://cdn.vhunambi.com/audio/${track.id}.wav',
+                        (track.audioUrl != null && track.audioUrl!.isNotEmpty)
+                        ? AppConstants.normalizeCloudMediaUrl(track.audioUrl!)
+                        : '${AppConstants.resolveMediaBaseUrl()}/audio/${track.id}.wav',
                     createdAt: DateTime.now(),
                   );
                   ref
@@ -413,15 +415,33 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
   }
 
   void _openVideoExport(TrackDetailEntity track) {
-    final job = VideoExportJob(
-      id: 'job_${track.id}',
+    final normalizedAudio =
+        (track.audioUrl != null && track.audioUrl!.isNotEmpty)
+        ? AppConstants.normalizeCloudMediaUrl(track.audioUrl!)
+        : '${AppConstants.resolveMediaBaseUrl()}/audio/${track.id}.mp3';
+    final normalizedCover =
+        (track.coverUrl != null && track.coverUrl!.isNotEmpty)
+        ? AppConstants.normalizeCloudMediaUrl(track.coverUrl!)
+        : null;
+    final libTrack = LibraryTrack(
+      id: track.id,
       title: track.title,
+      creatorName: track.creatorName,
+      creatorId: track.creatorId,
       creatorHandle: track.creatorHandle,
       genre: track.genre,
-      audioPath: 'https://cdn.vhunambi.com/audio/${track.id}.mp3',
-      durationSec: track.duration.inSeconds.toDouble(),
+      language: track.language,
+      durationSeconds: track.duration.inSeconds,
+      remoteAudioUrl: normalizedAudio,
+      coverImageUrl: normalizedCover,
+      lyrics: track.lyrics,
+      bpm: track.bpm,
+      moodId: track.moodId,
+      description: track.description,
+      allowOpenStemsRemix: track.allowOpenStemsRemix,
+      createdAt: track.createdAt ?? DateTime.now(),
     );
-    VideoExportModal.show(context, job: job);
+    KineticReelStudioView.show(context, initialTrack: libTrack);
   }
 
   void _copyEmbedCode(TrackDetailEntity track) {
@@ -528,6 +548,7 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                           : null,
                       onTip: () => _showTipModal(track),
                       onShare: () => _shareTrackLink(track),
+                      onShareAsReel: () => _openVideoExport(track),
                       onAddToPlaylist: () {
                         AddToPlaylistSheet.show(
                           context,
@@ -703,13 +724,37 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                               .toggleSoloStem(id);
                         },
                         onDownloadStem: (stem) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Downloading stem: "${stem.name}.wav"...',
-                              ),
+                          final stemTrack = LibraryTrack(
+                            id: stem.id,
+                            title: '${track.title} — ${stem.name}',
+                            creatorName: track.creatorName,
+                            genre: track.genre,
+                            language: track.language,
+                            durationSeconds: stem.duration.inSeconds > 0
+                                ? stem.duration.inSeconds
+                                : track.duration.inSeconds,
+                            remoteAudioUrl: AppConstants.normalizeCloudMediaUrl(
+                              stem.audioUrl,
                             ),
+                            createdAt: DateTime.now(),
                           );
+                          ref
+                              .read(downloadManagerProvider.notifier)
+                              .downloadTrack(
+                                stemTrack,
+                                quality: AudioDownloadQuality.wavLossless,
+                              );
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(
+                              SnackBar(
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(milliseconds: 2500),
+                                content: Text(
+                                  'Downloading stem: "${stem.name}.wav"...',
+                                ),
+                              ),
+                            );
                         },
                       ),
 
@@ -1007,13 +1052,16 @@ class _StickyTrackTitle extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: AppTypography.titleMedium.copyWith(
             fontWeight: FontWeight.bold,
+            color: AppColors.textPrimaryOf(context),
           ),
         ),
         Text(
           track.creatorName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+          style: AppTypography.caption.copyWith(
+            color: AppColors.textSecondaryOf(context),
+          ),
         ),
       ],
     );
@@ -1028,13 +1076,15 @@ class _FrostedStemMixerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceModal,
+        color: AppColors.surfaceModalOf(context),
         borderRadius: AppRadius.modalBorder,
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(120),
+            color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.14),
             blurRadius: 30,
             offset: const Offset(0, -6),
           ),
@@ -1051,7 +1101,7 @@ class _FrostedStemMixerSheet extends StatelessWidget {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.borderSubtle,
+                  color: AppColors.borderSubtleOf(context),
                   borderRadius: BorderRadius.circular(9999),
                 ),
               ),
@@ -1062,7 +1112,7 @@ class _FrostedStemMixerSheet extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.only(left: AppSpacing.xs),
                 child: VhunambiBackButton(
-                  color: AppColors.textPrimary,
+                  color: AppColors.textPrimaryOf(context),
                   tooltip: 'Close Mixer',
                 ),
               ),

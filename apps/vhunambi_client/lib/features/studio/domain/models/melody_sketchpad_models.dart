@@ -1,30 +1,32 @@
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+
+import '../../../../core/design_system/tokens/app_icons.dart';
 
 /// Sovereign African & Studio Sketchpad Instruments (REQ-SKP-01, Phase 32).
 enum SketchpadInstrument {
-  amapianoLogDrum('Amapiano Log Drum', 'amapiano_log_drum', '🥁'),
-  privateSchoolRhodes('Private School Rhodes', 'private_school_rhodes', '🎹'),
-  maskandiGuitar('Maskandi Guitar', 'maskandi_guitar', '🎸'),
-  vendaMbira('Venda Mbira', 'venda_mbira', '🎼'),
-  marimbaWood('Wooden Marimba', 'marimba_wood', '🪵'),
+  amapianoLogDrum('Amapiano Log Drum', 'amapiano_log_drum', AppIcons.drums),
+  privateSchoolRhodes('Private School Rhodes', 'private_school_rhodes', AppIcons.piano),
+  maskandiGuitar('Maskandi Guitar', 'maskandi_guitar', AppIcons.guitar),
+  vendaMbira('Venda Mbira', 'venda_mbira', AppIcons.songsOutline),
+  marimbaWood('Wooden Marimba', 'marimba_wood', AppIcons.waveform),
   // Phase 32 Studio-Grade Core Kit
-  concertGrandPiano('Concert Grand Piano', 'concert_grand_piano', '🎹'),
-  classicPiano('Classic Upright Piano', 'classic_piano', '🎹'),
-  nylonGuitar('Nylon Acoustic Guitar', 'nylon_guitar', '🎸'),
-  electricGuitar('Clean Electric Guitar', 'electric_guitar', '🎸'),
-  bambooFlute('African Bamboo Flute', 'bamboo_flute', '🪈'),
-  sopranoSax('Soprano Saxophone', 'soprano_sax', '🎷'),
-  soloViolin('Solo Violin', 'solo_violin', '🎻'),
-  hipHop808Sub('Hip-Hop 808 Sub', 'hiphop_808_sub', '🔊'),
-  gqomDarkSub('Gqom Dark Sub', 'gqom_dark_sub', '🔊'),
-  neoSoulPad('Warm Neo-Soul Pad', 'neo_soul_pad', '✨'),
-  mbaqangaOrgan('Mbaqanga Organ', 'mbaqanga_organ', '🎹');
+  concertGrandPiano('Concert Grand Piano', 'concert_grand_piano', AppIcons.piano),
+  classicPiano('Classic Upright Piano', 'classic_piano', AppIcons.piano),
+  nylonGuitar('Nylon Acoustic Guitar', 'nylon_guitar', AppIcons.guitar),
+  electricGuitar('Clean Electric Guitar', 'electric_guitar', AppIcons.guitar),
+  bambooFlute('African Bamboo Flute', 'bamboo_flute', AppIcons.waveform),
+  sopranoSax('Soprano Saxophone', 'soprano_sax', AppIcons.songs),
+  soloViolin('Solo Violin', 'solo_violin', AppIcons.songs),
+  hipHop808Sub('Hip-Hop 808 Sub', 'hiphop_808_sub', AppIcons.drums),
+  gqomDarkSub('Gqom Dark Sub', 'gqom_dark_sub', AppIcons.lightning),
+  neoSoulPad('Warm Neo-Soul Pad', 'neo_soul_pad', AppIcons.sparkle),
+  mbaqangaOrgan('Mbaqanga Organ', 'mbaqanga_organ', AppIcons.piano);
 
-  const SketchpadInstrument(this.label, this.wireValue, this.emoji);
+  const SketchpadInstrument(this.label, this.wireValue, this.icon);
   final String label;
   final String wireValue;
-  final String emoji;
+  final IconData icon;
 
   bool get isSubBass =>
       this == SketchpadInstrument.amapianoLogDrum ||

@@ -2,7 +2,7 @@ import '../../../../core/constants/app_assets.dart';
 import '../../../player/domain/models/stem_mixer_state.dart';
 import '../../../player/presentation/providers/stem_mixer_provider.dart';
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,12 +10,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:video_player/video_player.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
+import '../../../../core/navigation/navigation_providers.dart';
 import '../../../../core/navigation/profile_navigation_helper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../domain/models/kinetic_reaction.dart';
 import '../../domain/models/published_clip.dart';
 import '../../domain/models/sovereign_sticker_pack.dart';
@@ -83,6 +86,8 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
   late final PageController _pageController;
   late int _currentIndex;
   ReelAudioPoolNotifier? _poolNotifier;
+  StateController<int>? _overlayCountController;
+  bool _incrementedOverlay = false;
 
   @override
   void initState() {
@@ -91,7 +96,13 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
     _pageController = PageController(initialPage: widget.initialIndex);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || widget.clips.isEmpty) return;
+      if (!mounted) return;
+      _overlayCountController = ref.read(
+        pushedFullScreenOverlayCountProvider.notifier,
+      );
+      _overlayCountController!.state++;
+      _incrementedOverlay = true;
+      if (widget.clips.isEmpty) return;
       _poolNotifier = ref.read(reelAudioPoolProvider.notifier);
       unawaited(
         _poolNotifier!.enterReelsSession(
@@ -105,6 +116,15 @@ class _KineticReelsModalState extends ConsumerState<KineticReelsModal> {
   @override
   void dispose() {
     ReactionTrayOverlay.dismiss();
+    if (_incrementedOverlay && _overlayCountController != null) {
+      final ctrl = _overlayCountController!;
+      _incrementedOverlay = false;
+      Future<void>.microtask(() {
+        if (ctrl.mounted && ctrl.state > 0) {
+          ctrl.state = (ctrl.state - 1).clamp(0, 99);
+        }
+      });
+    }
     final notifier = _poolNotifier;
     if (notifier != null) {
       unawaited(notifier.exitReelsSession());
@@ -430,11 +450,20 @@ class _ReelPageState extends ConsumerState<_ReelPage>
         ),
 
         // 1.5. Vhunambi Vision Animated Stage (REQ-P46-REEL-01..03) OR Native Video Backing Layer
-        if (clip.videoUrl != null && clip.videoUrl!.isNotEmpty)
+        if ((clip.videoUrl != null && clip.videoUrl!.isNotEmpty) ||
+            (clip.localVideoPath != null && clip.localVideoPath!.isNotEmpty))
           _ReelVideoBackingLayer(
             key: Key('reel_video_backing_layer_${clip.id}'),
-            videoUrl: clip.videoUrl!,
+            videoUrl: clip.videoUrl ?? '',
+            localVideoPath: clip.localVideoPath,
             isActive: widget.isActive && isPlaying,
+            fallbackArtwork: VhunambiTrackArtwork(
+              coverUrl: clip.coverUrl.isNotEmpty ? clip.coverUrl : null,
+              genre: clip.genre,
+              trackId: clip.trackId,
+              borderRadius: BorderRadius.zero,
+              showSubtleBorder: false,
+            ),
           )
         else
           _buildVisionAnimatedStage(clip, modulationSnapshot),
@@ -446,7 +475,8 @@ class _ReelPageState extends ConsumerState<_ReelPage>
           genre: clip.genre,
           trackId: clip.trackId,
           transparentBackground:
-              clip.videoUrl != null && clip.videoUrl!.isNotEmpty,
+              (clip.videoUrl != null && clip.videoUrl!.isNotEmpty) ||
+              (clip.localVideoPath != null && clip.localVideoPath!.isNotEmpty),
           words: clip.effectiveLyrics,
           preset: clip.effectiveTypographyPreset,
           effects: clip.effectiveAtmosphericEffects,
@@ -780,6 +810,15 @@ class _ActionRail extends StatefulWidget {
 
 class _ActionRailState extends State<_ActionRail> {
   bool _translateActive = false;
+  int _ephemeralLoveCount = 0;
+  bool _showLovePill = false;
+  Timer? _lovePillTimer;
+
+  @override
+  void dispose() {
+    _lovePillTimer?.cancel();
+    super.dispose();
+  }
 
   void _showTranslationSheet(BuildContext context, PublishedClip clip) {
     final String rawLyrics;
@@ -820,7 +859,7 @@ class _ActionRailState extends State<_ActionRail> {
             children: [
               Row(
                 children: [
-                  Icon(
+                  PhosphorIcon(
                     PhosphorIcons.translate(PhosphorIconsStyle.regular),
                     size: 18,
                     color: AppColors.brandPrimary,
@@ -932,15 +971,17 @@ class _ActionRailState extends State<_ActionRail> {
         .read(socialFeedProvider.notifier)
         .recordLove(widget.clip.id);
     _emitReelLoveNotification(ref, widget.clip, count);
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      SnackBar(
-        key: ValueKey('love_toast_${widget.clip.id}'),
-        content: Text('Loved ${count}x!'),
-        backgroundColor: AppColors.brandPrimary,
-        duration: const Duration(milliseconds: 900),
-      ),
-    );
+    if (!mounted) return;
+    setState(() {
+      _ephemeralLoveCount = count;
+      _showLovePill = true;
+    });
+    _lovePillTimer?.cancel();
+    _lovePillTimer = Timer(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        setState(() => _showLovePill = false);
+      }
+    });
   }
 
   void _handleMultiReactionSelect(WidgetRef ref, KineticReactionType reaction) {
@@ -963,6 +1004,39 @@ class _ActionRailState extends State<_ActionRail> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (_showLovePill) ...[
+              VhunambiGlassSurface(
+                key: const Key('reel_ephemeral_love_pill'),
+                variant: VhunambiGlassVariant.pill,
+                enableLiveBlur: false,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                borderColorOverride: AppColors.brandPrimary.withValues(
+                  alpha: 0.65,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const PhosphorIcon(
+                      AppIcons.heart,
+                      size: 12,
+                      color: AppColors.brandPrimary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Loved ${_ephemeralLoveCount}x',
+                      style: AppTypography.badge.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             GestureDetector(
               onLongPressStart: (details) {
                 ReactionTrayOverlay.show(
@@ -1533,12 +1607,16 @@ void _emitReelLoveNotification(WidgetRef ref, PublishedClip clip, int count) {
 
 class _ReelVideoBackingLayer extends StatefulWidget {
   final String videoUrl;
+  final String? localVideoPath;
   final bool isActive;
+  final Widget fallbackArtwork;
 
   const _ReelVideoBackingLayer({
     super.key,
     required this.videoUrl,
+    this.localVideoPath,
     required this.isActive,
+    required this.fallbackArtwork,
   });
 
   @override
@@ -1567,10 +1645,22 @@ class _ReelVideoBackingLayerState extends State<_ReelVideoBackingLayer> {
 
   Future<void> _initControllerIfAllowed() async {
     if (_isTestEnv || kIsWeb) return;
-    final uri = Uri.tryParse(widget.videoUrl);
-    if (uri == null) return;
+    VideoPlayerController? ctrl;
     try {
-      final ctrl = VideoPlayerController.networkUrl(uri);
+      final localPath = widget.localVideoPath;
+      if (localPath != null &&
+          localPath.trim().isNotEmpty &&
+          File(localPath).existsSync()) {
+        ctrl = VideoPlayerController.file(File(localPath));
+      } else {
+        final uri = Uri.tryParse(widget.videoUrl);
+        if (uri != null &&
+            uri.hasScheme &&
+            (uri.scheme == 'http' || uri.scheme == 'https')) {
+          ctrl = VideoPlayerController.networkUrl(uri);
+        }
+      }
+      if (ctrl == null) return;
       await ctrl.initialize();
       await ctrl.setLooping(true);
       await ctrl.setVolume(0.0);
@@ -1586,7 +1676,7 @@ class _ReelVideoBackingLayerState extends State<_ReelVideoBackingLayer> {
         _initialized = true;
       });
     } catch (_) {
-      // Deterministic dark backing fallback when offline/unplayable
+      await ctrl?.dispose();
     }
   }
 
@@ -1617,13 +1707,17 @@ class _ReelVideoBackingLayerState extends State<_ReelVideoBackingLayer> {
         child: FittedBox(
           fit: BoxFit.cover,
           child: SizedBox(
-            width: _controller!.value.size.width,
-            height: _controller!.value.size.height,
+            width: _controller!.value.size.width > 0
+                ? _controller!.value.size.width
+                : 720,
+            height: _controller!.value.size.height > 0
+                ? _controller!.value.size.height
+                : 1280,
             child: VideoPlayer(_controller!),
           ),
         ),
       );
     }
-    return const ColoredBox(color: Colors.black);
+    return widget.fallbackArtwork;
   }
 }

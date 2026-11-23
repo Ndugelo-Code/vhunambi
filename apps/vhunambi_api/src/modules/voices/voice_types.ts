@@ -56,6 +56,7 @@ export const PhoneticCalibrationScriptSchema = z.object({
 export type PhoneticCalibrationScript = z.infer<typeof PhoneticCalibrationScriptSchema>;
 
 export const CreateVoiceCloneRequestSchema = z.object({
+  id: z.string().min(4).max(96).optional(),
   creatorId: z.string().optional(),
   creatorName: z.string().min(1).default('Sovereign Creator'),
   nativeLanguage: z.string().default('Tshivenḓa'),

@@ -10,6 +10,7 @@ import 'package:vhunambi_client/core/auth/auth_providers.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/core/theme/app_colors.dart';
 import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
 
 @immutable
 class CloudPillarStatus {
@@ -202,14 +203,13 @@ class CloudStackDiagnosticCard extends ConsumerWidget {
     final apiRoot = AppConstants.resolveApiRootUrl();
     final mediaRoot = AppConstants.resolveMediaBaseUrl();
 
-    return Container(
+    return VhunambiGlassSurface(
       key: const Key('cloud_stack_preflight_card'),
+      variant: VhunambiGlassVariant.card,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSecondaryOf(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderSubtleOf(context)),
-      ),
+      borderRadius: BorderRadius.circular(16),
+      enableLiveBlur: false,
+      borderColorOverride: AppColors.borderSubtleOf(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -252,43 +252,48 @@ class CloudStackDiagnosticCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              InkWell(
-                key: const Key('cloud_stack_run_preflight_btn'),
-                borderRadius: BorderRadius.circular(10),
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  ref.read(cloudPreflightProvider.notifier).runPreflightProbe();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.brandPrimary.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: AppColors.brandPrimary.withValues(alpha: 0.45),
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                child: InkWell(
+                  key: const Key('cloud_stack_run_preflight_btn'),
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    ref.read(cloudPreflightProvider.notifier).runPreflightProbe();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const PhosphorIcon(
-                        PhosphorIconsBold.arrowsClockwise,
-                        size: 12,
-                        color: AppColors.brandPrimary,
+                    decoration: BoxDecoration(
+                      color: AppColors.brandPrimary.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppColors.brandPrimary.withValues(alpha: 0.45),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        preflight.isProbing ? 'Probing...' : 'Probe 5 Pillars',
-                        style: AppTypography.caption.copyWith(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const PhosphorIcon(
+                          PhosphorIconsBold.arrowsClockwise,
+                          size: 12,
                           color: AppColors.brandPrimary,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          preflight.isProbing
+                              ? 'Probing...'
+                              : 'Probe 5 Pillars',
+                          style: AppTypography.caption.copyWith(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.brandPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

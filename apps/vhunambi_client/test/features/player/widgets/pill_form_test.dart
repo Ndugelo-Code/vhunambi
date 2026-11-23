@@ -44,7 +44,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(PillForm), findsOneWidget);
-    expect(find.byIcon(AppIcons.songs), findsOneWidget);
+    expect(find.byKey(const Key('pill_chromatic_surface')), findsOneWidget);
+    expect(find.byKey(const Key('pill_track_artwork')), findsOneWidget);
+    expect(find.byIcon(AppIcons.pause), findsOneWidget);
 
     await tester.tap(find.byType(PillForm));
     await tester.pump();

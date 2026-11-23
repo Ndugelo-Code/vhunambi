@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -81,8 +83,8 @@ class PromptIntelligenceOverlay extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.auto_awesome,
+                const PhosphorIcon(
+                  AppIcons.sparkle,
                   size: 14,
                   color: AppColors.brandPrimary,
                 ),
@@ -103,8 +105,8 @@ class PromptIntelligenceOverlay extends StatelessWidget {
                       const BoxConstraints(minWidth: 44, minHeight: 44),
                   padding: EdgeInsets.zero,
                   onPressed: onDismiss,
-                  icon: Icon(
-                    Icons.close_rounded,
+                  icon: PhosphorIcon(
+                    AppIcons.close,
                     size: 16,
                     color: AppColors.textTertiary,
                   ),
@@ -159,7 +161,7 @@ class PromptIntelligenceOverlay extends StatelessWidget {
                     borderRadius: AppRadius.pillBorder,
                   ),
                   child: Text(
-                    'Apply All ✨',
+                    'Apply All',
                     style: AppTypography.bodySmall.copyWith(
                       color: AppColors.brandContrast,
                       fontWeight: FontWeight.w700,
@@ -224,8 +226,8 @@ class _AutoFillChip extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.expand(),
                 onPressed: onDismiss,
-                icon: Icon(
-                  Icons.close_rounded,
+                icon: PhosphorIcon(
+                  AppIcons.close,
                   size: 14,
                   color: AppColors.textTertiary,
                 ),

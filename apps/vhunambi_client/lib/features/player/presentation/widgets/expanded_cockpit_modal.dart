@@ -4,14 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../core/navigation/app_navigator.dart';
 import '../../../../core/design_system/services/haptics_service.dart';
-import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
-import '../../../../core/design_system/tokens/design_enums.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../domain/models/player_state.dart';
 import '../../../../shared/models/track.dart';
 import '../../../library/domain/models/library_models.dart';
@@ -21,18 +19,24 @@ import '../../../library/presentation/widgets/track_details_modal.dart';
 import '../../../offline/presentation/widgets/offline_indicator_badge.dart';
 import '../providers/mini_player_controller.dart';
 import '../providers/player_provider.dart';
+import 'player_chromatic_resolver_mixin.dart';
 import 'queue_drawer.dart';
 import '../../../content_studio/presentation/providers/master_media_object_provider.dart';
+import '../../../social/domain/models/video_export_job.dart';
+import '../../../social/presentation/widgets/video_export_modal.dart';
 import '../../../mastering/presentation/providers/mastering_session_provider.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
-import 'package:vhunambi_client/features/content_studio/presentation/views/content_studio_dock_view.dart';
-import 'package:vhunambi_client/features/social/domain/models/video_export_job.dart';
-import 'package:vhunambi_client/features/social/presentation/widgets/video_export_modal.dart';
+import 'package:vhunambi_client/features/content_studio/presentation/views/kinetic_reel_studio_view.dart';
+import '../../../../core/constants/app_constants.dart';
 import 'stem_mixer_deck.dart';
 
 import '../../../studio/domain/models/mycelium_biome_models.dart';
 import '../../../../core/navigation/navigation_providers.dart';
+import 'package:vhunambi_client/features/content_studio/domain/utils/lyric_karaoke_sanitizer.dart';
+import 'package:vhunambi_client/features/track/domain/models/track_detail_models.dart';
+import 'package:vhunambi_client/features/track/presentation/providers/track_providers.dart';
+import 'package:vhunambi_client/features/track/presentation/widgets/lyrics_teleprompter.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../../notifications/domain/models/notification_entity.dart';
 import '../../../notifications/domain/models/notification_enums.dart';
@@ -102,7 +106,8 @@ class ExpandedCockpitModal extends ConsumerStatefulWidget {
       _ExpandedCockpitModalState();
 }
 
-class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
+class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal>
+    with PlayerChromaticPaletteMixin<ExpandedCockpitModal> {
   PlayerHeroMode _heroMode = PlayerHeroMode.artwork;
   bool get _showLyrics => _heroMode == PlayerHeroMode.lyrics;
   late MiniPlayerController _miniPlayerController;
@@ -138,9 +143,12 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
     }
 
     final notifier = ref.read(playerStateProvider.notifier);
-    final genre = _mapStringToGenre(track.genre);
-    final extension = VhunambiThemeExtension.of(context);
-    final accent = extension.genreAccent(genre);
+    final palette = resolvePlayerChromaticPalette(context, track);
+    final accent = palette.accent;
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final borderSubtle = AppColors.borderSubtleOf(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final masteringState = ref.watch(masteringSessionProvider);
     final isMasteredActive = masteringState.isMasteredPreviewActive;
@@ -159,15 +167,18 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
     return Material(
       type: MaterialType.transparency,
       child: Container(
+        key: const Key('cockpit_chromatic_backdrop'),
         height: MediaQuery.sizeOf(context).height * 0.88,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceModal,
+        decoration: buildChromaticStageDecoration(
+          context: context,
+          palette: palette,
+          baseSurface: AppColors.surfaceModalOf(context),
           borderRadius: AppRadius.modalBorder,
           boxShadow: [
             BoxShadow(
-              color: Colors.black54,
+              color: Colors.black.withValues(alpha: isDark ? 0.54 : 0.16),
               blurRadius: 30,
-              offset: Offset(0, -6),
+              offset: const Offset(0, -6),
             ),
           ],
         ),
@@ -182,7 +193,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4B5563),
+                    color: borderSubtle,
                     borderRadius: BorderRadius.circular(9999),
                   ),
                 ),
@@ -196,17 +207,17 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       IconButton(
-                        icon: const PhosphorIcon(
+                        icon: PhosphorIcon(
                           AppIcons.caretDown,
                           size: 28,
-                          color: Colors.white,
+                          color: textPrimary,
                         ),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       Text(
                         'Now Playing',
                         style: AppTypography.titleMedium.copyWith(
-                          color: AppColors.textSecondary,
+                          color: textSecondary,
                         ),
                       ),
                       Semantics(
@@ -219,7 +230,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                           icon: PhosphorIcon(
                             _showLyrics ? AppIcons.disc : AppIcons.mic,
                             size: 22,
-                            color: _showLyrics ? accent : Colors.white,
+                            color: _showLyrics ? accent : textPrimary,
                           ),
                           tooltip: _showLyrics ? 'Show artwork' : 'Show lyrics',
                           onPressed: () {
@@ -243,7 +254,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                           size: 22,
                           color: _isFavorite(ref, track.id)
                               ? AppColors.brandPrimary
-                              : Colors.white,
+                              : textPrimary,
                         ),
                         tooltip: _isFavorite(ref, track.id)
                             ? 'Remove from favourites'
@@ -260,20 +271,20 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                         style: IconButton.styleFrom(
                           shape: const CircleBorder(),
                         ),
-                        icon: const PhosphorIcon(
+                        icon: PhosphorIcon(
                           AppIcons.sparkle,
                           size: 22,
-                          color: Colors.white,
+                          color: textPrimary,
                         ),
                         tooltip: 'Create 9:16 Lyric Reel',
                         onPressed: () => _openContentStudio(context, track),
                       ),
                       IconButton(
                         key: const Key('player_more_actions_btn'),
-                        icon: const PhosphorIcon(
+                        icon: PhosphorIcon(
                           AppIcons.dotsHorizontal,
                           size: 24,
-                          color: Colors.white,
+                          color: textPrimary,
                         ),
                         tooltip: 'More actions',
                         onPressed: () {
@@ -301,9 +312,9 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                   margin: const EdgeInsets.symmetric(horizontal: 32),
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
-                    color: AppColors.darkSurfaceSecondary,
+                    color: AppColors.surfaceSecondaryOf(context),
                     borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: AppColors.darkBorderSubtle),
+                    border: Border.all(color: borderSubtle),
                   ),
                   child: Row(
                     children: [
@@ -335,8 +346,8 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                                 textAlign: TextAlign.center,
                                 style: AppTypography.badge.copyWith(
                                   color: _heroMode == mode
-                                      ? Colors.white
-                                      : AppColors.textSecondary,
+                                      ? textPrimary
+                                      : textSecondary,
                                   fontWeight: _heroMode == mode
                                       ? FontWeight.w800
                                       : FontWeight.w500,
@@ -377,23 +388,25 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                             tag: 'now_playing_art_${track.id}',
                             child: Container(
                               decoration: BoxDecoration(
-                                gradient: AppGradients.forGenre(track.genre),
                                 borderRadius: BorderRadius.circular(24),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: accent.withAlpha(80),
-                                    blurRadius: 40,
-                                    spreadRadius: -8,
+                                    color: palette.primaryGlow.withValues(
+                                      alpha: isDark ? 0.36 : 0.22,
+                                    ),
+                                    blurRadius: 36,
+                                    spreadRadius: -6,
                                     offset: const Offset(0, 12),
                                   ),
                                 ],
                               ),
-                              child: const Center(
-                                child: PhosphorIcon(
-                                  AppIcons.piano,
-                                  size: 72,
-                                  color: Colors.white,
-                                ),
+                              child: VhunambiTrackArtwork(
+                                key: const Key('cockpit_hero_artwork'),
+                                coverUrl: track.coverUrl,
+                                genre: track.genre,
+                                trackId: track.id,
+                                borderRadius: BorderRadius.circular(24),
+                                badgeIconSize: 56,
                               ),
                             ),
                           ),
@@ -418,6 +431,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                               track.title,
                               style: AppTypography.titleLarge.copyWith(
                                 fontSize: 22,
+                                color: textPrimary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -432,6 +446,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                                   track.creatorName,
                                   style: AppTypography.bodyMuted.copyWith(
                                     fontSize: 15,
+                                    color: textSecondary,
                                   ),
                                 ),
                                 PhosphorIcon(
@@ -441,7 +456,9 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                                 ),
                                 Text(
                                   '• ${track.genre}',
-                                  style: AppTypography.caption,
+                                  style: AppTypography.caption.copyWith(
+                                    color: textSecondary,
+                                  ),
                                 ),
                                 if (ref
                                     .watch(libraryTracksProvider)
@@ -468,7 +485,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                                 : AppIcons.heartOutline,
                             color: _isFavorite(ref, track.id)
                                 ? accent
-                                : AppColors.textSecondary,
+                                : textSecondary,
                             size: 26,
                           ),
                           tooltip: _isFavorite(ref, track.id)
@@ -486,7 +503,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                         key: const Key('player_meta_share_btn'),
                         icon: PhosphorIcon(
                           AppIcons.share,
-                          color: AppColors.textSecondary,
+                          color: textSecondary,
                           size: 22,
                         ),
                         tooltip: 'Share Track',
@@ -549,7 +566,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                                   decoration: BoxDecoration(
                                     color: isElapsed
                                         ? accent
-                                        : AppColors.borderSubtle,
+                                        : borderSubtle,
                                     borderRadius: BorderRadius.circular(2),
                                   ),
                                 ),
@@ -564,11 +581,15 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                         children: [
                           Text(
                             playerState.formattedPosition,
-                            style: AppTypography.caption,
+                            style: AppTypography.caption.copyWith(
+                              color: textSecondary,
+                            ),
                           ),
                           Text(
                             playerState.formattedDuration,
-                            style: AppTypography.caption,
+                            style: AppTypography.caption.copyWith(
+                              color: textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -589,11 +610,11 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                             ? 'Shuffle on'
                             : 'Shuffle off',
                         child: IconButton(
-                          icon: Icon(
+                          icon: PhosphorIcon(
                             AppIcons.shuffle,
                             color: playerState.isShuffle
                                 ? accent
-                                : AppColors.textSecondary,
+                                : textSecondary,
                             size: 24,
                           ),
                           onPressed: () {
@@ -605,10 +626,10 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       Semantics(
                         label: 'Skip previous track',
                         child: IconButton(
-                          icon: const PhosphorIcon(
+                          icon: PhosphorIcon(
                             AppIcons.skipBack,
                             size: 36,
-                            color: Colors.white,
+                            color: textPrimary,
                           ),
                           onPressed: () {
                             HapticsService().lightImpact();
@@ -634,12 +655,12 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                             ],
                           ),
                           child: IconButton(
-                            icon: Icon(
+                            icon: PhosphorIcon(
                               playerState.isPlaying
                                   ? AppIcons.pause
                                   : AppIcons.play,
                               size: 36,
-                              color: _contrastTextColor(accent),
+                              color: palette.onAccent,
                             ),
                             onPressed: () {
                               HapticsService().mediumImpact();
@@ -651,10 +672,10 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                       Semantics(
                         label: 'Skip next track',
                         child: IconButton(
-                          icon: const PhosphorIcon(
+                          icon: PhosphorIcon(
                             AppIcons.skipForward,
                             size: 36,
-                            color: Colors.white,
+                            color: textPrimary,
                           ),
                           onPressed: () {
                             HapticsService().lightImpact();
@@ -669,13 +690,11 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                             ? 'Repeat all'
                             : 'Repeat off',
                         child: IconButton(
-                          icon: Icon(
-                            playerState.repeatMode == AudioRepeatMode.one
-                                ? AppIcons.repeat
-                                : AppIcons.repeat,
+                          icon: PhosphorIcon(
+                            AppIcons.repeat,
                             color: playerState.repeatMode != AudioRepeatMode.off
                                 ? accent
-                                : AppColors.textTertiary,
+                                : textSecondary.withValues(alpha: 0.72),
                             size: 24,
                           ),
                           onPressed: () {
@@ -698,9 +717,9 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                     horizontal: 16,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceSecondary,
+                    color: AppColors.surfaceSecondaryOf(context),
                     borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: AppColors.borderSubtle),
+                    border: Border.all(color: borderSubtle),
                   ),
                   child: Wrap(
                     spacing: AppSpacing.sm,
@@ -730,7 +749,7 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                             builder: (_) => Container(
                               height: MediaQuery.sizeOf(context).height * 0.85,
                               decoration: BoxDecoration(
-                                color: AppColors.surfaceModal,
+                                color: AppColors.surfaceModalOf(context),
                                 borderRadius: AppRadius.modalBorder,
                               ),
                               child: SafeArea(
@@ -821,27 +840,52 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
     );
   }
 
-  /// Builds the scrollable Lyrics reading card shown when [_showLyrics] is on.
+  /// Builds the scrollable Synced Karaoke Lyrics card shown when [_showLyrics] is on.
   ///
-  /// Resolves the active track's vault record for its bracketed stanza text;
-  /// falls back to a friendly empty state when none is attached.
+  /// Resolves the active track's vault or detail record, strips AI bracket cue tags via
+  /// `LyricKaraokeSanitizer`, and delegates live playback sync & 9-language Bantu
+  /// word definitions to the shared [LyricsTeleprompter].
   Widget _buildLyricsCard(
     BuildContext context,
     WidgetRef ref,
     Track track,
     Color accent,
   ) {
-    final lyrics = ref
-        .read(libraryTracksProvider)
+    final libraryTrack = ref
+        .watch(libraryTracksProvider)
         .cast<LibraryTrack?>()
-        .firstWhere((t) => t?.id == track.id, orElse: () => null)
-        ?.lyrics;
+        .firstWhere((t) => t?.id == track.id, orElse: () => null);
+    final detailTrack = ref.watch(trackDetailFamilyProvider(track.id));
+    final rawLyrics = (libraryTrack?.lyrics?.trim().isNotEmpty ?? false)
+        ? libraryTrack!.lyrics!
+        : detailTrack.lyrics;
+    final cleanLyrics = LyricKaraokeSanitizer.cleanLyricsForTeleprompter(
+      rawLyrics,
+    );
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final borderSubtle = AppColors.borderSubtleOf(context);
+
+    final resolvedEntity = TrackDetailEntity(
+      id: track.id,
+      title: track.title,
+      genre: track.genre,
+      language: libraryTrack?.language ?? track.language,
+      duration: track.duration,
+      creatorId: libraryTrack?.creatorId ?? detailTrack.creatorId,
+      creatorName: track.creatorName,
+      creatorHandle: track.handleLabel,
+      lyrics: rawLyrics,
+      coverUrl: track.coverUrl,
+      audioUrl: track.audioUrl,
+      moodId: track.mood ?? detailTrack.moodId,
+    );
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.surfaceElevatedOf(context),
         borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -860,31 +904,35 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
                 const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: Text(
-                    'Lyrics',
+                    'Synced Lyrics',
                     style: AppTypography.titleMedium.copyWith(
-                      color: AppColors.textPrimary,
+                      color: textPrimary,
                     ),
                   ),
                 ),
-                if (lyrics != null && lyrics.trim().isNotEmpty)
+                if (cleanLyrics.trim().isNotEmpty)
                   IconButton(
                     key: const Key('cockpit_copy_lyrics'),
-                    tooltip: 'Copy lyrics',
+                    tooltip: 'Copy clean lyrics',
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
                     icon: PhosphorIcon(
-                      AppIcons.edit,
+                      PhosphorIconsRegular.copy,
                       size: 18,
-                      color: AppColors.textSecondary,
+                      color: textSecondary,
                     ),
                     onPressed: () {
                       HapticsService().mediumImpact();
-                      Clipboard.setData(ClipboardData(text: lyrics));
+                      Clipboard.setData(ClipboardData(text: cleanLyrics));
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          backgroundColor: AppColors.surfaceModal,
+                          backgroundColor: AppColors.surfaceModalOf(context),
                           content: Text(
                             'Lyrics copied to clipboard',
                             style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.textPrimary,
+                              color: textPrimary,
                             ),
                           ),
                         ),
@@ -894,51 +942,21 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
               ],
             ),
           ),
-          Divider(height: 1, color: AppColors.borderSubtle),
+          Divider(height: 1, color: borderSubtle),
           Expanded(
-            child: (lyrics == null || lyrics.trim().isEmpty)
+            child: cleanLyrics.trim().isEmpty
                 ? _LyricsEmptyState()
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(AppSpacing.md),
-                    child: _buildLyricsBody(lyrics, accent),
+                    child: LyricsTeleprompter(
+                      track: resolvedEntity,
+                      accentColorOverride: accent,
+                      embeddedInPlayer: true,
+                    ),
                   ),
           ),
         ],
       ),
-    );
-  }
-
-  /// Renders bracketed stanza headers (`[Chorus]`) in bold brand color and
-  /// lyric lines in [AppTypography.bodyLarge], preserving blank-line spacing.
-  Widget _buildLyricsBody(String lyrics, Color accent) {
-    final widgets = <Widget>[];
-    for (final line in lyrics.split('\n')) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) {
-        widgets.add(const SizedBox(height: AppSpacing.sm));
-        continue;
-      }
-      final isHeader = trimmed.startsWith('[') && trimmed.endsWith(']');
-      widgets.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
-          child: Text(
-            trimmed,
-            style: isHeader
-                ? AppTypography.bodyLarge.copyWith(
-                    color: accent,
-                    fontWeight: FontWeight.w700,
-                  )
-                : AppTypography.bodyLarge.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-          ),
-        ),
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widgets,
     );
   }
 
@@ -947,24 +965,29 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
         .read(libraryTracksProvider)
         .cast<LibraryTrack?>()
         .firstWhere((t) => t?.id == track.id, orElse: () => null);
-    final dna =
-        libraryTrack?.toSongMetadataDna() ??
-        SongMetadataDna.fromTrackInfo(
+    final rawAudio = libraryTrack?.remoteAudioUrl ?? track.audioUrl ?? '';
+    final resolvedAudio = rawAudio.isNotEmpty
+        ? AppConstants.normalizeCloudMediaUrl(rawAudio)
+        : '${AppConstants.resolveMediaBaseUrl()}/audio/${track.id}.mp3';
+    final rawCover = libraryTrack?.coverImageUrl ?? track.coverUrl;
+    final resolvedCover = (rawCover != null && rawCover.isNotEmpty)
+        ? AppConstants.normalizeCloudMediaUrl(rawCover)
+        : null;
+    final resolvedTrack =
+        libraryTrack ??
+        LibraryTrack(
           id: track.id,
           title: track.title,
+          creatorName: track.creatorName,
+          creatorHandle: track.creatorHandle,
           genre: track.genre,
           language: track.language,
-          durationSec: track.duration.inSeconds,
-          lyrics: libraryTrack?.lyrics,
-          coverUrl: track.coverUrl,
+          durationSeconds: track.duration.inSeconds,
+          remoteAudioUrl: resolvedAudio,
+          coverImageUrl: resolvedCover,
+          createdAt: DateTime.now(),
         );
-    ContentStudioDockView.open(
-      context,
-      dna: dna,
-      audioUrl: track.audioUrl ?? 'https://r2.vhunambi.com/audio/default.mp3',
-      coverArtUrl:
-          track.coverUrl ?? 'https://r2.vhunambi.com/visuals/default_9_16.png',
-    );
+    KineticReelStudioView.show(context, initialTrack: resolvedTrack);
   }
 
   /// Shares the track via the system share sheet (VH-016).
@@ -1057,51 +1080,25 @@ class _ExpandedCockpitModalState extends ConsumerState<ExpandedCockpitModal> {
 
     Navigator.of(context).pop();
   }
-
-  /// Maps a free-form [genre] string from [Track] to a
-  /// [Genre] enum for the design system token registry.
-  ///
-  /// Unknown genres fall back to [Genre.amapiano].
-  Genre _mapStringToGenre(String genre) {
-    final normalized = genre.trim().toLowerCase();
-    return switch (normalized) {
-      'amapiano' => Genre.amapiano,
-      'afro house' => Genre.afroHouse,
-      'afrohouse' => Genre.afroHouse,
-      'gqom' => Genre.gqom,
-      'kwaito' => Genre.kwaito,
-      'afro pop' => Genre.afroPop,
-      'afropop' => Genre.afroPop,
-      'afrobeats' => Genre.afroPop,
-      'afro beats' => Genre.afroPop,
-      'maskandi' => Genre.maskandi,
-      'hip hop' => Genre.hipHop,
-      'hiphop' => Genre.hipHop,
-      'gospel' => Genre.gospel,
-      _ => Genre.amapiano,
-    };
-  }
-
-  /// Returns a high-contrast text color (black or white) for [background]
-  /// based on its relative luminance, ensuring WCAG AA readability.
-  Color _contrastTextColor(Color background) {
-    final luminance = background.computeLuminance();
-    return luminance > 0.5 ? Colors.black : Colors.white;
-  }
 }
 
 class _LyricsEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final textSecondary = AppColors.textSecondaryOf(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          PhosphorIcon(AppIcons.songs, size: 48, color: AppColors.textTertiary),
+          PhosphorIcon(
+            AppIcons.songs,
+            size: 48,
+            color: textSecondary.withValues(alpha: 0.72),
+          ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             'No written lyrics for this track',
-            style: AppTypography.bodyMuted,
+            style: AppTypography.bodyMuted.copyWith(color: textSecondary),
             textAlign: TextAlign.center,
           ),
         ],
@@ -1134,12 +1131,16 @@ class _UtilityItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Row(
           children: [
-            PhosphorIcon(icon, size: 16, color: AppColors.textSecondary),
+            PhosphorIcon(
+              icon,
+              size: 16,
+              color: AppColors.textSecondaryOf(context),
+            ),
             const SizedBox(width: 6),
             Text(
               label,
               style: AppTypography.caption.copyWith(
-                color: AppColors.textPrimary,
+                color: AppColors.textPrimaryOf(context),
               ),
             ),
           ],

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../domain/models/published_clip.dart';
 
 /// Formats a play count into a compact label (24500 -> "24.5K").
@@ -57,7 +58,7 @@ class CreatorReelThumbnailCard extends StatelessWidget {
                 top: 6,
                 left: 6,
                 child: _MetaPill(
-                  icon: Icons.play_arrow_rounded,
+                  icon: PhosphorIconsFill.play,
                   label: formatPlayCount(clip.playCount),
                 ),
               ),
@@ -76,7 +77,7 @@ class CreatorReelThumbnailCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.caption.copyWith(
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -100,28 +101,19 @@ class CreatorReelThumbnailCard extends StatelessWidget {
   }
 }
 
-
 class _CoverArt extends StatelessWidget {
   final PublishedClip clip;
   const _CoverArt({required this.clip});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(gradient: AppGradients.forGenre(clip.genre)),
-      child: clip.coverUrl.isEmpty
-          ? Center(
-              child: Icon(Icons.music_note_rounded,
-                  color: AppColors.textPrimary, size: 32),
-            )
-          : Image.network(
-              clip.coverUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Center(
-                child: Icon(Icons.music_note_rounded,
-                    color: AppColors.textPrimary, size: 32),
-              ),
-            ),
+    return VhunambiTrackArtwork(
+      coverUrl: clip.coverUrl,
+      genre: clip.genre,
+      trackId: clip.trackId,
+      borderRadius: BorderRadius.zero,
+      showSubtleBorder: false,
+      badgeIconSize: 28,
     );
   }
 }
@@ -136,18 +128,18 @@ class _MetaPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCanvas.withAlpha(160),
+        color: Colors.black.withValues(alpha: 0.58),
         borderRadius: AppRadius.pillBorder,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 11, color: AppColors.textPrimary),
+          PhosphorIcon(icon, size: 11, color: Colors.white),
           const SizedBox(width: 3),
           Text(
             label,
             style: AppTypography.caption.copyWith(
-              color: AppColors.textPrimary,
+              color: Colors.white,
               fontWeight: FontWeight.w700,
             ),
           ),

@@ -319,10 +319,10 @@ class StemMixBounceService {
       );
     }
 
-    final drumsCh = getChannel(StemType.drums, 'Drums', '🥁');
-    final bassCh = getChannel(StemType.bass, 'Bass', '🔊');
-    final melodyCh = getChannel(StemType.melody, 'Melody', '🎹');
-    final vocalCh = getChannel(StemType.vocals, 'Vocals', '🎤');
+    final drumsCh = getChannel(StemType.drums, 'Drums', 'drm');
+    final bassCh = getChannel(StemType.bass, 'Bass', 'bas');
+    final melodyCh = getChannel(StemType.melody, 'Melody', 'mel');
+    final vocalCh = getChannel(StemType.vocals, 'Vocals', 'vox');
 
     final drumsVol = drumsCh.effectiveVolume(anySolo);
     final bassVol = bassCh.effectiveVolume(anySolo);
@@ -366,7 +366,9 @@ class StemMixBounceService {
 
     final wavFileBytes = createWavFile(pcmBytes, sampleRate, channels);
     String resolvedPath = targetPath;
-    if (!targetPath.startsWith('/') && !targetPath.contains(':\\') && !targetPath.startsWith('\\')) {
+    if (!targetPath.startsWith('/') &&
+        !targetPath.contains(':\\') &&
+        !targetPath.startsWith('\\')) {
       resolvedPath = '${Directory.systemTemp.path}/$targetPath';
     }
 
@@ -380,7 +382,8 @@ class StemMixBounceService {
       );
     } catch (e) {
       // Memory fallback: if filesystem is strictly read-only, stream via data URI
-      final base64Fallback = 'data:audio/wav;base64,${base64Encode(wavFileBytes)}';
+      final base64Fallback =
+          'data:audio/wav;base64,${base64Encode(wavFileBytes)}';
       return BounceResult(
         path: base64Fallback,
         isSimulated: false,

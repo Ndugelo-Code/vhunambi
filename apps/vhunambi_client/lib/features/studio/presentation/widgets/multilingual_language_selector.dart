@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -56,8 +58,9 @@ class _MultilingualLanguageSelectorState
 
   @override
   Widget build(BuildContext context) {
-    final activeLanguage =
-        ref.watch(studioFormProvider.select((s) => s.language));
+    final activeLanguage = ref.watch(
+      studioFormProvider.select((s) => s.language),
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -79,8 +82,8 @@ class _MultilingualLanguageSelectorState
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.translate_rounded,
+                  const PhosphorIcon(
+                    PhosphorIconsRegular.translate,
                     size: 20,
                     color: AppColors.brandPrimary,
                   ),
@@ -110,10 +113,8 @@ class _MultilingualLanguageSelectorState
                     ),
                   ),
                   const Spacer(),
-                  Icon(
-                    _isExpanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
+                  PhosphorIcon(
+                    _isExpanded ? AppIcons.caretUp : AppIcons.caretDown,
                     color: AppColors.textSecondary,
                   ),
                 ],
@@ -181,10 +182,7 @@ class _MultilingualLanguageSelectorState
             duration: const Duration(milliseconds: 150),
             constraints: const BoxConstraints(minHeight: 34),
             alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 6,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: isSelected
                   ? AppColors.brandPrimary

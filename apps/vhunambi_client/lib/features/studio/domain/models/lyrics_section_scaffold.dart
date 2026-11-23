@@ -1,5 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
+import '../../../../core/design_system/tokens/app_icons.dart';
 import 'lyrics_review_models.dart';
 
 /// Atmosphere descriptor for a specific genre + section type combination,
@@ -8,9 +9,9 @@ import 'lyrics_review_models.dart';
 @immutable
 class AtmosphereDescriptor {
   final String label;
-  final String emoji;
+  final IconData icon;
 
-  const AtmosphereDescriptor({required this.label, required this.emoji});
+  const AtmosphereDescriptor({required this.label, required this.icon});
 }
 
 /// Guided composer section configuration: section type, title, prompt copy
@@ -81,109 +82,109 @@ const Map<String, Map<String, List<AtmosphereDescriptor>>>
     <String, Map<String, List<AtmosphereDescriptor>>>{
   'Amapiano': <String, List<AtmosphereDescriptor>>{
     'intro': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Deep log drum opening', emoji: '🥁'),
-      AtmosphereDescriptor(label: 'Soft piano arpeggios', emoji: '🎹'),
-      AtmosphereDescriptor(label: 'Township ambient sound bed', emoji: '🏙️'),
-      AtmosphereDescriptor(label: 'Gentle fade-in bass pulse', emoji: '🎵'),
+      AtmosphereDescriptor(label: 'Deep log drum opening', icon: AppIcons.drums),
+      AtmosphereDescriptor(label: 'Soft piano arpeggios', icon: AppIcons.piano),
+      AtmosphereDescriptor(label: 'Township ambient sound bed', icon: AppIcons.waveform),
+      AtmosphereDescriptor(label: 'Gentle fade-in bass pulse', icon: AppIcons.songs),
     ],
     'verse': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Rhythmic log drum groove', emoji: '🥁'),
-      AtmosphereDescriptor(label: 'Jazz chord stabs', emoji: '🎷'),
-      AtmosphereDescriptor(label: 'Steady 4-on-the-floor kick', emoji: '👟'),
+      AtmosphereDescriptor(label: 'Rhythmic log drum groove', icon: AppIcons.drums),
+      AtmosphereDescriptor(label: 'Jazz chord stabs', icon: AppIcons.piano),
+      AtmosphereDescriptor(label: 'Steady 4-on-the-floor kick', icon: AppIcons.lightning),
     ],
     'chorus': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Full choir call-and-response', emoji: '🎵'),
-      AtmosphereDescriptor(label: 'Log drum build with brass stab', emoji: '🎺'),
-      AtmosphereDescriptor(label: 'Melodic vocal hook repeat', emoji: '🎤'),
+      AtmosphereDescriptor(label: 'Full choir call-and-response', icon: AppIcons.users),
+      AtmosphereDescriptor(label: 'Log drum build with brass stab', icon: AppIcons.drums),
+      AtmosphereDescriptor(label: 'Melodic vocal hook repeat', icon: AppIcons.vocals),
     ],
     'bridge': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Stripped-back bass breakdown', emoji: '🎸'),
-      AtmosphereDescriptor(label: 'Airy synth pad swell', emoji: '🌌'),
+      AtmosphereDescriptor(label: 'Stripped-back bass breakdown', icon: AppIcons.guitar),
+      AtmosphereDescriptor(label: 'Airy synth pad swell', icon: AppIcons.sparkle),
     ],
     'outro': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Fade-out log drum roll', emoji: '🥁'),
-      AtmosphereDescriptor(label: 'Piano resolution chord', emoji: '🎹'),
+      AtmosphereDescriptor(label: 'Fade-out log drum roll', icon: AppIcons.drums),
+      AtmosphereDescriptor(label: 'Piano resolution chord', icon: AppIcons.piano),
     ],
   },
   'Gqom': <String, List<AtmosphereDescriptor>>{
     'intro': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: '808 sub bass build', emoji: '💥'),
-      AtmosphereDescriptor(label: 'Dark synth swell', emoji: '🌑'),
-      AtmosphereDescriptor(label: 'Metallic clap pattern', emoji: '⚡'),
+      AtmosphereDescriptor(label: '808 sub bass build', icon: AppIcons.flame),
+      AtmosphereDescriptor(label: 'Dark synth swell', icon: AppIcons.waveform),
+      AtmosphereDescriptor(label: 'Metallic clap pattern', icon: AppIcons.lightning),
     ],
     'verse': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Off-beat drum loop', emoji: '🥁'),
-      AtmosphereDescriptor(label: 'Repetitive vocal chant', emoji: '🗣️'),
+      AtmosphereDescriptor(label: 'Off-beat drum loop', icon: AppIcons.drums),
+      AtmosphereDescriptor(label: 'Repetitive vocal chant', icon: AppIcons.mic),
     ],
     'chorus': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Distorted bass drop', emoji: '🔊'),
-      AtmosphereDescriptor(label: 'Stadium hype chant stack', emoji: '🏟️'),
+      AtmosphereDescriptor(label: 'Distorted bass drop', icon: AppIcons.volumeHigh),
+      AtmosphereDescriptor(label: 'Stadium hype chant stack', icon: AppIcons.flame),
     ],
     'bridge': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Sparse siren sweep', emoji: '🚨'),
+      AtmosphereDescriptor(label: 'Sparse siren sweep', icon: AppIcons.lightning),
     ],
     'outro': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Filtered drum fade', emoji: '🎚️'),
+      AtmosphereDescriptor(label: 'Filtered drum fade', icon: AppIcons.sliders),
     ],
   },
   'Afrobeats': <String, List<AtmosphereDescriptor>>{
     'intro': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Bright electric guitar plucks', emoji: '🪕'),
-      AtmosphereDescriptor(label: 'Shaker groove build-up', emoji: '🪇'),
+      AtmosphereDescriptor(label: 'Bright electric guitar plucks', icon: AppIcons.guitar),
+      AtmosphereDescriptor(label: 'Shaker groove build-up', icon: AppIcons.drums),
     ],
     'verse': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Afro percussion bounce', emoji: '🥁'),
-      AtmosphereDescriptor(label: 'Warm bassline walk', emoji: '🎸'),
+      AtmosphereDescriptor(label: 'Afro percussion bounce', icon: AppIcons.drums),
+      AtmosphereDescriptor(label: 'Warm bassline walk', icon: AppIcons.guitar),
     ],
     'chorus': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Call-and-response hook', emoji: '🎤'),
-      AtmosphereDescriptor(label: 'Brass section stab', emoji: '🎺'),
+      AtmosphereDescriptor(label: 'Call-and-response hook', icon: AppIcons.vocals),
+      AtmosphereDescriptor(label: 'Brass section stab', icon: AppIcons.songs),
     ],
     'bridge': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Island percussion break', emoji: '🏝️'),
+      AtmosphereDescriptor(label: 'Island percussion break', icon: AppIcons.waveform),
     ],
     'outro': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Guitar riff fade-out', emoji: '🪕'),
+      AtmosphereDescriptor(label: 'Guitar riff fade-out', icon: AppIcons.guitar),
     ],
   },
   'Maskandi': <String, List<AtmosphereDescriptor>>{
     'intro': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Solo acoustic guitar picking', emoji: '🎸'),
-      AtmosphereDescriptor(label: 'Rolling hills ambience', emoji: '⛰️'),
+      AtmosphereDescriptor(label: 'Solo acoustic guitar picking', icon: AppIcons.guitar),
+      AtmosphereDescriptor(label: 'Rolling hills ambience', icon: AppIcons.waveform),
     ],
     'verse': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Fast guitar fingerstyle', emoji: '🎸'),
-      AtmosphereDescriptor(label: 'Bass guitar gallop', emoji: '🎼'),
+      AtmosphereDescriptor(label: 'Fast guitar fingerstyle', icon: AppIcons.guitar),
+      AtmosphereDescriptor(label: 'Bass guitar gallop', icon: AppIcons.songsOutline),
     ],
     'chorus': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Melodic call-and-response', emoji: '🗣️'),
-      AtmosphereDescriptor(label: 'Accordion harmony layer', emoji: '🪗'),
+      AtmosphereDescriptor(label: 'Melodic call-and-response', icon: AppIcons.vocals),
+      AtmosphereDescriptor(label: 'Accordion harmony layer', icon: AppIcons.piano),
     ],
     'bridge': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Praise-poetry breakdown', emoji: '📜'),
+      AtmosphereDescriptor(label: 'Praise-poetry breakdown', icon: AppIcons.voiceClone),
     ],
     'outro': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Guitar harmonics close', emoji: '✨'),
+      AtmosphereDescriptor(label: 'Guitar harmonics close', icon: AppIcons.sparkle),
     ],
   },
   'Gospel': <String, List<AtmosphereDescriptor>>{
     'intro': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Pipe organ chord swell', emoji: '⛪'),
-      AtmosphereDescriptor(label: 'Soft hummed harmony bed', emoji: '🕊️'),
+      AtmosphereDescriptor(label: 'Pipe organ chord swell', icon: AppIcons.piano),
+      AtmosphereDescriptor(label: 'Soft hummed harmony bed', icon: AppIcons.songsOutline),
     ],
     'verse': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Testimony-style lead vocal', emoji: '🎤'),
-      AtmosphereDescriptor(label: 'Piano gospel run', emoji: '🎹'),
+      AtmosphereDescriptor(label: 'Testimony-style lead vocal', icon: AppIcons.mic),
+      AtmosphereDescriptor(label: 'Piano gospel run', icon: AppIcons.piano),
     ],
     'chorus': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Full SATB choir stack', emoji: '🎵'),
-      AtmosphereDescriptor(label: 'Hand-clap rhythm section', emoji: '👏'),
+      AtmosphereDescriptor(label: 'Full SATB choir stack', icon: AppIcons.users),
+      AtmosphereDescriptor(label: 'Hand-clap rhythm section', icon: AppIcons.drums),
     ],
     'bridge': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Key change upward lift', emoji: '📈'),
+      AtmosphereDescriptor(label: 'Key change upward lift', icon: AppIcons.analytics),
     ],
     'outro': <AtmosphereDescriptor>[
-      AtmosphereDescriptor(label: 'Sustained amen harmony', emoji: '🙌'),
+      AtmosphereDescriptor(label: 'Sustained amen harmony', icon: AppIcons.sparkle),
     ],
   },
 };

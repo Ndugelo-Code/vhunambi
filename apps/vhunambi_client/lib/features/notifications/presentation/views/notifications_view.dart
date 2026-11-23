@@ -45,7 +45,7 @@ class NotificationsView extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.surfaceCanvasOf(context),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -61,7 +61,9 @@ class NotificationsView extends ConsumerWidget {
                       child: Text(
                         'Notifications',
                         key: const Key('notifications_view_title'),
-                        style: AppTypography.titleMedium,
+                        style: AppTypography.titleMedium.copyWith(
+                          color: AppColors.textPrimaryOf(context),
+                        ),
                       ),
                     ),
                     _MarkAllReadButton(
@@ -74,7 +76,7 @@ class NotificationsView extends ConsumerWidget {
             ),
             const NotificationCategoryRail(),
             const NotificationSearchBar(),
-            Divider(height: 1, color: AppColors.borderSubtle),
+            Divider(height: 1, color: AppColors.borderSubtleOf(context)),
             Expanded(
               child: notifications.isEmpty
                   ? const NotificationEmptyState()
@@ -155,7 +157,9 @@ class _MarkAllReadButton extends StatelessWidget {
       label: Text(
         'Mark all read',
         style: AppTypography.caption.copyWith(
-          color: enabled ? AppColors.brandPrimary : AppColors.textTertiary,
+          color: enabled
+              ? AppColors.brandPrimary
+              : AppColors.textSecondaryOf(context),
           fontWeight: FontWeight.w600,
         ),
       ),

@@ -7,13 +7,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/auth/auth_providers.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/media/vhunambi_media_upload_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/navigation/navigation_providers.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../../social/presentation/providers/social_repository_provider.dart';
 import '../../../../shared/models/track.dart';
 import '../../domain/models/social_music_post.dart';
 import '../providers/explore_providers.dart';
@@ -50,6 +54,7 @@ class _CreateKineticPostSheetState
   KineticPostAspectRatio _selectedAspectRatio =
       KineticPostAspectRatio.square1x1;
   bool _isGeneratingVision = false;
+  bool _isUploadingPhoto = false;
 
   // Audio Attachment State
   KineticAudioSourceType _selectedAudioCategory =
@@ -78,7 +83,9 @@ class _CreateKineticPostSheetState
     }
     // If opened via quick action
     if (widget.initialTab == 1) {
-      _mockPickImage();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pickAndUploadPhoto();
+      });
     } else if (widget.initialTab == 2) {
       _visionPromptController.text = 'Polokwane Sunset Studio Session';
     }
@@ -110,32 +117,46 @@ class _CreateKineticPostSheetState
     return false;
   }
 
-  void _mockPickImage({String? mockUrl}) {
+  Future<void> _pickAndUploadPhoto() async {
+    if (_isUploadingPhoto || _attachedImages.length >= 4) return;
     HapticFeedback.lightImpact();
-    final rawUrl =
-        mockUrl ?? 'https://cdn.vhunambi.com/covers/custom_post_art.jpg';
-    final url = mockUrl != null
-        ? AppConstants.normalizeCloudMediaUrl(rawUrl)
-        : AppConstants.normalizeCloudMediaUrl(rawUrl);
+    setState(() => _isUploadingPhoto = true);
 
-    // Strict No-MP4 Guard (REQ-KPOST-NO-MP4)
-    if (!isAllowedKineticPostMedia(url)) {
-      _showVideoFormatRejectionDialog();
-      return;
-    }
+    try {
+      final uploaded = await VhunambiMediaUploadService.pickAndUploadImage(
+        socialRepository: ref.read(socialRepositoryProvider),
+        purposePrefix: 'kpost_photo',
+      );
+      if (!mounted || uploaded == null) return;
 
-    if (_attachedImages.length >= 4) {
-      return;
-    }
+      final url = AppConstants.normalizeCloudMediaUrl(uploaded.url);
+      if (!isAllowedKineticPostMedia(url)) {
+        _showVideoFormatRejectionDialog();
+        return;
+      }
 
-    setState(() {
-      _attachedImages.add(
-        KineticPostImageAttachment(
-          imageUrl: url,
-          aspectRatio: _selectedAspectRatio,
+      if (_attachedImages.length >= 4) return;
+      setState(() {
+        _attachedImages.add(
+          KineticPostImageAttachment(
+            imageUrl: url,
+            aspectRatio: _selectedAspectRatio,
+          ),
+        );
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Photo upload failed: $e'),
+          backgroundColor: AppColors.error,
         ),
       );
-    });
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+      }
+    }
   }
 
   void _generateVisionAiArtwork() async {
@@ -145,9 +166,11 @@ class _CreateKineticPostSheetState
 
     setState(() => _isGeneratingVision = true);
 
-    String resolvedImageUrl = AppConstants.normalizeCloudMediaUrl(
-      'https://cdn.vhunambi.com/vision/generated_${DateTime.now().millisecondsSinceEpoch}.jpg',
-    );
+    final fallbackIndex =
+        (prompt.hashCode.abs() + _attachedImages.length) %
+        AppAssets.allBundledArtworkAssets.length;
+    String resolvedImageUrl =
+        'asset:${AppAssets.allBundledArtworkAssets[fallbackIndex]}';
 
     if (!_detectTestMode()) {
       try {
@@ -198,7 +221,7 @@ class _CreateKineticPostSheetState
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceElevated,
+        backgroundColor: AppColors.surfaceElevatedOf(ctx),
         shape: RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
         title: Row(
           children: [
@@ -208,13 +231,18 @@ class _CreateKineticPostSheetState
               size: 24,
             ),
             const SizedBox(width: AppSpacing.sm),
-            Text('Video Media Detected', style: AppTypography.titleMedium),
+            Text(
+              'Video Media Detected',
+              style: AppTypography.titleMedium.copyWith(
+                color: AppColors.textPrimaryOf(ctx),
+              ),
+            ),
           ],
         ),
         content: Text(
           'Kinetic Posts are strictly reserved for high-res static images and sonic audio cards.\n\nTo share immersive 9:16 video performances, publish a Kinetic Reel!',
           style: AppTypography.bodyMedium.copyWith(
-            color: AppColors.textSecondary,
+            color: AppColors.textSecondaryOf(ctx),
           ),
         ),
         actions: [
@@ -268,7 +296,7 @@ class _CreateKineticPostSheetState
       creatorHandle: creatorHandle,
       creatorAvatarUrl: owner.avatarUrl,
       publishedAt: now,
-      location: 'Limpopo / Polokwane',
+      location: 'South Africa',
       caption: caption,
       track: trackToAttach,
       imageAttachment: _attachedImages.isNotEmpty
@@ -300,14 +328,17 @@ class _CreateKineticPostSheetState
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final allTracks = ref.watch(exploreTracksProvider);
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final borderSubtle = AppColors.borderSubtleOf(context);
+    final surfaceSecondary = AppColors.surfaceSecondaryOf(context);
 
-    return Container(
+    return VhunambiGlassSurface(
+      variant: VhunambiGlassVariant.chrome,
+      enableLiveBlur: false,
       height: MediaQuery.of(context).size.height * 0.90,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      borderColorOverride: borderSubtle,
       child: Column(
         children: [
           // Drag Handle
@@ -316,7 +347,7 @@ class _CreateKineticPostSheetState
             height: 4,
             margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
             decoration: BoxDecoration(
-              color: AppColors.borderSubtle,
+              color: borderSubtle,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -328,7 +359,7 @@ class _CreateKineticPostSheetState
               children: [
                 IconButton(
                   icon: const PhosphorIcon(PhosphorIconsRegular.x, size: 22),
-                  color: AppColors.textSecondary,
+                  color: textSecondary,
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 const SizedBox(width: AppSpacing.xs),
@@ -339,7 +370,7 @@ class _CreateKineticPostSheetState
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.titleMedium.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                      color: textPrimary,
                     ),
                   ),
                 ),
@@ -370,7 +401,7 @@ class _CreateKineticPostSheetState
             ),
           ),
 
-          Divider(height: 1, color: AppColors.borderSubtle),
+          Divider(height: 1, color: borderSubtle),
 
           // Main Scrollable Workstation Body
           Expanded(
@@ -388,14 +419,12 @@ class _CreateKineticPostSheetState
                   controller: _captionController,
                   maxLines: 4,
                   minLines: 2,
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
+                  style: AppTypography.bodyMedium.copyWith(color: textPrimary),
                   decoration: InputDecoration(
                     hintText:
                         'Tell the story behind your sound, beat, or take... (#amapiano, @collaborator)',
                     hintStyle: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
+                      color: textSecondary,
                     ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
@@ -411,9 +440,9 @@ class _CreateKineticPostSheetState
                   key: const Key('kpost_aspect_ratio_selector'),
                   padding: const EdgeInsets.all(AppSpacing.xs),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceSecondary,
+                    color: surfaceSecondary,
                     borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: AppColors.borderSubtle),
+                    border: Border.all(color: borderSubtle),
                   ),
                   child: Row(
                     children: [
@@ -455,7 +484,7 @@ class _CreateKineticPostSheetState
                                 style: AppTypography.caption.copyWith(
                                   color: _selectedAspectRatio == ratio
                                       ? AppColors.brandContrast
-                                      : AppColors.textSecondary,
+                                      : textSecondary,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -471,32 +500,47 @@ class _CreateKineticPostSheetState
                 // 3. Visual Attachment Deck (Upload / Vhunambi Vision)
                 Row(
                   children: [
-                    // Upload Photo Button
+                    // Upload Photo Button (R2 Media Pipeline EP-P74-SOCIAL-MEDIA-R2-UPLOAD)
                     Expanded(
                       child: Opacity(
                         opacity: _attachedImages.length >= 4 ? 0.45 : 1.0,
-                        child: OutlinedButton.icon(
-                          key: const Key('kpost_upload_photo_btn'),
-                          onPressed: _attachedImages.length >= 4
-                              ? null
-                              : _mockPickImage,
-                          icon: const PhosphorIcon(
-                            PhosphorIconsRegular.image,
-                            size: 18,
-                          ),
-                          label: Text(
-                            'Add Photo (${_attachedImages.length}/4)',
-                            style: AppTypography.bodySmall.copyWith(
-                              fontWeight: FontWeight.w600,
+                        child: KeyedSubtree(
+                          key: const Key('kpost_pick_photo_btn'),
+                          child: OutlinedButton.icon(
+                            key: const Key('kpost_upload_photo_btn'),
+                            onPressed:
+                                (_attachedImages.length >= 4 ||
+                                    _isUploadingPhoto)
+                                ? null
+                                : _pickAndUploadPhoto,
+                            icon: _isUploadingPhoto
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const PhosphorIcon(
+                                    PhosphorIconsRegular.image,
+                                    size: 18,
+                                  ),
+                            label: Text(
+                              _isUploadingPhoto
+                                  ? 'Uploading...'
+                                  : 'Add Photo (${_attachedImages.length}/4)',
+                              style: AppTypography.bodySmall.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.textPrimary,
-                            side: BorderSide(color: AppColors.borderSubtle),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: AppRadius.pillBorder,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: textPrimary,
+                              side: BorderSide(color: borderSubtle),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: AppRadius.pillBorder,
+                              ),
+                              minimumSize: const Size(0, 44),
                             ),
-                            minimumSize: const Size(0, 44),
                           ),
                         ),
                       ),
@@ -518,13 +562,13 @@ class _CreateKineticPostSheetState
                             color: AppColors.badgeCyan,
                           ),
                           label: _isGeneratingVision
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor: AlwaysStoppedAnimation(
-                                      Colors.white,
+                                      textPrimary,
                                     ),
                                   ),
                                 )
@@ -532,11 +576,11 @@ class _CreateKineticPostSheetState
                                   'Vision AI',
                                   style: AppTypography.bodySmall.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    color: textPrimary,
                                   ),
                                 ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.surfaceSecondary,
+                            backgroundColor: surfaceSecondary,
                             side: const BorderSide(color: AppColors.badgeCyan),
                             shape: RoundedRectangleBorder(
                               borderRadius: AppRadius.pillBorder,
@@ -557,14 +601,14 @@ class _CreateKineticPostSheetState
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary,
+                      color: surfaceSecondary,
                       borderRadius: AppRadius.pillBorder,
-                      border: Border.all(color: AppColors.borderSubtle),
+                      border: Border.all(color: borderSubtle),
                     ),
                     child: Text(
                       '4/4 Max images attached',
                       style: AppTypography.caption.copyWith(
-                        color: AppColors.textSecondary,
+                        color: textSecondary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -576,14 +620,12 @@ class _CreateKineticPostSheetState
                 TextField(
                   key: const Key('kpost_vision_prompt_input'),
                   controller: _visionPromptController,
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
+                  style: AppTypography.caption.copyWith(color: textPrimary),
                   decoration: InputDecoration(
                     hintText:
                         'Prompt Vhunambi Vision (e.g. "Polokwane Golden Hour")',
                     hintStyle: AppTypography.caption.copyWith(
-                      color: AppColors.textSecondary,
+                      color: textSecondary,
                     ),
                     prefixIcon: const PhosphorIcon(
                       PhosphorIconsRegular.paintBrush,
@@ -591,18 +633,18 @@ class _CreateKineticPostSheetState
                       color: AppColors.badgeCyan,
                     ),
                     filled: true,
-                    fillColor: AppColors.surfaceSecondary,
+                    fillColor: surfaceSecondary,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 8,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: AppRadius.pillBorder,
-                      borderSide: BorderSide(color: AppColors.borderSubtle),
+                      borderSide: BorderSide(color: borderSubtle),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: AppRadius.pillBorder,
-                      borderSide: BorderSide(color: AppColors.borderSubtle),
+                      borderSide: BorderSide(color: borderSubtle),
                     ),
                   ),
                 ),

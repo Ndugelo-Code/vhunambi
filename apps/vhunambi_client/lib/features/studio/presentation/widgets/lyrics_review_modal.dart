@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/navigation/navigation_providers.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../domain/models/lyrics_review_models.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../providers/generation_pipeline_providers.dart';
@@ -77,12 +79,15 @@ class LyricsReviewModal extends ConsumerStatefulWidget {
 
 class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
   bool _storyMode = false;
+  bool _isTransformingStory = false;
+  late final TextEditingController _storyController;
   StateController<int>? _modalSheetCounter;
   bool _didIncrementModalCount = false;
 
   @override
   void initState() {
     super.initState();
+    _storyController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final counter = ref.read(modalSheetOpenCountProvider.notifier);
@@ -94,6 +99,7 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
 
   @override
   void dispose() {
+    _storyController.dispose();
     final counter = _modalSheetCounter;
     if (_didIncrementModalCount && counter != null) {
       _didIncrementModalCount = false;
@@ -104,6 +110,28 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
       });
     }
     super.dispose();
+  }
+
+  Future<void> _handleTransformStory(BuildContext context) async {
+    if (_isTransformingStory) return;
+    setState(() => _isTransformingStory = true);
+    try {
+      final ok = await ref
+          .read(lyricsReviewProvider.notifier)
+          .transformStory(storyText: _storyController.text);
+      if (!context.mounted) return;
+      if (ok) {
+        _showLyricsToast(
+          context,
+          'Story transformed into song structure',
+          AppIcons.sparkle,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isTransformingStory = false);
+      }
+    }
   }
 
   @override
@@ -138,31 +166,106 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
                   _PromptSummaryCard(draft: draft),
                   if (_storyMode) ...[
                     const SizedBox(height: AppSpacing.sm),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.brandPrimary.withAlpha(25),
-                        borderRadius: AppRadius.cardBorder,
-                        border: Border.all(
-                          color: AppColors.brandPrimary.withAlpha(60),
-                        ),
-                      ),
-                      child: Row(
+                    VhunambiGlassSurface(
+                      enableLiveBlur: false,
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      borderRadius: AppRadius.cardBorder,
+                      tintAccent: AppColors.brandPrimary.withAlpha(20),
+                      borderColorOverride: AppColors.brandPrimary.withAlpha(70),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Icon(
-                            PhosphorIcons.bookOpen(PhosphorIconsStyle.fill),
-                            size: 16,
-                            color: AppColors.brandPrimary,
+                          Row(
+                            children: [
+                              PhosphorIcon(
+                                PhosphorIconsFill.bookOpen,
+                                size: 16,
+                                color: AppColors.brandPrimary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Story-to-Lyrics Mode Active: Original narrative mapped into authentic ${draft.genre} structure without rewriting your words.',
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.textPrimaryOf(context),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Story-to-Lyrics Mode Active: Original narrative mapped into authentic ${draft.genre} structure without rewriting your words.',
-                              style: AppTypography.caption.copyWith(
-                                color: AppColors.textPrimary,
+                          const SizedBox(height: AppSpacing.xs),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xs,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceSecondaryOf(context),
+                              borderRadius: AppRadius.inputBorder,
+                              border: Border.all(
+                                color: AppColors.borderSubtleOf(context),
+                              ),
+                            ),
+                            child: TextField(
+                              key: const Key('lyrics_story_input'),
+                              controller: _storyController,
+                              minLines: 2,
+                              maxLines: 5,
+                              onChanged: (_) => setState(() {}),
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.textPrimaryOf(context),
+                              ),
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                hintText:
+                                    'Paste your story (min 20 characters)...',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 44),
+                            child: ElevatedButton.icon(
+                              key: const Key('lyrics_story_transform_btn'),
+                              onPressed:
+                                  (!_isTransformingStory &&
+                                      _storyController.text.trim().length >= 20)
+                                  ? () => unawaited(
+                                      _handleTransformStory(context),
+                                    )
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.brandPrimary,
+                                foregroundColor: AppColors.brandContrast,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: AppRadius.pillBorder,
+                                ),
+                              ),
+                              icon: _isTransformingStory
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.brandContrast,
+                                      ),
+                                    )
+                                  : const PhosphorIcon(
+                                      AppIcons.sparkle,
+                                      size: 16,
+                                      color: AppColors.brandContrast,
+                                    ),
+                              label: Text(
+                                _isTransformingStory
+                                    ? 'Transforming Story...'
+                                    : 'Transform Story',
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: AppColors.brandContrast,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ),
@@ -177,6 +280,19 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
                         section: section,
                         onLinesChanged: (lines) =>
                             notifier.updateSectionLines(section.id, lines),
+                        onRefineSection: () async {
+                          final refined = await notifier.refineSection(
+                            section.id,
+                            'Tighten rhythm, imagery, and authentic cadence',
+                          );
+                          if (context.mounted && refined) {
+                            _showLyricsToast(
+                              context,
+                              'Refined ${section.header}',
+                              AppIcons.sparkle,
+                            );
+                          }
+                        },
                         onFocusGained: () =>
                             ref.read(_activeStanzaIdProvider.notifier).state =
                                 section.id,
@@ -275,8 +391,8 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
+                    icon: PhosphorIcon(
+                      AppIcons.close,
                       size: 18,
                       color: AppColors.textSecondary,
                     ),
@@ -313,7 +429,7 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
                             dense: true,
                             contentPadding: EdgeInsets.zero,
                             title: Text(
-                              '${r.sourceWord} (${r.source.code}) ➔ ${r.targetWord} (${r.target.code})',
+                              '${r.sourceWord} (${r.source.code}) -> ${r.targetWord} (${r.target.code})',
                               style: AppTypography.bodySmall.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -412,8 +528,8 @@ class _LyricsReviewHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.lyrics_rounded,
+          const PhosphorIcon(
+            AppIcons.songs,
             size: 20,
             color: AppColors.brandPrimary,
           ),
@@ -439,8 +555,8 @@ class _LyricsReviewHeader extends StatelessWidget {
               tooltip: 'Story-to-Lyrics Mode',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              icon: Icon(
-                PhosphorIcons.bookOpen(PhosphorIconsStyle.regular),
+              icon: PhosphorIcon(
+                PhosphorIconsRegular.bookOpen,
                 size: 18,
                 color: isStoryMode
                     ? AppColors.brandPrimary
@@ -458,8 +574,8 @@ class _LyricsReviewHeader extends StatelessWidget {
               tooltip: 'Bantu Cognate & Rhyme Finder',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              icon: Icon(
-                PhosphorIcons.treeStructure(PhosphorIconsStyle.regular),
+              icon: const PhosphorIcon(
+                PhosphorIconsRegular.treeStructure,
                 size: 18,
                 color: AppColors.brandPrimary,
               ),
@@ -470,8 +586,8 @@ class _LyricsReviewHeader extends StatelessWidget {
             key: const Key('lyrics_copy'),
             tooltip: 'Copy lyrics',
             onPressed: onCopy,
-            icon: Icon(
-              Icons.copy_rounded,
+            icon: PhosphorIcon(
+              PhosphorIconsRegular.copy,
               size: 18,
               color: AppColors.textSecondary,
             ),
@@ -480,8 +596,8 @@ class _LyricsReviewHeader extends StatelessWidget {
             key: const Key('lyrics_close'),
             tooltip: 'Close',
             onPressed: onClose,
-            icon: Icon(
-              Icons.close_rounded,
+            icon: PhosphorIcon(
+              AppIcons.close,
               size: 18,
               color: AppColors.textSecondary,
             ),
@@ -513,8 +629,8 @@ class _PromptSummaryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.auto_awesome,
+              const PhosphorIcon(
+                AppIcons.sparkle,
                 size: 14,
                 color: AppColors.brandPrimary,
               ),
@@ -547,11 +663,13 @@ class _LyricsSectionCard extends StatefulWidget {
   const _LyricsSectionCard({
     required this.section,
     required this.onLinesChanged,
+    this.onRefineSection,
     this.onFocusGained,
   });
 
   final LyricsSection section;
   final ValueChanged<List<String>> onLinesChanged;
+  final VoidCallback? onRefineSection;
 
   /// Fired when this stanza's editor gains keyboard focus so the idiom rail
   /// knows where to insert (Mission 1 / REQ-LYR-06).
@@ -641,13 +759,34 @@ class _LyricsSectionCardState extends State<_LyricsSectionCard> {
                 ),
               ),
               const Spacer(),
+              if (widget.onRefineSection != null)
+                SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: IconButton(
+                    key: Key('stanza_refine_${section.id}'),
+                    tooltip: 'AI Polish stanza',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    onPressed: widget.onRefineSection,
+                    icon: const PhosphorIcon(
+                      AppIcons.sparkle,
+                      size: 16,
+                      color: AppColors.brandPrimary,
+                    ),
+                  ),
+                ),
               IconButton(
                 key: Key('stanza_edit_${section.id}'),
                 tooltip: _isEditing ? 'Done editing' : 'Edit stanza',
                 visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 onPressed: () => setState(() => _isEditing = !_isEditing),
-                icon: Icon(
-                  _isEditing ? Icons.check_rounded : Icons.edit_outlined,
+                icon: PhosphorIcon(
+                  _isEditing ? AppIcons.check : AppIcons.edit,
                   size: 16,
                   color: _isEditing
                       ? AppColors.brandPrimary
@@ -683,6 +822,8 @@ class _LyricsSectionCardState extends State<_LyricsSectionCard> {
               decoration: const InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
                 hintText: 'Write the lines for this section',
               ),
             ),
@@ -783,6 +924,8 @@ class _RawLyricsEditorState extends State<_RawLyricsEditor> {
         style: AppTypography.bodySmall.copyWith(color: AppColors.textPrimary),
         decoration: const InputDecoration(
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
           isDense: true,
           hintText: '[Verse 1]\nWrite or paste your lyrics here',
         ),
@@ -819,7 +962,7 @@ class _LyricsReviewActionBar extends ConsumerWidget {
                 borderRadius: AppRadius.pillBorder,
               ),
             ),
-            icon: const Icon(Icons.refresh_rounded, size: 16),
+            icon: const PhosphorIcon(AppIcons.remix, size: 16),
             label: Text(
               'Regenerate Lyrics',
               style: AppTypography.bodySmall.copyWith(
@@ -841,8 +984,8 @@ class _LyricsReviewActionBar extends ConsumerWidget {
                 borderRadius: AppRadius.pillBorder,
               ),
             ),
-            icon: const Icon(
-              Icons.mic_external_on_rounded,
+            icon: const PhosphorIcon(
+              AppIcons.voiceClone,
               size: 16,
               color: AppColors.coinGold,
             ),
@@ -874,13 +1017,13 @@ class _LyricsReviewActionBar extends ConsumerWidget {
                 borderRadius: AppRadius.pillBorder,
               ),
             ),
-            icon: const Icon(
-              Icons.arrow_forward_rounded,
+            icon: const PhosphorIcon(
+              AppIcons.arrowRight,
               size: 18,
               color: AppColors.brandContrast,
             ),
             label: Text(
-              'Approve & Produce Beat ➔',
+              'Approve & Produce Beat',
               style: AppTypography.bodySmall.copyWith(
                 color: AppColors.brandContrast,
                 fontWeight: FontWeight.w700,
@@ -908,9 +1051,9 @@ void _approveDraft(BuildContext context, WidgetRef ref) {
 
   final musicalKey =
       formState.referenceAudioPath?.startsWith('sketchpad://') == true
-          ? ref.read(melodySketchpadProvider).attachedPattern?.musicalKey ??
-              formState.toSongMetadataDna().musical.key
-          : formState.toSongMetadataDna().musical.key;
+      ? ref.read(melodySketchpadProvider).attachedPattern?.musicalKey ??
+            formState.toSongMetadataDna().musical.key
+      : formState.toSongMetadataDna().musical.key;
 
   unawaited(
     ref
@@ -951,7 +1094,7 @@ void _handleIdiomInsert(BuildContext context, WidgetRef ref, String idiom) {
       .read(lyricsReviewProvider.notifier)
       .insertIdiom(idiom, sectionId: targetId);
 
-  _showLyricsToast(context, 'Inserted idiom into lyrics', Icons.lyrics_rounded);
+  _showLyricsToast(context, 'Inserted idiom into lyrics', AppIcons.songs);
 }
 
 /// First stanza typed as a verse, or `null` when the draft has none.
@@ -974,7 +1117,11 @@ Future<void> _handleCopyLyrics(
   unawaited(HapticFeedback.mediumImpact());
 
   if (!context.mounted) return;
-  _showLyricsToast(context, 'Lyrics copied to clipboard', Icons.copy_rounded);
+  _showLyricsToast(
+    context,
+    'Lyrics copied to clipboard',
+    PhosphorIconsRegular.copy,
+  );
 }
 
 /// Toast currently on screen, if any — replaced rather than stacked.
@@ -1023,7 +1170,7 @@ void _showLyricsToast(BuildContext context, String message, IconData icon) {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, size: 16, color: AppColors.brandPrimary),
+                    PhosphorIcon(icon, size: 16, color: AppColors.brandPrimary),
                     const SizedBox(width: AppSpacing.xs),
                     Flexible(
                       child: Text(

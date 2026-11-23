@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-11-21T09:53:59.495Z",
-  "latest_completed_phase": "P74",
-  "latest_completed_order": 74,
+  "generated_at": "2026-11-23T04:17:22.995Z",
+  "latest_completed_phase": "P78",
+  "latest_completed_order": 78,
   "stats": {
-    "total_phases": 13,
-    "completed_phases": 13,
-    "total_endpoints": 43,
-    "open_count": 4,
-    "connected_extensible_count": 36,
+    "total_phases": 17,
+    "completed_phases": 17,
+    "total_endpoints": 55,
+    "open_count": 0,
+    "connected_extensible_count": 52,
     "sealed_count": 3
   },
   "phases": [
@@ -835,6 +835,335 @@
         "CameraController, VideoPlayerController, and just_audio AudioPlayer invoke native platform MethodChannels that hang or throw in headless flutter test runs unless guarded by an explicit FLUTTER_TEST environment check.",
         "Updating KineticPreviewCanvas's fallback from 'VHUNAMBI 9:16 COVER' to VhunambiTrackArtwork requires realigning kinetic_preview_canvas_test.dart#L32, and purging the raw musical-note emoji from KineticReelsModal's remix toast requires realigning kinetic_reels_modal_test.dart#L144."
       ]
+    },
+    {
+      "phase_id": "P75",
+      "phase_order": 75,
+      "memory_key": "MEM-P75-STUDIO-COCKPIT-V5-CONNECTOME-CLOSURE",
+      "title": "Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge",
+      "status": "completed",
+      "completed_at": "2026-11-22T00:48:23Z",
+      "memory_file": "docs/phases/phase_75_studio_cockpit_v5_and_connectome_closure/memory.md",
+      "predecessor_keys": [
+        "MEM-P70-SONG-COCKPIT-VISITOR-PROFILE",
+        "MEM-P71-CLOUD-SPINE-CONNECTOME-CLOSURE",
+        "MEM-P72-ASSET-VAULT-OWNER-PROFILE-GLASS",
+        "MEM-P73-KPOST-CHROMATIC-REACTIONS-HYGIENE",
+        "MEM-P74-KINETIC-REELS-STUDIO-V4"
+      ],
+      "concept_hubs": [
+        "ai_synthesis_gpu",
+        "audio_transport",
+        "identity_role",
+        "mood_taxonomy",
+        "sync_outbox",
+        "ui_surface_std",
+        "social_graph"
+      ],
+      "endpoints_defined": [
+        "EP-P75-VOICES-CLOUD-SWR",
+        "EP-P75-STUDIO-CONNECTOME-CLIENTS",
+        "EP-P75-CREATION-TO-REELS-BRIDGE"
+      ],
+      "consumes": [
+        "EP-P66-LYRICS-REFINE-STORY",
+        "EP-P27-MELODY-PRESETS-PACKS",
+        "EP-P26-VOICE-CALIBRATION-RECIPE",
+        "EP-P25-GEN-MASTER-PRESETS",
+        "EP-P74-REELS-STUDIO-PIPELINE",
+        "EP-P74-KARAOKE-LYRIC-SANITIZER",
+        "EP-P71-EDGE-SWR-READTHROUGH",
+        "EP-P70-GLASS-SURFACE"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/studio/data/services/http_lyrics_generation_service.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P66-LYRICS-REFINE-STORY",
+          "note": "Wires POST /v1/lyrics/refine (rawLyrics) and POST /v1/lyrics/story-transform (structuredLyrics)"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/studio/presentation/providers/sound_pack_manager_provider.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P27-MELODY-PRESETS-PACKS",
+          "note": "Hydrates Sound Packs from GET /v1/melodies/sound-packs and downloads R2 pack bundles"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/sound_signature/data/sound_signature_repository.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P26-VOICE-CALIBRATION-RECIPE",
+          "note": "Persists idealizer recipe edits via PATCH /v1/voices/signatures/:id/recipe"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/track/presentation/providers/track_providers.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P25-GEN-MASTER-PRESETS",
+          "note": "Hydrates real R2 4-stem URLs from GET /v1/generations/:id/manifest in separateStems()"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/studio/presentation/widgets/generation_pipeline_card.dart",
+          "relation": "ROUTES_TO",
+          "to": "EP-P74-REELS-STUDIO-PIPELINE",
+          "note": "Direct 1-tap handoff from Studio generation completion into KineticReelStudioView"
+        }
+      ],
+      "breakthroughs": [
+        "Stage 4 verification closed all 4 remaining OPEN Connectome endpoints (EP-P66, EP-P27, EP-P26, EP-P25) with 100% Worker route isolation (syncVoicesFromCloud 12s SWR, POST /v1/generations/:id/master cross-isolate lookup, /v1/voices|/melodies|/lyrics scoped bypass), zero stock Icons.*, and zero raw Unicode emojis across studio/ and mastering/.",
+        "Full verification gates passed: apps/vhunambi_api tsc --noEmit + 31/31 test suites; apps/vhunambi_client dart analyze (0 issues across 8 feature modules + Phase 75 suite) and 372/372 Flutter tests (--timeout=60s)."
+      ],
+      "gotchas": [
+        "POST /v1/lyrics/story-transform strictly validates 2-letter ISO baseLanguage codes and 6 lowercase STORY_GENRES; Flutter display strings like 'Tshivenḓa' or 'Afro House' must be normalized before posting.",
+        "StudioSoundPackEntity.fromJson originally threw Null-to-String cast errors on backend payloads using name/description instead of title/subtitle; JsonSafe field fallbacks are required.",
+        "TrackDetailNotifier.loadManifestFromCloud bare relative stem keys (e.g. stems/<id>_vocals.wav without leading / or scheme) must be prefixed with resolveMediaBaseUrl(overrideOrigin: origin).",
+        "VhunambiGlassSurface exposes tintAccent and borderColorOverride (not tintColor or borderColor); ILyricsGenerationService test doubles like _ThrowingLyricsService must implement refineLyrics and transformStoryToLyrics."
+      ]
+    },
+    {
+      "phase_id": "P76",
+      "phase_order": 76,
+      "memory_key": "MEM-P76-POST-RELEASE-AUTH-ONBOARDING-DEEPLINK-POLISH",
+      "title": "Post-Release Live Device Theme Stability, Release Auth Security, Auth/Settings/Onboarding Glass, Full Notification Deep-Link Coverage & Platform Hygiene",
+      "status": "completed",
+      "completed_at": "2026-11-22T21:56:00Z",
+      "memory_file": "docs/phases/phase_76_post_release_auth_onboarding_deeplink_and_platform_polish/memory.md",
+      "predecessor_keys": [
+        "MEM-P65-FOUNDATION-CRASH-IMMUNITY",
+        "MEM-P67-NOTIFICATIONS-QUOTA",
+        "MEM-P70-SONG-COCKPIT-VISITOR-PROFILE",
+        "MEM-P72-ASSET-VAULT-OWNER-PROFILE-GLASS",
+        "MEM-P73-KPOST-CHROMATIC-REACTIONS-HYGIENE",
+        "MEM-P74-KINETIC-REELS-STUDIO-V4",
+        "MEM-P75-STUDIO-COCKPIT-V5-CONNECTOME-CLOSURE"
+      ],
+      "concept_hubs": [
+        "identity_role",
+        "ui_surface_std",
+        "social_graph",
+        "sync_outbox",
+        "quota_economy"
+      ],
+      "endpoints_defined": [
+        "EP-P76-AUTH-RELEASE-GATE",
+        "EP-P76-DEEPLINK-COVERAGE",
+        "EP-P76-ONBOARDING-GLASS-STD"
+      ],
+      "consumes": [
+        "EP-P61-IDENTITY-UTILS",
+        "EP-P67-DEEPLINK-ROUTER",
+        "EP-P67-NOTIF-BELL",
+        "EP-P70-GLASS-SURFACE",
+        "EP-P72-BUYER-LICENSES-HTTP",
+        "EP-P73-PROFILE-ROUTER",
+        "EP-P74-REELS-STUDIO-PIPELINE"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/notifications/presentation/widgets/notifications_popover.dart",
+          "relation": "DELEGATES_TO",
+          "to": "EP-P67-DEEPLINK-ROUTER",
+          "note": "Popover taps with effectiveRoute delegate to NotificationDeepLinkRouter.handleCardTap instead of checking targetTrackId only"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/notifications/presentation/utils/notification_deep_link_router.dart",
+          "relation": "ROUTES_TO",
+          "to": "EP-P73-PROFILE-ROUTER",
+          "note": "Routes /profile, /profile/:id, /creator/:id, and /@:handle through navigateToCreatorProfile"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/notifications/presentation/utils/notification_deep_link_router.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P72-BUYER-LICENSES-HTTP",
+          "note": "Resolves /license/:id and /certificate/:id from licenseCertificatesProvider / libraryTracksProvider and launches showLicenseCertificateSheet"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/auth/presentation/widgets/sovereign_auth_sheet.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P70-GLASS-SURFACE",
+          "note": "Wraps SovereignAuthSheet, ProfileSettingsDrawer, NotificationsPopover, and Onboarding cards in VhunambiGlassSurface(enableLiveBlur: false)"
+        }
+      ],
+      "breakthroughs": [
+        "Stage 4 verification passed 100%: apps/vhunambi_api clean prebuild dist/ wipe + tsc --noEmit + 31/31 backend suites; apps/vhunambi_client dart analyze (0 issues), STD-UIUX-001 regex scan (0 violations), 79/79 auth+profile tests, and 148/148 Phase 76 + notifications + onboarding tests.",
+        "Eliminated the P0 live theme toggle Navigator reset in main.dart, gated demo creator quick-switching out of release APKs via kEnableDemoCreatorQuickSwitch, upgraded Auth/Settings/Notifications/Onboarding to VhunambiGlassSurface + AppColors.*Of(context), and closed cold-start /reel, /license, /profile, /@handle, and shell tab deep-links."
+      ],
+      "gotchas": [
+        "NotificationsPopover CTA button with an inline Row ('View All Alerts in Center' + PhosphorIcon) overflowed by 20px inside the 360px Dialog under Flutter's Ahem test font unless the label Text is wrapped in Flexible(..., overflow: TextOverflow.ellipsis).",
+        "DesignTokenRegistry is a process-wide singleton across a test file isolate; multi-test setUp blocks calling TokenRegistration.registerAllTokens() must guard with if (!DesignTokenRegistry.isSealed).",
+        "SovereignAuthException requires named parameters (statusCode:, code:, message:); CreativeRole enum values are producer, vocalist, songwriter, multiHyphenate, musicLover (not dj or artist).",
+        "Huawei JNY_LX1 was detached during Stage 4 (adb.exe devices -l returned 0 devices). Because Supabase project cbnruevwrqwjnnoscgsz is on the FREE tier where HIBP Leaked Password Protection is Pro-only, full-stack password complexity (min 8 chars + uppercase, lowercase, digit, symbol) and a deterministic common-breached password blocklist were enforced in apps/vhunambi_api/src/security/password_policy.ts and apps/vhunambi_client/lib/core/auth/sovereign_password_policy.dart."
+      ]
+    },
+    {
+      "phase_id": "P77",
+      "phase_order": 77,
+      "memory_key": "MEM-P77-CHROMATIC-PLAYER-LYRICS-R2-UPLOADS",
+      "title": "Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
+      "status": "completed",
+      "completed_at": "2026-11-23T01:47:00Z",
+      "memory_file": "docs/phases/phase_77_chromatic_player_lyrics_and_r2_uploads/memory.md",
+      "predecessor_keys": [
+        "MEM-P68-HOME-MAIN-ROOM",
+        "MEM-P70-SONG-COCKPIT-VISITOR-PROFILE",
+        "MEM-P73-KPOST-CHROMATIC-REACTIONS-HYGIENE",
+        "MEM-P74-KINETIC-REELS-STUDIO-V4",
+        "MEM-P75-STUDIO-COCKPIT-V5-CONNECTOME-CLOSURE",
+        "MEM-P76-POST-RELEASE-AUTH-ONBOARDING-DEEPLINK-POLISH"
+      ],
+      "concept_hubs": [
+        "media_artwork",
+        "audio_transport",
+        "mood_taxonomy",
+        "social_graph",
+        "ui_surface_std",
+        "identity_role"
+      ],
+      "endpoints_defined": [
+        "EP-P77-CHROMATIC-PLAYER-CHROME",
+        "EP-P77-SYNCED-BANTU-KARAOKE",
+        "EP-P77-UNIFIED-R2-IMAGE-UPLOAD"
+      ],
+      "consumes": [
+        "EP-P68-TRACK-ARTWORK",
+        "EP-P70-GLASS-SURFACE",
+        "EP-P73-POST-CHROMATIC-SYNTH",
+        "EP-P74-KARAOKE-LYRIC-SANITIZER",
+        "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
+        "EP-P74-REELS-STUDIO-PIPELINE"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/player/presentation/widgets/expanded_cockpit_modal.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P73-POST-CHROMATIC-SYNTH",
+          "note": "Renders WCAG AA Light/Dark chromatic backdrop and aura shadows via PlayerChromaticPaletteMixin"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/player/presentation/widgets/expanded_cockpit_modal.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P74-KARAOKE-LYRIC-SANITIZER",
+          "note": "Embeds synced LyricsTeleprompter with LyricKaraokeSanitizer and 9-language BantuWordGlossarySheet"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/explore/presentation/widgets/create_kinetic_post_sheet.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
+          "note": "Replaces _mockPickImage with real gallery image uploads via VhunambiMediaUploadService -> uploadReelMedia"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/playlists/presentation/views/playlists_vault_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
+          "note": "Uploads custom playlist covers to R2 and persists coverImageUrl through PlaylistsNotifier -> PUT/POST /api/playlists"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/track/presentation/widgets/track_actions_bar.dart",
+          "relation": "ROUTES_TO",
+          "to": "EP-P74-REELS-STUDIO-PIPELINE",
+          "note": "Exposes visitor-accessible 'Reel' pill launching KineticReelStudioView.show(context, initialTrack: libTrack)"
+        }
+      ],
+      "breakthroughs": [
+        "Replaced legacy PaletteGenerator/NetworkImage 4s timer in PillForm and static placeholder genre art across MobileMiniPlayer, DesktopTransportBar, and ExpandedCockpitModal with a unified sync-first PostChromaticPaletteMixin + VhunambiTrackArtwork chromatic stage.",
+        "Synced LyricsTeleprompter with playerStateProvider via pure-Dart SyncedLyricTimeline (live highlighting, auto-scroll, tap-to-seek) paired with 9-language BantuLyricTranslationService.lookupWord + Light/Dark glass BantuWordGlossarySheet.",
+        "Eliminated CreateKineticPostSheet's _mockPickImage stub and wired unified VhunambiMediaUploadService (EP-P74-SOCIAL-MEDIA-R2-UPLOAD) across Kinetic Posts, Playlists, and Collections, plus visitor-accessible Share as Reel on TrackDetailView.",
+        "Cleared all stock Material Icons.* and raw Unicode emojis across player/, track/, playlists/, collections/, and explore/, verified by static analysis and 400/400 passing Flutter tests."
+      ],
+      "gotchas": [
+        "KineticReelStudioView.show accepts named parameters ({LibraryTrack? initialTrack, PublishedClip? initialClip}) — always construct/pass LibraryTrack matching TrackDetailView._openVideoExport.",
+        "AppColors defines 7 dynamic *Of(context) helpers (surfaceCanvasOf, surfaceElevatedOf, surfaceSecondaryOf, surfaceModalOf, borderSubtleOf, textPrimaryOf, textSecondaryOf); there is NO textTertiaryOf(context) — use textSecondaryOf(context).withValues(alpha: 0.72).",
+        "ExpandedCockpitModal resolves Track lyrics from libraryTracksProvider first and falls back to trackDetailFamilyProvider(track.id) for Explore/Search tracks not saved in the local library vault.",
+        "LyricKaraokeSanitizer.cleanLyricsForTeleprompter intentionally preserves structural stanza markers ([Verse 1], [Chorus]) tested in Phase 74/75 while stripping metadata labels and studio cue brackets ([Crisp soft shakers]); use cleanLyricTextForKaraoke for single-line caption playback."
+      ]
+    },
+    {
+      "phase_id": "P78",
+      "phase_order": 78,
+      "memory_key": "MEM-P78-VAULT-EXPLORE-CONTINUITY-UPLOADS-GLASS-TABS",
+      "title": "Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs",
+      "status": "completed",
+      "completed_at": "2026-11-23T04:17:00Z",
+      "memory_file": "docs/phases/phase_78_vault_explore_continuity_uploads_and_glass_tabs/memory.md",
+      "predecessor_keys": [
+        "MEM-P68-HOME-MAIN-ROOM",
+        "MEM-P70-SONG-COCKPIT-VISITOR-PROFILE",
+        "MEM-P74-KINETIC-REELS-STUDIO-V4",
+        "MEM-P75-STUDIO-COCKPIT-V5-CONNECTOME-CLOSURE",
+        "MEM-P76-POST-RELEASE-AUTH-ONBOARDING-DEEPLINK-POLISH",
+        "MEM-P77-CHROMATIC-PLAYER-LYRICS-R2-UPLOADS"
+      ],
+      "concept_hubs": [
+        "social_graph",
+        "media_artwork",
+        "ui_surface_std",
+        "identity_role",
+        "audio_transport",
+        "mood_taxonomy"
+      ],
+      "endpoints_defined": [
+        "EP-P78-GLASS-TAB-BAR",
+        "EP-P78-CREATOR-REELS-HUB",
+        "EP-P78-REAL-AUDIO-VIDEO-INGEST"
+      ],
+      "consumes": [
+        "EP-P68-TRACK-ARTWORK",
+        "EP-P70-GLASS-SURFACE",
+        "EP-P70-VIEWER-ROLE",
+        "EP-P74-KARAOKE-LYRIC-SANITIZER",
+        "EP-P74-REELS-STUDIO-PIPELINE",
+        "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
+        "EP-P77-UNIFIED-R2-IMAGE-UPLOAD"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/studio/presentation/widgets/direct_daw_vocal_upload_sheet.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
+          "note": "Uploads real picked DAW/Vocal audio bytes (MP3/M4A/WAV/AAC/OGG) to R2 and persists localAudioFilePath into libraryTracksProvider"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/content_studio/presentation/views/kinetic_reel_studio_view.dart",
+          "relation": "MUTATES",
+          "to": "EP-P74-REELS-STUDIO-PIPELINE",
+          "note": "Adds real CameraController video recording, Stage 2 VideoPlayerController preview, localVideoPath handoff, and unobstructed top Audio pill"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/social/presentation/widgets/creator_reel_thumbnail_card.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P68-TRACK-ARTWORK",
+          "note": "Replaces raw Image.network + AppGradients.forGenre + Icons.* with VhunambiTrackArtwork + PhosphorIcon"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/explore/presentation/widgets/track_list_tile.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P68-TRACK-ARTWORK",
+          "note": "Replaces orange genre glyph squares in Fastest Growing Tracks with VhunambiTrackArtwork"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/profile/presentation/views/owner_profile_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P78-GLASS-TAB-BAR",
+          "note": "Replaces solid-orange blocky tabs with VhunambiGlassTabBar and removes duplicate _OwnerReelsShelf from Songs tab"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/profile/presentation/views/artist_profile_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P78-GLASS-TAB-BAR",
+          "note": "Replaces flat Material 2 underline TabBar with VhunambiGlassTabBarHeaderDelegate"
+        }
+      ],
+      "breakthroughs": [
+        "Established a unified Creator Published Hub across Explore (index-0 non-seed Reel pin in trendingReelsProvider), Library Asset Vault (LibraryCategory.reels + ReelsVaultView), and OwnerProfileView (VhunambiTrackArtwork on CreatorReelThumbnailCard + zero duplicate shelf under Songs).",
+        "Standardized 4 fragmented tab bars (OwnerProfileView, ArtistProfileView, ExploreView, LibraryCategoryRail) onto VhunambiGlassTabBar and VhunambiGlassTabBarHeaderDelegate with 44dp touch targets, adaptive Light/Dark glass styling, and compact segment geometry that prevents desktop/mobile horizontal clipping.",
+        "Closed real audio/video ingest (WAV/AAC/OGG in apps/vhunambi_api + FilePicker/R2 + CameraController recording/Stage 2 VideoPlayerController + localVideoPath propagation), killed the 39x SnackBar storm via ephemeral in-place pill, suppressed MiniPlayerHost during KineticReelsModal, and rescued @aistudio ownership + unclosed-paren/[INTRO] lyric tags."
+      ],
+      "gotchas": [
+        "DirectDawVocalUploadSheet previously stamped isInstrumental: true on DAW Master uploads, which caused BOTH LibraryCategory.songs (library_providers.dart#L493) and OwnerProfileView._resolveOwnerSongs (#L250) to hide uploaded songs because BeatsVaultView reads marketplaceBeatsProvider instead of libraryTracksProvider.",
+        "apps/vhunambi_api/src/routes/social_routes.ts ALLOWED_SOCIAL_MEDIA_MIMES must include audio/wav, audio/x-wav, audio/wave, audio/aac, and audio/ogg so producer WAV uploads do not hit 415 UNSUPPORTED_MEDIA_TYPE.",
+        "Preserve [Verse 1] and [Chorus] inside LyricKaraokeSanitizer.cleanLyricsForTeleprompter (tested by phase75_studio_connectome_closure_test.dart#L554 and expanded_cockpit_modal_test.dart#L83); strip non-sung [INTRO]/[OUTRO] cues via cleanLyricsForPlayback and strip unclosed '(' cue fragments in cleanLyricTextForKaraoke.",
+        "Adding LibraryCategory.reels requires updating all 5 UI/provider files: library_models.dart, library_providers.dart, library_view.dart, library_category_rail.dart, and library_empty_state.dart.",
+        "Seeded demo Reels in SocialFeedNotifier use clip_pub_* IDs (not clip_seed_*), so trendingReelsProvider must check SocialFeedNotifier.isSeedClipId(c.id) rather than a prefix guess to avoid promoting a seed above virality-sorted peers.",
+        "SocialMusicPost.fromJson must treat creator_current_user alongside current_user and user_current as legacy aliases, since canonicalizeCreatorId preserves creator_current_user and otherwise emits @current_user."
+      ]
     }
   ],
   "endpoints": {
@@ -858,11 +1187,13 @@
         "P61:profile_providers",
         "P61:artist_profile_view",
         "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul",
-        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul"
+        "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul",
+        "P76:Post-Release Live Device Theme Stability, Release Auth Security, Auth/Settings/Onboarding Glass, Full Notification Deep-Link Coverage & Platform Hygiene"
       ],
       "consumed_by_phases": [
         "P69",
-        "P70"
+        "P70",
+        "P76"
       ],
       "open_opportunities": "Pair with formal ViewerRole owner-vs-visitor boundary across TrackDetailView & ArtistProfileView (Phase 70)"
     },
@@ -962,7 +1293,7 @@
     "EP-P27-MELODY-PRESETS-PACKS": {
       "id": "EP-P27-MELODY-PRESETS-PACKS",
       "kind": "backend_api",
-      "state": "OPEN",
+      "state": "CONNECTED_EXTENSIBLE",
       "origin_phase": "P00_P63",
       "origin_order": 63,
       "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
@@ -973,14 +1304,18 @@
       "spec_anchor": "docs/phases/phase_27_melody_logdrum_sketchpad/design.md",
       "code_anchor": "apps/vhunambi_api/src/routes/melody_routes.ts",
       "summary": "GET /v1/melodies/presets & GET /v1/melodies/sound-packs.",
-      "consumers": [],
-      "consumed_by_phases": [],
+      "consumers": [
+        "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge"
+      ],
+      "consumed_by_phases": [
+        "P75"
+      ],
       "open_opportunities": "Hydrate Groove Sketchpad sound pack catalog dynamically from backend API"
     },
     "EP-P26-VOICE-CALIBRATION-RECIPE": {
       "id": "EP-P26-VOICE-CALIBRATION-RECIPE",
       "kind": "backend_api",
-      "state": "OPEN",
+      "state": "CONNECTED_EXTENSIBLE",
       "origin_phase": "P00_P63",
       "origin_order": 63,
       "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
@@ -991,14 +1326,18 @@
       "spec_anchor": "docs/phases/phase_26_vocal_identity_cloning/design.md",
       "code_anchor": "apps/vhunambi_api/src/routes/voice_routes.ts",
       "summary": "POST /v1/voices/extract-calibration & PATCH /v1/voices/signatures/:id/recipe.",
-      "consumers": [],
-      "consumed_by_phases": [],
+      "consumers": [
+        "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge"
+      ],
+      "consumed_by_phases": [
+        "P75"
+      ],
       "open_opportunities": "Wire voice calibration & DSP signature recipe updates from Sound Signature intake flow"
     },
     "EP-P25-GEN-MASTER-PRESETS": {
       "id": "EP-P25-GEN-MASTER-PRESETS",
       "kind": "backend_api",
-      "state": "OPEN",
+      "state": "CONNECTED_EXTENSIBLE",
       "origin_phase": "P00_P63",
       "origin_order": 63,
       "memory_file": "docs/memory/sprints/P00_P63_baseline_memory.md",
@@ -1009,8 +1348,12 @@
       "spec_anchor": "docs/phases/phase_25_stem_mastering_suite/design.md",
       "code_anchor": "apps/vhunambi_api/src/routes/generation_routes.ts",
       "summary": "GET /v1/generations/mastering/presets & GET /v1/generations/:id/manifest.",
-      "consumers": [],
-      "consumed_by_phases": [],
+      "consumers": [
+        "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge"
+      ],
+      "consumed_by_phases": [
+        "P75"
+      ],
       "open_opportunities": "Sync server mastering presets & 4-stem MMO manifest directly into Mastering Studio & TrackDetailView"
     },
     "EP-P63-R2-SEEDER": {
@@ -1134,7 +1477,7 @@
     "EP-P66-LYRICS-REFINE-STORY": {
       "id": "EP-P66-LYRICS-REFINE-STORY",
       "kind": "backend_api",
-      "state": "OPEN",
+      "state": "CONNECTED_EXTENSIBLE",
       "origin_phase": "P66",
       "origin_order": 66,
       "memory_file": "docs/memory/sprints/P66_memory.md",
@@ -1145,8 +1488,12 @@
       "spec_anchor": "docs/audits/VHUNAMBI_REPO_TOPOLOGY_AND_MEMORY_READINESS_AUDIT.md",
       "code_anchor": "apps/vhunambi_api/src/routes/lyrics_routes.ts",
       "summary": "POST /v1/lyrics/refine & POST /v1/lyrics/story-transform endpoints.",
-      "consumers": [],
-      "consumed_by_phases": [],
+      "consumers": [
+        "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge"
+      ],
+      "consumed_by_phases": [
+        "P75"
+      ],
       "open_opportunities": "Wire line-level AI lyric refinement and story-to-lyrics transform UI inside Studio Lyrics Review (HttpLyricsGenerationService only calls /v1/lyrics/generate)"
     },
     "EP-P67-NOTIF-API": {
@@ -1211,10 +1558,12 @@
         "P67:explore_top_bar",
         "P67:library_app_bar",
         "P67:marketplace_top_bar",
-        "P68:Home Dashboard Main Room & Studio Utility Overhaul"
+        "P68:Home Dashboard Main Room & Studio Utility Overhaul",
+        "P76:Post-Release Live Device Theme Stability, Release Auth Security, Auth/Settings/Onboarding Glass, Full Notification Deep-Link Coverage & Platform Hygiene"
       ],
       "consumed_by_phases": [
-        "P68"
+        "P68",
+        "P76"
       ],
       "open_opportunities": "Back unread count with EP-P67-NOTIF-API once cloud notification sync is wired"
     },
@@ -1235,10 +1584,12 @@
       "consumers": [
         "P67:notifications_view",
         "P67:notification_detail_bottom_sheet",
-        "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul"
+        "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul",
+        "P76:Post-Release Live Device Theme Stability, Release Auth Security, Auth/Settings/Onboarding Glass, Full Notification Deep-Link Coverage & Platform Hygiene"
       ],
       "consumed_by_phases": [
-        "P69"
+        "P69",
+        "P76"
       ],
       "open_opportunities": "Extend for Beatstore license deeds and Visitor Creator Profile tabs in Phase 70+"
     },
@@ -1304,14 +1655,18 @@
         "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul",
         "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
         "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
-        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload",
+        "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
       ],
       "consumed_by_phases": [
         "P69",
         "P70",
         "P72",
         "P73",
-        "P74"
+        "P74",
+        "P77",
+        "P78"
       ],
       "open_opportunities": "Not yet adopted in TrackDetailView (936 lines, 6 stock Icons.*) or ArtistProfileView (803 lines, 10 stock Icons.*) — prime Phase 70 upgrade"
     },
@@ -1512,12 +1867,20 @@
         "P70:ArtistProfileView",
         "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
         "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
-        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload",
+        "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge",
+        "P76:Post-Release Live Device Theme Stability, Release Auth Security, Auth/Settings/Onboarding Glass, Full Notification Deep-Link Coverage & Platform Hygiene",
+        "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
       ],
       "consumed_by_phases": [
         "P72",
         "P73",
-        "P74"
+        "P74",
+        "P75",
+        "P76",
+        "P77",
+        "P78"
       ],
       "open_opportunities": "Adopt VhunambiGlassSurface across Home dashboard cards, Explore headers, Notifications drawer, and OwnerProfileView"
     },
@@ -1568,11 +1931,13 @@
         "P70:TrackDetailView",
         "P70:TrackHeroSection",
         "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
-        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
       ],
       "consumed_by_phases": [
         "P72",
-        "P73"
+        "P73",
+        "P78"
       ],
       "open_opportunities": "Reuse ViewerRole across KineticPostFocusView creator moderation actions, Beatstore producer edit gates, and Playlists ownership guards"
     },
@@ -1600,12 +1965,14 @@
         "P71:vision_routes",
         "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
         "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
-        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload",
+        "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge"
       ],
       "consumed_by_phases": [
         "P72",
         "P73",
-        "P74"
+        "P74",
+        "P75"
       ],
       "open_opportunities": "Adopt domain-scoped SWR sync helpers in marketplace_routes, playlist_routes, library_routes, and voice_routes for full multi-isolate durability across every Cloudflare Worker endpoint"
     },
@@ -1669,9 +2036,12 @@
       "summary": "Client HTTP caller getBuyerLicenses(buyerId) hitting GET /api/marketplace/licenses/:buyerId via buyerLicensesFamilyProvider, hydrating cross-device SovereignLicenseCertificate purchases into BeatsVaultView Licensed Beats and LibraryCategory.licensing.",
       "consumers": [
         "P72:BeatsVaultView",
-        "P72:LibraryView_licensing_tab"
+        "P72:LibraryView_licensing_tab",
+        "P76:Post-Release Live Device Theme Stability, Release Auth Security, Auth/Settings/Onboarding Glass, Full Notification Deep-Link Coverage & Platform Hygiene"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P76"
+      ],
       "open_opportunities": "Add offline Hive snapshot caching and certificate verification deep-link (GET /api/marketplace/licenses/verify/:certificateId) from licensed beat cards"
     },
     "EP-P73-POST-CHROMATIC-SYNTH": {
@@ -1691,10 +2061,12 @@
       "summary": "3-Tier dynamic chromatic world synthesizer (Mood+Cover -> Cover+Split-Complement -> Brand Fallback) with LRU cache, 150ms extraction guard, FLUTTER_TEST deterministic bypass, and WCAG AA contrast clamping for Light and Dark modes.",
       "consumers": [
         "P73:KineticPostFocusView",
-        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload",
+        "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads"
       ],
       "consumed_by_phases": [
-        "P74"
+        "P74",
+        "P77"
       ],
       "open_opportunities": "Reuse in Phase 74 KineticReelStudioView backdrop tinting and TrackDetailView ambient canvas synthesis"
     },
@@ -1771,10 +2143,12 @@
         "P73:ExploreSearchView",
         "P73:ExploreDiscoveryDrawerSheet",
         "P73:NotificationDeepLinkRouter",
-        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload"
+        "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload",
+        "P76:Post-Release Live Device Theme Stability, Release Auth Security, Auth/Settings/Onboarding Glass, Full Notification Deep-Link Coverage & Platform Hygiene"
       ],
       "consumed_by_phases": [
-        "P74"
+        "P74",
+        "P76"
       ],
       "open_opportunities": "Route all Phase 74 Reel creator badges and remix lineage chips through navigateToCreatorProfile()"
     },
@@ -1797,9 +2171,18 @@
       "consumers": [
         "P74:TrendingReelsShelf",
         "P74:ContentStudioDockView",
-        "P74:KineticReelsModal"
+        "P74:KineticReelsModal",
+        "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge",
+        "P76:Post-Release Live Device Theme Stability, Release Auth Security, Auth/Settings/Onboarding Glass, Full Notification Deep-Link Coverage & Platform Hygiene",
+        "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P75",
+        "P76",
+        "P77",
+        "P78"
+      ],
       "open_opportunities": "Connect Studio DAW finish flow and TrackDetailView Share-as-Reel directly into KineticReelStudioView.show()"
     },
     "EP-P74-SOCIAL-MEDIA-R2-UPLOAD": {
@@ -1819,9 +2202,14 @@
       "summary": "Authenticated POST /api/social/media/upload endpoint validating MIME allowlist and 25 MB ceiling, persisting camera/gallery video, photo, and audio bytes to Cloudflare R2 (VHUNAMBI_VAULT) under social/<canonicalCreatorId>/ and returning normalized /r2/social/... URLs.",
       "consumers": [
         "P74:HttpSocialRepository",
-        "P74:KineticReelPublishView"
+        "P74:KineticReelPublishView",
+        "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P77",
+        "P78"
+      ],
       "open_opportunities": "Reuse POST /api/social/media/upload for CreateKineticPostSheet custom device photo uploads and custom playlist cover uploads"
     },
     "EP-P74-SOCIAL-SWR-READTHROUGH": {
@@ -1862,10 +2250,304 @@
       "consumers": [
         "P74:SongMetadataDna",
         "P74:PublishedClip",
-        "P74:KineticPreviewCanvas"
+        "P74:KineticPreviewCanvas",
+        "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge",
+        "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
+      ],
+      "consumed_by_phases": [
+        "P75",
+        "P77",
+        "P78"
+      ],
+      "open_opportunities": "Reuse LyricKaraokeSanitizer in TrackDetailView synchronized lyric sheet and BantuLyricTranslationService"
+    },
+    "EP-P75-VOICES-CLOUD-SWR": {
+      "id": "EP-P75-VOICES-CLOUD-SWR",
+      "kind": "backend_persistence",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P75",
+      "origin_order": 75,
+      "memory_file": "docs/phases/phase_75_studio_cockpit_v5_and_connectome_closure/memory.md",
+      "hubs": [
+        "sync_outbox",
+        "ai_synthesis_gpu",
+        "identity_role"
+      ],
+      "spec_anchor": "docs/phases/phase_75_studio_cockpit_v5_and_connectome_closure/design.md#22-appsvhunambi_apisrcdbedge_persistence_bridgets--appsvhunambi_apisrcdbvhunambi_dbts-11-parity",
+      "code_anchor": "apps/vhunambi_api/src/db/edge_persistence_bridge.ts",
+      "summary": "12-second domain-scoped SWR read-through (syncVoicesFromCloud) and awaited write-through across voice_clones and sound_signatures, plus cross-isolate SWR hydration on POST /v1/generations/:id/master achieving 100% Worker route isolation.",
+      "consumers": [
+        "P75:voice_routes",
+        "P75:generation_routes",
+        "P75:server_scoped_bypass"
       ],
       "consumed_by_phases": [],
-      "open_opportunities": "Reuse LyricKaraokeSanitizer in TrackDetailView synchronized lyric sheet and BantuLyricTranslationService"
+      "open_opportunities": "Reuse syncVoicesFromCloud to hydrate creator voice clone roster on OwnerProfileView and cross-device Studio sign-in"
+    },
+    "EP-P75-STUDIO-CONNECTOME-CLIENTS": {
+      "id": "EP-P75-STUDIO-CONNECTOME-CLIENTS",
+      "kind": "client_repository_and_state",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P75",
+      "origin_order": 75,
+      "memory_file": "docs/phases/phase_75_studio_cockpit_v5_and_connectome_closure/memory.md",
+      "hubs": [
+        "ai_synthesis_gpu",
+        "audio_transport",
+        "mood_taxonomy",
+        "identity_role"
+      ],
+      "spec_anchor": "docs/phases/phase_75_studio_cockpit_v5_and_connectome_closure/design.md#3-pass-1-m752--client-connectome-closure-engines-appsvhunambi_client",
+      "code_anchor": "apps/vhunambi_client/lib/features/studio/data/services/http_lyrics_generation_service.dart",
+      "summary": "Client HTTP wiring closing all 4 final OPEN endpoints: Lyrics refine & story-transform, Sketchpad cloud presets & R2 sound packs, Voice calibration & Sound Signature PATCH recipe sync, and Server Mastering presets + Track MMO manifest stem hydration.",
+      "consumers": [
+        "P75:LyricsReviewModal",
+        "P75:MelodySketchpadNotifier",
+        "P75:SoundPackManagerNotifier",
+        "P75:CrossModuleSynergyDeck",
+        "P75:MasteringSessionNotifier",
+        "P75:TrackDetailNotifier"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Expose offline-cached MMO 4-stem waveform peaks from /v1/generations/:id/manifest inside TrackSonicTelemetryCard and ExpandedCockpitModal"
+    },
+    "EP-P75-CREATION-TO-REELS-BRIDGE": {
+      "id": "EP-P75-CREATION-TO-REELS-BRIDGE",
+      "kind": "ui_flow_and_state",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P75",
+      "origin_order": 75,
+      "memory_file": "docs/phases/phase_75_studio_cockpit_v5_and_connectome_closure/memory.md",
+      "hubs": [
+        "social_graph",
+        "audio_transport",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_75_studio_cockpit_v5_and_connectome_closure/design.md#41-direct-creation-to-viral-bridge-ep-p74-reels-studio-pipeline",
+      "code_anchor": "apps/vhunambi_client/lib/features/studio/presentation/widgets/generation_pipeline_card.dart",
+      "summary": "Unified 1-tap launch into Phase 74 full-screen KineticReelStudioView.show(context, initialTrack: ...) from Studio generation completion, TrackDetailView, TrackActionsSheet, and ExpandedCockpitModal, paired with LyricKaraokeSanitizer teleprompter sanitization.",
+      "consumers": [
+        "P75:GenerationPipelineCard",
+        "P75:TrackDetailView",
+        "P75:TrackActionsSheet",
+        "P75:ExpandedCockpitModal"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Add post-bake 'Drop Mastered Track as Reel' CTA inside DesktopMasteringStudioView and MobileQuickMasterSheet"
+    },
+    "EP-P76-AUTH-RELEASE-GATE": {
+      "id": "EP-P76-AUTH-RELEASE-GATE",
+      "kind": "client_security_and_ui",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P76",
+      "origin_order": 76,
+      "memory_file": "docs/phases/phase_76_post_release_auth_onboarding_deeplink_and_platform_polish/memory.md",
+      "hubs": [
+        "identity_role",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_76_post_release_auth_onboarding_deeplink_and_platform_polish/design.md#22-appsvhunambi_clientlibcoreauthauth_providersdart--compile-time-release-gate-auth-01-req-p76-core-02",
+      "code_anchor": "apps/vhunambi_client/lib/core/auth/auth_providers.dart",
+      "summary": "Compile-time kEnableDemoCreatorQuickSwitch gate disabling demo studio creator quick-switch chips and offline tenant spoofing in production --release builds, paired with VhunambiGlassSurface Auth & Settings drawers and zero-unmount theme switching in main.dart.",
+      "consumers": [
+        "P76:SovereignAuthSheet",
+        "P76:AuthSessionNotifier",
+        "P76:ProfileSettingsDrawer",
+        "P76:VhunambiApp"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Reuse kEnableDemoCreatorQuickSwitch to gate any future QA/staging diagnostic shortcuts out of store release APKs"
+    },
+    "EP-P76-DEEPLINK-COVERAGE": {
+      "id": "EP-P76-DEEPLINK-COVERAGE",
+      "kind": "client_routing_and_notifications",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P76",
+      "origin_order": 76,
+      "memory_file": "docs/phases/phase_76_post_release_auth_onboarding_deeplink_and_platform_polish/memory.md",
+      "hubs": [
+        "social_graph",
+        "identity_role",
+        "quota_economy",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_76_post_release_auth_onboarding_deeplink_and_platform_polish/design.md#31-appsvhunambi_clientlibfeaturesnotificationspresentationutilsnotification_deep_link_routerdart-dl-02-dl-03",
+      "code_anchor": "apps/vhunambi_client/lib/features/notifications/presentation/utils/notification_deep_link_router.dart",
+      "summary": "Full NotificationDeepLinkRouter + Bell Popover delegation covering cold-start /reel/:clipId hydration, /license/:id & /certificate/:id LicenseCertificateSheet routing, /profile & /@:handle Profile routing, and all 5 RootShell tab routes.",
+      "consumers": [
+        "P76:NotificationsPopover",
+        "P76:NotificationDetailBottomSheet",
+        "P76:BeatCheckoutNotifier"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Bind Android App Links / Universal Links intent handler directly into NotificationDeepLinkRouter.navigateDirect for external share URLs"
+    },
+    "EP-P76-ONBOARDING-GLASS-STD": {
+      "id": "EP-P76-ONBOARDING-GLASS-STD",
+      "kind": "ui_surface_and_hygiene",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P76",
+      "origin_order": 76,
+      "memory_file": "docs/phases/phase_76_post_release_auth_onboarding_deeplink_and_platform_polish/memory.md",
+      "hubs": [
+        "ui_surface_std",
+        "identity_role"
+      ],
+      "spec_anchor": "docs/phases/phase_76_post_release_auth_onboarding_deeplink_and_platform_polish/design.md#4-pass-2-m764--onboarding-std-uiux-001--dual-theme-glass-polish",
+      "code_anchor": "apps/vhunambi_client/lib/features/onboarding/presentation/widgets/role_carousel_widget.dart",
+      "summary": "100% STD-UIUX-001 compliance across onboarding/ (0 stock Icons.*, 0 raw Unicode emojis via RoleOption.resolvedIcon & PhosphorIcon badges), VhunambiGlassSurface(enableLiveBlur: false), and Light/Dark contrast parity, paired with clean API dist/ prebuild and parallel cached Gradle config.",
+      "consumers": [
+        "P76:AppTourOverlay",
+        "P76:RoleCarouselWidget",
+        "P76:GenreColorChip",
+        "P76:CreatorDnaHelixFinale",
+        "P76:OnboardingAct3RootsDeck"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Extend VhunambiGlassSurface + *Of(context) Light/Dark audit to remaining legacy marketplace modals"
+    },
+    "EP-P77-CHROMATIC-PLAYER-CHROME": {
+      "id": "EP-P77-CHROMATIC-PLAYER-CHROME",
+      "kind": "ui_primitive",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P77",
+      "origin_order": 77,
+      "memory_file": "docs/phases/phase_77_chromatic_player_lyrics_and_r2_uploads/memory.md",
+      "hubs": [
+        "media_artwork",
+        "audio_transport",
+        "mood_taxonomy",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_77_chromatic_player_lyrics_and_r2_uploads/design.md#21-new-appsvhunambi_clientlibfeaturesplayerpresentationwidgetsplayer_chromatic_resolver_mixindart",
+      "code_anchor": "apps/vhunambi_client/lib/features/player/presentation/widgets/player_chromatic_resolver_mixin.dart",
+      "summary": "Shared sync-first + async-refined PostChromaticPaletteMixin powering ExpandedCockpitModal, MobileMiniPlayer, PillForm, DesktopTransportBar, and VhunambiFloatingTransportSurface with real VhunambiTrackArtwork and Light/Dark WCAG AA parity.",
+      "consumers": [
+        "P77:ExpandedCockpitModal",
+        "P77:MobileMiniPlayer",
+        "P77:PillForm",
+        "P77:DesktopTransportBar"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Adopt PlayerChromaticPaletteMixin on TrackHeroSection and PlaylistDetailView headers for unified album-art ambient staging"
+    },
+    "EP-P77-SYNCED-BANTU-KARAOKE": {
+      "id": "EP-P77-SYNCED-BANTU-KARAOKE",
+      "kind": "domain_and_ui_primitive",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P77",
+      "origin_order": 77,
+      "memory_file": "docs/phases/phase_77_chromatic_player_lyrics_and_r2_uploads/memory.md",
+      "hubs": [
+        "audio_transport",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_77_chromatic_player_lyrics_and_r2_uploads/design.md#3-pass-1--m772-synced-clean-karaoke--9-language-bantu-word-glossary",
+      "code_anchor": "apps/vhunambi_client/lib/features/track/domain/utils/synced_lyric_timeline.dart",
+      "summary": "Live playback-synced clean karaoke engine combining LyricKaraokeSanitizer, SyncedLyricTimeline (auto-scroll + tap-to-seek), and 9-language Southern Bantu word glossary popovers (BantuWordGlossarySheet) shared across TrackDetailView and ExpandedCockpitModal.",
+      "consumers": [
+        "P77:LyricsTeleprompter",
+        "P77:ExpandedCockpitModal",
+        "P77:BantuWordGlossarySheet"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Upgrade SyncedLyricTimeline to prefer per-word Whisper/MFA LyricWordTimestamp arrays whenever server alignment metadata is attached to a track"
+    },
+    "EP-P77-UNIFIED-R2-IMAGE-UPLOAD": {
+      "id": "EP-P77-UNIFIED-R2-IMAGE-UPLOAD",
+      "kind": "client_media_service",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P77",
+      "origin_order": 77,
+      "memory_file": "docs/phases/phase_77_chromatic_player_lyrics_and_r2_uploads/memory.md",
+      "hubs": [
+        "media_artwork",
+        "social_graph",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_77_chromatic_player_lyrics_and_r2_uploads/design.md#41-new-appsvhunambi_clientlibcoremediavhunambi_media_upload_servicedart",
+      "code_anchor": "apps/vhunambi_client/lib/core/media/vhunambi_media_upload_service.dart",
+      "summary": "Reusable ImagePicker + MIME/25MB validator + FLUTTER_TEST-safe R2 uploader routing through POST /api/social/media/upload for Explore Kinetic Posts, Playlist custom covers, and Collections.",
+      "consumers": [
+        "P77:CreateKineticPostSheet",
+        "P77:PlaylistsVaultView",
+        "P77:PlaylistDetailView",
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
+      ],
+      "consumed_by_phases": [
+        "P78"
+      ],
+      "open_opportunities": "Reuse VhunambiMediaUploadService for OwnerProfileView avatar & banner cover uploads and Studio custom single artwork uploads"
+    },
+    "EP-P78-GLASS-TAB-BAR": {
+      "id": "EP-P78-GLASS-TAB-BAR",
+      "kind": "ui_primitive",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P78",
+      "origin_order": 78,
+      "memory_file": "docs/phases/phase_78_vault_explore_continuity_uploads_and_glass_tabs/memory.md",
+      "hubs": [
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_78_vault_explore_continuity_uploads_and_glass_tabs/design.md#41-new-appsvhunambi_clientlibcorewidgetsvhunambi_glass_tab_bardart",
+      "code_anchor": "apps/vhunambi_client/lib/core/widgets/vhunambi_glass_tab_bar.dart",
+      "summary": "Unified frosted glass tab strip (VhunambiGlassTabBar + VhunambiGlassTabBarHeaderDelegate) with animated translucent active capsule, specular rim, optional count badge, and Light/Dark WCAG AA parity adopted across OwnerProfileView, ArtistProfileView, ExploreView, and LibraryCategoryRail.",
+      "consumers": [
+        "P78:OwnerProfileView",
+        "P78:ArtistProfileView",
+        "P78:ExploreView",
+        "P78:LibraryCategoryRail"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Adopt VhunambiGlassTabBar inside ReelAudioPickerSheet, StudioView sub-modes, and MarketplaceView category headers in Phase 79"
+    },
+    "EP-P78-CREATOR-REELS-HUB": {
+      "id": "EP-P78-CREATOR-REELS-HUB",
+      "kind": "domain_and_ui_primitive",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P78",
+      "origin_order": 78,
+      "memory_file": "docs/phases/phase_78_vault_explore_continuity_uploads_and_glass_tabs/memory.md",
+      "hubs": [
+        "social_graph",
+        "media_artwork",
+        "identity_role"
+      ],
+      "spec_anchor": "docs/phases/phase_78_vault_explore_continuity_uploads_and_glass_tabs/design.md#3-pass-2--m783-explore--library--owner-profile-continuity-va-01",
+      "code_anchor": "apps/vhunambi_client/lib/features/library/presentation/views/reels_vault_view.dart",
+      "summary": "Unified Explore <-> Library (LibraryCategory.reels + ReelsVaultView) <-> OwnerProfileView Reel continuity hub with index-0 fresh publish pinning in trendingReelsProvider and VhunambiTrackArtwork cards.",
+      "consumers": [
+        "P78:LibraryView",
+        "P78:TrendingReelsShelf",
+        "P78:OwnerProfileView"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Bind Phase 79 Hold-for-Quick-Actions context menu and Pin-to-Profile controls onto ReelsVaultView and CreatorReelThumbnailCard"
+    },
+    "EP-P78-REAL-AUDIO-VIDEO-INGEST": {
+      "id": "EP-P78-REAL-AUDIO-VIDEO-INGEST",
+      "kind": "client_and_api_pipeline",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P78",
+      "origin_order": 78,
+      "memory_file": "docs/phases/phase_78_vault_explore_continuity_uploads_and_glass_tabs/memory.md",
+      "hubs": [
+        "media_artwork",
+        "audio_transport",
+        "social_graph"
+      ],
+      "spec_anchor": "docs/phases/phase_78_vault_explore_continuity_uploads_and_glass_tabs/design.md#1-pass-1--m781-real-audio-upload--cameragallery-video-capture-va-02",
+      "code_anchor": "apps/vhunambi_client/lib/features/studio/presentation/widgets/direct_daw_vocal_upload_sheet.dart",
+      "summary": "End-to-end real FilePicker audio import (WAV/MP3/M4A/AAC/OGG via /api/social/media/upload) and live CameraController video recording + Stage 2 VideoPlayerController + offline-safe localVideoPath handoff in KineticReelStudioView.",
+      "consumers": [
+        "P78:DirectDawVocalUploadSheet",
+        "P78:KineticReelStudioView",
+        "P78:KineticReelPublishView",
+        "P78:KineticReelsModal"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Feed uploaded/recorded image & video keyframes directly into Phase 80 VhunambiVisualDnaMatcher for automatic song & chorus cue recommendations"
     }
   },
   "hub_index": {
@@ -1875,7 +2557,13 @@
         "EP-P58-MKT-VERIFY-PRODUCER",
         "EP-P26-VOICE-CALIBRATION-RECIPE",
         "EP-P70-VIEWER-ROLE",
-        "EP-P73-PROFILE-ROUTER"
+        "EP-P73-PROFILE-ROUTER",
+        "EP-P75-VOICES-CLOUD-SWR",
+        "EP-P75-STUDIO-CONNECTOME-CLIENTS",
+        "EP-P76-AUTH-RELEASE-GATE",
+        "EP-P76-DEEPLINK-COVERAGE",
+        "EP-P76-ONBOARDING-GLASS-STD",
+        "EP-P78-CREATOR-REELS-HUB"
       ],
       "phases": [
         "P00_P63",
@@ -1883,7 +2571,11 @@
         "P70",
         "P72",
         "P73",
-        "P74"
+        "P74",
+        "P75",
+        "P76",
+        "P77",
+        "P78"
       ]
     },
     "media_artwork": {
@@ -1897,7 +2589,11 @@
         "EP-P73-POST-CHROMATIC-SYNTH",
         "EP-P73-GIF-STICKER-MEDIA",
         "EP-P74-REELS-STUDIO-PIPELINE",
-        "EP-P74-SOCIAL-MEDIA-R2-UPLOAD"
+        "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
+        "EP-P77-CHROMATIC-PLAYER-CHROME",
+        "EP-P77-UNIFIED-R2-IMAGE-UPLOAD",
+        "EP-P78-CREATOR-REELS-HUB",
+        "EP-P78-REAL-AUDIO-VIDEO-INGEST"
       ],
       "phases": [
         "P64",
@@ -1908,7 +2604,9 @@
         "P70",
         "P72",
         "P73",
-        "P74"
+        "P74",
+        "P77",
+        "P78"
       ]
     },
     "quota_economy": {
@@ -1921,7 +2619,8 @@
         "EP-P70-VIEWER-ROLE",
         "EP-P71-ATOMIC-QUOTA-RPC",
         "EP-P72-VAULT-CLOUD-SWR",
-        "EP-P72-BUYER-LICENSES-HTTP"
+        "EP-P72-BUYER-LICENSES-HTTP",
+        "EP-P76-DEEPLINK-COVERAGE"
       ],
       "phases": [
         "P00_P63",
@@ -1929,7 +2628,8 @@
         "P68",
         "P70",
         "P71",
-        "P72"
+        "P72",
+        "P76"
       ]
     },
     "audio_transport": {
@@ -1940,7 +2640,12 @@
         "EP-P65-CRASH-AUDIO-SHIELD",
         "EP-P68-MINIPLAYER-SUPPRESS",
         "EP-P74-REELS-STUDIO-PIPELINE",
-        "EP-P74-KARAOKE-LYRIC-SANITIZER"
+        "EP-P74-KARAOKE-LYRIC-SANITIZER",
+        "EP-P75-STUDIO-CONNECTOME-CLIENTS",
+        "EP-P75-CREATION-TO-REELS-BRIDGE",
+        "EP-P77-CHROMATIC-PLAYER-CHROME",
+        "EP-P77-SYNCED-BANTU-KARAOKE",
+        "EP-P78-REAL-AUDIO-VIDEO-INGEST"
       ],
       "phases": [
         "P00_P63",
@@ -1950,7 +2655,10 @@
         "P70",
         "P72",
         "P73",
-        "P74"
+        "P74",
+        "P75",
+        "P77",
+        "P78"
       ]
     },
     "mood_taxonomy": {
@@ -1959,7 +2667,9 @@
         "EP-P66-LYRICS-REFINE-STORY",
         "EP-P68-MOOD-FRAGMENTED",
         "EP-P70-MOOD-TAXONOMY",
-        "EP-P73-POST-CHROMATIC-SYNTH"
+        "EP-P73-POST-CHROMATIC-SYNTH",
+        "EP-P75-STUDIO-CONNECTOME-CLIENTS",
+        "EP-P77-CHROMATIC-PLAYER-CHROME"
       ],
       "phases": [
         "P66",
@@ -1967,7 +2677,10 @@
         "P70",
         "P72",
         "P73",
-        "P74"
+        "P74",
+        "P75",
+        "P77",
+        "P78"
       ]
     },
     "social_graph": {
@@ -1985,7 +2698,12 @@
         "EP-P73-PROFILE-ROUTER",
         "EP-P74-REELS-STUDIO-PIPELINE",
         "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
-        "EP-P74-SOCIAL-SWR-READTHROUGH"
+        "EP-P74-SOCIAL-SWR-READTHROUGH",
+        "EP-P75-CREATION-TO-REELS-BRIDGE",
+        "EP-P76-DEEPLINK-COVERAGE",
+        "EP-P77-UNIFIED-R2-IMAGE-UPLOAD",
+        "EP-P78-CREATOR-REELS-HUB",
+        "EP-P78-REAL-AUDIO-VIDEO-INGEST"
       ],
       "phases": [
         "P00_P63",
@@ -1994,7 +2712,11 @@
         "P71",
         "P72",
         "P73",
-        "P74"
+        "P74",
+        "P75",
+        "P76",
+        "P77",
+        "P78"
       ]
     },
     "notifications_bus": {
@@ -2028,7 +2750,8 @@
         "EP-P72-BUYER-LICENSES-HTTP",
         "EP-P73-MULTI-REACTIONS-API",
         "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
-        "EP-P74-SOCIAL-SWR-READTHROUGH"
+        "EP-P74-SOCIAL-SWR-READTHROUGH",
+        "EP-P75-VOICES-CLOUD-SWR"
       ],
       "phases": [
         "P00_P63",
@@ -2038,7 +2761,9 @@
         "P71",
         "P72",
         "P73",
-        "P74"
+        "P74",
+        "P75",
+        "P76"
       ]
     },
     "ui_surface_std": {
@@ -2053,7 +2778,15 @@
         "EP-P73-MULTI-REACTIONS-API",
         "EP-P73-GIF-STICKER-MEDIA",
         "EP-P74-REELS-STUDIO-PIPELINE",
-        "EP-P74-KARAOKE-LYRIC-SANITIZER"
+        "EP-P74-KARAOKE-LYRIC-SANITIZER",
+        "EP-P75-CREATION-TO-REELS-BRIDGE",
+        "EP-P76-AUTH-RELEASE-GATE",
+        "EP-P76-DEEPLINK-COVERAGE",
+        "EP-P76-ONBOARDING-GLASS-STD",
+        "EP-P77-CHROMATIC-PLAYER-CHROME",
+        "EP-P77-SYNCED-BANTU-KARAOKE",
+        "EP-P77-UNIFIED-R2-IMAGE-UPLOAD",
+        "EP-P78-GLASS-TAB-BAR"
       ],
       "phases": [
         "P00_P63",
@@ -2065,7 +2798,11 @@
         "P71",
         "P72",
         "P73",
-        "P74"
+        "P74",
+        "P75",
+        "P76",
+        "P77",
+        "P78"
       ]
     },
     "ai_synthesis_gpu": {
@@ -2076,12 +2813,15 @@
         "EP-P62-RUNPOD-WEBHOOK",
         "EP-P66-ACESTEP-PROMPT-HYGIENE",
         "EP-P66-LYRICS-REFINE-STORY",
-        "EP-P68-MOOD-FRAGMENTED"
+        "EP-P68-MOOD-FRAGMENTED",
+        "EP-P75-VOICES-CLOUD-SWR",
+        "EP-P75-STUDIO-CONNECTOME-CLIENTS"
       ],
       "phases": [
         "P00_P63",
         "P64",
-        "P66"
+        "P66",
+        "P75"
       ]
     }
   },
@@ -2137,7 +2877,8 @@
       "EP-P67-NOTIF-BELL"
     ],
     "apps/vhunambi_client/lib/features/notifications/presentation/utils/notification_deep_link_router.dart": [
-      "EP-P67-DEEPLINK-ROUTER"
+      "EP-P67-DEEPLINK-ROUTER",
+      "EP-P76-DEEPLINK-COVERAGE"
     ],
     "apps/vhunambi_client/lib/features/notifications/domain/services/onboarding_notifications_service.dart": [
       "EP-P67-ONBOARDING-NOTIFS"
@@ -2182,7 +2923,8 @@
     "apps/vhunambi_api/src/db/edge_persistence_bridge.ts": [
       "EP-P71-EDGE-SWR-READTHROUGH",
       "EP-P72-VAULT-CLOUD-SWR",
-      "EP-P74-SOCIAL-SWR-READTHROUGH"
+      "EP-P74-SOCIAL-SWR-READTHROUGH",
+      "EP-P75-VOICES-CLOUD-SWR"
     ],
     "supabase/migrations/20261120000001_phase71_schema_parity_and_rpcs.sql": [
       "EP-P71-ATOMIC-QUOTA-RPC"
@@ -2204,6 +2946,36 @@
     ],
     "apps/vhunambi_client/lib/features/content_studio/domain/utils/lyric_karaoke_sanitizer.dart": [
       "EP-P74-KARAOKE-LYRIC-SANITIZER"
+    ],
+    "apps/vhunambi_client/lib/features/studio/data/services/http_lyrics_generation_service.dart": [
+      "EP-P75-STUDIO-CONNECTOME-CLIENTS"
+    ],
+    "apps/vhunambi_client/lib/features/studio/presentation/widgets/generation_pipeline_card.dart": [
+      "EP-P75-CREATION-TO-REELS-BRIDGE"
+    ],
+    "apps/vhunambi_client/lib/core/auth/auth_providers.dart": [
+      "EP-P76-AUTH-RELEASE-GATE"
+    ],
+    "apps/vhunambi_client/lib/features/onboarding/presentation/widgets/role_carousel_widget.dart": [
+      "EP-P76-ONBOARDING-GLASS-STD"
+    ],
+    "apps/vhunambi_client/lib/features/player/presentation/widgets/player_chromatic_resolver_mixin.dart": [
+      "EP-P77-CHROMATIC-PLAYER-CHROME"
+    ],
+    "apps/vhunambi_client/lib/features/track/domain/utils/synced_lyric_timeline.dart": [
+      "EP-P77-SYNCED-BANTU-KARAOKE"
+    ],
+    "apps/vhunambi_client/lib/core/media/vhunambi_media_upload_service.dart": [
+      "EP-P77-UNIFIED-R2-IMAGE-UPLOAD"
+    ],
+    "apps/vhunambi_client/lib/core/widgets/vhunambi_glass_tab_bar.dart": [
+      "EP-P78-GLASS-TAB-BAR"
+    ],
+    "apps/vhunambi_client/lib/features/library/presentation/views/reels_vault_view.dart": [
+      "EP-P78-CREATOR-REELS-HUB"
+    ],
+    "apps/vhunambi_client/lib/features/studio/presentation/widgets/direct_daw_vocal_upload_sheet.dart": [
+      "EP-P78-REAL-AUDIO-VIDEO-INGEST"
     ]
   }
 }

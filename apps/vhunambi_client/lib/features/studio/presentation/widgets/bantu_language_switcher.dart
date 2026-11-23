@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -33,7 +34,7 @@ const List<String> kBantuLanguageTargets = <String>[
 /// Placed in the Guided Lyrics Composer header and the Lyrics Review Modal
 /// header. Selecting a different language asks for confirmation, runs the
 /// [IBantuTranslationService] behind a blurred loading overlay, then marks
-/// the switcher with a 🌐 badge.
+/// the switcher with a globe badge.
 class BantuLanguageSwitcher extends ConsumerStatefulWidget {
   const BantuLanguageSwitcher({
     super.key,
@@ -209,10 +210,14 @@ class _BantuLanguageSwitcherState
             ),
           ),
           if (_translatedTo != null)
-            const Positioned(
+            Positioned(
               right: 4,
               top: 10,
-              child: Text('🌐', style: TextStyle(fontSize: 14)),
+              child: PhosphorIcon(
+                PhosphorIconsRegular.globe,
+                size: 14,
+                color: AppColors.brandPrimary,
+              ),
             ),
           if (_isTranslating)
             Positioned.fill(

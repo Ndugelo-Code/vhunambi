@@ -5,10 +5,13 @@ import 'package:vhunambi_client/core/constants/app_assets.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/core/storage/sovereign_domain_repositories.dart';
 import 'package:vhunambi_client/core/sync/sync_outbox_service.dart';
+import 'package:vhunambi_client/core/utils/creator_id_utils.dart';
 import 'package:vhunambi_client/features/library/data/repositories/http_library_sync_repository.dart';
 import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
 import 'package:vhunambi_client/features/offline/presentation/providers/offline_providers.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
+import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
+import 'package:vhunambi_client/features/social/presentation/providers/social_feed_provider.dart';
 
 /// Cloud sync status indicator for the Library Vault (Phase 59).
 enum LibraryCloudSyncStatus { idle, syncing, synced, offline, error }
@@ -77,14 +80,41 @@ final filteredLibraryTracksProvider = Provider<List<LibraryTrack>>((ref) {
   );
 });
 
-/// Record count per vault category (drives the Trash rail badge).
+/// Active creator's published Kinetic Reels surfaced inside Library Vault (`VA-01`).
+final ownerVaultReelsProvider = Provider<List<PublishedClip>>((ref) {
+  final canonicalOwner = canonicalizeCreatorId(
+    ref.watch(currentCreatorIdProvider),
+  );
+  final query = ref.watch(librarySearchQueryProvider).trim().toLowerCase();
+  final clips = ref.watch(socialFeedProvider).clips.where((clip) {
+    final clipOwner = canonicalizeCreatorId(clip.creatorId);
+    final owned =
+        clipOwner == canonicalOwner ||
+        clip.creatorId == 'creator_me' ||
+        ((canonicalOwner == 'creator_guest' ||
+                canonicalOwner == 'creator_me') &&
+            clipOwner == 'creator_cern');
+    if (!owned) return false;
+    if (query.isEmpty) return true;
+    return clip.title.toLowerCase().contains(query) ||
+        clip.genre.toLowerCase().contains(query) ||
+        clip.caption.toLowerCase().contains(query);
+  }).toList()
+    ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+  return List.unmodifiable(clips);
+});
+
+/// Record count per vault category (drives the Trash & Reels rail badges).
 final libraryCategoryCountsProvider = Provider<Map<LibraryCategory, int>>((
   ref,
 ) {
   final tracks = ref.watch(libraryTracksProvider);
+  final reelsCount = ref.watch(ownerVaultReelsProvider).length;
   return {
     for (final category in LibraryCategory.values)
-      category: filterLibraryTracks(tracks: tracks, category: category).length,
+      category: category == LibraryCategory.reels
+          ? reelsCount
+          : filterLibraryTracks(tracks: tracks, category: category).length,
   };
 });
 
@@ -498,7 +528,9 @@ bool _matchesCategory(LibraryTrack track, LibraryCategory category) {
           (track.id.startsWith('market_') ||
               (track.licenseType.trim().isNotEmpty &&
                   track.licenseType != 'Commercial')),
-    LibraryCategory.playlists || LibraryCategory.collections => false,
+    LibraryCategory.reels ||
+    LibraryCategory.playlists ||
+    LibraryCategory.collections => false,
   };
 }
 

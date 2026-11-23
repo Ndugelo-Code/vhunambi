@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { isNodeSqliteAvailable, vhunambiDb } from '../db/vhunambi_db.js';
 import {
   assertTenantCreatorAccess,
   resolveEffectiveCreatorId,
@@ -15,15 +16,15 @@ import {
   SoundIdealizerRecipeSchema,
 } from '../modules/voices/voice_types.js';
 import {
-  deleteSoundSignature,
+  deleteSoundSignatureAsync,
   extractPhoneticCalibrationScript,
   filterVoiceCatalog,
   getSoundSignature,
   getVoiceCloneProfile,
   REGIONAL_VOICE_CATALOG,
-  registerSoundSignature,
-  registerVoiceCloneProfile,
-  updateSoundSignatureRecipe,
+  registerSoundSignatureAsync,
+  registerVoiceCloneProfileAsync,
+  updateSoundSignatureRecipeAsync,
 } from '../modules/voices/voice_catalog.js';
 
 export const voiceRoutes = new Hono();
@@ -112,10 +113,13 @@ voiceRoutes.post('/clone', async (c) => {
       parsed.data.creatorId,
       'creator_cern',
     );
-    const profile = registerVoiceCloneProfile({
-      ...parsed.data,
-      creatorId: effectiveCreatorId,
-    });
+    const profile = await registerVoiceCloneProfileAsync(
+      {
+        ...parsed.data,
+        creatorId: effectiveCreatorId,
+      },
+      c,
+    );
 
     return c.json(
       {
@@ -136,8 +140,11 @@ voiceRoutes.post('/clone', async (c) => {
  * GET /v1/voices/clone/:id
  * Retrieves a registered CreatorVoiceCloneProfile by ID.
  */
-voiceRoutes.get('/clone/:id', (c) => {
+voiceRoutes.get('/clone/:id', async (c) => {
   const id = c.req.param('id');
+  if (!isNodeSqliteAvailable()) {
+    await vhunambiDb.syncVoicesFromCloud(false, c);
+  }
   const profile = getVoiceCloneProfile(id);
 
   if (!profile) {
@@ -184,11 +191,14 @@ voiceRoutes.post('/signatures', async (c) => {
       parsed.data.creatorId,
       'creator_cern',
     );
-    const record = registerSoundSignature({
-      ...parsed.data,
-      creatorId: effectiveCreatorId,
-      consentAtIso: parsed.data.consentAtIso ?? new Date().toISOString(),
-    });
+    const record = await registerSoundSignatureAsync(
+      {
+        ...parsed.data,
+        creatorId: effectiveCreatorId,
+        consentAtIso: parsed.data.consentAtIso ?? new Date().toISOString(),
+      },
+      c,
+    );
     const presignedUploadUrl = await getPresignedPutUrl(
       record.r2AudioKey,
       'audio/wav',
@@ -221,6 +231,9 @@ voiceRoutes.post('/signatures', async (c) => {
  */
 voiceRoutes.post('/signatures/:id/analyze', async (c) => {
   const id = c.req.param('id');
+  if (!isNodeSqliteAvailable()) {
+    await vhunambiDb.syncVoicesFromCloud(false, c);
+  }
   const record = getSoundSignature(id);
 
   if (!record) {
@@ -242,6 +255,9 @@ voiceRoutes.post('/signatures/:id/analyze', async (c) => {
  */
 voiceRoutes.patch('/signatures/:id/recipe', async (c) => {
   const id = c.req.param('id');
+  if (!isNodeSqliteAvailable()) {
+    await vhunambiDb.syncVoicesFromCloud(false, c);
+  }
   const existing = getSoundSignature(id);
   if (!existing) {
     return c.json({ error: 'NOT_FOUND', message: `Sound signature ${id} not found` }, 404);
@@ -259,7 +275,7 @@ voiceRoutes.patch('/signatures/:id/recipe', async (c) => {
     );
   }
 
-  const updated = updateSoundSignatureRecipe(id, parsed.data);
+  const updated = await updateSoundSignatureRecipeAsync(id, parsed.data, c);
   if (!updated) {
     return c.json({ error: 'NOT_FOUND', message: `Sound signature ${id} not found` }, 404);
   }
@@ -271,8 +287,11 @@ voiceRoutes.patch('/signatures/:id/recipe', async (c) => {
  * GET /v1/voices/signatures/:id
  * Retrieves sound signature metadata, recipe, and cloud embedding reference.
  */
-voiceRoutes.get('/signatures/:id', (c) => {
+voiceRoutes.get('/signatures/:id', async (c) => {
   const id = c.req.param('id');
+  if (!isNodeSqliteAvailable()) {
+    await vhunambiDb.syncVoicesFromCloud(false, c);
+  }
   const record = getSoundSignature(id);
 
   if (!record) {
@@ -288,6 +307,9 @@ voiceRoutes.get('/signatures/:id', (c) => {
  */
 voiceRoutes.delete('/signatures/:id', async (c) => {
   const id = c.req.param('id');
+  if (!isNodeSqliteAvailable()) {
+    await vhunambiDb.syncVoicesFromCloud(false, c);
+  }
   const existing = getSoundSignature(id);
   if (!existing) {
     return c.json({ error: 'NOT_FOUND', message: `Sound signature ${id} not found` }, 404);
@@ -298,7 +320,7 @@ voiceRoutes.delete('/signatures/:id', async (c) => {
 
   const r2Key = existing.r2AudioKey || `signatures/${id}/raw.wav`;
   await deleteR2Object(r2Key, c);
-  const deleted = deleteSoundSignature(id);
+  const deleted = await deleteSoundSignatureAsync(id, c);
 
   if (!deleted) {
     return c.json({ error: 'NOT_FOUND', message: `Sound signature ${id} not found` }, 404);

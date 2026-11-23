@@ -205,6 +205,7 @@ class CollectionEntity {
     String? description,
     DateTime? releaseDate,
     String? coverImageUrl,
+    bool clearCoverImage = false,
     List<String>? trackIds,
     List<SplitParticipant>? participants,
     DateTime? createdAt,
@@ -217,7 +218,9 @@ class CollectionEntity {
       genre: genre ?? this.genre,
       description: description ?? this.description,
       releaseDate: releaseDate ?? this.releaseDate,
-      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
+      coverImageUrl: clearCoverImage
+          ? null
+          : (coverImageUrl ?? this.coverImageUrl),
       trackIds: trackIds ?? this.trackIds,
       participants: participants ?? this.participants,
       createdAt: createdAt ?? this.createdAt,

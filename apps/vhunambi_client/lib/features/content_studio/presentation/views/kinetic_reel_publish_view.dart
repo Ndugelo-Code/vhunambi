@@ -24,6 +24,7 @@ class KineticReelPublishView extends ConsumerStatefulWidget {
   final Uint8List? customMediaBytes;
   final String? customMediaFilename;
   final String? customMediaMime;
+  final String? customMediaLocalPath;
   final int audioStartMs;
   final int audioEndMs;
   final String effectPreset;
@@ -41,6 +42,7 @@ class KineticReelPublishView extends ConsumerStatefulWidget {
     this.customMediaBytes,
     this.customMediaFilename,
     this.customMediaMime,
+    this.customMediaLocalPath,
     required this.audioStartMs,
     required this.audioEndMs,
     required this.effectPreset,
@@ -158,6 +160,7 @@ class _KineticReelPublishViewState
         audioUrl: resolvedAudioUrl,
         coverUrl: resolvedCoverUrl,
         videoUrl: uploadedVideoUrl,
+        localVideoPath: widget.customMediaLocalPath,
         mediaKind: widget.mediaKind,
         audioStartMs: widget.audioStartMs,
         audioEndMs: widget.audioEndMs,

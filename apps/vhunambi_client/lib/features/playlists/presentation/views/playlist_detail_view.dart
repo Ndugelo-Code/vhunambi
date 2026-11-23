@@ -1,99 +1,246 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
+import '../../../../core/design_system/tokens/app_icons.dart';
+import '../../../../core/media/vhunambi_media_upload_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
+import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../../shared/models/track.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../player/presentation/providers/player_provider.dart';
+import '../../../social/presentation/providers/social_repository_provider.dart';
 import '../../domain/models/playlist_entity.dart';
 import '../providers/playlists_provider.dart';
 import '../widgets/playlist_cover_art.dart';
 
 /// Detailed view for inspecting, playing and managing a user playlist.
 ///
-/// Implements REQ-PV-04, REQ-PV-05, and REQ-PV-06 from Phase 12.1.
+/// Implements REQ-PV-04, REQ-PV-05, REQ-PV-06, and REQ-P77-R2-03.
 class PlaylistDetailView extends ConsumerWidget {
   final PlaylistEntity playlist;
 
   const PlaylistDetailView({super.key, required this.playlist});
 
-  void _showRenameDialog(BuildContext context, WidgetRef ref, PlaylistEntity current) {
+  void _showRenameDialog(
+    BuildContext context,
+    WidgetRef ref,
+    PlaylistEntity current,
+  ) {
     final titleController = TextEditingController(text: current.title);
     final descController = TextEditingController(text: current.description);
+    var coverImageUrl = current.coverImageUrl;
+    var clearCover = false;
+    var isUploadingCover = false;
 
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.surfaceModal,
-        shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
-        title: Text('Edit Playlist', style: AppTypography.titleMedium),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              autofocus: true,
-              style: AppTypography.bodyLarge,
-              decoration: const InputDecoration(labelText: 'Playlist Title'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          final textPrimary = AppColors.textPrimaryOf(dialogCtx);
+          final textSecondary = AppColors.textSecondaryOf(dialogCtx);
+          return AlertDialog(
+            backgroundColor: AppColors.surfaceModalOf(dialogCtx),
+            shape: const RoundedRectangleBorder(
+              borderRadius: AppRadius.cardBorder,
             ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: descController,
-              style: AppTypography.bodyLarge,
-              decoration: const InputDecoration(labelText: 'Description'),
+            title: Text(
+              'Edit Playlist',
+              style: AppTypography.titleMedium.copyWith(color: textPrimary),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(
-              'Cancel',
-              style: AppTypography.bodyLarge.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      VhunambiTrackArtwork(
+                        coverUrl: clearCover ? null : coverImageUrl,
+                        genre: 'Amapiano',
+                        trackId: current.id,
+                        width: 64,
+                        height: 64,
+                        borderRadius: BorderRadius.circular(AppRadius.thumb),
+                        badgeIconSize: 22,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            OutlinedButton.icon(
+                              key: const Key('playlist_pick_cover_btn'),
+                              onPressed: isUploadingCover
+                                  ? null
+                                  : () async {
+                                      setDialogState(
+                                        () => isUploadingCover = true,
+                                      );
+                                      try {
+                                        final uploaded =
+                                            await VhunambiMediaUploadService.pickAndUploadImage(
+                                              socialRepository: ref.read(
+                                                socialRepositoryProvider,
+                                              ),
+                                              purposePrefix: 'playlist_cover',
+                                            );
+                                        if (dialogCtx.mounted &&
+                                            uploaded != null) {
+                                          setDialogState(() {
+                                            coverImageUrl = uploaded.url;
+                                            clearCover = false;
+                                          });
+                                        }
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Cover upload failed: $e',
+                                              ),
+                                              backgroundColor: AppColors.error,
+                                            ),
+                                          );
+                                        }
+                                      } finally {
+                                        if (dialogCtx.mounted) {
+                                          setDialogState(
+                                            () => isUploadingCover = false,
+                                          );
+                                        }
+                                      }
+                                    },
+                              icon: isUploadingCover
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const PhosphorIcon(
+                                      PhosphorIconsRegular.image,
+                                      size: 16,
+                                    ),
+                              label: Text(
+                                isUploadingCover
+                                    ? 'Uploading...'
+                                    : 'Change Cover',
+                                style: AppTypography.caption.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: textPrimary,
+                                side: BorderSide(
+                                  color: AppColors.borderSubtleOf(dialogCtx),
+                                ),
+                                minimumSize: const Size(0, 44),
+                              ),
+                            ),
+                            if (coverImageUrl != null && !clearCover)
+                              TextButton(
+                                key: const Key('playlist_clear_cover_btn'),
+                                onPressed: () => setDialogState(() {
+                                  coverImageUrl = null;
+                                  clearCover = true;
+                                }),
+                                child: Text(
+                                  'Use Auto Collage',
+                                  style: AppTypography.caption.copyWith(
+                                    color: textSecondary,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextField(
+                    controller: titleController,
+                    autofocus: true,
+                    style: AppTypography.bodyLarge.copyWith(color: textPrimary),
+                    decoration: const InputDecoration(
+                      labelText: 'Playlist Title',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextField(
+                    controller: descController,
+                    style: AppTypography.bodyLarge.copyWith(color: textPrimary),
+                    decoration: const InputDecoration(labelText: 'Description'),
+                  ),
+                ],
               ),
             ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final title = titleController.text.trim();
-              if (title.isEmpty) return;
-              ref.read(playlistsProvider.notifier).updatePlaylist(
-                    current.id,
-                    title: title,
-                    description: descController.text.trim(),
-                  );
-              Navigator.of(dialogContext).pop();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.brandPrimary,
-              foregroundColor: AppColors.brandContrast,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(
+                  'Cancel',
+                  style: AppTypography.bodyLarge.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: textSecondary,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final title = titleController.text.trim();
+                  if (title.isEmpty) return;
+                  ref
+                      .read(playlistsProvider.notifier)
+                      .updatePlaylist(
+                        current.id,
+                        title: title,
+                        description: descController.text.trim(),
+                        coverImageUrl: coverImageUrl,
+                        clearCoverImage: clearCover,
+                      );
+                  Navigator.of(dialogContext).pop();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.brandPrimary,
+                  foregroundColor: AppColors.brandContrast,
+                ),
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref, PlaylistEntity current) {
+  void _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    PlaylistEntity current,
+  ) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.surfaceModal,
+        backgroundColor: AppColors.surfaceModalOf(dialogContext),
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
         title: Text(
           'Delete Playlist?',
-          style: AppTypography.titleMedium.copyWith(color: AppColors.textPrimary),
+          style: AppTypography.titleMedium.copyWith(
+            color: AppColors.textPrimaryOf(dialogContext),
+          ),
         ),
         content: Text(
           'Are you sure you want to delete "${current.title}"? Your tracks will remain in your vault.',
-          style: AppTypography.bodyMuted,
+          style: AppTypography.bodyMuted.copyWith(
+            color: AppColors.textSecondaryOf(dialogContext),
+          ),
         ),
         actions: [
           TextButton(
@@ -102,7 +249,7 @@ class PlaylistDetailView extends ConsumerWidget {
               'Cancel',
               style: AppTypography.bodyLarge.copyWith(
                 fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+                color: AppColors.textSecondaryOf(dialogContext),
               ),
             ),
           ),
@@ -148,7 +295,10 @@ class PlaylistDetailView extends ConsumerWidget {
   }
 
   String _formatTotalDuration(List<Track> tracks) {
-    final totalSeconds = tracks.fold<int>(0, (sum, t) => sum + t.duration.inSeconds);
+    final totalSeconds = tracks.fold<int>(
+      0,
+      (sum, t) => sum + t.duration.inSeconds,
+    );
     final minutes = totalSeconds ~/ 60;
     if (minutes < 60) return '$minutes mins';
     final hours = minutes ~/ 60;
@@ -168,32 +318,61 @@ class PlaylistDetailView extends ConsumerWidget {
     final resolvedTracks = _resolveTracks(ref, livePlaylist.trackIds);
     final formattedTime = _formatTotalDuration(resolvedTracks);
 
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final borderSubtle = AppColors.borderSubtleOf(context);
+
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.surfaceCanvasOf(context),
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceCanvas,
+        backgroundColor: AppColors.surfaceCanvasOf(context),
         elevation: 0,
-        leading: const VhunambiBackButton(),
+        leading: VhunambiBackButton(color: textPrimary),
         title: Text(
           livePlaylist.title,
-          style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+          style: AppTypography.titleMedium.copyWith(
+            fontWeight: FontWeight.bold,
+            color: textPrimary,
+          ),
         ),
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded),
-            color: AppColors.surfaceModal,
+            icon: PhosphorIcon(
+              PhosphorIconsRegular.dotsThreeVertical,
+              color: textPrimary,
+            ),
+            color: AppColors.surfaceModalOf(context),
             onSelected: (action) {
-              if (action == 'rename') _showRenameDialog(context, ref, livePlaylist);
-              if (action == 'delete') _confirmDelete(context, ref, livePlaylist);
+              if (action == 'rename' || action == 'cover') {
+                _showRenameDialog(context, ref, livePlaylist);
+              }
+              if (action == 'delete') {
+                _confirmDelete(context, ref, livePlaylist);
+              }
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(
+              PopupMenuItem(
+                key: const Key('playlist_detail_edit_cover_item'),
+                value: 'cover',
+                child: Row(
+                  children: [
+                    PhosphorIcon(
+                      PhosphorIconsRegular.image,
+                      size: 16,
+                      color: textPrimary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text('Change Cover', style: TextStyle(color: textPrimary)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
                 value: 'rename',
                 child: Row(
                   children: [
-                    Icon(Icons.edit_rounded, size: 16),
-                    SizedBox(width: 8),
-                    Text('Rename'),
+                    PhosphorIcon(AppIcons.edit, size: 16, color: textPrimary),
+                    const SizedBox(width: 8),
+                    Text('Rename', style: TextStyle(color: textPrimary)),
                   ],
                 ),
               ),
@@ -201,7 +380,11 @@ class PlaylistDetailView extends ConsumerWidget {
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.error),
+                    PhosphorIcon(
+                      PhosphorIconsRegular.trash,
+                      size: 16,
+                      color: AppColors.error,
+                    ),
                     SizedBox(width: 8),
                     Text('Delete', style: TextStyle(color: AppColors.error)),
                   ],
@@ -212,7 +395,12 @@ class PlaylistDetailView extends ConsumerWidget {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 120),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          120,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -220,9 +408,9 @@ class PlaylistDetailView extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
+                color: AppColors.surfaceElevatedOf(context),
                 borderRadius: AppRadius.cardBorder,
-                border: Border.all(color: AppColors.borderSubtle),
+                border: Border.all(color: borderSubtle),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,19 +430,26 @@ class PlaylistDetailView extends ConsumerWidget {
                       children: [
                         Text(
                           livePlaylist.title,
-                          style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+                          style: AppTypography.titleLarge.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: textPrimary,
+                          ),
                         ),
                         if (livePlaylist.description.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
                             livePlaylist.description,
-                            style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                            style: AppTypography.bodySmall.copyWith(
+                              color: textSecondary,
+                            ),
                           ),
                         ],
                         const SizedBox(height: AppSpacing.sm),
                         Text(
                           '${resolvedTracks.length} ${resolvedTracks.length == 1 ? 'song' : 'songs'} • $formattedTime',
-                          style: AppTypography.caption.copyWith(color: AppColors.brandPrimary),
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.brandPrimary,
+                          ),
                         ),
                       ],
                     ),
@@ -279,13 +474,18 @@ class PlaylistDetailView extends ConsumerWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.brandPrimary,
                       foregroundColor: AppColors.brandContrast,
-                      shape: const RoundedRectangleBorder(borderRadius: AppRadius.pillBorder),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: AppRadius.pillBorder,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    icon: const Icon(Icons.play_arrow_rounded, size: 22),
+                    icon: const PhosphorIcon(AppIcons.play, size: 22),
                     label: const Text(
                       'Play All',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
                 ),
@@ -295,21 +495,27 @@ class PlaylistDetailView extends ConsumerWidget {
                     onPressed: resolvedTracks.isEmpty
                         ? null
                         : () {
-                            final shuffled = List<Track>.of(resolvedTracks)..shuffle(Random());
+                            final shuffled = List<Track>.of(resolvedTracks)
+                              ..shuffle(Random());
                             ref
                                 .read(playerStateProvider.notifier)
                                 .playPlaylist(livePlaylist, shuffled);
                           },
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textPrimary,
-                      side: BorderSide(color: AppColors.borderSubtle),
-                      shape: const RoundedRectangleBorder(borderRadius: AppRadius.pillBorder),
+                      foregroundColor: textPrimary,
+                      side: BorderSide(color: borderSubtle),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: AppRadius.pillBorder,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    icon: const Icon(Icons.shuffle_rounded, size: 20),
+                    icon: const PhosphorIcon(AppIcons.shuffle, size: 20),
                     label: const Text(
                       'Shuffle',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
                 ),
@@ -322,7 +528,7 @@ class PlaylistDetailView extends ConsumerWidget {
               'Tracks',
               style: AppTypography.bodyLarge.copyWith(
                 fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+                color: textSecondary,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -332,15 +538,17 @@ class PlaylistDetailView extends ConsumerWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppSpacing.xl),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
+                  color: AppColors.surfaceElevatedOf(context),
                   borderRadius: AppRadius.cardBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
+                  border: Border.all(color: borderSubtle),
                 ),
                 child: Center(
                   child: Text(
                     'No songs in this playlist yet.\nAdd songs from your Library or Explore.',
                     textAlign: TextAlign.center,
-                    style: AppTypography.bodyMuted,
+                    style: AppTypography.bodyMuted.copyWith(
+                      color: textSecondary,
+                    ),
                   ),
                 ),
               )
@@ -365,10 +573,10 @@ class PlaylistDetailView extends ConsumerWidget {
                     key: ValueKey<String>('playlist_track_${track.id}'),
                     padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                     child: Material(
-                      color: AppColors.surfaceElevated,
+                      color: AppColors.surfaceElevatedOf(context),
                       shape: RoundedRectangleBorder(
                         borderRadius: AppRadius.cardBorder,
-                        side: BorderSide(color: AppColors.borderSubtle),
+                        side: BorderSide(color: borderSubtle),
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(
@@ -380,9 +588,9 @@ class PlaylistDetailView extends ConsumerWidget {
                           children: [
                             ReorderableDragStartListener(
                               index: index,
-                              child: Icon(
-                                Icons.drag_handle_rounded,
-                                color: AppColors.textTertiary,
+                              child: PhosphorIcon(
+                                PhosphorIconsRegular.dotsSixVertical,
+                                color: textSecondary.withValues(alpha: 0.72),
                               ),
                             ),
                             const SizedBox(width: AppSpacing.xs),
@@ -392,7 +600,9 @@ class PlaylistDetailView extends ConsumerWidget {
                                 child: Text(
                                   '${index + 1}',
                                   style: AppTypography.caption.copyWith(
-                                    color: AppColors.textTertiary,
+                                    color: textSecondary.withValues(
+                                      alpha: 0.72,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -403,6 +613,7 @@ class PlaylistDetailView extends ConsumerWidget {
                           track.title,
                           style: AppTypography.bodyLarge.copyWith(
                             fontWeight: FontWeight.w600,
+                            color: textPrimary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -410,7 +621,7 @@ class PlaylistDetailView extends ConsumerWidget {
                         subtitle: Text(
                           '${track.creatorName} • ${track.genre}',
                           style: AppTypography.caption.copyWith(
-                            color: AppColors.textSecondary,
+                            color: textSecondary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -421,15 +632,15 @@ class PlaylistDetailView extends ConsumerWidget {
                             Text(
                               track.formattedDuration,
                               style: AppTypography.caption.copyWith(
-                                color: AppColors.textSecondary,
+                                color: textSecondary,
                               ),
                             ),
                             const SizedBox(width: AppSpacing.xs),
                             IconButton(
-                              icon: Icon(
-                                Icons.close_rounded,
+                              icon: PhosphorIcon(
+                                AppIcons.close,
                                 size: 18,
-                                color: AppColors.textTertiary,
+                                color: textSecondary.withValues(alpha: 0.72),
                               ),
                               tooltip: 'Remove from playlist',
                               onPressed: () {
@@ -445,10 +656,9 @@ class PlaylistDetailView extends ConsumerWidget {
                         ),
                         onTap: () {
                           // Play this single track within the playlist context
-                          ref.read(playerStateProvider.notifier).playTrack(
-                                track,
-                                queue: resolvedTracks,
-                              );
+                          ref
+                              .read(playerStateProvider.notifier)
+                              .playTrack(track, queue: resolvedTracks);
                         },
                       ),
                     ),

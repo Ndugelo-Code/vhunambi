@@ -16,6 +16,7 @@ class TrackActionsBar extends StatelessWidget {
   final VoidCallback? onTip;
   final VoidCallback? onShare;
   final VoidCallback? onAddToPlaylist;
+  final VoidCallback? onShareAsReel;
 
   const TrackActionsBar({
     super.key,
@@ -25,6 +26,7 @@ class TrackActionsBar extends StatelessWidget {
     this.onTip,
     this.onShare,
     this.onAddToPlaylist,
+    this.onShareAsReel,
   });
 
   @override
@@ -182,7 +184,44 @@ class TrackActionsBar extends StatelessWidget {
               ),
             ),
 
-          // 5. Remix Pill (mounted only for owners or open-stems tracks)
+          // 5. One-Tap "Share as Reel" Pill (`EP-P74-REELS-STUDIO-PIPELINE`, `REQ-P77-REEL-01`)
+          if (onShareAsReel != null)
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                key: const Key('track_reel_pill'),
+                onTap: onShareAsReel,
+                borderRadius: AppRadius.pillBorder,
+                child: VhunambiGlassSurface(
+                  variant: VhunambiGlassVariant.pill,
+                  constraints: const BoxConstraints(minHeight: 44),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      PhosphorIcon(
+                        AppIcons.reels,
+                        color: textPrimary,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Reel',
+                        style: AppTypography.caption.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // 6. Remix Pill (mounted only for owners or open-stems tracks)
           if (onRemix != null)
             Material(
               color: Colors.transparent,

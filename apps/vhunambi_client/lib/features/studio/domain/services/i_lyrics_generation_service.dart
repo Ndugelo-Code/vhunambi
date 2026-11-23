@@ -16,6 +16,25 @@ abstract class ILyricsGenerationService {
     required String language,
   });
 
+  /// Refines existing [currentLyrics] (single stanza or full sheet) using AI polish.
+  Future<LyricsReviewDraft> refineLyrics({
+    required String currentLyrics,
+    required String refinementInstruction,
+    String? idiomToInsert,
+    required String genre,
+    required String language,
+    String prompt = '',
+  });
+
+  /// Transforms personal [storyText] prose into structured rhythm-locked lyrics.
+  Future<LyricsReviewDraft> transformStoryToLyrics({
+    required String storyText,
+    required String genre,
+    required String language,
+    List<String>? targetCognateLanguages,
+    List<String>? mood,
+  });
+
   /// Regional idiom / ad-lib chips offered for [language] (REQ-LYR-06).
   List<String> getCulturalIdioms(String language);
 }

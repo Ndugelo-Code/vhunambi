@@ -16,6 +16,10 @@ const Set<String> _localSeedOwnerAliases = <String>{
   'user_current',
   'current_user',
   'creator_me',
+  'ai_studio',
+  'aistudio',
+  'creator_ai_studio',
+  'creator_aistudio',
 };
 
 /// Resolves whether the active signed-in user owns a resource attributed to
@@ -31,10 +35,10 @@ ViewerRole resolveViewerRole({
   String? activeHandle,
 }) {
   final rawOwnerId = (ownerCreatorId ?? '').trim().toLowerCase();
-  final rawOwnerHandle = (ownerHandle ?? '')
-      .trim()
-      .toLowerCase()
-      .replaceFirst(RegExp(r'^@+'), '');
+  final rawOwnerHandle = (ownerHandle ?? '').trim().toLowerCase().replaceFirst(
+    RegExp(r'^@+'),
+    '',
+  );
 
   if (rawOwnerId.isEmpty && rawOwnerHandle.isEmpty) {
     return ViewerRole.visitor;
@@ -48,7 +52,8 @@ ViewerRole resolveViewerRole({
       .replaceFirst(RegExp(r'^@+'), '');
 
   // Explicit local-user placeholder aliases created in offline/demo studio flows.
-  if (_localSeedOwnerAliases.contains(rawOwnerId)) {
+  if (_localSeedOwnerAliases.contains(rawOwnerId) ||
+      _localSeedOwnerAliases.contains(rawOwnerHandle)) {
     return ViewerRole.owner;
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
 import 'package:vhunambi_client/features/offline/data/services/offline_storage_service.dart';
@@ -18,8 +19,9 @@ import 'package:vhunambi_client/shared/models/track.dart';
 /// [ProviderContainer] *inside* the test body: the ticker must be cancelled
 /// before the framework's `!timersPending` assertion fires.
 void main() {
-  testWidgets('renders the header, counter pill and now playing card',
-      (tester) async {
+  testWidgets('renders the header, counter pill and now playing card', (
+    tester,
+  ) async {
     final container = await _seedContainer(tester);
     await _pumpDrawerHost(tester, container);
 
@@ -29,13 +31,14 @@ void main() {
     expect(find.text('Track trk_1'), findsOneWidget);
     expect(find.text('Track trk_2'), findsOneWidget);
     expect(find.text('Track trk_3'), findsOneWidget);
-    expect(find.byIcon(Icons.drag_handle_rounded), findsNWidgets(2));
+    expect(find.byIcon(PhosphorIconsRegular.dotsSixVertical), findsNWidgets(2));
 
     container.dispose();
   });
 
-  testWidgets('shows the empty state when nothing is queued up',
-      (tester) async {
+  testWidgets('shows the empty state when nothing is queued up', (
+    tester,
+  ) async {
     final container = await _seedContainer(
       tester,
       ids: const <String>['trk_1'],
@@ -48,8 +51,9 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('removing a row drops it from the playback queue',
-      (tester) async {
+  testWidgets('removing a row drops it from the playback queue', (
+    tester,
+  ) async {
     final container = await _seedContainer(tester);
     await _pumpDrawerHost(tester, container);
 
@@ -101,7 +105,7 @@ void main() {
     final container = await _seedContainer(tester);
     await _pumpDrawerHost(tester, container);
 
-    final handle = find.byIcon(Icons.drag_handle_rounded).first;
+    final handle = find.byIcon(PhosphorIconsRegular.dotsSixVertical).first;
     final gesture = await tester.startGesture(tester.getCenter(handle));
     await tester.pump(const Duration(milliseconds: 100));
     await gesture.moveBy(const Offset(0, 60));
@@ -133,12 +137,10 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('mobile viewports present the queue as a bottom sheet',
-      (tester) async {
-    final container = await _seedContainer(
-      tester,
-      size: const Size(520, 900),
-    );
+  testWidgets('mobile viewports present the queue as a bottom sheet', (
+    tester,
+  ) async {
+    final container = await _seedContainer(tester, size: const Size(520, 900));
     await _pumpDrawerHost(tester, container);
 
     expect(find.byType(BottomSheet), findsOneWidget);
@@ -148,8 +150,9 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('the transport bar queue button opens the drawer',
-      (tester) async {
+  testWidgets('the transport bar queue button opens the drawer', (
+    tester,
+  ) async {
     final container = await _seedContainer(tester);
     await _pumpHost(
       tester,
@@ -214,24 +217,22 @@ Future<ProviderContainer> _seedContainer(
   final container = ProviderContainer(
     overrides: <Override>[
       audioHandlerProvider.overrideWithValue(handler),
-      offlineStorageServiceProvider.overrideWithValue(_FakeOfflineStorageService()),
+      offlineStorageServiceProvider.overrideWithValue(
+        _FakeOfflineStorageService(),
+      ),
     ],
   );
 
   final tracks = <Track>[for (final id in ids) _track(id)];
-  container.read(playerStateProvider.notifier).playTrack(
-        tracks[startAt],
-        queue: tracks,
-      );
+  container
+      .read(playerStateProvider.notifier)
+      .playTrack(tracks[startAt], queue: tracks);
 
   return container;
 }
 
 /// Pumps a host whose button opens the queue drawer.
-Future<void> _pumpDrawerHost(
-  WidgetTester tester,
-  ProviderContainer container,
-) {
+Future<void> _pumpDrawerHost(WidgetTester tester, ProviderContainer container) {
   return _pumpHost(
     tester,
     container,
@@ -269,9 +270,9 @@ Future<void> _pumpHost(
 }
 
 Track _track(String id) => Track(
-      id: id,
-      title: 'Track $id',
-      creatorName: 'Sigwa & Inaf',
-      genre: 'Amapiano',
-      duration: const Duration(minutes: 3, seconds: 20),
-    );
+  id: id,
+  title: 'Track $id',
+  creatorName: 'Sigwa & Inaf',
+  genre: 'Amapiano',
+  duration: const Duration(minutes: 3, seconds: 20),
+);

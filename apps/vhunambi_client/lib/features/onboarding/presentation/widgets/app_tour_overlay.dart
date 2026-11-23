@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/theme/app_colors.dart';
 import 'package:vhunambi_client/core/theme/app_dimensions.dart';
 import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
 
 const String _appTourCompletedKey = 'has_completed_app_tour';
 
@@ -38,36 +41,36 @@ class _AppTourOverlayState extends State<AppTourOverlay> {
     AppTourCard(
       title: 'Compose',
       description: 'Describe a song idea in plain language',
-      icon: Icons.auto_awesome,
-      illustrationLabel: 'Text prompt → AI waveform → Play button',
+      icon: AppIcons.sparkle,
+      illustrationLabel: 'Text prompt -> AI waveform -> Play',
     ),
     AppTourCard(
       title: 'Write Lyrics First',
       description:
           'Let AI draft lyrics in your dialect, edit them line-by-line, then generate the beat to match your words.',
-      icon: Icons.edit_note,
-      illustrationLabel: 'Lyric sheet → Edit pencil → Beat generation',
+      icon: AppIcons.edit,
+      illustrationLabel: 'Lyric sheet -> Edit -> Beat synthesis',
     ),
     AppTourCard(
       title: 'Voice',
       description:
           'Choose from 25+ African vocal timbres and dialects to bring authentic regional flavor to your music.',
-      icon: Icons.mic,
-      illustrationLabel: 'Microphone icon + dialect flags',
+      icon: AppIcons.mic,
+      illustrationLabel: 'Voice timbre & regional dialects',
     ),
     AppTourCard(
       title: 'Crate & MPC',
       description:
           'Dig through indigenous instrument samples (Mbira, Kora, Talking Drum) and slice beats on the MPC pad.',
-      icon: Icons.music_note,
-      illustrationLabel: 'Spinning vinyl + 8-pad grid',
+      icon: AppIcons.songs,
+      illustrationLabel: 'Indigenous crate & 8-pad slicer',
     ),
     AppTourCard(
       title: 'Credits & Library',
       description:
           'Start with 10 free credits. Every generation is yours to keep, download stems, and license commercially.',
-      icon: Icons.folder,
-      illustrationLabel: 'Coin icon + folder + download arrow',
+      icon: PhosphorIconsRegular.folder,
+      illustrationLabel: 'Monthly credits, stems & licenses',
     ),
   ];
 
@@ -115,7 +118,7 @@ class _AppTourOverlayState extends State<AppTourOverlay> {
     final isLast = _currentCard == _cards.length - 1;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.surfaceCanvasOf(context),
       body: SafeArea(
         child: Column(
           children: [
@@ -123,11 +126,14 @@ class _AppTourOverlayState extends State<AppTourOverlay> {
               alignment: Alignment.topRight,
               child: TextButton(
                 key: const Key('app_tour_skip'),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(44, 44),
+                ),
                 onPressed: _skipTour,
                 child: Text(
                   'Skip Tour',
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -137,24 +143,30 @@ class _AppTourOverlayState extends State<AppTourOverlay> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 140,
-                    height: 140,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceElevated,
-                      borderRadius: AppRadius.cardBorder,
-                      border: Border.all(color: AppColors.borderSubtle),
-                    ),
+                  VhunambiGlassSurface(
+                    key: const Key('app_tour_preview_glass'),
+                    variant: VhunambiGlassVariant.card,
+                    width: 164,
+                    height: 152,
+                    padding: const EdgeInsets.all(14),
+                    borderRadius: AppRadius.cardBorder,
+                    enableLiveBlur: false,
+                    tintAccent: AppColors.brandPrimary,
+                    borderColorOverride: AppColors.borderSubtleOf(context),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(card.icon, size: 48, color: AppColors.brandPrimary),
+                        PhosphorIcon(
+                          card.icon,
+                          size: 48,
+                          color: AppColors.brandPrimary,
+                        ),
                         const SizedBox(height: 12),
                         Text(
                           card.illustrationLabel,
                           textAlign: TextAlign.center,
                           style: AppTypography.caption.copyWith(
-                            color: AppColors.textTertiary,
+                            color: AppColors.textSecondaryOf(context),
                           ),
                         ),
                       ],
@@ -166,7 +178,7 @@ class _AppTourOverlayState extends State<AppTourOverlay> {
                     style: AppTypography.displayLarge.copyWith(
                       fontWeight: FontWeight.w800,
                       fontSize: 28,
-                      color: AppColors.textPrimary,
+                      color: AppColors.textPrimaryOf(context),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -176,7 +188,7 @@ class _AppTourOverlayState extends State<AppTourOverlay> {
                       card.description,
                       textAlign: TextAlign.center,
                       style: AppTypography.bodyLarge.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.textSecondaryOf(context),
                         height: 1.5,
                       ),
                     ),
@@ -193,7 +205,7 @@ class _AppTourOverlayState extends State<AppTourOverlay> {
                         decoration: BoxDecoration(
                           color: _currentCard == index
                               ? AppColors.brandPrimary
-                              : AppColors.borderSubtle,
+                              : AppColors.borderSubtleOf(context),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       );
@@ -206,6 +218,9 @@ class _AppTourOverlayState extends State<AppTourOverlay> {
                       if (!isLast)
                         TextButton(
                           key: const Key('app_tour_continue'),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(44, 44),
+                          ),
                           onPressed: _nextCard,
                           child: Text(
                             'Continue',
@@ -222,6 +237,7 @@ class _AppTourOverlayState extends State<AppTourOverlay> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.brandPrimary,
                             foregroundColor: AppColors.brandContrast,
+                            minimumSize: const Size(44, 48),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 32,
                               vertical: 14,

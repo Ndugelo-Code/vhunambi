@@ -14,16 +14,18 @@ import 'package:vhunambi_client/features/library/presentation/views/library_view
 /// T13 — CollectionsVaultView widget suite (REQ-COL-31).
 void main() {
   group('CollectionsVaultView', () {
-    testWidgets('renders the universal empty state and its CTA',
-        (tester) async {
+    testWidgets('renders the universal empty state and its CTA', (
+      tester,
+    ) async {
       await _pumpVault(tester);
 
       expect(find.text('No collections yet'), findsOneWidget);
       expect(find.text('Start a collection'), findsOneWidget);
     });
 
-    testWidgets('tapping the empty state CTA opens the create dialog',
-        (tester) async {
+    testWidgets('tapping the empty state CTA opens the create dialog', (
+      tester,
+    ) async {
       await _pumpVault(tester);
 
       await tester.tap(find.text('Start a collection'));
@@ -34,9 +36,15 @@ void main() {
       expect(find.text('Collection Type'), findsOneWidget);
     });
 
-    testWidgets('renders grid cards with badge, title and track count',
-        (tester) async {
-      await _pumpVault(tester, seed: [_collection(trackIds: const ['t1', 't2'])]);
+    testWidgets('renders grid cards with badge, title and track count', (
+      tester,
+    ) async {
+      await _pumpVault(
+        tester,
+        seed: [
+          _collection(trackIds: const ['t1', 't2']),
+        ],
+      );
 
       expect(find.text('Ẓe Amapiano EP'), findsOneWidget);
       expect(find.text('EP'), findsOneWidget);
@@ -44,11 +52,12 @@ void main() {
       expect(find.text('New Collection'), findsOneWidget);
     });
 
-    testWidgets('renders Material list rows in list view mode',
-        (tester) async {
+    testWidgets('renders Material list rows in list view mode', (tester) async {
       await _pumpVault(
         tester,
-        seed: [_collection(trackIds: const ['t1', 't2', 't3'])],
+        seed: [
+          _collection(trackIds: const ['t1', 't2', 't3']),
+        ],
         viewMode: LibraryViewMode.list,
       );
 
@@ -60,39 +69,55 @@ void main() {
       await _pumpVault(
         tester,
         seed: [
-          _collection(id: 'col_1', title: 'Amapiano Grooves', genre: 'Amapiano'),
-          _collection(id: 'col_2', title: 'Maskandi Heritage', genre: 'Maskandi'),
+          _collection(
+            id: 'col_1',
+            title: 'Amapiano Grooves',
+            genre: 'Amapiano',
+          ),
+          _collection(
+            id: 'col_2',
+            title: 'Maskandi Heritage',
+            genre: 'Maskandi',
+          ),
         ],
       );
 
       expect(find.text('Amapiano Grooves'), findsOneWidget);
       expect(find.text('Maskandi Heritage'), findsOneWidget);
 
-      await tester.enterText(find.byKey(const Key('collection_search')), 'Gqom');
+      await tester.enterText(
+        find.byKey(const Key('collection_search')),
+        'Gqom',
+      );
       await tester.pumpAndSettle();
 
       expect(find.textContaining('No collections match'), findsOneWidget);
 
-      await tester.enterText(find.byKey(const Key('collection_search')), 'Maskandi');
+      await tester.enterText(
+        find.byKey(const Key('collection_search')),
+        'Maskandi',
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Maskandi Heritage'), findsOneWidget);
       expect(find.text('Amapiano Grooves'), findsNothing);
     });
 
-    testWidgets('tapping a collection card navigates to the detail view',
-        (tester) async {
+    testWidgets('tapping a collection card navigates to the detail view', (
+      tester,
+    ) async {
       await _pumpVault(tester, seed: [_collection(title: 'Deep House Sunset')]);
 
       await tester.tap(find.text('Deep House Sunset'));
       await tester.pumpAndSettle();
 
       expect(find.byType(CollectionDetailView), findsOneWidget);
-      expect(find.text('📄 Split Sheet'), findsOneWidget);
+      expect(find.text('Split Sheet'), findsOneWidget);
     });
 
-    testWidgets('the New Collection button creates a collection',
-        (tester) async {
+    testWidgets('the New Collection button creates a collection', (
+      tester,
+    ) async {
       await _pumpVault(tester, seed: [_collection()]);
 
       await tester.tap(find.byKey(const Key('new_collection_button')));
@@ -109,8 +134,9 @@ void main() {
       expect(find.text('Create New Collection'), findsNothing);
     });
 
-    testWidgets('the library collections tab mounts the collections vault',
-        (tester) async {
+    testWidgets('the library collections tab mounts the collections vault', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1280, 1024);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -121,8 +147,9 @@ void main() {
             collectionRepositoryProvider.overrideWithValue(
               InMemoryCollectionRepository(seed: [_collection()]),
             ),
-            libraryCategoryProvider
-                .overrideWith((ref) => LibraryCategory.collections),
+            libraryCategoryProvider.overrideWith(
+              (ref) => LibraryCategory.collections,
+            ),
           ],
           child: MaterialApp(
             theme: AppTheme.darkTheme,
@@ -179,12 +206,11 @@ CollectionEntity _collection({
   String title = 'Ẓe Amapiano EP',
   String genre = 'Amapiano',
   List<String> trackIds = const ['t1'],
-}) =>
-    CollectionEntity(
-      id: id,
-      title: title,
-      genre: genre,
-      trackIds: trackIds,
-      createdAt: DateTime(2026, 9, 27),
-      updatedAt: DateTime(2026, 9, 27),
-    );
+}) => CollectionEntity(
+  id: id,
+  title: title,
+  genre: genre,
+  trackIds: trackIds,
+  createdAt: DateTime(2026, 9, 27),
+  updatedAt: DateTime(2026, 9, 27),
+);

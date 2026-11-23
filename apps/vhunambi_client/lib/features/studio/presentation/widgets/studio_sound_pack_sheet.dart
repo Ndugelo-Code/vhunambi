@@ -6,18 +6,18 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../providers/sound_pack_manager_provider.dart';
 
-/// In-App Sound Pack Expansion Manager Sheet (Phase 32 / STD-UIUX-001).
-class StudioSoundPackSheet extends ConsumerWidget {
+/// In-App Sound Pack Expansion Manager Sheet (`Phase 32` / `Phase 75` Cloud Catalog Sync).
+class StudioSoundPackSheet extends ConsumerStatefulWidget {
   const StudioSoundPackSheet({super.key});
 
   static Future<void> show(BuildContext context) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.modalBorder,
-        side: BorderSide(color: AppColors.borderSubtle),
+        side: BorderSide(color: AppColors.borderSubtleOf(context)),
       ),
       builder: (_) => const FractionallySizedBox(
         heightFactor: 0.85,
@@ -27,7 +27,23 @@ class StudioSoundPackSheet extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StudioSoundPackSheet> createState() =>
+      _StudioSoundPackSheetState();
+}
+
+class _StudioSoundPackSheetState extends ConsumerState<StudioSoundPackSheet> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(() {
+      if (mounted) {
+        ref.read(soundPackManagerProvider.notifier).syncSoundPacksFromCloud();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(soundPackManagerProvider);
     final notifier = ref.read(soundPackManagerProvider.notifier);
 
@@ -81,7 +97,10 @@ class StudioSoundPackSheet extends ConsumerWidget {
                 ),
                 IconButton(
                   key: const Key('sound_pack_close_btn'),
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
                   splashColor: Colors.transparent,
                   highlightColor: Colors.transparent,
                   onPressed: () => Navigator.of(context).maybePop(),
@@ -99,7 +118,8 @@ class StudioSoundPackSheet extends ConsumerWidget {
             Expanded(
               child: ListView.separated(
                 itemCount: state.packs.length,
-                separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+                separatorBuilder: (_, _) =>
+                    const SizedBox(height: AppSpacing.sm),
                 itemBuilder: (context, index) {
                   final pack = state.packs[index];
                   final isDownloading = state.isDownloading(pack.id);
@@ -131,10 +151,11 @@ class StudioSoundPackSheet extends ConsumerWidget {
                                     children: [
                                       Text(
                                         pack.title,
-                                        style: AppTypography.bodyMedium.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.textPrimary,
-                                        ),
+                                        style: AppTypography.bodyMedium
+                                            .copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.textPrimary,
+                                            ),
                                       ),
                                       const SizedBox(width: 8),
                                       if (pack.isBundledNative)
@@ -144,19 +165,23 @@ class StudioSoundPackSheet extends ConsumerWidget {
                                             vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: AppColors.coinGold.withAlpha(28),
+                                            color: AppColors.coinGold.withAlpha(
+                                              28,
+                                            ),
                                             borderRadius: AppRadius.pillBorder,
                                             border: Border.all(
-                                              color: AppColors.coinGold.withAlpha(80),
+                                              color: AppColors.coinGold
+                                                  .withAlpha(80),
                                             ),
                                           ),
                                           child: Text(
                                             'Core Native',
-                                            style: AppTypography.caption.copyWith(
-                                              color: AppColors.coinGold,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                            style: AppTypography.caption
+                                                .copyWith(
+                                                  color: AppColors.coinGold,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                           ),
                                         ),
                                     ],
@@ -183,7 +208,10 @@ class StudioSoundPackSheet extends ConsumerWidget {
                             // Action Button
                             if (pack.isInstalled)
                               Container(
-                                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                                constraints: const BoxConstraints(
+                                  minWidth: 44,
+                                  minHeight: 44,
+                                ),
                                 alignment: Alignment.center,
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -213,7 +241,8 @@ class StudioSoundPackSheet extends ConsumerWidget {
                                   children: [
                                     LinearProgressIndicator(
                                       value: progress,
-                                      backgroundColor: AppColors.surfaceSecondary,
+                                      backgroundColor:
+                                          AppColors.surfaceSecondary,
                                       color: AppColors.brandPrimary,
                                       minHeight: 4,
                                     ),
@@ -234,15 +263,20 @@ class StudioSoundPackSheet extends ConsumerWidget {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.surfaceSecondary,
                                   foregroundColor: AppColors.brandPrimary,
-                                  side: const BorderSide(color: AppColors.brandPrimary),
+                                  side: const BorderSide(
+                                    color: AppColors.brandPrimary,
+                                  ),
                                   shape: const RoundedRectangleBorder(
                                     borderRadius: AppRadius.pillBorder,
                                   ),
                                   splashFactory: NoSplash.splashFactory,
                                   minimumSize: const Size(44, 44),
-                                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                  ),
                                 ),
-                                onPressed: () => notifier.downloadSoundPack(pack.id),
+                                onPressed: () =>
+                                    notifier.downloadSoundPack(pack.id),
                                 icon: const PhosphorIcon(
                                   PhosphorIconsRegular.downloadSimple,
                                   size: 16,
@@ -287,4 +321,3 @@ class StudioSoundPackSheet extends ConsumerWidget {
     );
   }
 }
-

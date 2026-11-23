@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/theme/vhunambi_theme_extension.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/design_system/tokens/design_enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -133,7 +135,9 @@ class _OptionPreviewChipState extends ConsumerState<OptionPreviewChip> {
                         color: isSelected
                             ? _contrastTextColor(accent)
                             : AppColors.textSecondary,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                       ),
                     )
                   : Column(
@@ -142,8 +146,9 @@ class _OptionPreviewChipState extends ConsumerState<OptionPreviewChip> {
                         Text(
                           widget.label,
                           style: AppTypography.bodySmall.copyWith(
-                            fontWeight:
-                                isSelected ? FontWeight.w700 : FontWeight.w500,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
                             color: isSelected
                                 ? _contrastTextColor(accent)
                                 : AppColors.textPrimary,
@@ -172,8 +177,8 @@ class _OptionPreviewChipState extends ConsumerState<OptionPreviewChip> {
                 child: const SizedBox(
                   width: 44,
                   height: 44,
-                  child: Icon(
-                    Icons.info_outline_rounded,
+                  child: PhosphorIcon(
+                    AppIcons.info,
                     size: 16,
                     color: AppColors.badgeCyan,
                   ),
@@ -250,108 +255,107 @@ class _OptionPreviewCard extends StatelessWidget {
           ),
         ),
         Center(
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              builder: (context, opacity, child) =>
-                  Opacity(opacity: opacity, child: child),
-              child: Container(
-                key: Key('option_preview_card_$optionKey'),
-                margin: const EdgeInsets.all(AppSpacing.xl),
-                constraints: const BoxConstraints(maxWidth: 360),
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceModal,
-                  borderRadius: AppRadius.cardBorder,
-                  border: Border.all(color: AppColors.borderActive),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent,
-                      blurRadius: 0,
-                      spreadRadius: 0,
-                      offset: Offset(0, 0),
-                      blurStyle: BlurStyle.inner,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(descriptor.emoji),
-                        const SizedBox(width: AppSpacing.xs),
-                        Expanded(
-                          child: Text(
-                            descriptor.title,
-                            style: AppTypography.titleMedium.copyWith(
-                              color: _contrastTextColor(accent),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      descriptor.description,
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Wrap(
-                      spacing: AppSpacing.xs,
-                      runSpacing: AppSpacing.xxs,
-                      children: [
-                        for (final genre in descriptor.bestForGenres)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.sm,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceSecondary,
-                              borderRadius: AppRadius.pillBorder,
-                              border:
-                                  Border.all(color: AppColors.borderSubtle),
-                            ),
-                            child: Text(
-                              genre,
-                              style: AppTypography.caption.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        key: Key('option_preview_got_it_$optionKey'),
-                        onPressed: () {
-                          if (entryRef.mounted) onGotIt();
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: accent,
-                          minimumSize: const Size.fromHeight(44),
-                        ),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            builder: (context, opacity, child) =>
+                Opacity(opacity: opacity, child: child),
+            child: Container(
+              key: Key('option_preview_card_$optionKey'),
+              margin: const EdgeInsets.all(AppSpacing.xl),
+              constraints: const BoxConstraints(maxWidth: 360),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceModal,
+                borderRadius: AppRadius.cardBorder,
+                border: Border.all(color: AppColors.borderActive),
+                boxShadow: [
+                  BoxShadow(
+                    color: accent,
+                    blurRadius: 0,
+                    spreadRadius: 0,
+                    offset: Offset(0, 0),
+                    blurStyle: BlurStyle.inner,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      PhosphorIcon(descriptor.icon, size: 18, color: accent),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
                         child: Text(
-                          'Got It',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: accent,
-                            fontWeight: FontWeight.w700,
+                          descriptor.title,
+                          style: AppTypography.titleMedium.copyWith(
+                            color: _contrastTextColor(accent),
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    descriptor.description,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xxs,
+                    children: [
+                      for (final genre in descriptor.bestForGenres)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceSecondary,
+                            borderRadius: AppRadius.pillBorder,
+                            border: Border.all(color: AppColors.borderSubtle),
+                          ),
+                          child: Text(
+                            genre,
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      key: Key('option_preview_got_it_$optionKey'),
+                      onPressed: () {
+                        if (entryRef.mounted) onGotIt();
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: accent,
+                        minimumSize: const Size.fromHeight(44),
+                      ),
+                      child: Text(
+                        'Got It',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: accent,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+        ),
       ],
     );
   }

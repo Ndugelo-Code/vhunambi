@@ -150,7 +150,7 @@ class _OnboardingViewState extends ConsumerState<OnboardingView>
     final notifier = ref.read(onboardingStateProvider.notifier);
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.surfaceCanvasOf(context),
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -176,9 +176,13 @@ class _OnboardingViewState extends ConsumerState<OnboardingView>
                     children: [
                       if (_currentPage > 0)
                         IconButton(
+                          constraints: const BoxConstraints(
+                            minWidth: 44,
+                            minHeight: 44,
+                          ),
                           icon: PhosphorIcon(
                             PhosphorIconsRegular.caretLeft,
-                            color: AppColors.textSecondary,
+                            color: AppColors.textSecondaryOf(context),
                             size: 20,
                           ),
                           onPressed: () {
@@ -305,23 +309,21 @@ class _OnboardingViewState extends ConsumerState<OnboardingView>
                               decoration: BoxDecoration(
                                 color: isActive
                                     ? AppColors.brandPrimary
-                                    : (Theme.of(context).brightness ==
-                                              Brightness.dark
-                                          ? Colors.white24
-                                          : Colors.black12),
+                                    : AppColors.borderSubtleOf(context),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             );
                           }),
                         ),
 
-                        // Primary [ Continue → ] Button
+                        // Primary [ Continue -> ] Button
                         ElevatedButton(
                           key: const Key('onboarding_continue_btn'),
                           onPressed: _nextPage,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.brandPrimary,
-                            foregroundColor: Colors.white,
+                            foregroundColor: AppColors.brandContrast,
+                            minimumSize: const Size(44, 46),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 22,
                               vertical: 12,
@@ -338,14 +340,14 @@ class _OnboardingViewState extends ConsumerState<OnboardingView>
                                 'Continue',
                                 style: AppTypography.bodyMedium.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: AppColors.brandContrast,
                                 ),
                               ),
                               const SizedBox(width: 6),
                               const PhosphorIcon(
                                 PhosphorIconsBold.arrowRight,
                                 size: 14,
-                                color: Colors.white,
+                                color: AppColors.brandContrast,
                               ),
                             ],
                           ),

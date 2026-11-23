@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/storage/hive_compaction_scheduler.dart';
+import '../../../../core/utils/json_safe.dart';
 import '../../../creator_dna/domain/entities/creator_dna_profile.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
 import '../../../mastering/presentation/providers/mastering_session_provider.dart';
@@ -134,8 +138,11 @@ class MelodySketchpadState {
 /// Manages the 5-channel FL Studio-style multi-track sequencer, Local Hive Vault,
 /// and 44.1 kHz stereo Master Drive summing (REQ-SKP2-TRACK-01..04).
 class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
-  MelodySketchpadNotifier(this._ref)
-    : super(
+  MelodySketchpadNotifier(this._ref, {Dio? dio, bool? isTestMode})
+    : _dio = dio ?? Dio(),
+      _hasCustomDio = dio != null,
+      _isTestMode = isTestMode ?? _detectTestMode(),
+      super(
         MelodySketchpadState(
           activePattern: kStarterMelodyPatterns.first,
           multiTrackGroove: MultiTrackGrooveEntity.createDefault(
@@ -149,12 +156,67 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
           ),
         ),
       ) {
+    if (dio == null) {
+      try {
+        _dio.interceptors.add(_ref.read(authDioInterceptorProvider));
+      } catch (_) {}
+    }
     _loadSavedPatternsFromHive();
   }
 
   final Ref _ref;
+  final Dio _dio;
+  final bool _hasCustomDio;
+  final bool _isTestMode;
   static const String _savedListKey = 'saved_melody_patterns_json';
   static const String _sketchKeyPrefix = 'sketch_';
+
+  static bool _detectTestMode() {
+    if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
+    try {
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  bool get _shouldSkipNetwork => _isTestMode && !_hasCustomDio;
+
+  /// Hydrates official starter groove presets from `GET /v1/melodies/presets` (`EP-P27`).
+  Future<List<MelodyPatternEntity>> syncStarterPresetsFromCloud({
+    String? genre,
+  }) async {
+    if (_shouldSkipNetwork) return state.starterPresets;
+
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '${AppConstants.apiBaseUrl}/melodies/presets',
+        queryParameters: {
+          if (genre != null && genre.trim().isNotEmpty) 'genre': genre.trim(),
+        },
+        options: Options(receiveTimeout: const Duration(seconds: 8)),
+      );
+      final rawPresets = JsonSafe.asList(response.data?['presets']);
+      if (rawPresets.isEmpty) return state.starterPresets;
+
+      final parsed = <MelodyPatternEntity>[];
+      for (final item in rawPresets) {
+        final map = JsonSafe.asMap(item);
+        if (map.isEmpty) continue;
+        parsed.add(MelodyPatternEntity.fromJson(map));
+      }
+      if (parsed.isNotEmpty && mounted) {
+        state = state.copyWith(starterPresets: parsed);
+        return parsed;
+      }
+    } catch (err) {
+      debugPrint(
+        '[MelodySketchpad] syncStarterPresetsFromCloud fallback: $err',
+      );
+    }
+    return state.starterPresets;
+  }
 
   ISketchpadAudioPlayerService get _audioService =>
       _ref.read(sketchpadAudioPlayerServiceProvider);
@@ -894,7 +956,8 @@ class MelodySketchpadNotifier extends StateNotifier<MelodySketchpadState> {
           .read(preGenR2UploadServiceProvider)
           .uploadMelodyReference(pattern: pattern, wavBytes: wavBytes);
       if (!mounted) return;
-      if ((result.r2ReferenceUrl != null && result.r2ReferenceUrl!.isNotEmpty) ||
+      if ((result.r2ReferenceUrl != null &&
+              result.r2ReferenceUrl!.isNotEmpty) ||
           (result.referenceId != null && result.referenceId!.isNotEmpty)) {
         state = state.copyWith(
           lastRenderedR2Url: result.r2ReferenceUrl,

@@ -73,7 +73,7 @@ class FakeGenerationSocketService implements IGenerationSocketService {
         step: PipelineStep.producingBeat,
         stepIndex: 3,
         progressPercent: 0.72,
-        statusMessage: 'Laying down the drums... feel it building 🥁',
+        statusMessage: 'Laying down the drums... feel it building...',
       ),
       PipelineSocketEvent(
         generationId: generationId,

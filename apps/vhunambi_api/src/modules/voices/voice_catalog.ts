@@ -31,7 +31,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.92,
     formantShiftSemitones: -0.4,
     recommendedCleanseFlavor: 'warm_intimate',
-    samplePreviewUrl: '/mock-storage/vox_venda_royal_alto.mp3',
+    samplePreviewUrl: 'voices/previews/vox_venda_royal_alto.mp3',
   },
   {
     id: 'vox_soweto_piano_falsetto',
@@ -45,7 +45,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.88,
     formantShiftSemitones: 0.3,
     recommendedCleanseFlavor: 'studio_clean',
-    samplePreviewUrl: '/mock-storage/vox_soweto_piano_falsetto.mp3',
+    samplePreviewUrl: 'voices/previews/vox_soweto_piano_falsetto.mp3',
   },
   {
     id: 'vox_durban_gqom_mc',
@@ -59,7 +59,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.95,
     formantShiftSemitones: -0.8,
     recommendedCleanseFlavor: 'studio_clean',
-    samplePreviewUrl: '/mock-storage/vox_durban_gqom_mc.mp3',
+    samplePreviewUrl: 'voices/previews/vox_durban_gqom_mc.mp3',
   },
   {
     id: 'vox_zululand_maskandi_story',
@@ -73,7 +73,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.94,
     formantShiftSemitones: 0.0,
     recommendedCleanseFlavor: 'studio_clean',
-    samplePreviewUrl: '/mock-storage/vox_zululand_maskandi_story.mp3',
+    samplePreviewUrl: 'voices/previews/vox_zululand_maskandi_story.mp3',
   },
   {
     id: 'vox_polokwane_lekompo_lead',
@@ -87,7 +87,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.90,
     formantShiftSemitones: 0.1,
     recommendedCleanseFlavor: 'studio_clean',
-    samplePreviewUrl: '/mock-storage/vox_polokwane_lekompo_lead.mp3',
+    samplePreviewUrl: 'voices/previews/vox_polokwane_lekompo_lead.mp3',
   },
   {
     id: 'vox_pretoria_bacardi_soprano',
@@ -101,7 +101,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.89,
     formantShiftSemitones: 0.4,
     recommendedCleanseFlavor: 'studio_clean',
-    samplePreviewUrl: '/mock-storage/vox_pretoria_bacardi_soprano.mp3',
+    samplePreviewUrl: 'voices/previews/vox_pretoria_bacardi_soprano.mp3',
   },
   {
     id: 'vox_eastern_cape_xhosa_velvet',
@@ -115,7 +115,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.91,
     formantShiftSemitones: -0.2,
     recommendedCleanseFlavor: 'warm_intimate',
-    samplePreviewUrl: '/mock-storage/vox_eastern_cape_xhosa_velvet.mp3',
+    samplePreviewUrl: 'voices/previews/vox_eastern_cape_xhosa_velvet.mp3',
   },
   {
     id: 'vox_giyani_tsonga_electro',
@@ -129,7 +129,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.93,
     formantShiftSemitones: 0.5,
     recommendedCleanseFlavor: 'studio_clean',
-    samplePreviewUrl: '/mock-storage/vox_giyani_tsonga_electro.mp3',
+    samplePreviewUrl: 'voices/previews/vox_giyani_tsonga_electro.mp3',
   },
   {
     id: 'vox_maseru_sesotho_crooner',
@@ -143,7 +143,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.87,
     formantShiftSemitones: -0.6,
     recommendedCleanseFlavor: 'warm_intimate',
-    samplePreviewUrl: '/mock-storage/vox_maseru_sesotho_crooner.mp3',
+    samplePreviewUrl: 'voices/previews/vox_maseru_sesotho_crooner.mp3',
   },
   {
     id: 'vox_mbabane_swati_harmony',
@@ -157,7 +157,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.90,
     formantShiftSemitones: 0.0,
     recommendedCleanseFlavor: 'wide_anthem',
-    samplePreviewUrl: '/mock-storage/vox_mbabane_swati_harmony.mp3',
+    samplePreviewUrl: 'voices/previews/vox_mbabane_swati_harmony.mp3',
   },
   {
     id: 'vox_gaborone_tswana_breeze',
@@ -171,7 +171,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.86,
     formantShiftSemitones: 0.2,
     recommendedCleanseFlavor: 'warm_intimate',
-    samplePreviewUrl: '/mock-storage/vox_gaborone_tswana_breeze.mp3',
+    samplePreviewUrl: 'voices/previews/vox_gaborone_tswana_breeze.mp3',
   },
   {
     id: 'vox_ndebele_royal_choir',
@@ -185,7 +185,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.96,
     formantShiftSemitones: 0.0,
     recommendedCleanseFlavor: 'wide_anthem',
-    samplePreviewUrl: '/mock-storage/vox_ndebele_royal_choir.mp3',
+    samplePreviewUrl: 'voices/previews/vox_ndebele_royal_choir.mp3',
   },
   {
     id: 'vox_lagos_afrobeats_smooth',
@@ -199,7 +199,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.89,
     formantShiftSemitones: -0.2,
     recommendedCleanseFlavor: 'warm_intimate',
-    samplePreviewUrl: '/mock-storage/vox_lagos_afrobeats_smooth.mp3',
+    samplePreviewUrl: 'voices/previews/vox_lagos_afrobeats_smooth.mp3',
   },
   {
     id: 'vox_lekki_siren_soprano',
@@ -213,7 +213,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.88,
     formantShiftSemitones: 0.4,
     recommendedCleanseFlavor: 'studio_clean',
-    samplePreviewUrl: '/mock-storage/vox_lekki_siren_soprano.mp3',
+    samplePreviewUrl: 'voices/previews/vox_lekki_siren_soprano.mp3',
   },
   {
     id: 'vox_accra_highlife_gold',
@@ -227,7 +227,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.87,
     formantShiftSemitones: -0.5,
     recommendedCleanseFlavor: 'warm_intimate',
-    samplePreviewUrl: '/mock-storage/vox_accra_highlife_gold.mp3',
+    samplePreviewUrl: 'voices/previews/vox_accra_highlife_gold.mp3',
   },
   {
     id: 'vox_enugu_ogene_tenor',
@@ -241,7 +241,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.91,
     formantShiftSemitones: 0.1,
     recommendedCleanseFlavor: 'studio_clean',
-    samplePreviewUrl: '/mock-storage/vox_enugu_ogene_tenor.mp3',
+    samplePreviewUrl: 'voices/previews/vox_enugu_ogene_tenor.mp3',
   },
   {
     id: 'vox_dakar_mbalax_griot',
@@ -255,7 +255,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.93,
     formantShiftSemitones: 0.3,
     recommendedCleanseFlavor: 'studio_clean',
-    samplePreviewUrl: '/mock-storage/vox_dakar_mbalax_griot.mp3',
+    samplePreviewUrl: 'voices/previews/vox_dakar_mbalax_griot.mp3',
   },
   {
     id: 'vox_nairobi_swahili_silk',
@@ -269,7 +269,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.88,
     formantShiftSemitones: 0.2,
     recommendedCleanseFlavor: 'studio_clean',
-    samplePreviewUrl: '/mock-storage/vox_nairobi_swahili_silk.mp3',
+    samplePreviewUrl: 'voices/previews/vox_nairobi_swahili_silk.mp3',
   },
   {
     id: 'vox_dar_bongo_flava_star',
@@ -283,7 +283,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.89,
     formantShiftSemitones: 0.0,
     recommendedCleanseFlavor: 'warm_intimate',
-    samplePreviewUrl: '/mock-storage/vox_dar_bongo_flava_star.mp3',
+    samplePreviewUrl: 'voices/previews/vox_dar_bongo_flava_star.mp3',
   },
   {
     id: 'vox_kampala_afro_dancehall',
@@ -297,7 +297,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.92,
     formantShiftSemitones: -0.7,
     recommendedCleanseFlavor: 'studio_clean',
-    samplePreviewUrl: '/mock-storage/vox_kampala_afro_dancehall.mp3',
+    samplePreviewUrl: 'voices/previews/vox_kampala_afro_dancehall.mp3',
   },
   {
     id: 'vox_addis_tizita_alto',
@@ -311,7 +311,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.91,
     formantShiftSemitones: -0.1,
     recommendedCleanseFlavor: 'warm_intimate',
-    samplePreviewUrl: '/mock-storage/vox_addis_tizita_alto.mp3',
+    samplePreviewUrl: 'voices/previews/vox_addis_tizita_alto.mp3',
   },
   {
     id: 'vox_kinshasa_rumba_sebene',
@@ -325,7 +325,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.94,
     formantShiftSemitones: 0.2,
     recommendedCleanseFlavor: 'wide_anthem',
-    samplePreviewUrl: '/mock-storage/vox_kinshasa_rumba_sebene.mp3',
+    samplePreviewUrl: 'voices/previews/vox_kinshasa_rumba_sebene.mp3',
   },
   {
     id: 'vox_douala_makossa_soul',
@@ -339,7 +339,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.87,
     formantShiftSemitones: 0.0,
     recommendedCleanseFlavor: 'warm_intimate',
-    samplePreviewUrl: '/mock-storage/vox_douala_makossa_soul.mp3',
+    samplePreviewUrl: 'voices/previews/vox_douala_makossa_soul.mp3',
   },
   {
     id: 'vox_london_afro_house_diva',
@@ -353,7 +353,7 @@ const RAW_REGIONAL_VOICE_CATALOG: RegionalVoiceArchetype[] = [
     loraScale: 0.90,
     formantShiftSemitones: 0.1,
     recommendedCleanseFlavor: 'wide_anthem',
-    samplePreviewUrl: '/mock-storage/vox_london_afro_house_diva.mp3',
+    samplePreviewUrl: 'voices/previews/vox_london_afro_house_diva.mp3',
   },
 ];
 
@@ -556,10 +556,18 @@ export function extractPhoneticCalibrationScript(
   };
 }
 
-export function registerVoiceCloneProfile(
+function buildVoiceCloneRecord(
   req: CreateVoiceCloneRequest,
-): CreatorVoiceCloneProfile {
-  const id = `vclone_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  cOrEnv?: unknown,
+): {
+  profile: CreatorVoiceCloneProfile;
+  dbRow: Record<string, any>;
+} {
+  const requestedId = req.id?.trim();
+  const id =
+    requestedId && requestedId.length > 0
+      ? requestedId
+      : `vclone_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const seed = req.creatorName.length + req.calibrationLines.join('').length;
 
   // Deterministic 8-float preview of the 256-D speaker timbre embedding
@@ -585,22 +593,43 @@ export function registerVoiceCloneProfile(
     cadenceWpm,
     clarityScore: 0.94,
     r2ReferenceUrl: resolveMediaUrl(
-      req.r2ReferenceUrl ?? `https://r2.vhunambi.com/voice-clones/${id}_ref.wav`,
+      req.r2ReferenceUrl ?? `voice-clones/${id}_ref.wav`,
+      cOrEnv as any,
     ),
     recommendedCleanseFlavor: 'studio_clean',
     createdAtIso: new Date().toISOString(),
   };
 
-  vhunambiDb.upsertVoiceClone({
-    ...profile,
-    voiceId: id,
-    creatorId,
-    displayName: req.creatorName,
-    consentVerified: true,
-    referenceAudioDurationSec: req.recordingDurationSec,
-    timbreEmbedding: timbreEmbeddingPreview,
-    createdAt: profile.createdAtIso,
-  });
+  return {
+    profile,
+    dbRow: {
+      ...profile,
+      voiceId: id,
+      creatorId,
+      displayName: req.creatorName,
+      consentVerified: true,
+      referenceAudioDurationSec: req.recordingDurationSec,
+      timbreEmbedding: timbreEmbeddingPreview,
+      createdAt: profile.createdAtIso,
+    },
+  };
+}
+
+export function registerVoiceCloneProfile(
+  req: CreateVoiceCloneRequest,
+  cOrEnv?: unknown,
+): CreatorVoiceCloneProfile {
+  const { profile, dbRow } = buildVoiceCloneRecord(req, cOrEnv);
+  vhunambiDb.upsertVoiceClone(dbRow);
+  return profile;
+}
+
+export async function registerVoiceCloneProfileAsync(
+  req: CreateVoiceCloneRequest,
+  cOrEnv?: unknown,
+): Promise<CreatorVoiceCloneProfile> {
+  const { profile, dbRow } = buildVoiceCloneRecord(req, cOrEnv);
+  await vhunambiDb.upsertVoiceCloneAsync(dbRow, cOrEnv);
   return profile;
 }
 
@@ -613,7 +642,10 @@ export const createZeroShotVoiceClone = registerVoiceCloneProfile;
 export const getClonedVoiceById = getVoiceCloneProfile;
 
 /** Registry of Sovereign Sound Signatures (Phase 35 / Design 8.2, Phase 62 Persistent) */
-export function registerSoundSignature(data: any): any {
+function buildSoundSignatureRecord(data: any): {
+  record: Record<string, any>;
+  dbRow: Record<string, any>;
+} {
   const now = new Date().toISOString();
   const creatorId = canonicalizeCreatorId(data.creatorId || 'creator_cern');
   const record = {
@@ -626,10 +658,27 @@ export function registerSoundSignature(data: any): any {
     createdAt: now,
     updatedAt: now,
   };
-  vhunambiDb.upsertSoundSignature({
-    ...record,
-    name: data.displayCode || data.name || 'Sound Signature',
-  });
+  return {
+    record,
+    dbRow: {
+      ...record,
+      name: data.displayCode || data.name || 'Sound Signature',
+    },
+  };
+}
+
+export function registerSoundSignature(data: any): any {
+  const { record, dbRow } = buildSoundSignatureRecord(data);
+  vhunambiDb.upsertSoundSignature(dbRow);
+  return record;
+}
+
+export async function registerSoundSignatureAsync(
+  data: any,
+  cOrEnv?: unknown,
+): Promise<any> {
+  const { record, dbRow } = buildSoundSignatureRecord(data);
+  await vhunambiDb.upsertSoundSignatureAsync(dbRow, cOrEnv);
   return record;
 }
 
@@ -654,8 +703,39 @@ export function updateSoundSignatureRecipe(id: string, recipeUpdate: any): any |
   return updated;
 }
 
+export async function updateSoundSignatureRecipeAsync(
+  id: string,
+  recipeUpdate: any,
+  cOrEnv?: unknown,
+): Promise<any | undefined> {
+  const existing = getSoundSignature(id);
+  if (!existing) return undefined;
+  const now = new Date().toISOString();
+  const updated = {
+    ...existing,
+    recipe: { ...(existing.recipe ?? {}), ...recipeUpdate },
+    updatedAtIso: now,
+    updatedAt: now,
+  };
+  await vhunambiDb.upsertSoundSignatureAsync(
+    {
+      ...updated,
+      name: updated.displayCode || updated.name || 'Sound Signature',
+    },
+    cOrEnv,
+  );
+  return updated;
+}
+
 export function deleteSoundSignature(id: string): boolean {
   return vhunambiDb.deleteSoundSignature(id);
+}
+
+export async function deleteSoundSignatureAsync(
+  id: string,
+  cOrEnv?: unknown,
+): Promise<boolean> {
+  return vhunambiDb.deleteSoundSignatureAsync(id, cOrEnv);
 }
 
 export const createSoundSignatureRecord = registerSoundSignature;

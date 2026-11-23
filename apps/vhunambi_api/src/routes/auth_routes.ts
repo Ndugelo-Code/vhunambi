@@ -12,6 +12,7 @@ import {
   sovereignAuthMiddleware,
 } from '../middleware/auth_middleware.js';
 import { hashPassword, hashRefreshToken } from '../security/crypto_token.js';
+import { validateSovereignPassword } from '../security/password_policy.js';
 
 export const authRoutes = new Hono();
 
@@ -295,6 +296,8 @@ authRoutes.post('/register', async (c) => {
       );
     }
 
+    validateSovereignPassword(body.password);
+
     const runtimeEnv = resolveRuntimeEnv(c);
     const driver = new SupabaseCloudDriver(runtimeEnv);
     const cleanedHandle = body.handle.trim().toLowerCase().replace(/^@+/, '');
@@ -387,6 +390,9 @@ authRoutes.post('/register', async (c) => {
     const msg = err instanceof Error ? err.message : 'Registration failed';
     if (msg.startsWith('AUTH_IDENTITY_EXISTS')) {
       return c.json({ error: msg, code: 'AUTH_IDENTITY_EXISTS' }, 409);
+    }
+    if (msg.startsWith('WEAK_PASSWORD')) {
+      return c.json({ error: msg, code: 'WEAK_PASSWORD' }, 400);
     }
     return c.json({ error: msg, code: 'VALIDATION_ERROR' }, 400);
   }

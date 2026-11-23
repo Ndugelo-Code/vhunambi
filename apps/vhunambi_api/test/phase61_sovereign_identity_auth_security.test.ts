@@ -54,6 +54,24 @@ async function testPhase61SovereignIdentityAuthAndSecurity(): Promise<void> {
   );
   assert.equal(dupRes.status, 409);
 
+  // Weak password registration attempts -> 400 WEAK_PASSWORD
+  for (const weakPwd of ['Ab1!xy', 'alllowercase123', 'Password123!', '12345678aA!']) {
+    const weakRes = await app.fetch(
+      new Request('http://localhost/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          handle: `@weak_${suffix}`,
+          email: `weak_${suffix}@vhunambi.test`,
+          password: weakPwd,
+        }),
+      }),
+    );
+    assert.equal(weakRes.status, 400, `Expected 400 for weak password: ${weakPwd}`);
+    const weakBody = (await weakRes.json()) as any;
+    assert.equal(weakBody.code, 'WEAK_PASSWORD');
+  }
+
   // Login with seeded creators (@cern & @makhadzi)
   const cernLoginRes = await app.fetch(
     new Request('http://localhost/api/auth/login', {

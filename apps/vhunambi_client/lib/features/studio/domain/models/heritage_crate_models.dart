@@ -1,17 +1,19 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+
+import '../../../../core/design_system/tokens/app_icons.dart';
 
 /// Categories of authentic indigenous African instruments for crate digging.
 enum HeritageCrateCategory {
-  all('All Instruments', '🌍'),
-  percussion('Drums & Percussion', '🥁'),
-  pluckedStrings('Plucked Strings', '🪕'),
-  melodicIdiophones('Idiophones & Mbira', '🎹'),
-  traditionalPipes('Flutes & Horns', '🎷'),
-  chants('Ancestral Chants', '🗣️');
+  all('All Instruments', AppIcons.disc),
+  percussion('Drums & Percussion', AppIcons.drums),
+  pluckedStrings('Plucked Strings', AppIcons.guitar),
+  melodicIdiophones('Idiophones & Mbira', AppIcons.piano),
+  traditionalPipes('Flutes & Horns', AppIcons.waveform),
+  chants('Ancestral Chants', AppIcons.vocals);
 
   final String label;
-  final String emoji;
-  const HeritageCrateCategory(this.label, this.emoji);
+  final IconData icon;
+  const HeritageCrateCategory(this.label, this.icon);
 }
 
 /// An individual authentic African indigenous sound sample in the crate archive.

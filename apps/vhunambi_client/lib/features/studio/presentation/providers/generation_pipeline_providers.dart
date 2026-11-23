@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vhunambi_client/core/auth/auth_providers.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/core/resilience/safe_notifier_mixin.dart';
+import 'package:vhunambi_client/core/utils/creator_id_utils.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 
 import '../../../content_studio/domain/models/master_media_object.dart';
 import '../../../content_studio/presentation/providers/master_media_object_provider.dart';
@@ -428,6 +430,32 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
       formSnapshot = _ref.read<StudioFormState>(studioFormProvider);
     } catch (_) {}
 
+    // Resolve authenticated creator attribution so newly generated songs belong to owner (`VA-06`).
+    var resolvedCreatorId = 'creator_cern';
+    var resolvedCreatorName = 'Cern';
+    var resolvedCreatorHandle = '@cern';
+    try {
+      final session = _ref.read(authSessionProvider);
+      final ownerProfile = _ref.read(ownerProfileProvider);
+      resolvedCreatorId =
+          ownerProfile.id.isNotEmpty && ownerProfile.id != 'me'
+          ? canonicalizeCreatorId(ownerProfile.id)
+          : canonicalizeCreatorId(session.canonicalCreatorId);
+      if (ownerProfile.displayName.trim().isNotEmpty) {
+        resolvedCreatorName = ownerProfile.displayName.trim();
+      } else if (session.displayName.trim().isNotEmpty) {
+        resolvedCreatorName = session.displayName.trim();
+      }
+      final rawHandle = ownerProfile.handle.trim().isNotEmpty
+          ? ownerProfile.handle.trim()
+          : (session.rawUsername.trim().isNotEmpty
+                ? session.rawUsername.trim()
+                : handleFromCreatorId(resolvedCreatorId));
+      resolvedCreatorHandle = rawHandle.startsWith('@')
+          ? rawHandle
+          : '@$rawHandle';
+    } catch (_) {}
+
     try {
       final stemStringPaths = <String, String>{
         if (normalizedStemUrls != null)
@@ -437,7 +465,9 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
       final libraryTrack = LibraryTrack(
         id: normalizedTrack.id,
         title: effectiveTitle,
-        creatorName: 'AI Studio',
+        creatorName: resolvedCreatorName,
+        creatorId: resolvedCreatorId,
+        creatorHandle: resolvedCreatorHandle,
         genre: normalizedTrack.genre,
         language: normalizedTrack.language,
         durationSeconds: normalizedTrack.duration.inSeconds,
@@ -495,7 +525,12 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
       try {
         _ref
             .read(playerStateProvider.notifier)
-            .playTrack(normalizedTrack.toTrack());
+            .playTrack(
+              normalizedTrack.toTrack(
+                creatorName: resolvedCreatorName,
+                creatorHandle: resolvedCreatorHandle,
+              ),
+            );
       } catch (error) {
         debugPrint('GenerationPipelineNotifier auto-play error: $error');
       }

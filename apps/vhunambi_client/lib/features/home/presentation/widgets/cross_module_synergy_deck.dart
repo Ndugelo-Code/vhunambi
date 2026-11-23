@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
+import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../sound_signature/data/sound_signature_repository.dart';
 import '../../../sound_signature/presentation/widgets/sound_signature_idealizer_sheet.dart';
 import '../../../studio/presentation/widgets/melody_sketchpad_modal.dart';
 import '../../domain/models/studio_synergy_context.dart';
@@ -90,7 +94,7 @@ class CrossModuleSynergyDeck extends ConsumerWidget {
               onDismiss: () => ref
                   .read(crossModuleSynergyProvider.notifier)
                   .dismissCard(card.id),
-              onAction: () => _handleCardAction(context, card),
+              onAction: () => _handleCardAction(context, ref, card),
             );
           },
         ),
@@ -98,7 +102,11 @@ class CrossModuleSynergyDeck extends ConsumerWidget {
     );
   }
 
-  void _handleCardAction(BuildContext context, SynergyCardItem card) {
+  void _handleCardAction(
+    BuildContext context,
+    WidgetRef ref,
+    SynergyCardItem card,
+  ) {
     HapticFeedback.lightImpact();
 
     if (card.context.gapKind == SynergyGapKind.signatureUnusedInSketchpad) {
@@ -108,19 +116,52 @@ class CrossModuleSynergyDeck extends ConsumerWidget {
 
     final signature = card.context.signature;
     if (signature != null) {
+      final sigRepo = ref.read(soundSignatureRepositoryProvider);
+      final authInterceptor = ref.read(authDioInterceptorProvider);
       showModalBottomSheet<void>(
         context: context,
-        backgroundColor: AppColors.surfaceModal,
+        backgroundColor: AppColors.surfaceModalOf(context),
         isScrollControlled: true,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.modalBorder,
-          side: BorderSide(color: AppColors.borderSubtle),
+          side: BorderSide(color: AppColors.borderSubtleOf(context)),
         ),
         builder: (ctx) => FractionallySizedBox(
           heightFactor: 0.9,
           child: SoundSignatureIdealizerSheet(
             signature: signature,
             initialRecipe: card.context.suggestedRecipe,
+            onSaveRecipe: (updatedRecipe) {
+              final updated = signature.copyWith(recipe: updatedRecipe);
+              unawaited(sigRepo.saveSignature(updated));
+              unawaited(
+                sigRepo.updateRecipeInCloud(
+                  signatureId: signature.id,
+                  recipe: updatedRecipe,
+                  authInterceptor: authInterceptor,
+                ),
+              );
+            },
+            onUseAsVoiceClone: (sig) {
+              unawaited(
+                sigRepo.saveSignature(
+                  sig.copyWith(consentAtIso: DateTime.now().toIso8601String()),
+                ),
+              );
+            },
+            onDelete: () {
+              Navigator.of(ctx).pop();
+              unawaited(sigRepo.deleteSignature(signature.id));
+              unawaited(
+                sigRepo.deleteSignatureInCloud(
+                  signature.id,
+                  authInterceptor: authInterceptor,
+                ),
+              );
+              ref
+                  .read(crossModuleSynergyProvider.notifier)
+                  .dismissCard(card.id);
+            },
           ),
         ),
       );

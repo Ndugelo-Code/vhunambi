@@ -207,5 +207,28 @@ class _ThrowingLyricsService implements ILyricsGenerationService {
   }
 
   @override
+  Future<LyricsReviewDraft> refineLyrics({
+    required String currentLyrics,
+    required String refinementInstruction,
+    String? idiomToInsert,
+    required String genre,
+    required String language,
+    String prompt = '',
+  }) async {
+    throw StateError('synthesis worker offline');
+  }
+
+  @override
+  Future<LyricsReviewDraft> transformStoryToLyrics({
+    required String storyText,
+    required String genre,
+    required String language,
+    List<String>? targetCognateLanguages,
+    List<String>? mood,
+  }) async {
+    throw StateError('synthesis worker offline');
+  }
+
+  @override
   List<String> getCulturalIdioms(String language) => const <String>[];
 }

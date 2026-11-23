@@ -92,6 +92,88 @@ class LyricsReviewNotifier extends StateNotifier<LyricsReviewDraft?> {
     );
   }
 
+  /// Refines a specific stanza section via `POST /v1/lyrics/refine` (`EP-P66`).
+  Future<bool> refineSection(
+    String sectionId,
+    String instruction, {
+    String? idiomToInsert,
+  }) async {
+    final current = state;
+    if (current == null || isLoading) return false;
+    final targetIdx = current.sections.indexWhere((s) => s.id == sectionId);
+    if (targetIdx < 0) return false;
+    final target = current.sections[targetIdx];
+
+    isLoading = true;
+    try {
+      final blockText = '${target.header}\n${target.lines.join('\n')}'.trim();
+      final refined = await _service.refineLyrics(
+        currentLyrics: blockText,
+        refinementInstruction: instruction,
+        idiomToInsert: idiomToInsert,
+        genre: _genre.isEmpty ? current.genre : _genre,
+        language: _language.isEmpty ? current.language : _language,
+        prompt: _prompt.isEmpty ? current.prompt : _prompt,
+      );
+      if (!mounted) return false;
+
+      final latest = state;
+      if (latest == null) return false;
+      final refinedLines = refined.sections.isNotEmpty
+          ? refined.sections.first.lines
+          : refined.rawText
+              .split('\n')
+              .map((l) => l.trim())
+              .where((l) => l.isNotEmpty && !l.startsWith('['))
+              .toList();
+
+      if (refinedLines.isEmpty) return false;
+      updateSectionLines(sectionId, refinedLines);
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  /// Transforms personal narrative prose into structured rhythmic lyrics (`EP-P66`).
+  Future<bool> transformStory({
+    required String storyText,
+    List<String>? mood,
+    List<String>? targetCognateLanguages,
+  }) async {
+    final trimmed = storyText.trim();
+    if (trimmed.length < 20 || isLoading) return false;
+
+    final current = state;
+    final genre = _genre.isNotEmpty ? _genre : (current?.genre ?? 'Amapiano');
+    final language =
+        _language.isNotEmpty ? _language : (current?.language ?? 'Tshivenḓa');
+
+    isLoading = true;
+    try {
+      final draft = await _service.transformStoryToLyrics(
+        storyText: trimmed,
+        genre: genre,
+        language: language,
+        targetCognateLanguages: targetCognateLanguages,
+        mood: mood,
+      );
+      if (!mounted) return false;
+      _prompt = trimmed;
+      _genre = genre;
+      _language = language;
+      hasEdits = true;
+      state = draft;
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      isLoading = false;
+    }
+  }
+
   /// Replaces the lines of a single stanza and rebuilds the raw surface.
   void updateSectionLines(String sectionId, List<String> newLines) {
     final current = state;

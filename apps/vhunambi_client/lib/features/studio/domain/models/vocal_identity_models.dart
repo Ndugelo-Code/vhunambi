@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/json_safe.dart';
 import '../../../mastering/domain/models/stem_mastering_recipe.dart';
 
 /// Gender classification for regional African voice archetypes.
@@ -113,6 +115,33 @@ class RegionalVoiceArchetype {
         'recommendedCleanseFlavor': recommendedCleanseFlavor.wireValue,
         'samplePreviewUrl': samplePreviewUrl,
       };
+
+  factory RegionalVoiceArchetype.fromJson(Map<String, dynamic> json) {
+    final preview = JsonSafe.asString(json['samplePreviewUrl']);
+    return RegionalVoiceArchetype(
+      id: JsonSafe.asString(json['id'], 'vox_custom'),
+      name: JsonSafe.asString(json['name'], 'African Vocal Archetype'),
+      region: AfricanVoiceRegion.fromApi(
+        JsonSafe.asString(json['region'], 'southern_africa'),
+      ),
+      gender: VocalGender.fromApi(JsonSafe.asString(json['gender'], 'female')),
+      deliveryStyle: VocalDeliveryStyle.fromApi(
+        JsonSafe.asString(json['deliveryStyle'], 'melodic_soul'),
+      ),
+      nativeLanguage: JsonSafe.asString(json['nativeLanguage'], 'Tshivenḓa'),
+      accentDescription: JsonSafe.asString(json['accentDescription']),
+      vocalRange: JsonSafe.asString(json['vocalRange'], 'G3 – E5'),
+      loraScale: JsonSafe.asDouble(json['loraScale'], 0.9),
+      formantShiftSemitones:
+          JsonSafe.asDouble(json['formantShiftSemitones'], 0.0),
+      recommendedCleanseFlavor: VocalCleanseFlavor.fromWire(
+        JsonSafe.asString(json['recommendedCleanseFlavor'], 'studio_clean'),
+      ),
+      samplePreviewUrl: preview.isEmpty
+          ? ''
+          : AppConstants.normalizeCloudMediaUrl(preview),
+    );
+  }
 }
 
 /// A single phonetically scored lyric line extracted from the user's lyrics (REQ-VOC-04).
@@ -139,6 +168,19 @@ class PhoneticCalibrationLine {
         'highlightedTokens': highlightedTokens,
         'estimatedDurationSec': estimatedDurationSec,
       };
+
+  factory PhoneticCalibrationLine.fromJson(Map<String, dynamic> json) {
+    return PhoneticCalibrationLine(
+      lineIndex: JsonSafe.asInt(json['lineIndex'], 0),
+      text: JsonSafe.asString(json['text']),
+      phoneticScore: JsonSafe.asDouble(json['phoneticScore'], 0.0),
+      highlightedTokens: JsonSafe.asList(json['highlightedTokens'])
+          .map((e) => e.toString())
+          .toList(),
+      estimatedDurationSec:
+          JsonSafe.asInt(json['estimatedDurationSec'], 5).clamp(2, 15),
+    );
+  }
 }
 
 /// Complete 3-line calibration script for the 15-20s post-lyrics voice note recorder (REQ-VOC-05).
@@ -153,6 +195,22 @@ class PhoneticCalibrationScript {
   final String language;
   final List<PhoneticCalibrationLine> lines;
   final int totalEstimatedDurationSec;
+
+  factory PhoneticCalibrationScript.fromJson(Map<String, dynamic> json) {
+    final parsedLines = JsonSafe.asList(json['lines'])
+        .map((item) => PhoneticCalibrationLine.fromJson(JsonSafe.asMap(item)))
+        .where((line) => line.text.trim().isNotEmpty)
+        .toList();
+    final total = JsonSafe.asInt(
+      json['totalEstimatedDurationSec'],
+      parsedLines.fold<int>(0, (acc, l) => acc + l.estimatedDurationSec),
+    );
+    return PhoneticCalibrationScript(
+      language: JsonSafe.asString(json['language'], 'Tshivenḓa'),
+      lines: parsedLines,
+      totalEstimatedDurationSec: total,
+    );
+  }
 }
 
 /// Zero-Shot Cloned Voice Profile capturing the creator's timbre & Bantu pronunciation (REQ-VOC-08).

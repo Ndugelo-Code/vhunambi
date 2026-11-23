@@ -7,6 +7,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
+import '../../../../core/widgets/vhunambi_glass_tab_bar.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../shared/models/track.dart';
 import '../../../player/presentation/providers/mini_player_controller.dart';
@@ -51,16 +52,19 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
     final catalog = ref.watch(visibleExploreTracksProvider);
     final hasResults = ref.watch(filteredExploreTracksProvider).isNotEmpty;
     final hasMore = ref.watch(hasMoreExploreTracksProvider);
-    final hasActiveTrack =
-        ref.watch(playerStateProvider.select((s) => s.hasActiveTrack));
+    final hasActiveTrack = ref.watch(
+      playerStateProvider.select((s) => s.hasActiveTrack),
+    );
 
     final selectedTier = ref.watch(selectedDiscoveryTierProvider);
     // Filter posts if on following tab and rank/filter by discovery tier
     final rawPosts = activeTab == ExploreTab.following
         ? allPosts.where((p) => followingIds.contains(p.creatorId)).toList()
         : allPosts;
-    final displayPosts =
-        DiscoveryHierarchyRanker.filterByTier(rawPosts, selectedTier);
+    final displayPosts = DiscoveryHierarchyRanker.filterByTier(
+      rawPosts,
+      selectedTier,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvasOf(context),
@@ -102,151 +106,162 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
         },
         child: CustomScrollView(
           slivers: [
-          // 1. Facebook Stories-Style Kinetic Reels Discovery Rail (Card #0 is ➕ Post Reel)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(top: AppSpacing.xs),
-              child: TrendingReelsShelf(),
-            ),
-          ),
-
-          // 2. Feed Switcher Filter Bar
-          SliverToBoxAdapter(
-            child: _buildFeedSwitcher(context, activeTab, selectedTier),
-          ),
-
-          // Kinetic Post Composer Bar (Phase 38 REQ-KPOST-COMP-01)
-          if (!_showingAllSongs)
+            // 1. Facebook Stories-Style Kinetic Reels Discovery Rail (Card #0 is ➕ Post Reel)
             const SliverToBoxAdapter(
-              child: KineticPostComposerBar(),
+              child: Padding(
+                padding: EdgeInsets.only(top: AppSpacing.xs),
+                child: TrendingReelsShelf(),
+              ),
             ),
 
-          // 3. Main Body: Catalog Mode vs. Creator Music Social Feed
-          if (_showingAllSongs) ...[
-            // Catalog Filter Engine & Results
-            const SliverToBoxAdapter(child: CatalogFilterBar()),
-            if (hasResults)
-              _buildCatalogGrid(context, catalog)
-            else
-              SliverToBoxAdapter(
-                child: ExploreEmptyState(
-                  onCreateRequested: widget.onCreateRequested,
-                ),
-              ),
-            if (hasResults && hasMore)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm,
+            // 2. Feed Switcher Filter Bar
+            SliverToBoxAdapter(
+              child: _buildFeedSwitcher(context, activeTab, selectedTier),
+            ),
+
+            // Kinetic Post Composer Bar (Phase 38 REQ-KPOST-COMP-01)
+            if (!_showingAllSongs)
+              const SliverToBoxAdapter(child: KineticPostComposerBar()),
+
+            // 3. Main Body: Catalog Mode vs. Creator Music Social Feed
+            if (_showingAllSongs) ...[
+              // Catalog Filter Engine & Results
+              const SliverToBoxAdapter(child: CatalogFilterBar()),
+              if (hasResults)
+                _buildCatalogGrid(context, catalog)
+              else
+                SliverToBoxAdapter(
+                  child: ExploreEmptyState(
+                    onCreateRequested: widget.onCreateRequested,
                   ),
-                  child: Center(
-                    child: OutlinedButton(
-                      onPressed: () => loadMoreExploreTracks(ref),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textPrimary,
-                        side: BorderSide(color: AppColors.borderSubtle),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.pillBorder,
+                ),
+              if (hasResults && hasMore)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: Center(
+                      child: OutlinedButton(
+                        onPressed: () => loadMoreExploreTracks(ref),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textPrimaryOf(context),
+                          side: BorderSide(
+                            color: AppColors.borderSubtleOf(context),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.pillBorder,
+                          ),
                         ),
+                        child: const Text('Load more'),
                       ),
-                      child: const Text('Load more'),
                     ),
                   ),
                 ),
-              ),
-          ] else ...[
-            // Unified Creator Music Social Feed with Zero-Skip 5-Slot Interleaving
-            if (displayPosts.isEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xl),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        PhosphorIcon(
-                          AppIcons.search,
-                          size: 48,
-                          color: AppColors.textSecondaryOf(context),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          activeTab == ExploreTab.following
-                              ? 'Not following any creators yet'
-                              : 'No posts in feed',
-                          style: AppTypography.titleMedium.copyWith(
+            ] else ...[
+              // Unified Creator Music Social Feed with Zero-Skip 5-Slot Interleaving
+              if (displayPosts.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          PhosphorIcon(
+                            AppIcons.search,
+                            size: 48,
                             color: AppColors.textSecondaryOf(context),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Follow creators or switch to "For You" to discover new music.',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.textSecondaryOf(context),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            activeTab == ExploreTab.following
+                                ? 'Not following any creators yet'
+                                : 'No posts in feed',
+                            style: AppTypography.titleMedium.copyWith(
+                              color: AppColors.textSecondaryOf(context),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          Text(
+                            'Follow creators or switch to "For You" to discover new music.',
+                            textAlign: TextAlign.center,
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.textSecondaryOf(context),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              )
-            else
-              _buildInterleavedSocialFeed(displayPosts, rising),
-          ],
+                )
+              else
+                _buildInterleavedSocialFeed(displayPosts, rising),
+            ],
 
-          // 4. Bottom Transport Clearance Dock Metric
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: VhunambiBottomDockMetrics.scrollInset(
-                hasActiveTrack: hasActiveTrack,
+            // 4. Bottom Transport Clearance Dock Metric
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: VhunambiBottomDockMetrics.scrollInset(
+                  hasActiveTrack: hasActiveTrack,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-  Widget _buildFeedSwitcher(BuildContext context, ExploreTab activeTab, DiscoveryStageTier? selectedTier) {
+  Widget _buildFeedSwitcher(
+    BuildContext context,
+    ExploreTab activeTab,
+    DiscoveryStageTier? selectedTier,
+  ) {
+    final selectedFeedIndex = _showingAllSongs
+        ? 2
+        : (activeTab == ExploreTab.following ? 1 : 0);
+
     return Container(
       key: const Key('explore_feed_switcher'),
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      padding: EdgeInsets.zero,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         child: Row(
           children: [
-            // 'For You' Pill
-            _buildFilterPill(
-              label: 'For You',
-              isSelected: !_showingAllSongs && activeTab == ExploreTab.forYou,
-              onTap: () {
-                setState(() => _showingAllSongs = false);
-                ref.read(exploreTabProvider.notifier).state = ExploreTab.forYou;
-              },
-            ),
-            const SizedBox(width: AppSpacing.xs),
-
-            // 'Following' Pill
-            _buildFilterPill(
-              label: 'Following',
-              isSelected: !_showingAllSongs && activeTab == ExploreTab.following,
-              onTap: () {
-                setState(() => _showingAllSongs = false);
-                ref.read(exploreTabProvider.notifier).state =
-                    ExploreTab.following;
-              },
-            ),
-            const SizedBox(width: AppSpacing.xs),
-
-            // 'All Songs' (Catalog Browser) Pill
-            _buildFilterPill(
-              label: 'All Songs',
-              isSelected: _showingAllSongs,
-              onTap: () {
-                setState(() => _showingAllSongs = true);
+            VhunambiGlassTabBar(
+              selectedIndex: selectedFeedIndex,
+              scrollable: true,
+              items: const <VhunambiGlassTabItem>[
+                VhunambiGlassTabItem(
+                  key: Key('explore_tab_for_you'),
+                  label: 'For You',
+                  icon: PhosphorIconsRegular.sparkle,
+                ),
+                VhunambiGlassTabItem(
+                  key: Key('explore_tab_following'),
+                  label: 'Following',
+                  icon: PhosphorIconsRegular.usersThree,
+                ),
+                VhunambiGlassTabItem(
+                  key: Key('explore_tab_all_songs'),
+                  label: 'All Songs',
+                  icon: PhosphorIconsRegular.musicNotes,
+                ),
+              ],
+              onSelected: (index) {
+                if (index == 0) {
+                  setState(() => _showingAllSongs = false);
+                  ref.read(exploreTabProvider.notifier).state =
+                      ExploreTab.forYou;
+                } else if (index == 1) {
+                  setState(() => _showingAllSongs = false);
+                  ref.read(exploreTabProvider.notifier).state =
+                      ExploreTab.following;
+                } else {
+                  setState(() => _showingAllSongs = true);
+                }
               },
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -261,6 +276,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: _buildFilterPill(
+                      context: context,
                       label: tier.displayName,
                       isSelected: isTierSelected,
                       onTap: () {
@@ -281,7 +297,10 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
               onTap: () => ExploreDiscoveryDrawerSheet.show(context),
               borderRadius: AppRadius.pillBorder,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceElevatedOf(context),
                   borderRadius: AppRadius.pillBorder,
@@ -314,6 +333,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
   }
 
   Widget _buildFilterPill({
+    required BuildContext context,
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
@@ -322,12 +342,18 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
       onTap: onTap,
       borderRadius: AppRadius.pillBorder,
       child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
+        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.brandPrimary : AppColors.surfaceElevated,
+          color: isSelected
+              ? AppColors.brandPrimary
+              : AppColors.surfaceElevatedOf(context),
           borderRadius: AppRadius.pillBorder,
           border: Border.all(
-            color: isSelected ? AppColors.brandPrimary : AppColors.borderSubtle,
+            color: isSelected
+                ? AppColors.brandPrimary
+                : AppColors.borderSubtleOf(context),
           ),
         ),
         child: Text(
@@ -335,7 +361,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
           style: AppTypography.caption.copyWith(
             color: isSelected
                 ? AppColors.brandContrast
-                : AppColors.textSecondary,
+                : AppColors.textSecondaryOf(context),
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
@@ -353,27 +379,24 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
     final totalSlots = posts.length + carouselCount;
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, idx) {
-          final isCarouselSlot = (idx + 1) % 5 == 0;
+      delegate: SliverChildBuilderDelegate((context, idx) {
+        final isCarouselSlot = (idx + 1) % 5 == 0;
 
-          if (isCarouselSlot) {
-            final carouselIdx = (idx + 1) ~/ 5;
-            return _buildInterleavedCarousel(carouselIdx, rising);
-          }
+        if (isCarouselSlot) {
+          final carouselIdx = (idx + 1) ~/ 5;
+          return _buildInterleavedCarousel(carouselIdx, rising);
+        }
 
-          final postIndex = idx - (idx ~/ 5);
-          if (postIndex < posts.length) {
-            return ExploreSocialPostCard(
-              post: posts[postIndex],
-              onRemixSuccess: widget.onCreateRequested,
-            );
-          }
+        final postIndex = idx - (idx ~/ 5);
+        if (postIndex < posts.length) {
+          return ExploreSocialPostCard(
+            post: posts[postIndex],
+            onRemixSuccess: widget.onCreateRequested,
+          );
+        }
 
-          return const SizedBox.shrink();
-        },
-        childCount: totalSlots,
-      ),
+        return const SizedBox.shrink();
+      }, childCount: totalSlots),
     );
   }
 
@@ -475,10 +498,7 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
                 ],
               ),
               const SizedBox(height: AppSpacing.xs),
-              for (final track in rising.take(2))
-                TrackListTile(
-                  track: track,
-                ),
+              for (final track in rising.take(2)) TrackListTile(track: track),
             ],
           ),
         );
@@ -542,8 +562,8 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
     final columns = ResponsiveUtils.isDesktop(context)
         ? 6
         : ResponsiveUtils.isTablet(context)
-            ? 4
-            : 2;
+        ? 4
+        : 2;
 
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -554,15 +574,10 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
           mainAxisSpacing: AppSpacing.sm,
           childAspectRatio: 0.75,
         ),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final track = tracks[index];
-            return TrackCard(
-              track: track,
-            );
-          },
-          childCount: tracks.length,
-        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final track = tracks[index];
+          return TrackCard(track: track);
+        }, childCount: tracks.length),
       ),
     );
   }

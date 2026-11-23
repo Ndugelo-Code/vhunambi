@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
@@ -60,12 +64,17 @@ class _VoiceCloneRecorderSheetState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (widget.initialLyrics != null) {
-        ref
-            .read(vocalIdentityProvider.notifier)
-            .prepareCalibrationFromLyrics(
-              widget.initialLyrics!,
-              language: widget.language,
-            );
+        final notifier = ref.read(vocalIdentityProvider.notifier);
+        notifier.prepareCalibrationFromLyrics(
+          widget.initialLyrics!,
+          language: widget.language,
+        );
+        unawaited(
+          notifier.prepareCalibrationFromLyricsAsync(
+            widget.initialLyrics!,
+            language: widget.language,
+          ),
+        );
       }
     });
   }
@@ -101,9 +110,9 @@ class _VoiceCloneRecorderSheetState
                     gradient: AppGradients.primaryButton,
                     borderRadius: AppRadius.buttonBorder,
                   ),
-                  child: Icon(
-                    Icons.mic_external_on_rounded,
-                    color: AppColors.textPrimary,
+                  child: PhosphorIcon(
+                    AppIcons.voiceClone,
+                    color: AppColors.brandContrast,
                     size: 20,
                   ),
                 ),
@@ -134,8 +143,8 @@ class _VoiceCloneRecorderSheetState
                     minHeight: 44,
                   ),
                   onPressed: () => Navigator.of(context).maybePop(),
-                  icon: Icon(
-                    Icons.close_rounded,
+                  icon: PhosphorIcon(
+                    AppIcons.close,
                     color: AppColors.textSecondary,
                   ),
                 ),
@@ -155,8 +164,8 @@ class _VoiceCloneRecorderSheetState
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.verified_rounded,
+                    const PhosphorIcon(
+                      AppIcons.verified,
                       color: AppColors.success,
                       size: 18,
                     ),
@@ -366,10 +375,10 @@ class _VoiceCloneRecorderSheetState
                           borderRadius: AppRadius.buttonBorder,
                         ),
                       ),
-                      icon: Icon(
+                      icon: PhosphorIcon(
                         state.isRecording
-                            ? Icons.stop_circle_rounded
-                            : Icons.fiber_manual_record_rounded,
+                            ? PhosphorIconsFill.pauseCircle
+                            : AppIcons.mic,
                         color: state.isRecording
                             ? AppColors.error
                             : AppColors.brandPrimary,
@@ -400,7 +409,7 @@ class _VoiceCloneRecorderSheetState
                           borderRadius: AppRadius.buttonBorder,
                         ),
                       ),
-                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                      icon: const PhosphorIcon(AppIcons.sparkle, size: 18),
                       label: Text(
                         'Synthesize Voice DNA',
                         style: AppTypography.bodySmall.copyWith(

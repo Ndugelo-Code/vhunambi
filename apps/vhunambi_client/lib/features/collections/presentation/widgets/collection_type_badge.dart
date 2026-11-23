@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -7,11 +9,11 @@ import '../../domain/models/collection_entity.dart';
 
 /// Blueprint 13 §5 icon contract per collection type.
 IconData collectionTypeIcon(CollectionType type) => switch (type) {
-      CollectionType.single => Icons.music_note_rounded,
-      CollectionType.ep => Icons.album_rounded,
-      CollectionType.album => Icons.library_music_rounded,
-      CollectionType.conceptProject => Icons.auto_awesome_mosaic_rounded,
-    };
+  CollectionType.single => AppIcons.songsOutline,
+  CollectionType.ep => AppIcons.releasesOutline,
+  CollectionType.album => PhosphorIconsRegular.vinylRecord,
+  CollectionType.conceptProject => PhosphorIconsRegular.squaresFour,
+};
 
 /// Compact type chip used by vault cards, list rows and the detail header
 /// (REQ-COL-15).

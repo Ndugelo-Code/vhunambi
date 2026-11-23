@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:vhunambi_client/core/media/vhunambi_media_upload_service.dart';
 import 'package:vhunambi_client/core/theme/app_colors.dart';
 import 'package:vhunambi_client/core/theme/app_dimensions.dart';
 import 'package:vhunambi_client/core/theme/app_typography.dart';
 import 'package:vhunambi_client/core/utils/responsive_utils.dart';
 import 'package:vhunambi_client/core/widgets/vhunambi_bottom_dock_kit.dart';
 import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_track_artwork.dart';
 import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
 import 'package:vhunambi_client/features/library/presentation/providers/library_providers.dart';
 import 'package:vhunambi_client/features/library/presentation/widgets/library_empty_state.dart';
@@ -15,6 +17,7 @@ import 'package:vhunambi_client/features/playlists/presentation/providers/playli
 import 'package:vhunambi_client/features/playlists/presentation/views/playlist_detail_view.dart';
 import 'package:vhunambi_client/features/playlists/presentation/widgets/playlist_cover_art.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
+import 'package:vhunambi_client/features/social/presentation/providers/social_repository_provider.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
 
 /// The Playlists tab view in User Library Vault (`/library?tab=playlists`).
@@ -43,10 +46,14 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => _CreatePlaylistDialog(
-        onCreated: (title, description) {
+        onCreated: (title, description, coverImageUrl) {
           ref
               .read(playlistsProvider.notifier)
-              .createPlaylist(title, description: description);
+              .createPlaylist(
+                title,
+                description: description,
+                coverImageUrl: coverImageUrl,
+              );
         },
       ),
     );
@@ -67,13 +74,16 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
       builder: (dialogContext) => _RenamePlaylistDialog(
         currentTitle: playlist.title,
         currentDescription: playlist.description,
-        onRenamed: (newTitle, newDescription) {
+        currentCoverImageUrl: playlist.coverImageUrl,
+        onRenamed: (newTitle, newDescription, newCoverImageUrl, clearCover) {
           ref
               .read(playlistsProvider.notifier)
               .updatePlaylist(
                 playlist.id,
                 title: newTitle,
                 description: newDescription,
+                coverImageUrl: newCoverImageUrl,
+                clearCoverImage: clearCover,
               );
         },
       ),
@@ -84,12 +94,12 @@ class _PlaylistsVaultViewState extends ConsumerState<PlaylistsVaultView> {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.surfaceModal,
+        backgroundColor: AppColors.surfaceModalOf(dialogContext),
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
         title: Text(
           'Delete Playlist?',
           style: AppTypography.titleMedium.copyWith(
-            color: AppColors.textPrimary,
+            color: AppColors.textPrimaryOf(dialogContext),
           ),
         ),
         content: Text(
@@ -630,18 +640,22 @@ class _PlaylistListTile extends StatelessWidget {
   }
 }
 
-class _CreatePlaylistDialog extends StatefulWidget {
-  final void Function(String title, String? description) onCreated;
+class _CreatePlaylistDialog extends ConsumerStatefulWidget {
+  final void Function(String title, String? description, String? coverImageUrl)
+  onCreated;
 
   const _CreatePlaylistDialog({required this.onCreated});
 
   @override
-  State<_CreatePlaylistDialog> createState() => _CreatePlaylistDialogState();
+  ConsumerState<_CreatePlaylistDialog> createState() =>
+      _CreatePlaylistDialogState();
 }
 
-class _CreatePlaylistDialogState extends State<_CreatePlaylistDialog> {
+class _CreatePlaylistDialogState extends ConsumerState<_CreatePlaylistDialog> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
+  String? _coverImageUrl;
+  bool _isUploadingCover = false;
 
   @override
   void dispose() {
@@ -650,37 +664,129 @@ class _CreatePlaylistDialogState extends State<_CreatePlaylistDialog> {
     super.dispose();
   }
 
+  Future<void> _pickCoverImage() async {
+    if (_isUploadingCover) return;
+    setState(() => _isUploadingCover = true);
+    try {
+      final uploaded = await VhunambiMediaUploadService.pickAndUploadImage(
+        socialRepository: ref.read(socialRepositoryProvider),
+        purposePrefix: 'playlist_cover',
+      );
+      if (!mounted || uploaded == null) return;
+      setState(() => _coverImageUrl = uploaded.url);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cover upload failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingCover = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
     return AlertDialog(
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
       title: Text(
         'Create New Playlist',
-        style: AppTypography.titleMedium.copyWith(color: AppColors.textPrimary),
+        style: AppTypography.titleMedium.copyWith(color: textPrimary),
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _titleController,
-            autofocus: true,
-            style: AppTypography.bodyLarge,
-            decoration: const InputDecoration(
-              labelText: 'Playlist Title',
-              hintText: 'e.g. Late Night Amapiano',
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                VhunambiTrackArtwork(
+                  coverUrl: _coverImageUrl,
+                  genre: 'Amapiano',
+                  trackId: 'new_pl_cover',
+                  width: 64,
+                  height: 64,
+                  borderRadius: BorderRadius.circular(AppRadius.thumb),
+                  badgeIconSize: 22,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      OutlinedButton.icon(
+                        key: const Key('playlist_pick_cover_btn'),
+                        onPressed: _isUploadingCover ? null : _pickCoverImage,
+                        icon: _isUploadingCover
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const PhosphorIcon(
+                                PhosphorIconsRegular.image,
+                                size: 16,
+                              ),
+                        label: Text(
+                          _isUploadingCover ? 'Uploading...' : 'Upload Cover',
+                          style: AppTypography.caption.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textPrimary,
+                          side: BorderSide(
+                            color: AppColors.borderSubtleOf(context),
+                          ),
+                          minimumSize: const Size(0, 44),
+                        ),
+                      ),
+                      if (_coverImageUrl != null)
+                        TextButton(
+                          key: const Key('playlist_clear_cover_btn'),
+                          onPressed: () =>
+                              setState(() => _coverImageUrl = null),
+                          child: Text(
+                            'Use Auto Collage',
+                            style: AppTypography.caption.copyWith(
+                              color: textSecondary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextField(
-            controller: _descController,
-            style: AppTypography.bodyLarge,
-            decoration: const InputDecoration(
-              labelText: 'Description (optional)',
-              hintText: 'e.g. Soulful deep cuts',
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _titleController,
+              autofocus: true,
+              style: AppTypography.bodyLarge.copyWith(color: textPrimary),
+              decoration: const InputDecoration(
+                labelText: 'Playlist Title',
+                hintText: 'e.g. Late Night Amapiano',
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _descController,
+              style: AppTypography.bodyLarge.copyWith(color: textPrimary),
+              decoration: const InputDecoration(
+                labelText: 'Description (optional)',
+                hintText: 'e.g. Soulful deep cuts',
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -689,7 +795,7 @@ class _CreatePlaylistDialogState extends State<_CreatePlaylistDialog> {
             'Cancel',
             style: AppTypography.bodyLarge.copyWith(
               fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+              color: textSecondary,
             ),
           ),
         ),
@@ -697,7 +803,11 @@ class _CreatePlaylistDialogState extends State<_CreatePlaylistDialog> {
           onPressed: () {
             final title = _titleController.text.trim();
             if (title.isEmpty) return;
-            widget.onCreated(title, _descController.text.trim());
+            widget.onCreated(
+              title,
+              _descController.text.trim(),
+              _coverImageUrl,
+            );
             Navigator.of(context).pop();
           },
           style: ElevatedButton.styleFrom(
@@ -711,30 +821,43 @@ class _CreatePlaylistDialogState extends State<_CreatePlaylistDialog> {
   }
 }
 
-class _RenamePlaylistDialog extends StatefulWidget {
+class _RenamePlaylistDialog extends ConsumerStatefulWidget {
   final String currentTitle;
   final String currentDescription;
-  final void Function(String newTitle, String? newDescription) onRenamed;
+  final String? currentCoverImageUrl;
+  final void Function(
+    String newTitle,
+    String? newDescription,
+    String? newCoverImageUrl,
+    bool clearCover,
+  )
+  onRenamed;
 
   const _RenamePlaylistDialog({
     required this.currentTitle,
     required this.currentDescription,
+    this.currentCoverImageUrl,
     required this.onRenamed,
   });
 
   @override
-  State<_RenamePlaylistDialog> createState() => _RenamePlaylistDialogState();
+  ConsumerState<_RenamePlaylistDialog> createState() =>
+      _RenamePlaylistDialogState();
 }
 
-class _RenamePlaylistDialogState extends State<_RenamePlaylistDialog> {
+class _RenamePlaylistDialogState extends ConsumerState<_RenamePlaylistDialog> {
   late final TextEditingController _titleController;
   late final TextEditingController _descController;
+  String? _coverImageUrl;
+  bool _clearCover = false;
+  bool _isUploadingCover = false;
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.currentTitle);
     _descController = TextEditingController(text: widget.currentDescription);
+    _coverImageUrl = widget.currentCoverImageUrl;
   }
 
   @override
@@ -744,28 +867,128 @@ class _RenamePlaylistDialogState extends State<_RenamePlaylistDialog> {
     super.dispose();
   }
 
+  Future<void> _pickCoverImage() async {
+    if (_isUploadingCover) return;
+    setState(() => _isUploadingCover = true);
+    try {
+      final uploaded = await VhunambiMediaUploadService.pickAndUploadImage(
+        socialRepository: ref.read(socialRepositoryProvider),
+        purposePrefix: 'playlist_cover',
+      );
+      if (!mounted || uploaded == null) return;
+      setState(() {
+        _coverImageUrl = uploaded.url;
+        _clearCover = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cover upload failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingCover = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
     return AlertDialog(
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
-      title: Text('Edit Playlist', style: AppTypography.titleMedium),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _titleController,
-            autofocus: true,
-            style: AppTypography.bodyLarge,
-            decoration: const InputDecoration(labelText: 'Playlist Title'),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextField(
-            controller: _descController,
-            style: AppTypography.bodyLarge,
-            decoration: const InputDecoration(labelText: 'Description'),
-          ),
-        ],
+      title: Text(
+        'Edit Playlist',
+        style: AppTypography.titleMedium.copyWith(color: textPrimary),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                VhunambiTrackArtwork(
+                  coverUrl: _clearCover ? null : _coverImageUrl,
+                  genre: 'Amapiano',
+                  trackId: widget.currentTitle,
+                  width: 64,
+                  height: 64,
+                  borderRadius: BorderRadius.circular(AppRadius.thumb),
+                  badgeIconSize: 22,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      OutlinedButton.icon(
+                        key: const Key('playlist_pick_cover_btn'),
+                        onPressed: _isUploadingCover ? null : _pickCoverImage,
+                        icon: _isUploadingCover
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const PhosphorIcon(
+                                PhosphorIconsRegular.image,
+                                size: 16,
+                              ),
+                        label: Text(
+                          _isUploadingCover ? 'Uploading...' : 'Change Cover',
+                          style: AppTypography.caption.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textPrimary,
+                          side: BorderSide(
+                            color: AppColors.borderSubtleOf(context),
+                          ),
+                          minimumSize: const Size(0, 44),
+                        ),
+                      ),
+                      if (_coverImageUrl != null && !_clearCover)
+                        TextButton(
+                          key: const Key('playlist_clear_cover_btn'),
+                          onPressed: () => setState(() {
+                            _coverImageUrl = null;
+                            _clearCover = true;
+                          }),
+                          child: Text(
+                            'Use Auto Collage',
+                            style: AppTypography.caption.copyWith(
+                              color: textSecondary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _titleController,
+              autofocus: true,
+              style: AppTypography.bodyLarge.copyWith(color: textPrimary),
+              decoration: const InputDecoration(labelText: 'Playlist Title'),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _descController,
+              style: AppTypography.bodyLarge.copyWith(color: textPrimary),
+              decoration: const InputDecoration(labelText: 'Description'),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -774,7 +997,7 @@ class _RenamePlaylistDialogState extends State<_RenamePlaylistDialog> {
             'Cancel',
             style: AppTypography.bodyLarge.copyWith(
               fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+              color: textSecondary,
             ),
           ),
         ),
@@ -782,7 +1005,12 @@ class _RenamePlaylistDialogState extends State<_RenamePlaylistDialog> {
           onPressed: () {
             final title = _titleController.text.trim();
             if (title.isEmpty) return;
-            widget.onRenamed(title, _descController.text.trim());
+            widget.onRenamed(
+              title,
+              _descController.text.trim(),
+              _coverImageUrl,
+              _clearCover,
+            );
             Navigator.of(context).pop();
           },
           style: ElevatedButton.styleFrom(

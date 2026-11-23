@@ -5,7 +5,7 @@ import 'package:vhunambi_client/features/content_studio/domain/models/song_metad
 
 /// Library & User Asset Vault domain taxonomy.
 /// Reference: docs/foundation_blueprints/04_LIBRARY_VAULT_SPEC.md
-enum LibraryCategory { songs, playlists, collections, beats, licensing, trash }
+enum LibraryCategory { songs, reels, playlists, collections, beats, licensing, trash }
 
 /// Vault rendering mode: dense list rows vs. 2-column square grid cards.
 enum LibraryViewMode { list, grid }

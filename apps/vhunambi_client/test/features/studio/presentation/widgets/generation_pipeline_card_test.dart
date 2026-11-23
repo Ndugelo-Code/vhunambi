@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/theme/app_theme.dart';
 import 'package:vhunambi_client/features/studio/data/services/fake_generation_socket_service.dart';
 import 'package:vhunambi_client/features/studio/data/services/fake_stem_download_service.dart';
@@ -15,12 +16,12 @@ import 'package:vhunambi_client/features/track/domain/models/track_entity.dart';
 /// Every pump is explicit: the equalizer and skeleton controllers animate
 /// indefinitely, so `pumpAndSettle` is never used here.
 TrackEntity _track() => TrackEntity(
-      id: 'trk_pipeline_001',
-      title: 'rave',
-      genre: 'Gqom',
-      duration: const Duration(minutes: 3, seconds: 29),
-      masterMp3Url: 'https://cdn.vhunambi.com/masters/trk_pipeline_001.mp3',
-    );
+  id: 'trk_pipeline_001',
+  title: 'rave',
+  genre: 'Gqom',
+  duration: const Duration(minutes: 3, seconds: 29),
+  masterMp3Url: 'https://cdn.vhunambi.com/masters/trk_pipeline_001.mp3',
+);
 
 Future<ProviderContainer> _pumpCard(
   WidgetTester tester, {
@@ -66,11 +67,9 @@ Future<ProviderContainer> _pumpCard(
 }
 
 Future<void> _start(ProviderContainer container, {String id = 'gen_1'}) {
-  return container.read(generationProgressProvider.notifier).startGeneration(
-        generationId: id,
-        trackTitle: 'rave',
-        genre: 'Gqom',
-      );
+  return container
+      .read(generationProgressProvider.notifier)
+      .startGeneration(generationId: id, trackTitle: 'rave', genre: 'Gqom');
 }
 
 Future<void> _advance(WidgetTester tester, [int frames = 6]) async {
@@ -80,8 +79,9 @@ Future<void> _advance(WidgetTester tester, [int frames = 6]) async {
 }
 
 void main() {
-  testWidgets('a null session keeps the shell and hides the steps',
-      (tester) async {
+  testWidgets('a null session keeps the shell and hides the steps', (
+    tester,
+  ) async {
     await _pumpCard(tester, onNewSong: () {});
 
     expect(find.text('Result'), findsOneWidget);
@@ -91,16 +91,18 @@ void main() {
     expect(find.text('Your song is ready!'), findsNothing);
   });
 
-  testWidgets('hides New song action when onNewSong callback is omitted',
-      (tester) async {
+  testWidgets('hides New song action when onNewSong callback is omitted', (
+    tester,
+  ) async {
     await _pumpCard(tester);
 
     expect(find.text('Result'), findsOneWidget);
     expect(find.text('New song'), findsNothing);
   });
 
-  testWidgets('a generating session renders title, genre, pill and steps',
-      (tester) async {
+  testWidgets('a generating session renders title, genre, pill and steps', (
+    tester,
+  ) async {
     final container = await _pumpCard(tester);
 
     await _start(container);
@@ -118,8 +120,9 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('the active step spins while later steps stay idle',
-      (tester) async {
+  testWidgets('the active step spins while later steps stay idle', (
+    tester,
+  ) async {
     final container = await _pumpCard(tester);
 
     await _start(container);
@@ -127,25 +130,27 @@ void main() {
 
     // Generating pill spinner + the active first step.
     expect(find.byType(CircularProgressIndicator), findsNWidgets(2));
-    expect(find.byIcon(Icons.check), findsNothing);
+    expect(find.byIcon(AppIcons.check), findsNothing);
 
     container.dispose();
   });
 
-  testWidgets('reaching ready completes all four steps and drops the pill',
-      (tester) async {
+  testWidgets('reaching ready completes all four steps and drops the pill', (
+    tester,
+  ) async {
     final container = await _pumpCard(tester);
 
     await _start(container);
     await _advance(tester);
 
     expect(find.text('Generating'), findsNothing);
-    expect(find.byIcon(Icons.check), findsNWidgets(4));
+    expect(find.byIcon(AppIcons.check), findsNWidgets(4));
     expect(find.text('Your song is ready!'), findsWidgets);
   });
 
-  testWidgets('the lyrics shelf appears only when lyrics arrive',
-      (tester) async {
+  testWidgets('the lyrics shelf appears only when lyrics arrive', (
+    tester,
+  ) async {
     final container = await _pumpCard(tester);
 
     await _start(container);
@@ -162,8 +167,9 @@ void main() {
     expect(find.textContaining('Night breaks through'), findsOneWidget);
   });
 
-  testWidgets('a failed session renders the error banner and retry CTA',
-      (tester) async {
+  testWidgets('a failed session renders the error banner and retry CTA', (
+    tester,
+  ) async {
     final container = await _pumpCard(
       tester,
       socket: FakeGenerationSocketService(
@@ -200,8 +206,9 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('the New song action stays reachable in every state',
-      (tester) async {
+  testWidgets('the New song action stays reachable in every state', (
+    tester,
+  ) async {
     var taps = 0;
     final container = await _pumpCard(tester, onNewSong: () => taps++);
 
@@ -218,8 +225,9 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('the skeleton placeholder renders before the first frame',
-      (tester) async {
+  testWidgets('the skeleton placeholder renders before the first frame', (
+    tester,
+  ) async {
     final container = await _pumpCard(
       tester,
       socket: FakeGenerationSocketService(
@@ -233,13 +241,14 @@ void main() {
 
     expect(find.byType(GenerationPipelineCard), findsOneWidget);
     expect(find.text('Your song is ready!'), findsOneWidget);
-    expect(find.byIcon(Icons.check), findsNothing);
+    expect(find.byIcon(AppIcons.check), findsNothing);
 
     container.dispose();
   });
 
-  testWidgets('the card lays out cleanly on a compact mobile viewport',
-      (tester) async {
+  testWidgets('the card lays out cleanly on a compact mobile viewport', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -252,8 +261,9 @@ void main() {
     expect(find.byType(GenerationPipelineCard), findsOneWidget);
   });
 
-  testWidgets('ready track without stemsUrl hides the Stems download button',
-      (tester) async {
+  testWidgets('ready track without stemsUrl hides the Stems download button', (
+    tester,
+  ) async {
     final container = await _pumpCard(
       tester,
       socket: FakeGenerationSocketService(
@@ -270,37 +280,42 @@ void main() {
     expect(find.text('Stems'), findsNothing);
   });
 
-  testWidgets('ready track with stemsUrl renders Stems button and triggers download',
-      (tester) async {
-    final trackWithStems = TrackEntity(
-      id: 'trk_stems_001',
-      title: 'rave_stems',
-      genre: 'Gqom',
-      duration: const Duration(minutes: 3, seconds: 29),
-      masterMp3Url: 'https://cdn.vhunambi.com/masters/trk_stems_001.mp3',
-      stemsUrl: 'https://cdn.vhunambi.com/stems/trk_stems_001_stems.zip',
-    );
+  testWidgets(
+    'ready track with stemsUrl renders Stems button and triggers download',
+    (tester) async {
+      final trackWithStems = TrackEntity(
+        id: 'trk_stems_001',
+        title: 'rave_stems',
+        genre: 'Gqom',
+        duration: const Duration(minutes: 3, seconds: 29),
+        masterMp3Url: 'https://cdn.vhunambi.com/masters/trk_stems_001.mp3',
+        stemsUrl: 'https://cdn.vhunambi.com/stems/trk_stems_001_stems.zip',
+      );
 
-    final container = await _pumpCard(
-      tester,
-      socket: FakeGenerationSocketService(
-        stepDelay: Duration.zero,
-        completedTrack: trackWithStems,
-      ),
-    );
+      final container = await _pumpCard(
+        tester,
+        socket: FakeGenerationSocketService(
+          stepDelay: Duration.zero,
+          completedTrack: trackWithStems,
+        ),
+      );
 
-    await _start(container);
-    await _advance(tester);
+      await _start(container);
+      await _advance(tester);
 
-    expect(find.text('Play Master'), findsOneWidget);
-    expect(find.byKey(const Key('pipeline_download_stems')), findsOneWidget);
-    expect(find.text('Stems'), findsOneWidget);
+      expect(find.text('Play Master'), findsOneWidget);
+      expect(find.byKey(const Key('pipeline_download_stems')), findsOneWidget);
+      expect(find.text('Stems'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('pipeline_download_stems')));
-    await tester.pump();
+      await tester.tap(find.byKey(const Key('pipeline_download_stems')));
+      await tester.pump();
 
-    expect(find.textContaining('Downloading stem bundle for rave_stems'), findsOneWidget);
-  });
+      expect(
+        find.textContaining('Downloading stem bundle for rave_stems'),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('ready track renders Create Reel button', (tester) async {
     final container = await _pumpCard(tester);
@@ -311,4 +326,3 @@ void main() {
     expect(find.text('Create Reel'), findsOneWidget);
   });
 }
-

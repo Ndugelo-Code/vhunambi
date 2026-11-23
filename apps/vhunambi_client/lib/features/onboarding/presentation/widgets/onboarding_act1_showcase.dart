@@ -4,6 +4,7 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 
 /// Act 1: Living Sonic Showcase (REQ-P47-ACT1-01).
 /// Features central pulsing Vhunambi emblem and 4 interactive world satellites.
@@ -140,7 +141,7 @@ class _OnboardingAct1ShowcaseState extends State<OnboardingAct1Showcase>
                     gradient: RadialGradient(
                       colors: [
                         AppColors.brandPrimary.withValues(alpha: 0.35),
-                        isDark ? const Color(0xFF141418) : Colors.white,
+                        AppColors.surfaceElevatedOf(context),
                       ],
                     ),
                     boxShadow: [
@@ -220,14 +221,12 @@ class _OnboardingAct1ShowcaseState extends State<OnboardingAct1Showcase>
                       decoration: BoxDecoration(
                         color: isSelected
                             ? color.withValues(alpha: isDark ? 0.25 : 0.14)
-                            : (isDark
-                                  ? const Color(0xFF141418)
-                                  : Colors.grey.shade100),
+                            : AppColors.surfaceElevatedOf(context),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isSelected
                               ? color
-                              : (isDark ? Colors.white12 : Colors.black12),
+                              : AppColors.borderSubtleOf(context),
                           width: isSelected ? 1.6 : 1.0,
                         ),
                       ),
@@ -267,29 +266,18 @@ class _OnboardingAct1ShowcaseState extends State<OnboardingAct1Showcase>
           // Active Pillar Detail Card (Interactive Expanded Benefits)
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 260),
-            child: Container(
+            child: VhunambiGlassSurface(
               key: ValueKey(_selectedPillarIndex),
+              variant: VhunambiGlassVariant.card,
               width: double.infinity,
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF141418) : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: (activePillar['color'] as Color).withValues(
-                    alpha: 0.35,
-                  ),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (activePillar['color'] as Color).withValues(
-                      alpha: 0.12,
-                    ),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+              borderRadius: BorderRadius.circular(20),
+              enableLiveBlur: false,
+              tintAccent: activePillar['color'] as Color,
+              borderColorOverride: (activePillar['color'] as Color).withValues(
+                alpha: 0.35,
               ),
+              borderWidth: 1.2,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

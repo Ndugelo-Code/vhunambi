@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../player/presentation/providers/multi_stem_audio_provider.dart';
 import '../../domain/models/stem_mastering_recipe.dart';
 import '../providers/mastering_session_provider.dart';
@@ -36,29 +40,31 @@ class _DesktopMasteringStudioViewState
   @override
   void initState() {
     super.initState();
-    if (widget.trackId != null &&
-        widget.trackTitle != null &&
-        widget.genre != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(masteringSessionProvider.notifier).initializeForTrack(
-              trackId: widget.trackId!,
-              trackTitle: widget.trackTitle!,
-              genre: widget.genre!,
-            );
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final notifier = ref.read(masteringSessionProvider.notifier);
+      if (widget.trackId != null &&
+          widget.trackTitle != null &&
+          widget.genre != null) {
+        notifier.initializeForTrack(
+          trackId: widget.trackId!,
+          trackTitle: widget.trackTitle!,
+          genre: widget.genre!,
+        );
+      }
+      unawaited(notifier.syncMasteringPresetsFromCloud(genre: widget.genre));
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(masteringSessionProvider);
     final notifier = ref.read(masteringSessionProvider.notifier);
-    final hasRealStems =
-        ref.watch(multiStemAudioEngineProvider).hasRealStems;
+    final hasRealStems = ref.watch(multiStemAudioEngineProvider).hasRealStems;
 
     return Scaffold(
       key: const Key('desktop_mastering_studio_view'),
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.surfaceCanvasOf(context),
       body: SafeArea(
         child: Column(
           children: [
@@ -67,41 +73,39 @@ class _DesktopMasteringStudioViewState
 
             // 2. Master-Only Notice Banner (if fallback)
             if (!hasRealStems)
-              Container(
-                key: const Key('mastering_master_only_notice'),
-                margin: const EdgeInsets.symmetric(
+              Padding(
+                padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.md,
                   vertical: AppSpacing.xs,
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  borderRadius: AppRadius.cardBorder,
-                  border: Border.all(
-                    color: AppColors.accentGold.withValues(alpha: 0.5),
+                child: VhunambiGlassSurface(
+                  key: const Key('mastering_master_only_notice'),
+                  enableLiveBlur: false,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
                   ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.info_outline_rounded,
-                      color: AppColors.accentGold,
-                      size: 20,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        'Master-Only Mode: Stems are offline or compiling on RunPod GPU. Real-time Tier A auditioning applies macro Log-Drum knock and M/S stereo wideners to the master bus.',
-                        style: AppTypography.bodyLarge.copyWith(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
+                  borderRadius: AppRadius.cardBorder,
+                  borderColorOverride: AppColors.accentGold.withValues(alpha: 0.5),
+                  child: Row(
+                    children: [
+                      const PhosphorIcon(
+                        AppIcons.info,
+                        color: AppColors.accentGold,
+                        size: 20,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          'Master-Only Mode: Stems are offline or compiling on RunPod GPU. Real-time Tier A auditioning applies macro Log-Drum knock and M/S stereo wideners to the master bus.',
+                          style: AppTypography.bodyLarge.copyWith(
+                            color: AppColors.textSecondaryOf(context),
+                            fontSize: 13,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
 
@@ -175,26 +179,39 @@ class _DesktopMasteringStudioViewState
     MasteringSessionState state,
     MasteringSessionNotifier notifier,
   ) {
+    final presets = state.availablePresets.isNotEmpty
+        ? state.availablePresets
+        : kGenreMasterPresets;
+
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.surfaceElevatedOf(context),
         border: Border(
-          bottom: BorderSide(color: AppColors.borderSubtle, width: 1.0),
+          bottom: BorderSide(
+            color: AppColors.borderSubtleOf(context),
+            width: 1.0,
+          ),
         ),
       ),
       child: Row(
         children: [
           IconButton(
-            icon: Icon(Icons.arrow_back_rounded,
-                color: AppColors.textPrimary),
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            icon: PhosphorIcon(
+              AppIcons.arrowLeft,
+              color: AppColors.textPrimaryOf(context),
+            ),
             tooltip: 'Return to Player',
             onPressed: () => Navigator.of(context).maybePop(),
           ),
           const SizedBox(width: AppSpacing.xs),
-          const Icon(Icons.auto_awesome_rounded,
-              color: AppColors.brandPrimary, size: 24),
+          const PhosphorIcon(
+            AppIcons.sparkle,
+            color: AppColors.brandPrimary,
+            size: 24,
+          ),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Column(
@@ -203,16 +220,19 @@ class _DesktopMasteringStudioViewState
               children: [
                 Text(
                   'Vhunambi Mastering Studio',
-                  style: AppTypography.titleMedium
-                      .copyWith(fontWeight: FontWeight.bold),
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimaryOf(context),
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   '${state.trackTitle} • ${state.genre} Regional Master Suite',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.caption
-                      .copyWith(color: AppColors.textSecondary),
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondaryOf(context),
+                  ),
                 ),
               ],
             ),
@@ -223,27 +243,32 @@ class _DesktopMasteringStudioViewState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceSecondary,
+              color: AppColors.surfaceSecondaryOf(context),
               borderRadius: AppRadius.inputBorder,
-              border: Border.all(color: AppColors.borderSubtle),
+              border: Border.all(color: AppColors.borderSubtleOf(context)),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: kGenreMasterPresets
-                        .any((p) => p.id == state.recipe.presetId)
+                value: presets.any((p) => p.id == state.recipe.presetId)
                     ? state.recipe.presetId
                     : null,
-                hint: Text('Custom Recipe',
-                    style: AppTypography.caption
-                        .copyWith(color: AppColors.coinGold)),
-                dropdownColor: AppColors.surfaceElevated,
-                items: kGenreMasterPresets.map((preset) {
+                hint: Text(
+                  'Custom Recipe',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.coinGold,
+                  ),
+                ),
+                dropdownColor: AppColors.surfaceElevatedOf(context),
+                items: presets.map((preset) {
                   return DropdownMenuItem<String>(
                     key: Key('mastering_preset_${preset.id}'),
                     value: preset.id,
                     child: Text(
                       preset.name,
-                      style: AppTypography.bodyLarge.copyWith(fontSize: 13),
+                      style: AppTypography.bodyLarge.copyWith(
+                        fontSize: 13,
+                        color: AppColors.textPrimaryOf(context),
+                      ),
                     ),
                   );
                 }).toList(),
@@ -299,8 +324,7 @@ class _DesktopMasteringStudioViewState
                   key: const Key('desktop_lufs_toggle'),
                   onTap: () {
                     HapticFeedback.selectionClick();
-                    final next =
-                        state.recipe.targetLufs == -9.5 ? -14.0 : -9.5;
+                    final next = state.recipe.targetLufs == -9.5 ? -14.0 : -9.5;
                     notifier.setTargetLufs(next);
                   },
                   borderRadius: AppRadius.pillBorder,
@@ -335,14 +359,20 @@ class _DesktopMasteringStudioViewState
                       HapticFeedback.heavyImpact();
                       final success = await notifier.bakeMaster();
                       if (context.mounted && success) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '✨ Studio master baked successfully on RunPod GPU!',
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(milliseconds: 2500),
+                              content: const Text(
+                                'Studio master baked successfully on RunPod GPU!',
+                              ),
+                              backgroundColor: AppColors.surfaceElevatedOf(
+                                context,
+                              ),
                             ),
-                            backgroundColor: AppColors.surfaceElevated,
-                          ),
-                        );
+                          );
                       }
                     },
               style: ElevatedButton.styleFrom(
@@ -361,7 +391,7 @@ class _DesktopMasteringStudioViewState
                         color: AppColors.brandContrast,
                       ),
                     )
-                  : const Icon(Icons.flash_on_rounded, size: 18),
+                  : const PhosphorIcon(AppIcons.lightning, size: 18),
               label: Text(
                 state.isBaking ? 'Baking Master…' : 'Bake Master',
                 style: AppTypography.bodyLarge.copyWith(
@@ -392,7 +422,8 @@ class _VocalsChannelStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ChannelStripFrame(
-      title: '🎙️ Vocals Cleanse',
+      icon: AppIcons.vocals,
+      title: 'Vocals Cleanse',
       badge: vocals.flavor.label,
       eqGraphKey: const Key('eq_curve_vocals'),
       eq: vocals.eq,
@@ -460,7 +491,8 @@ class _BassChannelStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ChannelStripFrame(
-      title: '🪵 Log Drum & Sub',
+      icon: AppIcons.waveform,
+      title: 'Log Drum & Sub',
       badge: bass.flavor.label,
       eqGraphKey: const Key('eq_curve_bass'),
       eq: bass.eq,
@@ -491,8 +523,7 @@ class _BassChannelStrip extends StatelessWidget {
           label: 'Sub-Harmonic (45Hz)',
           value: bass.subHarmonicMix,
           displayValue: '${(bass.subHarmonicMix * 100).toInt()}%',
-          onChanged: (v) =>
-              onConfigChanged(bass.copyWith(subHarmonicMix: v)),
+          onChanged: (v) => onConfigChanged(bass.copyWith(subHarmonicMix: v)),
         ),
         _ConsoleSlider(
           sliderKey: const Key('slider_bass_knock_drive'),
@@ -501,8 +532,7 @@ class _BassChannelStrip extends StatelessWidget {
           min: 0.0,
           max: 9.0,
           displayValue: '+${bass.knockDriveDb.toStringAsFixed(1)} dB',
-          onChanged: (v) =>
-              onConfigChanged(bass.copyWith(knockDriveDb: v)),
+          onChanged: (v) => onConfigChanged(bass.copyWith(knockDriveDb: v)),
         ),
         _ConsoleSlider(
           sliderKey: const Key('slider_bass_sidechain_duck'),
@@ -511,8 +541,7 @@ class _BassChannelStrip extends StatelessWidget {
           min: -6.0,
           max: 0.0,
           displayValue: '${bass.sidechainDuckDb.toStringAsFixed(1)} dB',
-          onChanged: (v) =>
-              onConfigChanged(bass.copyWith(sidechainDuckDb: v)),
+          onChanged: (v) => onConfigChanged(bass.copyWith(sidechainDuckDb: v)),
         ),
       ],
     );
@@ -534,7 +563,8 @@ class _DrumsChannelStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ChannelStripFrame(
-      title: '🥁 Drum Bus Snap',
+      icon: AppIcons.drums,
+      title: 'Drum Bus Snap',
       badge: drums.flavor.label,
       eqGraphKey: const Key('eq_curve_drums'),
       eq: drums.eq,
@@ -563,8 +593,7 @@ class _DrumsChannelStrip extends StatelessWidget {
           value: drums.transientAttackSnap,
           min: -1.0,
           max: 1.0,
-          displayValue:
-              '${(drums.transientAttackSnap * 100).toInt()}%',
+          displayValue: '${(drums.transientAttackSnap * 100).toInt()}%',
           onChanged: (v) =>
               onConfigChanged(drums.copyWith(transientAttackSnap: v)),
         ),
@@ -595,7 +624,8 @@ class _MelodicChannelStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ChannelStripFrame(
-      title: '🎹 Melodic & Keys',
+      icon: AppIcons.piano,
+      title: 'Melodic & Keys',
       badge: melodic.flavor.label,
       eqGraphKey: const Key('eq_curve_melodic'),
       eq: melodic.eq,
@@ -624,8 +654,7 @@ class _MelodicChannelStrip extends StatelessWidget {
           value: melodic.midVocalPocketCutDb,
           min: -6.0,
           max: 0.0,
-          displayValue:
-              '${melodic.midVocalPocketCutDb.toStringAsFixed(1)} dB',
+          displayValue: '${melodic.midVocalPocketCutDb.toStringAsFixed(1)} dB',
           onChanged: (v) =>
               onConfigChanged(melodic.copyWith(midVocalPocketCutDb: v)),
         ),
@@ -643,6 +672,7 @@ class _MelodicChannelStrip extends StatelessWidget {
 
 /// Reusable Channel Strip Shell with Embedded 4-Band Parametric EQ Graph
 class _ChannelStripFrame extends StatelessWidget {
+  final IconData icon;
   final String title;
   final String badge;
   final Key eqGraphKey;
@@ -650,6 +680,7 @@ class _ChannelStripFrame extends StatelessWidget {
   final List<Widget> children;
 
   const _ChannelStripFrame({
+    required this.icon,
     required this.title,
     required this.badge,
     required this.eqGraphKey,
@@ -659,24 +690,26 @@ class _ChannelStripFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return VhunambiGlassSurface(
+      enableLiveBlur: false,
       padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+      borderRadius: AppRadius.cardBorder,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              PhosphorIcon(icon, size: 15, color: AppColors.brandPrimary),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   title,
-                  style: AppTypography.titleMedium
-                      .copyWith(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: AppColors.textPrimaryOf(context),
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -684,7 +717,7 @@ class _ChannelStripFrame extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
+                  color: AppColors.surfaceSecondaryOf(context),
                   borderRadius: AppRadius.pillBorder,
                 ),
                 child: Text(
@@ -707,7 +740,13 @@ class _ChannelStripFrame extends StatelessWidget {
               borderRadius: AppRadius.inputBorder,
               child: CustomPaint(
                 key: eqGraphKey,
-                painter: _EqCurvePainter(eq: eq),
+                painter: _EqCurvePainter(
+                  eq: eq,
+                  bgColor: AppColors.surfaceSecondaryOf(context),
+                  gridColor: AppColors.borderSubtleOf(
+                    context,
+                  ).withValues(alpha: 0.5),
+                ),
                 size: Size.infinite,
               ),
             ),
@@ -733,33 +772,32 @@ class _MasterOutputRack extends StatelessWidget {
   final MasteringSessionState state;
   final VoidCallback onBake;
 
-  const _MasterOutputRack({
-    required this.state,
-    required this.onBake,
-  });
+  const _MasterOutputRack({required this.state, required this.onBake});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return VhunambiGlassSurface(
+      enableLiveBlur: false,
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+      borderRadius: AppRadius.cardBorder,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const Icon(Icons.equalizer_rounded,
-                  color: AppColors.coinGold, size: 20),
+              const PhosphorIcon(
+                AppIcons.sliders,
+                color: AppColors.coinGold,
+                size: 20,
+              ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
                   'Master Output',
-                  style: AppTypography.titleMedium
-                      .copyWith(fontWeight: FontWeight.bold),
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimaryOf(context),
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -798,8 +836,11 @@ class _MasterOutputRack extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.check_circle_rounded,
-                          color: AppColors.success, size: 14),
+                      const PhosphorIcon(
+                        AppIcons.checkCircle,
+                        color: AppColors.success,
+                        size: 14,
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -847,7 +888,7 @@ class _MasterOutputRack extends StatelessWidget {
                         color: AppColors.brandContrast,
                       ),
                     )
-                  : const Icon(Icons.flash_on_rounded, size: 16),
+                  : const PhosphorIcon(AppIcons.lightning, size: 16),
               label: Text(
                 state.isBaking ? 'Baking Master…' : 'Bake Master',
                 style: AppTypography.bodyLarge.copyWith(
@@ -878,8 +919,10 @@ class _MasterOutputRack extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textSecondary, fontSize: 11),
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -940,8 +983,10 @@ class _ConsoleSlider extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textSecondary, fontSize: 11),
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -982,17 +1027,23 @@ class _ConsoleSlider extends StatelessWidget {
 /// CustomPainter rendering a 4-Band Parametric EQ curve on a frequency graph
 class _EqCurvePainter extends CustomPainter {
   final StemEqBands eq;
+  final Color bgColor;
+  final Color gridColor;
 
-  _EqCurvePainter({required this.eq});
+  _EqCurvePainter({
+    required this.eq,
+    this.bgColor = AppColors.darkSurfaceSecondary,
+    this.gridColor = AppColors.darkBorderSubtle,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()..color = AppColors.surfaceSecondary;
+    final bgPaint = Paint()..color = bgColor;
     canvas.drawRect(Offset.zero & size, bgPaint);
 
     // Subtle grid lines
     final gridPaint = Paint()
-      ..color = AppColors.borderSubtle.withValues(alpha: 0.5)
+      ..color = gridColor
       ..strokeWidth = 1.0;
     for (int i = 1; i < 4; i++) {
       final x = size.width * (i / 4.0);
@@ -1012,11 +1063,13 @@ class _EqCurvePainter extends CustomPainter {
       final lowInfluence = (1.0 - xNorm) * (eq.lowGainDb / 12.0);
       final midCenter = (eq.midFreqHz - 50.0) / 4950.0;
       final midDist = (xNorm - midCenter).abs();
-      final midInfluence =
-          math.exp(-midDist * 12.0) * (eq.midGainDb / 12.0);
+      final midInfluence = math.exp(-midDist * 12.0) * (eq.midGainDb / 12.0);
       final airInfluence = xNorm * (eq.airGainDb / 12.0);
 
-      final totalDb = (lowInfluence + midInfluence + airInfluence).clamp(-1.0, 1.0);
+      final totalDb = (lowInfluence + midInfluence + airInfluence).clamp(
+        -1.0,
+        1.0,
+      );
       final y = midY - (totalDb * (size.height * 0.4));
 
       if (i == 0) {
@@ -1038,4 +1091,3 @@ class _EqCurvePainter extends CustomPainter {
     return oldDelegate.eq != eq;
   }
 }
-

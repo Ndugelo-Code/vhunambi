@@ -205,12 +205,29 @@ class NotificationDetailBottomSheet extends ConsumerWidget {
 
   String _defaultCtaLabel(String? route) {
     if (route == null) return 'Done';
+    if (route == '/home') return 'Go to Home';
+    if (route == '/explore') return 'Explore Feed';
     if (route.startsWith('/studio')) return 'Open Studio Cockpit';
+    if (route == '/library' || route == '/vault' || route == '/licenses') {
+      return 'Open Asset Vault';
+    }
+    if (route == '/marketplace' || route == '/market') {
+      return 'Open Marketplace';
+    }
     if (route.startsWith('/creator-dna')) return 'Calibrate Creator DNA';
     if (route.startsWith('/wallet')) return 'View Balance & Usage';
     if (route.startsWith('/track/')) return 'Open Track Cockpit';
     if (route.startsWith('/reel/')) return 'Watch Kinetic Reel';
-    if (route.startsWith('/creator/')) return 'View Creator Profile';
+    if (route.startsWith('/post/')) return 'View Kinetic Post';
+    if (route.startsWith('/license/') || route.startsWith('/certificate/')) {
+      return 'View License Deed';
+    }
+    if (route == '/profile') return 'Open My Profile';
+    if (route.startsWith('/profile/') ||
+        route.startsWith('/creator/') ||
+        route.startsWith('/@')) {
+      return 'View Creator Profile';
+    }
     return 'Continue';
   }
 }

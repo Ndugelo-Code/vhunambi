@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../../core/utils/json_safe.dart';
 
 /// Hybrid Sound Pack Entity for native & downloadable expansion libraries (Phase 32).
 @immutable
@@ -62,18 +63,25 @@ class StudioSoundPackEntity {
   };
 
   factory StudioSoundPackEntity.fromJson(Map<String, dynamic> json) {
+    final title = JsonSafe.asString(json['title']).isNotEmpty
+        ? JsonSafe.asString(json['title'])
+        : JsonSafe.asString(json['name'], 'Studio Sound Pack');
+    final subtitle = JsonSafe.asString(json['subtitle']).isNotEmpty
+        ? JsonSafe.asString(json['subtitle'])
+        : JsonSafe.asString(json['description']);
     return StudioSoundPackEntity(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      subtitle: json['subtitle'] as String,
-      genre: json['genre'] as String,
-      sizeMb: (json['sizeMb'] as num).toDouble(),
-      isBundledNative: json['isBundledNative'] as bool? ?? false,
-      isInstalled: json['isInstalled'] as bool? ?? false,
-      instrumentNames: (json['instrumentNames'] as List<dynamic>? ?? const [])
+      id: JsonSafe.asString(json['id']),
+      title: title,
+      subtitle: subtitle,
+      genre: JsonSafe.asString(json['genre'], 'Amapiano'),
+      sizeMb: JsonSafe.asDouble(json['sizeMb'], 8.0),
+      isBundledNative: JsonSafe.asBool(json['isBundledNative']),
+      isInstalled: JsonSafe.asBool(json['isInstalled']),
+      instrumentNames: JsonSafe.asList(json['instrumentNames'])
           .map((e) => e.toString())
+          .where((e) => e.isNotEmpty)
           .toList(),
-      downloadUrl: json['downloadUrl'] as String? ?? '',
+      downloadUrl: JsonSafe.asString(json['downloadUrl']),
     );
   }
 }

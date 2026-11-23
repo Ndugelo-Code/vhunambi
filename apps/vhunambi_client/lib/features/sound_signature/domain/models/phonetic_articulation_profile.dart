@@ -1,3 +1,5 @@
+import 'package:vhunambi_client/core/utils/json_safe.dart';
+
 /// A contiguous time span in milliseconds for protected acoustic frames.
 class TimeSpanMs {
   const TimeSpanMs(this.startMs, this.endMs);
@@ -13,8 +15,8 @@ class TimeSpanMs {
       };
 
   factory TimeSpanMs.fromJson(Map<String, dynamic> json) => TimeSpanMs(
-        (json['startMs'] as num).toInt(),
-        (json['endMs'] as num).toInt(),
+        JsonSafe.asInt(json['startMs']),
+        JsonSafe.asInt(json['endMs']),
       );
 
   @override
@@ -63,12 +65,13 @@ class PhoneticArticulationProfile {
 
   factory PhoneticArticulationProfile.fromJson(Map<String, dynamic> json) {
     return PhoneticArticulationProfile(
-      consonantTransientSharpness:
-          (json['consonantTransientSharpness'] as num?)?.toDouble() ?? 0.85,
-      protectedSegments: (json['protectedSegments'] as List<dynamic>?)
-              ?.map((s) => TimeSpanMs.fromJson(s as Map<String, dynamic>))
-              .toList() ??
-          const [],
+      consonantTransientSharpness: JsonSafe.asDouble(
+        json['consonantTransientSharpness'],
+        0.85,
+      ),
+      protectedSegments: JsonSafe.asList(json['protectedSegments'])
+          .map((s) => TimeSpanMs.fromJson(JsonSafe.asMap(s)))
+          .toList(),
     );
   }
 }

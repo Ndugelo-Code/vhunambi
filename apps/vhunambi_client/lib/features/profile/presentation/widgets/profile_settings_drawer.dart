@@ -10,6 +10,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/theme_provider.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import 'account_identity_security_card.dart';
 import 'cloud_stack_diagnostic_card.dart';
 import 'hive_brain_telemetry_card.dart';
@@ -22,11 +23,7 @@ class ProfileSettingsDrawer extends ConsumerWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surfaceModal,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.modalBorder,
-        side: BorderSide(color: AppColors.borderSubtle),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (_) => const ProfileSettingsDrawer(),
     );
   }
@@ -36,416 +33,434 @@ class ProfileSettingsDrawer extends ConsumerWidget {
     final activeThemeMode = ref.watch(themeModeProvider);
     final syncState = ref.watch(edgeSyncCoordinatorProvider);
 
-    return SafeArea(
-      top: false,
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Drag Handle
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.textTertiary.withAlpha(80),
-                    borderRadius: BorderRadius.circular(2),
+    return VhunambiGlassSurface(
+      key: const Key('profile_settings_glass_surface'),
+      variant: VhunambiGlassVariant.chrome,
+      borderRadius: AppRadius.modalBorder,
+      enableLiveBlur: false,
+      borderColorOverride: AppColors.borderSubtleOf(context),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag Handle
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.textSecondaryOf(
+                        context,
+                      ).withValues(alpha: 0.32),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
+                const SizedBox(height: 14),
 
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const PhosphorIcon(
+                          PhosphorIconsRegular.gear,
+                          color: AppColors.brandPrimary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Appearance & Preferences',
+                          style: AppTypography.titleMedium.copyWith(
+                            color: AppColors.textPrimaryOf(context),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      key: const Key('profile_settings_close_btn'),
+                      tooltip: 'Close',
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: PhosphorIcon(
+                        AppIcons.close,
+                        size: 20,
+                        color: AppColors.textPrimaryOf(context),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Theme Mode Section Header
+                Text(
+                  'APPLICATION THEME',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondaryOf(context),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // 3-Way Segmented Theme Controller [ System | Light | Dark ]
+                VhunambiGlassSurface(
+                  variant: VhunambiGlassVariant.pill,
+                  height: 46,
+                  padding: const EdgeInsets.all(4),
+                  enableLiveBlur: false,
+                  borderColorOverride: AppColors.borderSubtleOf(context),
+                  child: Row(
                     children: [
+                      _buildThemeOption(
+                        context: context,
+                        ref: ref,
+                        label: 'System',
+                        icon: PhosphorIconsRegular.deviceMobile,
+                        mode: ThemeMode.system,
+                        key: const Key('theme_mode_system'),
+                        isSelected: activeThemeMode == ThemeMode.system,
+                      ),
+                      _buildThemeOption(
+                        context: context,
+                        ref: ref,
+                        label: 'Light',
+                        icon: PhosphorIconsRegular.sun,
+                        mode: ThemeMode.light,
+                        key: const Key('theme_mode_light'),
+                        isSelected: activeThemeMode == ThemeMode.light,
+                      ),
+                      _buildThemeOption(
+                        context: context,
+                        ref: ref,
+                        label: 'Dark',
+                        icon: PhosphorIconsRegular.moon,
+                        mode: ThemeMode.dark,
+                        key: const Key('theme_mode_dark'),
+                        isSelected: activeThemeMode == ThemeMode.dark,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Audio Fidelity Preference
+                Text(
+                  'AUDIO ENGINE SPECIFICATIONS',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondaryOf(context),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                VhunambiGlassSurface(
+                  key: const Key('settings_audio_specs_card'),
+                  variant: VhunambiGlassVariant.card,
+                  padding: const EdgeInsets.all(12),
+                  enableLiveBlur: false,
+                  borderColorOverride: AppColors.borderSubtleOf(context),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.brandPrimary.withAlpha(25),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const PhosphorIcon(
+                          AppIcons.waveform,
+                          color: AppColors.brandPrimary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '44.1 kHz Studio Sampling Rate',
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.textPrimaryOf(context),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'Anti-glitch continuous phase accumulator active',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textSecondaryOf(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       const PhosphorIcon(
-                        PhosphorIconsRegular.gear,
-                        color: AppColors.brandPrimary,
+                        PhosphorIconsFill.checkCircle,
+                        color: AppColors.success,
                         size: 20,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Appearance & Preferences',
-                        style: AppTypography.titleMedium.copyWith(
-                          fontWeight: FontWeight.bold,
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Edge-Synced Mutation Outbox Durability Badge (REQ-P44-SYNC-06, REQ-P46-SYNC-07)
+                VhunambiGlassSurface(
+                  key: const Key('settings_edge_sync_card'),
+                  variant: VhunambiGlassVariant.card,
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  enableLiveBlur: false,
+                  borderColorOverride: AppColors.borderSubtleOf(context),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.badgeCyan.withAlpha(25),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const PhosphorIcon(
+                              PhosphorIconsRegular.cloudCheck,
+                              color: AppColors.badgeCyan,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Edge-Synced • All creations backed up',
+                                  style: AppTypography.bodySmall.copyWith(
+                                    color: AppColors.textPrimaryOf(context),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Durable offline mutation outbox active (Hive WAL)',
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.textSecondaryOf(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const PhosphorIcon(
+                            PhosphorIconsFill.checkCircle,
+                            color: AppColors.badgeCyan,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          key: const Key('settings_sync_now_btn'),
+                          onPressed: () async {
+                            HapticFeedback.lightImpact();
+                            final success = await ref
+                                .read(edgeSyncCoordinatorProvider.notifier)
+                                .syncNow();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    success
+                                        ? 'Edge-Sync complete! All mutations saved to SQLite WAL'
+                                        : 'Offline sync pending • Queued for next connection',
+                                  ),
+                                  backgroundColor: success
+                                      ? AppColors.brandPrimary
+                                      : AppColors.surfaceSecondaryOf(context),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const PhosphorIcon(
+                            PhosphorIconsRegular.arrowsClockwise,
+                            size: 14,
+                            color: AppColors.badgeCyan,
+                          ),
+                          label: Text(
+                            'Sync Now',
+                            style: AppTypography.caption.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimaryOf(context),
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: AppColors.badgeCyan.withValues(alpha: 0.5),
+                            ),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: AppRadius.pillBorder,
+                            ),
+                            minimumSize: const Size(0, 44),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  IconButton(
-                    tooltip: 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const PhosphorIcon(AppIcons.close, size: 20),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                ),
+                const SizedBox(height: 12),
 
-              // Theme Mode Section Header
-              Text(
-                'APPLICATION THEME',
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // 3-Way Segmented Theme Controller [ System | Light | Dark ]
-              Container(
-                height: 46,
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  borderRadius: AppRadius.pillBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: Row(
-                  children: [
-                    _buildThemeOption(
-                      context: context,
-                      ref: ref,
-                      label: 'System',
-                      icon: PhosphorIconsRegular.deviceMobile,
-                      mode: ThemeMode.system,
-                      key: const Key('theme_mode_system'),
-                      isSelected: activeThemeMode == ThemeMode.system,
-                    ),
-                    _buildThemeOption(
-                      context: context,
-                      ref: ref,
-                      label: 'Light',
-                      icon: PhosphorIconsRegular.sun,
-                      mode: ThemeMode.light,
-                      key: const Key('theme_mode_light'),
-                      isSelected: activeThemeMode == ThemeMode.light,
-                    ),
-                    _buildThemeOption(
-                      context: context,
-                      ref: ref,
-                      label: 'Dark',
-                      icon: PhosphorIconsRegular.moon,
-                      mode: ThemeMode.dark,
-                      key: const Key('theme_mode_dark'),
-                      isSelected: activeThemeMode == ThemeMode.dark,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Audio Fidelity Preference
-              Text(
-                'AUDIO ENGINE SPECIFICATIONS',
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  borderRadius: AppRadius.cardBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: Row(
+                // Edge-Sync status row: dead-letter count + latency
+                Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      key: const Key('settings_dead_letter_count'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: AppColors.brandPrimary.withAlpha(25),
-                        shape: BoxShape.circle,
+                        color: syncState.deadLetterCount > 0
+                            ? AppColors.surfaceSecondaryOf(context)
+                            : AppColors.brandPrimary.withValues(alpha: 0.1),
+                        borderRadius: AppRadius.pillBorder,
+                        border: Border.all(
+                          color: syncState.deadLetterCount > 0
+                              ? AppColors.borderSubtleOf(context)
+                              : AppColors.brandPrimary.withValues(alpha: 0.3),
+                        ),
                       ),
-                      child: const PhosphorIcon(
-                        AppIcons.waveform,
-                        color: AppColors.brandPrimary,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            '44.1 kHz Studio Sampling Rate',
-                            style: AppTypography.bodySmall.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                          PhosphorIcon(
+                            PhosphorIconsRegular.warning,
+                            size: 12,
+                            color: AppColors.textSecondaryOf(context),
                           ),
+                          const SizedBox(width: 6),
                           Text(
-                            'Anti-glitch continuous phase accumulator active',
+                            'Dead-Letter: ${syncState.deadLetterCount}',
                             style: AppTypography.caption.copyWith(
-                              color: AppColors.textSecondary,
+                              color: AppColors.textSecondaryOf(context),
+                              fontSize: 11,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const PhosphorIcon(
-                      PhosphorIconsFill.checkCircle,
-                      color: AppColors.success,
-                      size: 20,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              // Edge-Synced Mutation Outbox Durability Badge (REQ-P44-SYNC-06, REQ-P46-SYNC-07)
-              Container(
-                key: const Key('settings_edge_sync_card'),
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  borderRadius: AppRadius.cardBorder,
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.badgeCyan.withAlpha(25),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const PhosphorIcon(
-                            PhosphorIconsRegular.cloudCheck,
-                            color: AppColors.badgeCyan,
-                            size: 20,
-                          ),
+                    const SizedBox(width: 12),
+                    Container(
+                      key: const Key('settings_sync_latency_ms'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceSecondaryOf(context),
+                        borderRadius: AppRadius.pillBorder,
+                        border: Border.all(
+                          color: AppColors.borderSubtleOf(context),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Edge-Synced • All creations backed up',
-                                style: AppTypography.bodySmall.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'Durable offline mutation outbox active (Hive WAL)',
-                                style: AppTypography.caption.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PhosphorIcon(
+                            PhosphorIconsRegular.clock,
+                            size: 12,
+                            color: AppColors.textSecondaryOf(context),
                           ),
-                        ),
-                        PhosphorIcon(
-                          PhosphorIconsFill.checkCircle,
-                          color: AppColors.badgeCyan,
-                          size: 20,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        key: const Key('settings_sync_now_btn'),
-                        onPressed: () async {
-                          HapticFeedback.lightImpact();
-                          final success = await ref
-                              .read(edgeSyncCoordinatorProvider.notifier)
-                              .syncNow();
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  success
-                                      ? 'Edge-Sync complete! All mutations saved to SQLite WAL'
-                                      : 'Offline sync pending • Queued for next connection',
-                                ),
-                                backgroundColor: success
-                                    ? AppColors.brandPrimary
-                                    : AppColors.surfaceSecondary,
-                              ),
-                            );
-                          }
-                        },
-                        icon: const PhosphorIcon(
-                          PhosphorIconsRegular.arrowsClockwise,
-                          size: 14,
-                          color: AppColors.badgeCyan,
-                        ),
-                        label: Text(
-                          'Sync Now',
-                          style: AppTypography.caption.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimaryOf(context),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Latency: ${syncState.lastSyncLatencyMs}ms',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.textSecondaryOf(context),
+                              fontSize: 11,
+                            ),
                           ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                            color: AppColors.badgeCyan.withValues(alpha: 0.5),
-                          ),
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: AppRadius.pillBorder,
-                          ),
-                          minimumSize: const Size(0, 36),
-                        ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 12),
-
-              // Edge-Sync status row: dead-letter count + latency
-              Row(
-                children: [
-                  Container(
-                    key: const Key('settings_dead_letter_count'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: syncState.deadLetterCount > 0
-                          ? AppColors.surfaceSecondary
-                          : AppColors.brandPrimary.withValues(alpha: 0.1),
-                      borderRadius: AppRadius.pillBorder,
-                      border: Border.all(
-                        color: syncState.deadLetterCount > 0
-                            ? AppColors.surfaceSecondary
-                            : AppColors.brandPrimary.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        PhosphorIcon(
-                          PhosphorIconsRegular.warning,
-                          size: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Dead-Letter: ${syncState.deadLetterCount}',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.textSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    key: const Key('settings_sync_latency_ms'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary,
-                      borderRadius: AppRadius.pillBorder,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        PhosphorIcon(
-                          PhosphorIconsRegular.clock,
-                          size: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Latency: ${syncState.lastSyncLatencyMs}ms',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.textSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const AccountIdentitySecurityCard(),
-              const SizedBox(height: 12),
-              const HiveBrainTelemetryCard(),
-              const SizedBox(height: 12),
-              const CloudStackDiagnosticCard(),
-              const SizedBox(height: 12),
-              Material(
-                color: AppColors.surfaceSecondaryOf(context),
-                shape: RoundedRectangleBorder(
+                const SizedBox(height: 12),
+                const AccountIdentitySecurityCard(),
+                const SizedBox(height: 12),
+                const HiveBrainTelemetryCard(),
+                const SizedBox(height: 12),
+                const CloudStackDiagnosticCard(),
+                const SizedBox(height: 12),
+                VhunambiGlassSurface(
+                  variant: VhunambiGlassVariant.card,
                   borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: AppColors.borderSubtleOf(context)),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Padding(
+                  enableLiveBlur: false,
+                  borderColorOverride: AppColors.borderSubtleOf(context),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 8,
                   ),
-                  child: ListTile(
-                    key: const Key('settings_replay_onboarding_btn'),
-                    contentPadding: EdgeInsets.zero,
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppColors.brandPrimary.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: ListTile(
+                      key: const Key('settings_replay_onboarding_btn'),
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppColors.brandPrimary.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const PhosphorIcon(
+                          PhosphorIconsRegular.sparkle,
+                          color: AppColors.brandPrimary,
+                          size: 18,
+                        ),
                       ),
-                      child: const PhosphorIcon(
-                        PhosphorIconsRegular.sparkle,
-                        color: AppColors.brandPrimary,
-                        size: 18,
+                      title: Text(
+                        'Replay Interactive Onboarding',
+                        style: AppTypography.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimaryOf(context),
+                        ),
                       ),
-                    ),
-                    title: Text(
-                      'Replay Interactive Onboarding',
-                      style: AppTypography.bodyMedium.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimaryOf(context),
+                      subtitle: Text(
+                        'Experience the 4-act motion canvas & DNA genesis',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textSecondaryOf(context),
+                        ),
                       ),
-                    ),
-                    subtitle: Text(
-                      'Experience the 4-act motion canvas & DNA genesis',
-                      style: AppTypography.caption.copyWith(
+                      trailing: PhosphorIcon(
+                        PhosphorIconsRegular.caretRight,
+                        size: 16,
                         color: AppColors.textSecondaryOf(context),
                       ),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.of(context).pop();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const OnboardingView(),
+                          ),
+                        );
+                      },
                     ),
-                    trailing: PhosphorIcon(
-                      PhosphorIconsRegular.caretRight,
-                      size: 16,
-                      color: AppColors.textSecondary,
-                    ),
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.of(context).pop();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const OnboardingView(),
-                        ),
-                      );
-                    },
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
         ),
       ),
@@ -461,6 +476,9 @@ class ProfileSettingsDrawer extends ConsumerWidget {
     required Key key,
     required bool isSelected,
   }) {
+    final foreground = isSelected
+        ? AppColors.brandContrast
+        : AppColors.textPrimaryOf(context);
     return Expanded(
       child: InkWell(
         key: key,
@@ -484,16 +502,14 @@ class ProfileSettingsDrawer extends ConsumerWidget {
                 size: 16,
                 color: isSelected
                     ? AppColors.brandContrast
-                    : AppColors.textSecondary,
+                    : AppColors.textSecondaryOf(context),
               ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: AppTypography.caption.copyWith(
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected
-                      ? AppColors.brandContrast
-                      : AppColors.textPrimary,
+                  color: foreground,
                 ),
               ),
             ],

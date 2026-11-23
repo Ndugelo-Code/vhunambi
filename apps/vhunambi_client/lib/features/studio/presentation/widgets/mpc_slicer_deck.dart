@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -28,7 +30,7 @@ class MpcSlicerDeck extends ConsumerWidget {
             // Header
             Row(
               children: [
-                const Icon(Icons.grid_view_rounded, color: AppColors.coinGold),
+                const PhosphorIcon(PhosphorIconsRegular.squaresFour, color: AppColors.coinGold),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -109,7 +111,7 @@ class MpcSlicerDeck extends ConsumerWidget {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Chop kit bounced & sent to Stem Mixer! 🎹'),
+                    content: Text('Chop kit bounced & sent to Stem Mixer!'),
                     backgroundColor: AppColors.success,
                   ),
                 );
@@ -120,8 +122,8 @@ class MpcSlicerDeck extends ConsumerWidget {
                 shape: const RoundedRectangleBorder(
                     borderRadius: AppRadius.inputBorder),
               ),
-              icon: const Icon(Icons.tune_rounded, color: AppColors.brandContrast),
-              label: Text('🎹 Send to Stem Mixer',
+              icon: const PhosphorIcon(AppIcons.sliders, color: AppColors.brandContrast),
+              label: Text('Send to Stem Mixer',
                   style: AppTypography.bodyLarge.copyWith(
                       color: AppColors.brandContrast,
                       fontWeight: FontWeight.bold)),
@@ -133,7 +135,7 @@ class MpcSlicerDeck extends ConsumerWidget {
                 HapticFeedback.mediumImpact();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Chop kit routed into Studio prompt context 🎙️'),
+                    content: Text('Chop kit routed into Studio prompt context'),
                     backgroundColor: AppColors.surfaceModal,
                   ),
                 );
@@ -144,8 +146,8 @@ class MpcSlicerDeck extends ConsumerWidget {
                 shape: const RoundedRectangleBorder(
                     borderRadius: AppRadius.inputBorder),
               ),
-              icon: Icon(Icons.mic_none_rounded, color: AppColors.textPrimary),
-              label: Text('🎙️ Record into Studio',
+              icon: PhosphorIcon(AppIcons.mic, color: AppColors.textPrimary),
+              label: Text('Record into Studio',
                   style: AppTypography.bodyLarge
                       .copyWith(color: AppColors.textPrimary)),
             ),

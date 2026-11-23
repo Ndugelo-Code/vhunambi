@@ -12,6 +12,7 @@ import 'package:vhunambi_client/core/utils/creator_id_utils.dart';
 import 'package:vhunambi_client/core/utils/responsive_utils.dart';
 import 'package:vhunambi_client/core/widgets/vhunambi_ambient_mesh_backdrop.dart';
 import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_tab_bar.dart';
 import 'package:vhunambi_client/core/widgets/vhunambi_top_bar_kit.dart';
 import 'package:vhunambi_client/core/widgets/vhunambi_track_artwork.dart';
 import 'package:vhunambi_client/features/explore/domain/models/social_music_post.dart';
@@ -123,9 +124,7 @@ class _ArtistProfileViewState extends ConsumerState<ArtistProfileView> {
                   ),
                   onTap: () {
                     Navigator.pop(sheetCtx);
-                    Clipboard.setData(
-                      ClipboardData(text: profile.profileUrl),
-                    );
+                    Clipboard.setData(ClipboardData(text: profile.profileUrl));
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -169,7 +168,9 @@ class _ArtistProfileViewState extends ConsumerState<ArtistProfileView> {
                     Navigator.pop(sheetCtx);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Report submitted for ${profile.handle}.'),
+                        content: Text(
+                          'Report submitted for ${profile.handle}.',
+                        ),
                       ),
                     );
                   },
@@ -345,36 +346,41 @@ class _ArtistProfileViewState extends ConsumerState<ArtistProfileView> {
                 ),
                 SliverPersistentHeader(
                   pinned: true,
-                  delegate: _ProfileTabBarDelegate(
+                  delegate: VhunambiGlassTabBarHeaderDelegate(
                     surfaceColor: AppColors.surfaceCanvasOf(context),
-                    tabBar: TabBar(
-                      isScrollable: true,
-                      tabAlignment: TabAlignment.start,
-                      labelColor: AppColors.brandPrimary,
-                      indicatorColor: AppColors.brandPrimary,
-                      unselectedLabelColor: AppColors.textSecondaryOf(context),
-                      tabs: const <Tab>[
-                        Tab(key: Key('visitor_tab_overview'), text: 'Overview'),
-                        Tab(key: Key('visitor_tab_songs'), text: 'Songs'),
-                        Tab(
-                          key: Key('visitor_tab_posts_reels'),
-                          text: 'Posts & Reels',
-                        ),
-                        Tab(key: Key('visitor_tab_beats'), text: 'Beats'),
-                        Tab(key: Key('visitor_tab_about'), text: 'About'),
-                      ],
-                    ),
+                    items: const <VhunambiGlassTabItem>[
+                      VhunambiGlassTabItem(
+                        key: Key('visitor_tab_overview'),
+                        label: 'Overview',
+                        icon: PhosphorIconsRegular.squaresFour,
+                      ),
+                      VhunambiGlassTabItem(
+                        key: Key('visitor_tab_songs'),
+                        label: 'Songs',
+                        icon: AppIcons.songs,
+                      ),
+                      VhunambiGlassTabItem(
+                        key: Key('visitor_tab_posts_reels'),
+                        label: 'Posts & Reels',
+                        icon: AppIcons.reels,
+                      ),
+                      VhunambiGlassTabItem(
+                        key: Key('visitor_tab_beats'),
+                        label: 'Beats',
+                        icon: AppIcons.beatstore,
+                      ),
+                      VhunambiGlassTabItem(
+                        key: Key('visitor_tab_about'),
+                        label: 'About',
+                        icon: PhosphorIconsRegular.info,
+                      ),
+                    ],
                   ),
                 ),
               ],
               body: TabBarView(
                 children: <Widget>[
-                  _buildOverviewTab(
-                    context,
-                    profile,
-                    liveTracks,
-                    creatorPosts,
-                  ),
+                  _buildOverviewTab(context, profile, liveTracks, creatorPosts),
                   _buildSongsTab(context, profile, liveTracks),
                   _buildPostsAndReelsTab(context, profile, creatorPosts, clips),
                   _buildBeatsTab(context, profile),
@@ -418,17 +424,26 @@ class _ArtistProfileViewState extends ConsumerState<ArtistProfileView> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            Text('·', style: AppTypography.bodySmall.copyWith(color: textSecondary)),
+            Text(
+              '·',
+              style: AppTypography.bodySmall.copyWith(color: textSecondary),
+            ),
             Text(
               '${_formatCompactMetric(profile.monthlyListenersCount)} monthly listeners',
               style: AppTypography.bodySmall.copyWith(color: textSecondary),
             ),
-            Text('·', style: AppTypography.bodySmall.copyWith(color: textSecondary)),
+            Text(
+              '·',
+              style: AppTypography.bodySmall.copyWith(color: textSecondary),
+            ),
             Text(
               '$resolvedSongs songs',
               style: AppTypography.bodySmall.copyWith(color: textSecondary),
             ),
-            Text('·', style: AppTypography.bodySmall.copyWith(color: textSecondary)),
+            Text(
+              '·',
+              style: AppTypography.bodySmall.copyWith(color: textSecondary),
+            ),
             Text(
               '${_formatCompactMetric(profile.playCount)} plays',
               style: AppTypography.bodySmall.copyWith(color: textSecondary),
@@ -448,8 +463,7 @@ class _ArtistProfileViewState extends ConsumerState<ArtistProfileView> {
     final textPrimary = AppColors.textPrimaryOf(context);
     final textSecondary = AppColors.textSecondaryOf(context);
     final moodTags = <VhunambiMood>{
-      for (final track in liveTracks)
-        VhunambiMood.normalize(track.mood),
+      for (final track in liveTracks) VhunambiMood.normalize(track.mood),
       if (liveTracks.isEmpty) VhunambiMood.uplifting,
     }.toList();
 
@@ -514,7 +528,8 @@ class _ArtistProfileViewState extends ConsumerState<ArtistProfileView> {
           _buildVisitorEmptyGlassCard(
             context,
             icon: AppIcons.songs,
-            message: '${profile.displayName} has no public tracks published yet.',
+            message:
+                '${profile.displayName} has no public tracks published yet.',
           )
         else
           for (int i = 0; i < liveTracks.take(3).length; i++) ...<Widget>[
@@ -852,11 +867,7 @@ class _ArtistProfileViewState extends ConsumerState<ArtistProfileView> {
                     style: AppTypography.caption.copyWith(color: textSecondary),
                   ),
                   const SizedBox(width: 14),
-                  PhosphorIcon(
-                    AppIcons.chat,
-                    size: 14,
-                    color: textSecondary,
-                  ),
+                  PhosphorIcon(AppIcons.chat, size: 14, color: textSecondary),
                   const SizedBox(width: 4),
                   Text(
                     '${post.commentCount} comments',
@@ -1035,7 +1046,11 @@ class _ArtistProfileViewState extends ConsumerState<ArtistProfileView> {
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         children: <Widget>[
-          PhosphorIcon(icon, size: 32, color: AppColors.textSecondaryOf(context)),
+          PhosphorIcon(
+            icon,
+            size: 32,
+            color: AppColors.textSecondaryOf(context),
+          ),
           const SizedBox(height: 8),
           Text(
             message,
@@ -1048,32 +1063,6 @@ class _ArtistProfileViewState extends ConsumerState<ArtistProfileView> {
       ),
     );
   }
-}
-
-class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
-  final Color surfaceColor;
-  final TabBar tabBar;
-
-  _ProfileTabBarDelegate({required this.surfaceColor, required this.tabBar});
-
-  @override
-  double get minExtent => tabBar.preferredSize.height;
-
-  @override
-  double get maxExtent => tabBar.preferredSize.height;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return Container(color: surfaceColor, child: tabBar);
-  }
-
-  @override
-  bool shouldRebuild(_ProfileTabBarDelegate oldDelegate) =>
-      surfaceColor != oldDelegate.surfaceColor;
 }
 
 class _AboutRow extends StatelessWidget {

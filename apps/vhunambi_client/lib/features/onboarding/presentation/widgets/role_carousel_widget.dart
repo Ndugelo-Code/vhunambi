@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/design_system/design_system.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../creator_dna/domain/entities/creator_dna_profile.dart';
 
 /// Role option displayed in the [RoleCarouselWidget].
@@ -11,15 +13,32 @@ import '../../../creator_dna/domain/entities/creator_dna_profile.dart';
 class RoleOption {
   final CreativeRole role;
   final String label;
+
+  /// Legacy optional field preserved so historical widget tests compile;
+  /// production UI renders [resolvedIcon] via [PhosphorIcon] (`STD-UIUX-001`).
   final String emoji;
+  final IconData? icon;
   final String description;
 
   const RoleOption({
     required this.role,
     required this.label,
-    required this.emoji,
+    this.emoji = '',
+    this.icon,
     required this.description,
   });
+
+  IconData get resolvedIcon => icon ?? _defaultIconForRole(role);
+
+  static IconData _defaultIconForRole(CreativeRole role) {
+    return switch (role) {
+      CreativeRole.producer => AppIcons.beatstore,
+      CreativeRole.vocalist => AppIcons.vocals,
+      CreativeRole.songwriter => AppIcons.edit,
+      CreativeRole.multiHyphenate => AppIcons.sparkle,
+      CreativeRole.musicLover => PhosphorIconsFill.headphones,
+    };
+  }
 }
 
 /// Horizontal card carousel for selecting a creative role during onboarding.
@@ -135,35 +154,49 @@ class _RoleCarouselWidgetState extends ConsumerState<RoleCarouselWidget> {
                 child: Semantics(
                   button: true,
                   selected: isSelected,
-                  label: '${role.label} creative role${isSelected ? ', selected' : ''}',
+                  label:
+                      '${role.label} creative role${isSelected ? ', selected' : ''}',
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: () => _onRoleTap(role),
                       borderRadius: AppRadius.cardBorder,
-                      child: Container(
+                      child: VhunambiGlassSurface(
+                        variant: VhunambiGlassVariant.card,
                         constraints: const BoxConstraints(minHeight: 100),
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.md,
                           vertical: AppSpacing.sm,
                         ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.brandPrimary.withValues(alpha: 0.15)
-                              : AppColors.surfaceElevated,
-                          borderRadius: AppRadius.cardBorder,
-                          border: Border.all(
-                            color: isSelected || isCenter
-                                ? AppColors.brandPrimary
-                                : AppColors.borderSubtle,
-                            width: isSelected || isCenter ? 2.0 : 1.0,
-                          ),
-                        ),
+                        borderRadius: AppRadius.cardBorder,
+                        enableLiveBlur: false,
+                        tintAccent: isSelected ? AppColors.brandPrimary : null,
+                        borderColorOverride: isSelected || isCenter
+                            ? AppColors.brandPrimary
+                            : AppColors.borderSubtleOf(context),
+                        borderWidth: isSelected || isCenter ? 2.0 : 1.0,
                         child: Row(
                           children: [
-                            Text(
-                              role.emoji,
-                              style: const TextStyle(fontSize: 24),
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: isSelected || isCenter
+                                    ? AppColors.brandPrimary.withValues(
+                                        alpha: 0.16,
+                                      )
+                                    : AppColors.surfaceSecondaryOf(context),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Center(
+                                child: PhosphorIcon(
+                                  role.resolvedIcon,
+                                  size: 20,
+                                  color: isSelected || isCenter
+                                      ? AppColors.brandPrimary
+                                      : AppColors.textPrimaryOf(context),
+                                ),
+                              ),
                             ),
                             const SizedBox(width: AppSpacing.md),
                             Expanded(
@@ -176,7 +209,7 @@ class _RoleCarouselWidgetState extends ConsumerState<RoleCarouselWidget> {
                                     style: AppTypography.titleMedium.copyWith(
                                       color: isSelected || isCenter
                                           ? AppColors.brandPrimary
-                                          : AppColors.textPrimary,
+                                          : AppColors.textPrimaryOf(context),
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -184,15 +217,15 @@ class _RoleCarouselWidgetState extends ConsumerState<RoleCarouselWidget> {
                                   Text(
                                     role.description,
                                     style: AppTypography.caption.copyWith(
-                                      color: AppColors.textSecondary,
+                                      color: AppColors.textSecondaryOf(context),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                             if (isSelected)
-                              const Icon(
-                                Icons.check_circle,
+                              const PhosphorIcon(
+                                AppIcons.checkCircle,
                                 color: AppColors.brandPrimary,
                                 size: 20,
                               ),

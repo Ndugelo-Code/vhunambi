@@ -97,10 +97,10 @@ class SplitSheetModal extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '📄 Split Sheet — ${collection.title}',
+            'Split Sheet — ${collection.title}',
             style: AppTypography.titleMedium.copyWith(
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color: AppColors.textPrimaryOf(context),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -144,7 +144,7 @@ class SplitSheetModal extends StatelessWidget {
           if (!collection.isSplitBalanced) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '⚠ Shares must sum to 100%',
+              'Shares must sum to 100%',
               style: AppTypography.bodyLarge.copyWith(
                 color: AppColors.error,
                 fontWeight: FontWeight.w600,

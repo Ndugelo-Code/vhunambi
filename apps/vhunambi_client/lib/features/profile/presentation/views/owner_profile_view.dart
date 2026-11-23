@@ -13,6 +13,7 @@ import '../../../../core/utils/responsive_utils.dart';
 import '../../../../core/widgets/vhunambi_ambient_mesh_backdrop.dart';
 import '../../../../core/widgets/vhunambi_bottom_dock_kit.dart';
 import '../../../../core/widgets/vhunambi_glass_surface.dart';
+import '../../../../core/widgets/vhunambi_glass_tab_bar.dart';
 import '../../../../core/widgets/vhunambi_top_bar_kit.dart';
 import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../creator_dna/presentation/widgets/creator_dna_profile_card.dart';
@@ -255,7 +256,11 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
               trackCreator == 'creator_cern') {
             return true;
           }
-          if (t.creatorName.trim().toLowerCase() == profileName) return true;
+          final normalizedName = t.creatorName.trim().toLowerCase();
+          if (normalizedName == profileName ||
+              normalizedName == 'ai studio') {
+            return true;
+          }
           return false;
         })
         .toList(growable: false);
@@ -718,8 +723,6 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
                             ],
                           const SizedBox(height: 16),
                           const _OwnerKineticPostsShelf(),
-                          const SizedBox(height: 16),
-                          const _OwnerReelsShelf(),
                         ] else if (_activeTab == OwnerStudioTab.reels) ...[
                           const _OwnerReelsShelf(),
                         ] else if (_activeTab == OwnerStudioTab.beatstore) ...[
@@ -783,75 +786,25 @@ class _OwnerProfileViewState extends ConsumerState<OwnerProfileView> {
   }
 
   Widget _buildStudioSegmentedSelector(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: VhunambiGlassSurface(
-        variant: VhunambiGlassVariant.pill,
-        enableLiveBlur: false,
-        padding: const EdgeInsets.all(4),
-        child: Row(
-          children: OwnerStudioTab.values.map((tab) {
-            final isSelected = _activeTab == tab;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 44),
-                child: InkWell(
-                  key: Key('owner_studio_tab_${tab.name}'),
-                  onTap: () => setState(() => _activeTab = tab),
-                  borderRadius: AppRadius.pillBorder,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.brandPrimary
-                          : Colors.transparent,
-                      borderRadius: AppRadius.pillBorder,
-                    ),
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        PhosphorIcon(
-                          switch (tab) {
-                            OwnerStudioTab.songs => AppIcons.songs,
-                            OwnerStudioTab.reels => AppIcons.reels,
-                            OwnerStudioTab.beatstore => AppIcons.beatstore,
-                            OwnerStudioTab.voicesAndMelodies =>
-                              AppIcons.soundPack,
-                            OwnerStudioTab.releases => AppIcons.releases,
-                          },
-                          size: 14,
-                          color: isSelected
-                              ? AppColors.brandContrast
-                              : AppColors.textSecondaryOf(context),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          tab.label,
-                          style: AppTypography.caption.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: isSelected
-                                ? AppColors.brandContrast
-                                : AppColors.textSecondaryOf(context),
-                          ),
-                          maxLines: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
+    final tabs = OwnerStudioTab.values;
+    return VhunambiGlassTabBar(
+      selectedIndex: tabs.indexOf(_activeTab),
+      items: tabs
+          .map(
+            (tab) => VhunambiGlassTabItem(
+              key: Key('owner_studio_tab_${tab.name}'),
+              label: tab.label,
+              icon: switch (tab) {
+                OwnerStudioTab.songs => AppIcons.songs,
+                OwnerStudioTab.reels => AppIcons.reels,
+                OwnerStudioTab.beatstore => AppIcons.beatstore,
+                OwnerStudioTab.voicesAndMelodies => AppIcons.soundPack,
+                OwnerStudioTab.releases => AppIcons.releases,
+              },
+            ),
+          )
+          .toList(),
+      onSelected: (index) => setState(() => _activeTab = tabs[index]),
     );
   }
 

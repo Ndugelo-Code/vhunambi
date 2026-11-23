@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -27,8 +28,8 @@ class AfricanChartsBanner extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(
-              Icons.trending_up_rounded,
+            PhosphorIcon(
+              PhosphorIconsRegular.trendUp,
               size: 28,
               color: AppColors.textPrimary,
             ),

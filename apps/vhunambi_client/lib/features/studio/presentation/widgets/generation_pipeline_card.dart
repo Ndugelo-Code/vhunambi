@@ -2,15 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../domain/models/generation_pipeline_state.dart';
+import '../../../library/domain/models/library_models.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../../track/domain/models/track_entity.dart';
 import '../providers/generation_pipeline_providers.dart';
 import '../providers/stem_download_provider.dart';
-import 'package:vhunambi_client/features/content_studio/presentation/views/content_studio_dock_view.dart';
+import 'package:vhunambi_client/features/content_studio/presentation/views/kinetic_reel_studio_view.dart';
 
 /// Live result panel for the audio synthesis pipeline (T10.4).
 ///
@@ -316,10 +318,8 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
             onTap: () => setState(() => _showLyrics = !_showLyrics),
             child: Row(
               children: [
-                Icon(
-                  _showLyrics
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
+                PhosphorIcon(
+                  _showLyrics ? AppIcons.caretUp : AppIcons.caretDown,
                   color: AppColors.brandPrimary,
                   size: 20,
                 ),
@@ -382,7 +382,11 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
           color: AppColors.brandPrimary,
           shape: BoxShape.circle,
         ),
-        child: const Icon(Icons.check, size: 14, color: Colors.black),
+        child: const PhosphorIcon(
+          AppIcons.check,
+          size: 14,
+          color: AppColors.brandContrast,
+        ),
       );
       textColor = AppColors.textPrimary;
     } else if (isActive) {
@@ -422,7 +426,9 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
             label,
             style: AppTypography.bodySmall.copyWith(
               color: textColor,
-              fontWeight: isDone || isActive ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: isDone || isActive
+                  ? FontWeight.w600
+                  : FontWeight.w400,
             ),
           ),
         ),
@@ -530,8 +536,8 @@ class _ErrorBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.error_outline_rounded,
+          const PhosphorIcon(
+            PhosphorIconsRegular.warningCircle,
             size: 18,
             color: AppColors.error,
           ),
@@ -602,8 +608,8 @@ class _ReadyTrackCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.check_circle_rounded,
+              const PhosphorIcon(
+                AppIcons.checkCircle,
                 color: AppColors.brandPrimary,
                 size: 20,
               ),
@@ -630,8 +636,8 @@ class _ReadyTrackCard extends ConsumerWidget {
                       .read(playerStateProvider.notifier)
                       .playTrack(track.toTrack());
                 },
-                icon: const Icon(
-                  Icons.play_arrow_rounded,
+                icon: const PhosphorIcon(
+                  AppIcons.play,
                   color: AppColors.brandContrast,
                 ),
                 label: Text(
@@ -652,20 +658,29 @@ class _ReadyTrackCard extends ConsumerWidget {
               OutlinedButton.icon(
                 key: const Key('pipeline_create_reel_btn'),
                 onPressed: () {
-                  ContentStudioDockView.open(
-                    context,
-                    dna: track.toSongMetadataDna(),
-                    audioUrl: AppConstants.normalizeCloudMediaUrl(
-                      track.masterMp3Url,
-                    ),
-                    coverArtUrl: AppConstants.normalizeCloudMediaUrl(
-                      track.coverUrl ??
-                          'https://r2.vhunambi.com/visuals/default_9_16.png',
-                    ),
+                  final normalizedAudio = AppConstants.normalizeCloudMediaUrl(
+                    track.masterMp3Url,
                   );
+                  final normalizedCover =
+                      (track.coverUrl != null && track.coverUrl!.isNotEmpty)
+                      ? AppConstants.normalizeCloudMediaUrl(track.coverUrl!)
+                      : null;
+                  final libTrack = LibraryTrack(
+                    id: track.id,
+                    title: track.title,
+                    creatorName: 'Vhunambi Studio',
+                    genre: track.genre,
+                    language: track.language,
+                    durationSeconds: track.duration.inSeconds,
+                    remoteAudioUrl: normalizedAudio,
+                    coverImageUrl: normalizedCover,
+                    lyrics: track.lyrics,
+                    createdAt: DateTime.now(),
+                  );
+                  KineticReelStudioView.show(context, initialTrack: libTrack);
                 },
-                icon: const Icon(
-                  Icons.movie_creation_rounded,
+                icon: const PhosphorIcon(
+                  AppIcons.reels,
                   size: 16,
                   color: AppColors.brandPrimary,
                 ),
@@ -695,14 +710,14 @@ class _ReadyTrackCard extends ConsumerWidget {
                         content: Text(
                           'Downloading stem bundle for ${track.title}...',
                         ),
-                        backgroundColor: AppColors.surfaceElevated,
+                        backgroundColor: AppColors.surfaceElevatedOf(context),
                       ),
                     );
                   },
-                  icon: Icon(
-                    Icons.download_rounded,
+                  icon: PhosphorIcon(
+                    AppIcons.download,
                     size: 16,
-                    color: AppColors.textPrimary,
+                    color: AppColors.textPrimaryOf(context),
                   ),
                   label: Text(
                     'Stems',

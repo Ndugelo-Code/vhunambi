@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -307,12 +308,24 @@ class _CollectionHeroHeader extends StatelessWidget {
                 ],
                 if (!collection.isWithinRecommendedRange) ...[
                   const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    '⚠ Recommended $minTracks–$maxTracks tracks '
-                    'for a ${collection.typeLabel}.',
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.coinGold,
-                    ),
+                  Row(
+                    children: [
+                      const PhosphorIcon(
+                        PhosphorIconsRegular.warningCircle,
+                        size: 14,
+                        color: AppColors.coinGold,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'Recommended $minTracks–$maxTracks tracks '
+                          'for a ${collection.typeLabel}.',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.coinGold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -363,7 +376,7 @@ class _CollectionPlaybackDeck extends ConsumerWidget {
                   shape: pill,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                icon: const Icon(Icons.play_arrow_rounded, size: 22),
+                icon: const PhosphorIcon(AppIcons.play, size: 22),
                 label: const Text(
                   'Play All',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
@@ -378,12 +391,12 @@ class _CollectionPlaybackDeck extends ConsumerWidget {
                     ? null
                     : () => start(List<Track>.of(tracks)..shuffle(Random())),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textPrimary,
-                  side: BorderSide(color: AppColors.borderSubtle),
+                  foregroundColor: AppColors.textPrimaryOf(context),
+                  side: BorderSide(color: AppColors.borderSubtleOf(context)),
                   shape: pill,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                icon: const Icon(Icons.shuffle_rounded, size: 20),
+                icon: const PhosphorIcon(AppIcons.shuffle, size: 20),
                 label: const Text(
                   'Shuffle',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
@@ -403,14 +416,14 @@ class _CollectionPlaybackDeck extends ConsumerWidget {
               durationLabel: durationLabel,
             ),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textPrimary,
-              side: BorderSide(color: AppColors.borderSubtle),
+              foregroundColor: AppColors.textPrimaryOf(context),
+              side: BorderSide(color: AppColors.borderSubtleOf(context)),
               shape: pill,
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
-            icon: const Icon(Icons.description_outlined, size: 18),
+            icon: const PhosphorIcon(PhosphorIconsRegular.fileText, size: 18),
             label: const Text(
-              '📄 Split Sheet',
+              'Split Sheet',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
             ),
           ),

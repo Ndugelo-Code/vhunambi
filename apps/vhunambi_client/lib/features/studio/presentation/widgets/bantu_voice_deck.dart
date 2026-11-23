@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/constants/app_assets.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -42,8 +44,8 @@ class BantuVoiceDeck extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.graphic_eq_rounded,
+              const PhosphorIcon(
+                AppIcons.waveform,
                 color: AppColors.coinGold,
                 size: 20,
               ),
@@ -166,8 +168,8 @@ class BantuVoiceDeck extends ConsumerWidget {
                           ),
                         ),
                         onPressed: () => VocalIdentityPickerSheet.show(context),
-                        icon: const Icon(
-                          Icons.library_music_rounded,
+                        icon: const PhosphorIcon(
+                          AppIcons.songs,
                           size: 14,
                           color: AppColors.coinGold,
                         ),
@@ -201,8 +203,8 @@ class BantuVoiceDeck extends ConsumerWidget {
                           lyrics: state.customLyrics,
                           language: state.language,
                         ),
-                        icon: const Icon(
-                          Icons.mic_external_on_rounded,
+                        icon: const PhosphorIcon(
+                          AppIcons.voiceClone,
                           size: 14,
                           color: AppColors.brandPrimary,
                         ),
@@ -523,16 +525,17 @@ class _TimbreCard extends StatelessWidget {
             height: 26,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => Center(
-              child: Text(
-                profile.iconEmoji,
-                style: const TextStyle(fontSize: 14),
+              child: PhosphorIcon(
+                profile.iconData,
+                size: 14,
+                color: AppColors.coinGold,
               ),
             ),
           ),
         ),
       );
     }
-    return Text(profile.iconEmoji, style: const TextStyle(fontSize: 20));
+    return PhosphorIcon(profile.iconData, size: 20, color: AppColors.coinGold);
   }
 }
 

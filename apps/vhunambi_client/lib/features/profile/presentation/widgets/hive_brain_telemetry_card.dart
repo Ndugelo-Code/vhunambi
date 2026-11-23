@@ -8,6 +8,7 @@ import 'package:vhunambi_client/core/sync/edge_sync_coordinator.dart';
 import 'package:vhunambi_client/core/theme/app_colors.dart';
 import 'package:vhunambi_client/core/theme/app_dimensions.dart';
 import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
 
 /// Displays real-time health, AES-256 encryption verification, 26-box coverage,
 /// fragmentation telemetry, and quick compaction / Edge-Sync controls for the
@@ -84,7 +85,7 @@ class _HiveBrainTelemetryCardState
         ),
         backgroundColor: ok
             ? AppColors.brandPrimary
-            : AppColors.surfaceSecondary,
+            : AppColors.surfaceSecondaryOf(context),
       ),
     );
   }
@@ -95,14 +96,12 @@ class _HiveBrainTelemetryCardState
     final fragPercent =
         (_snapshot.fragmentationRatio * 100).clamp(0, 100).toStringAsFixed(1);
 
-    return Container(
+    return VhunambiGlassSurface(
       key: const Key('hive_brain_status_card'),
+      variant: VhunambiGlassVariant.card,
       padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevatedOf(context),
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtleOf(context)),
-      ),
+      enableLiveBlur: false,
+      borderColorOverride: AppColors.borderSubtleOf(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -237,7 +236,7 @@ class _HiveBrainTelemetryCardState
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
                     ),
-                    minimumSize: const Size(0, 36),
+                    minimumSize: const Size(0, 44),
                   ),
                 ),
               ),
@@ -267,7 +266,7 @@ class _HiveBrainTelemetryCardState
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
                     ),
-                    minimumSize: const Size(0, 36),
+                    minimumSize: const Size(0, 44),
                   ),
                 ),
               ),

@@ -204,8 +204,8 @@ void main() {
         await tester.tap(autotuneBtn);
         await tester.pump(const Duration(milliseconds: 100));
 
-        // Verify glowing "✨ Era Match" pill is present
-        expect(find.text('✨ Era Match'), findsWidgets);
+        // Verify glowing "Era Match" Phosphor pill is present (STD-UIUX-001)
+        expect(find.text('Era Match'), findsWidgets);
       },
     );
 

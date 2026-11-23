@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -86,10 +88,8 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
 
   static const Duration _hintPause = Duration(milliseconds: 1500);
 
-  TextEditingController _controllerFor(String title) => _controllers.putIfAbsent(
-        title,
-        () => TextEditingController(),
-      );
+  TextEditingController _controllerFor(String title) =>
+      _controllers.putIfAbsent(title, () => TextEditingController());
 
   @override
   void dispose() {
@@ -102,23 +102,23 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
   }
 
   String _hintFor(LyricsSectionScaffold scaffold) => switch (scaffold.type) {
-        LyricsSectionType.intro =>
-          'Open with an image: place the listener somewhere specific (a taxi '
-              'rank at dawn, a Limpopo riverbank).',
-        LyricsSectionType.verse =>
-          'Ground the story in details — names, places, smells. Concrete '
-              'beats abstract every time.',
-        LyricsSectionType.chorus =>
-          'Aim for a line you could chant with friends: short, rhythmic, '
-              'and repeatable.',
-        LyricsSectionType.bridge =>
-          'Flip the perspective or raise the stakes before the final chorus.',
-        LyricsSectionType.outro =>
-          'End with a callback to your opening line — songs love circular '
-              'endings.',
-        LyricsSectionType.hook =>
-          'Make it the catchiest 1–2 lines of the whole song.',
-      };
+    LyricsSectionType.intro =>
+      'Open with an image: place the listener somewhere specific (a taxi '
+          'rank at dawn, a Limpopo riverbank).',
+    LyricsSectionType.verse =>
+      'Ground the story in details — names, places, smells. Concrete '
+          'beats abstract every time.',
+    LyricsSectionType.chorus =>
+      'Aim for a line you could chant with friends: short, rhythmic, '
+          'and repeatable.',
+    LyricsSectionType.bridge =>
+      'Flip the perspective or raise the stakes before the final chorus.',
+    LyricsSectionType.outro =>
+      'End with a callback to your opening line — songs love circular '
+          'endings.',
+    LyricsSectionType.hook =>
+      'Make it the catchiest 1–2 lines of the whole song.',
+  };
 
   void _onSectionChanged(String title, String scaffoldHint) {
     if (_hintTimer?.isActive ?? false) _hintTimer?.cancel();
@@ -239,11 +239,12 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
     final formState = ref.watch(studioFormProvider);
     final genre = formState.genre;
 
-    final genreMap = kGenreAtmosphereLibrary[genre] ??
+    final genreMap =
+        kGenreAtmosphereLibrary[genre] ??
         kGenreAtmosphereLibrary['Amapiano'] ??
         const <String, List<AtmosphereDescriptor>>{};
-    final atmosphereList = genreMap[scaffold.type.name] ??
-        const <AtmosphereDescriptor>[];
+    final atmosphereList =
+        genreMap[scaffold.type.name] ?? const <AtmosphereDescriptor>[];
 
     final isLastSection = _currentIndex == kGuidedComposerScaffold.length - 1;
 
@@ -288,7 +289,7 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
               const SizedBox(width: AppSpacing.xs),
               IconButton(
                 key: const Key('guided_composer_close_btn'),
-                icon: const Icon(Icons.close_rounded, size: 20),
+                icon: const PhosphorIcon(AppIcons.close, size: 20),
                 color: AppColors.textSecondary,
                 constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 onPressed: () => Navigator.of(context).maybePop(),
@@ -313,8 +314,8 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
                     color: isActive
                         ? AppColors.brandPrimary
                         : isCompleted
-                            ? AppColors.accentSuccess
-                            : AppColors.borderSubtle,
+                        ? AppColors.accentSuccess
+                        : AppColors.borderSubtle,
                     borderRadius: AppRadius.pillBorder,
                   ),
                 ),
@@ -378,10 +379,8 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
                   color: AppColors.textTertiary,
                 ),
               ),
-              onChanged: (text) => _onSectionChanged(
-                scaffold.title,
-                _hintFor(scaffold),
-              ),
+              onChanged: (text) =>
+                  _onSectionChanged(scaffold.title, _hintFor(scaffold)),
             ),
           ),
 
@@ -396,14 +395,12 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
               decoration: BoxDecoration(
                 color: AppColors.accentGold.withAlpha(25),
                 borderRadius: AppRadius.cardBorder,
-                border: Border.all(
-                  color: AppColors.accentGold.withAlpha(90),
-                ),
+                border: Border.all(color: AppColors.accentGold.withAlpha(90)),
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.lightbulb_outline_rounded,
+                  const PhosphorIcon(
+                    AppIcons.sparkle,
                     size: 16,
                     color: AppColors.accentGold,
                   ),
@@ -417,7 +414,7 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 14),
+                    icon: const PhosphorIcon(AppIcons.close, size: 14),
                     color: AppColors.accentGold,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
@@ -462,7 +459,11 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(descriptor.emoji),
+                        PhosphorIcon(
+                          descriptor.icon,
+                          size: 14,
+                          color: AppColors.brandPrimary,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           descriptor.label,
@@ -511,9 +512,7 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
                 TextButton(
                   key: const Key('guided_composer_skip_btn'),
                   onPressed: _skipSection,
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(44, 44),
-                  ),
+                  style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
                   child: Text(
                     'Skip',
                     style: AppTypography.bodyLarge.copyWith(

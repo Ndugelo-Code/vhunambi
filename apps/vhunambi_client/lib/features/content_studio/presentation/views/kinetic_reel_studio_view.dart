@@ -1,11 +1,13 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:video_player/video_player.dart';
 import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/navigation/navigation_providers.dart';
 import 'package:vhunambi_client/core/theme/app_colors.dart';
@@ -48,17 +50,20 @@ class _VisualPresetOrb {
 class KineticReelStudioView extends ConsumerStatefulWidget {
   final LibraryTrack? initialTrack;
   final PublishedClip? initialClip;
+  final bool initialCameraMode;
 
   const KineticReelStudioView({
     super.key,
     this.initialTrack,
     this.initialClip,
+    this.initialCameraMode = false,
   });
 
   static Future<void> show(
     BuildContext context, {
     LibraryTrack? initialTrack,
     PublishedClip? initialClip,
+    bool initialCameraMode = false,
   }) {
     return Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute<void>(
@@ -66,6 +71,7 @@ class KineticReelStudioView extends ConsumerStatefulWidget {
         builder: (_) => KineticReelStudioView(
           initialTrack: initialTrack,
           initialClip: initialClip,
+          initialCameraMode: initialCameraMode,
         ),
       ),
     );
@@ -169,10 +175,16 @@ class _KineticReelStudioViewState
   Uint8List? _customMediaBytes;
   String? _customMediaFilename;
   String? _customMediaMime;
+  String? _customMediaLocalPath;
 
   CameraController? _cameraController;
   List<CameraDescription> _cameras = const <CameraDescription>[];
   int _cameraIdx = 0;
+  bool _isRecordingVideo = false;
+  int _recordingElapsedSec = 0;
+  Timer? _recordingTicker;
+  VideoPlayerController? _stage2VideoController;
+  bool _stage2VideoReady = false;
 
   static bool get _isTestEnv {
     if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
@@ -189,6 +201,11 @@ class _KineticReelStudioViewState
     super.initState();
     _audio = _resolveInitialAudio();
     _audioEndMs = (_lengthSteps[_lengthIdx] * 1000).clamp(15000, 90000);
+    if (widget.initialCameraMode) {
+      _backdropMode = _BackdropMode.camera;
+      _mediaKind = 'camera_video';
+      unawaited(_initCameraIfAllowed());
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -247,12 +264,23 @@ class _KineticReelStudioViewState
       _cameras = await availableCameras();
       if (_cameras.isEmpty) return;
       await _cameraController?.dispose();
-      final controller = CameraController(
-        _cameras[_cameraIdx % _cameras.length],
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
-      await controller.initialize();
+      CameraController? controller;
+      try {
+        controller = CameraController(
+          _cameras[_cameraIdx % _cameras.length],
+          ResolutionPreset.high,
+          enableAudio: true,
+        );
+        await controller.initialize();
+      } catch (_) {
+        await controller?.dispose();
+        controller = CameraController(
+          _cameras[_cameraIdx % _cameras.length],
+          ResolutionPreset.high,
+          enableAudio: false,
+        );
+        await controller.initialize();
+      }
       if (!mounted) {
         await controller.dispose();
         return;
@@ -263,12 +291,37 @@ class _KineticReelStudioViewState
     }
   }
 
+  Future<void> _initStage2VideoPreview(String? filePath) async {
+    if (_isTestEnv || kIsWeb || filePath == null || filePath.trim().isEmpty) {
+      return;
+    }
+    final file = File(filePath);
+    if (!await file.exists()) return;
+    final prevCtrl = _stage2VideoController;
+    try {
+      final ctrl = VideoPlayerController.file(file);
+      await ctrl.initialize();
+      await ctrl.setLooping(true);
+      await ctrl.play();
+      if (!mounted) {
+        await ctrl.dispose();
+        return;
+      }
+      await prevCtrl?.dispose();
+      setState(() {
+        _stage2VideoController = ctrl;
+        _stage2VideoReady = true;
+      });
+    } catch (_) {}
+  }
+
   Future<void> _pickGalleryMedia() async {
     if (_isTestEnv) {
       setState(() {
         _mediaKind = 'gallery_photo';
         _customMediaFilename = 'gallery_test.jpg';
         _customMediaMime = 'image/jpeg';
+        _customMediaBytes = Uint8List.fromList(<int>[0xFF, 0xD8, 0xFF, 0xE0]);
         _stage = _ReelStudioStage.editor;
       });
       return;
@@ -282,17 +335,136 @@ class _KineticReelStudioViewState
       final isVideo = lower.endsWith('.mp4') ||
           lower.endsWith('.mov') ||
           lower.endsWith('.webm');
+      String? resolvedPath = media.path.isNotEmpty ? media.path : null;
+      if (isVideo && (resolvedPath == null || !File(resolvedPath).existsSync())) {
+        try {
+          final tempDir = await getTemporaryDirectory();
+          final out = File(
+            '${tempDir.path}/reel_gallery_${DateTime.now().millisecondsSinceEpoch}.mp4',
+          );
+          await out.writeAsBytes(bytes, flush: true);
+          resolvedPath = out.path;
+        } catch (_) {}
+      }
+      if (!mounted) return;
       setState(() {
         _mediaKind = isVideo ? 'gallery_video' : 'gallery_photo';
         _customMediaBytes = bytes;
         _customMediaFilename = media.name;
         _customMediaMime = isVideo ? 'video/mp4' : 'image/jpeg';
+        _customMediaLocalPath = resolvedPath;
+        _stage2VideoReady = false;
         _stage = _ReelStudioStage.editor;
       });
+      if (isVideo) {
+        unawaited(_initStage2VideoPreview(resolvedPath));
+      }
     } catch (_) {}
   }
 
+  Future<void> _toggleFlash() async {
+    final nextFlash = !_flashOn;
+    setState(() => _flashOn = nextFlash);
+    final ctrl = _cameraController;
+    if (ctrl != null && ctrl.value.isInitialized) {
+      try {
+        await ctrl.setFlashMode(nextFlash ? FlashMode.torch : FlashMode.off);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _stopVideoRecording() async {
+    _recordingTicker?.cancel();
+    _recordingTicker = null;
+    final ctrl = _cameraController;
+    if (ctrl == null || !ctrl.value.isRecordingVideo) {
+      if (mounted) {
+        setState(() {
+          _isRecordingVideo = false;
+          _stage = _ReelStudioStage.editor;
+        });
+      }
+      return;
+    }
+    try {
+      final XFile recorded = await ctrl.stopVideoRecording();
+      final bytes = await recorded.readAsBytes();
+      var persistedPath = recorded.path;
+      if (!_isTestEnv && !kIsWeb) {
+        try {
+          final docs = await getApplicationDocumentsDirectory();
+          final out = File(
+            '${docs.path}/reel_cam_${DateTime.now().millisecondsSinceEpoch}.mp4',
+          );
+          await out.writeAsBytes(bytes, flush: true);
+          persistedPath = out.path;
+        } catch (_) {}
+      }
+      if (!mounted) return;
+      setState(() {
+        _isRecordingVideo = false;
+        _recordingElapsedSec = 0;
+        _mediaKind = 'camera_video';
+        _customMediaBytes = bytes;
+        _customMediaFilename = recorded.name.isNotEmpty
+            ? recorded.name
+            : 'camera_take.mp4';
+        _customMediaMime = 'video/mp4';
+        _customMediaLocalPath = persistedPath;
+        _stage2VideoReady = false;
+        _stage = _ReelStudioStage.editor;
+      });
+      unawaited(_initStage2VideoPreview(persistedPath));
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isRecordingVideo = false;
+          _stage = _ReelStudioStage.editor;
+        });
+      }
+    }
+  }
+
+  Future<void> _beginCameraOrFallbackTransition() async {
+    final ctrl = _cameraController;
+    if (!_isTestEnv &&
+        ctrl != null &&
+        ctrl.value.isInitialized &&
+        _backdropMode == _BackdropMode.camera) {
+      try {
+        await ctrl.startVideoRecording();
+        if (!mounted) return;
+        setState(() {
+          _isRecordingVideo = true;
+          _recordingElapsedSec = 0;
+        });
+        final maxSec = _lengthSteps[_lengthIdx];
+        _recordingTicker?.cancel();
+        _recordingTicker = Timer.periodic(const Duration(seconds: 1), (t) {
+          if (!mounted || !_isRecordingVideo) {
+            t.cancel();
+            return;
+          }
+          if (_recordingElapsedSec + 1 >= maxSec) {
+            t.cancel();
+            unawaited(_stopVideoRecording());
+          } else {
+            setState(() => _recordingElapsedSec++);
+          }
+        });
+        return;
+      } catch (_) {}
+    }
+    if (mounted) {
+      setState(() => _stage = _ReelStudioStage.editor);
+    }
+  }
+
   void _handleShutterTap() {
+    if (_isRecordingVideo) {
+      unawaited(_stopVideoRecording());
+      return;
+    }
     final timerSec = _timerSteps[_timerIdx];
     if (timerSec > 0 && _countdownRemaining == 0) {
       setState(() => _countdownRemaining = timerSec);
@@ -304,22 +476,22 @@ class _KineticReelStudioViewState
         }
         if (_countdownRemaining <= 1) {
           t.cancel();
-          setState(() {
-            _countdownRemaining = 0;
-            _stage = _ReelStudioStage.editor;
-          });
+          setState(() => _countdownRemaining = 0);
+          unawaited(_beginCameraOrFallbackTransition());
         } else {
           setState(() => _countdownRemaining--);
         }
       });
       return;
     }
-    setState(() => _stage = _ReelStudioStage.editor);
+    unawaited(_beginCameraOrFallbackTransition());
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _recordingTicker?.cancel();
+    _stage2VideoController?.dispose();
     _cameraController?.dispose();
     if (_incrementedOverlayCount && _overlayCountController != null) {
       final ctrl = _overlayCountController!;
@@ -342,6 +514,7 @@ class _KineticReelStudioViewState
         customMediaBytes: _customMediaBytes,
         customMediaFilename: _customMediaFilename,
         customMediaMime: _customMediaMime,
+        customMediaLocalPath: _customMediaLocalPath,
         audioStartMs: _audioStartMs,
         audioEndMs: _audioEndMs,
         effectPreset: _selectedPresetId,
@@ -378,8 +551,77 @@ class _KineticReelStudioViewState
           ),
           fit: StackFit.expand,
           children: <Widget>[
-            // 1. 9:16 Backdrop / Camera / Chromatic Canvas
-            if (_backdropMode == _BackdropMode.camera &&
+            // 1. 9:16 Backdrop / Camera / Stage 2 Video & Photo / Chromatic Canvas
+            if (_stage == _ReelStudioStage.editor &&
+                (_mediaKind == 'camera_video' || _mediaKind == 'gallery_video') &&
+                _stage2VideoReady &&
+                _stage2VideoController != null)
+              Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  SizedBox.expand(
+                    key: const Key('reel_studio_stage2_video_preview'),
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: _stage2VideoController!.value.size.width > 0
+                            ? _stage2VideoController!.value.size.width
+                            : 720,
+                        height: _stage2VideoController!.value.size.height > 0
+                            ? _stage2VideoController!.value.size.height
+                            : 1280,
+                        child: VideoPlayer(_stage2VideoController!),
+                      ),
+                    ),
+                  ),
+                  KineticPreviewCanvas(
+                    coverArtUrl: _audio.coverUrl,
+                    genre: _audio.genre,
+                    trackId: _audio.trackId,
+                    transparentBackground: true,
+                    words: _showLyrics
+                        ? _audio.dna.alignment
+                        : const <LyricWordTimestamp>[],
+                    preset: _typographyPreset,
+                    effects: _effects,
+                    playbackPositionSec: _audioStartMs / 1000.0,
+                    isPlaying: false,
+                    fullScreen: true,
+                    showInternalPlayOverlay: false,
+                  ),
+                ],
+              )
+            else if (_stage == _ReelStudioStage.editor &&
+                _mediaKind == 'gallery_photo' &&
+                _customMediaBytes != null &&
+                _customMediaBytes!.isNotEmpty)
+              Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  Image.memory(
+                    _customMediaBytes!,
+                    key: const Key('reel_studio_stage2_photo_preview'),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                  KineticPreviewCanvas(
+                    coverArtUrl: _audio.coverUrl,
+                    genre: _audio.genre,
+                    trackId: _audio.trackId,
+                    transparentBackground: true,
+                    words: _showLyrics
+                        ? _audio.dna.alignment
+                        : const <LyricWordTimestamp>[],
+                    preset: _typographyPreset,
+                    effects: _effects,
+                    playbackPositionSec: _audioStartMs / 1000.0,
+                    isPlaying: false,
+                    fullScreen: true,
+                    showInternalPlayOverlay: false,
+                  ),
+                ],
+              )
+            else if (_backdropMode == _BackdropMode.camera &&
                 _cameraController != null &&
                 _cameraController!.value.isInitialized)
               CameraPreview(_cameraController!)
@@ -435,7 +677,41 @@ class _KineticReelStudioViewState
                 ),
               ),
 
-            // 4. Countdown HUD
+            // 4. Countdown & Live Recording HUD
+            if (_isRecordingVideo)
+              Positioned(
+                top: 66,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: VhunambiGlassSurface(
+                    key: const Key('reel_studio_recording_indicator'),
+                    variant: VhunambiGlassVariant.pill,
+                    enableLiveBlur: false,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 5,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        const CircleAvatar(
+                          radius: 4,
+                          backgroundColor: AppColors.error,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'REC ${_recordingElapsedSec}s / ${_lengthSteps[_lengthIdx]}s',
+                          style: AppTypography.caption.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             if (_countdownRemaining > 0)
               Center(
                 key: const Key('reel_studio_countdown_hud'),
@@ -449,7 +725,7 @@ class _KineticReelStudioViewState
                 ),
               ),
 
-            // 5. Top Translucent Chrome
+            // 5. Decluttered Top Chrome (Unobstructed Center Audio Pill)
             Positioned(
               top: 10,
               left: 12,
@@ -458,89 +734,70 @@ class _KineticReelStudioViewState
                 children: <Widget>[
                   IconButton(
                     key: const Key('reel_studio_close_btn'),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const PhosphorIcon(AppIcons.close, color: Colors.white),
                   ),
                   Expanded(
-                    child: GestureDetector(
-                      key: const Key('reel_studio_audio_pill'),
-                      onTap: () async {
-                        final picked = await ReelAudioPickerSheet.show(context);
-                        if (picked != null && mounted) {
-                          setState(() => _audio = picked);
-                        }
-                      },
-                      child: VhunambiGlassSurface(
-                        variant: VhunambiGlassVariant.pill,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 7,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minWidth: 168,
+                          maxWidth: 240,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: <Widget>[
-                            const PhosphorIcon(
-                              AppIcons.songsOutline,
-                              size: 14,
-                              color: Colors.white,
+                        child: GestureDetector(
+                          key: const Key('reel_studio_audio_pill'),
+                          onTap: () async {
+                            final picked = await ReelAudioPickerSheet.show(
+                              context,
+                            );
+                            if (picked != null && mounted) {
+                              setState(() => _audio = picked);
+                            }
+                          },
+                          child: VhunambiGlassSurface(
+                            variant: VhunambiGlassVariant.pill,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
                             ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                _audio.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.caption.copyWith(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                const PhosphorIcon(
+                                  AppIcons.songsOutline,
+                                  size: 14,
                                   color: Colors.white,
-                                  fontWeight: FontWeight.w700,
                                 ),
-                              ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    _audio.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.caption.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    key: const Key('reel_studio_flash_btn'),
-                    onPressed: () => setState(() => _flashOn = !_flashOn),
-                    icon: PhosphorIcon(
-                      _flashOn ? AppIcons.lightning : AppIcons.sparkle,
-                      color: _flashOn ? AppColors.brandPrimary : Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  TextButton(
-                    key: const Key('reel_studio_speed_btn'),
-                    onPressed: () => setState(
-                      () => _speedIdx = (_speedIdx + 1) % _speedSteps.length,
-                    ),
-                    child: Text(
-                      '${_speedSteps[_speedIdx]}x',
-                      style: AppTypography.caption.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    key: const Key('reel_studio_timer_btn'),
-                    onPressed: () => setState(
-                      () => _timerIdx = (_timerIdx + 1) % _timerSteps.length,
-                    ),
-                    child: Text(
-                      _timerSteps[_timerIdx] == 0
-                          ? '0s'
-                          : '${_timerSteps[_timerIdx]}s',
-                      style: AppTypography.caption.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
                   IconButton(
                     key: const Key('reel_studio_rail_side_btn'),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
                     onPressed: () =>
                         setState(() => _railOnRight = !_railOnRight),
                     icon: const PhosphorIcon(
@@ -603,6 +860,32 @@ class _KineticReelStudioViewState
                           _initCameraIfAllowed();
                         }
                       },
+                    ),
+                    _RailToolButton(
+                      key: const Key('reel_studio_flash_btn'),
+                      icon: _flashOn ? AppIcons.lightning : AppIcons.sparkle,
+                      label: _flashOn ? 'Flash On' : 'Flash',
+                      active: _flashOn,
+                      onTap: _toggleFlash,
+                    ),
+                    _RailToolButton(
+                      key: const Key('reel_studio_speed_btn'),
+                      icon: PhosphorIconsRegular.gauge,
+                      label: '${_speedSteps[_speedIdx]}x',
+                      onTap: () => setState(
+                        () => _speedIdx = (_speedIdx + 1) % _speedSteps.length,
+                      ),
+                    ),
+                    _RailToolButton(
+                      key: const Key('reel_studio_timer_btn'),
+                      icon: PhosphorIconsRegular.clock,
+                      label: _timerSteps[_timerIdx] == 0
+                          ? '0s'
+                          : '${_timerSteps[_timerIdx]}s',
+                      active: _timerSteps[_timerIdx] > 0,
+                      onTap: () => setState(
+                        () => _timerIdx = (_timerIdx + 1) % _timerSteps.length,
+                      ),
                     ),
                     _RailToolButton(
                       key: const Key('reel_rail_lyrics_btn'),

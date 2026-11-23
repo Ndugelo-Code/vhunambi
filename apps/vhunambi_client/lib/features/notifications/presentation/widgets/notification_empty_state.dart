@@ -32,13 +32,13 @@ class NotificationEmptyState extends StatelessWidget {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: AppColors.surfaceSecondary,
+              color: AppColors.surfaceSecondaryOf(context),
               shape: BoxShape.circle,
             ),
             child: PhosphorIcon(
               PhosphorIconsRegular.bellSlash,
               size: 32,
-              color: AppColors.textTertiary,
+              color: AppColors.textSecondaryOf(context),
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -47,7 +47,7 @@ class NotificationEmptyState extends StatelessWidget {
             key: const Key('notification_empty_title'),
             textAlign: TextAlign.center,
             style: AppTypography.titleMedium.copyWith(
-              color: AppColors.textPrimary,
+              color: AppColors.textPrimaryOf(context),
             ),
           ),
           const SizedBox(height: AppSpacing.xxs),
@@ -55,7 +55,7 @@ class NotificationEmptyState extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: AppTypography.bodySmall.copyWith(
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryOf(context),
             ),
           ),
         ],

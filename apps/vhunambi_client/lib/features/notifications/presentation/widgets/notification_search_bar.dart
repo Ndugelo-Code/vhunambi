@@ -64,12 +64,12 @@ class _NotificationSearchBarState extends ConsumerState<NotificationSearchBar> {
         height: 48,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
         decoration: BoxDecoration(
-          color: AppColors.surfaceSecondary,
+          color: AppColors.surfaceSecondaryOf(context),
           borderRadius: AppRadius.inputBorder,
           border: Border.all(
             color: _hasFocus
                 ? AppColors.brandPrimary.withValues(alpha: 0.35)
-                : AppColors.borderSubtle,
+                : AppColors.borderSubtleOf(context),
             width: _hasFocus ? 1.5 : 1,
           ),
         ),
@@ -78,7 +78,7 @@ class _NotificationSearchBarState extends ConsumerState<NotificationSearchBar> {
             PhosphorIcon(
               AppIcons.search,
               size: 18,
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryOf(context),
             ),
             const SizedBox(width: AppSpacing.xs),
             Expanded(
@@ -90,7 +90,7 @@ class _NotificationSearchBarState extends ConsumerState<NotificationSearchBar> {
                 onSubmitted: (_) => _focusNode.unfocus(),
                 textInputAction: TextInputAction.search,
                 style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.textPrimary,
+                  color: AppColors.textPrimaryOf(context),
                 ),
                 cursorColor: AppColors.brandPrimary,
                 decoration: InputDecoration(
@@ -98,7 +98,7 @@ class _NotificationSearchBarState extends ConsumerState<NotificationSearchBar> {
                   filled: false,
                   hintText: 'Search alerts...',
                   hintStyle: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textTertiary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -119,7 +119,7 @@ class _NotificationSearchBarState extends ConsumerState<NotificationSearchBar> {
                   icon: PhosphorIcon(
                     AppIcons.close,
                     size: 18,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                 ),
               ),

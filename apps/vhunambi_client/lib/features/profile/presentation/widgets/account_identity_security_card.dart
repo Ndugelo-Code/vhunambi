@@ -6,6 +6,7 @@ import 'package:vhunambi_client/core/auth/auth_providers.dart';
 import 'package:vhunambi_client/core/theme/app_colors.dart';
 import 'package:vhunambi_client/core/theme/app_dimensions.dart';
 import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_surface.dart';
 import 'package:vhunambi_client/features/auth/presentation/widgets/sovereign_auth_sheet.dart';
 
 /// Displays active Sovereign multi-tenant creator identity, JWT + AES-256
@@ -35,14 +36,12 @@ class AccountIdentitySecurityCard extends ConsumerWidget {
               ? 'Studio Identity Active'
               : 'Local Studio Guest');
 
-    return Container(
+    return VhunambiGlassSurface(
       key: const Key('account_identity_security_card'),
+      variant: VhunambiGlassVariant.card,
       padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevatedOf(context),
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtleOf(context)),
-      ),
+      enableLiveBlur: false,
+      borderColorOverride: AppColors.borderSubtleOf(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -163,7 +162,7 @@ class AccountIdentitySecurityCard extends ConsumerWidget {
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pillBorder,
                     ),
-                    minimumSize: const Size(0, 36),
+                    minimumSize: const Size(0, 44),
                   ),
                 ),
               ),
@@ -202,7 +201,7 @@ class AccountIdentitySecurityCard extends ConsumerWidget {
                       shape: const RoundedRectangleBorder(
                         borderRadius: AppRadius.pillBorder,
                       ),
-                      minimumSize: const Size(0, 36),
+                      minimumSize: const Size(0, 44),
                     ),
                   ),
                 ),

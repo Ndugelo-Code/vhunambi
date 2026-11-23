@@ -356,14 +356,26 @@ class _ReferenceAudioDropzoneState
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      '${attachedPattern.instrument.emoji} ${attachedPattern.name} (${attachedPattern.musicalKey})',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.success,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: Row(
+                      children: [
+                        PhosphorIcon(
+                          attachedPattern.instrument.icon,
+                          size: 14,
+                          color: AppColors.success,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${attachedPattern.name} (${attachedPattern.musicalKey})',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.success,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   InkWell(
@@ -375,10 +387,10 @@ class _ReferenceAudioDropzoneState
                         horizontal: 6,
                         vertical: 2,
                       ),
-                      child: Icon(
+                      child: PhosphorIcon(
                         isPlayingSketchpad
-                            ? Icons.stop_circle_rounded
-                            : Icons.play_circle_fill_rounded,
+                            ? PhosphorIconsFill.pauseCircle
+                            : PhosphorIconsFill.playCircle,
                         size: 18,
                         color: AppColors.success,
                       ),
@@ -390,8 +402,8 @@ class _ReferenceAudioDropzoneState
                         .detachSongReference(),
                     child: Padding(
                       padding: const EdgeInsets.only(left: 4),
-                      child: Icon(
-                        Icons.close_rounded,
+                      child: PhosphorIcon(
+                        AppIcons.close,
                         size: 16,
                         color: AppColors.textSecondary,
                       ),

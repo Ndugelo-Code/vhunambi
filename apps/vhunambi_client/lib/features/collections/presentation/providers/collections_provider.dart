@@ -45,6 +45,7 @@ class CollectionsNotifier extends StateNotifier<List<CollectionEntity>>
     String genre = '',
     String description = '',
     DateTime? releaseDate,
+    String? coverImageUrl,
   }) async {
     final now = DateTime.now();
     final collection = CollectionEntity(
@@ -54,6 +55,7 @@ class CollectionsNotifier extends StateNotifier<List<CollectionEntity>>
       genre: genre.trim(),
       description: description.trim(),
       releaseDate: releaseDate,
+      coverImageUrl: coverImageUrl,
       createdAt: now,
       updatedAt: now,
     );
@@ -65,7 +67,7 @@ class CollectionsNotifier extends StateNotifier<List<CollectionEntity>>
     return collection;
   }
 
-  /// Renames / re-types / re-describes an existing collection.
+  /// Renames / re-types / re-describes / updates custom cover of an existing collection.
   Future<void> updateCollection(
     String id, {
     String? title,
@@ -73,6 +75,8 @@ class CollectionsNotifier extends StateNotifier<List<CollectionEntity>>
     String? genre,
     String? description,
     DateTime? releaseDate,
+    String? coverImageUrl,
+    bool clearCoverImage = false,
   }) async {
     final index = state.indexWhere((collection) => collection.id == id);
     if (index < 0) return;
@@ -83,6 +87,8 @@ class CollectionsNotifier extends StateNotifier<List<CollectionEntity>>
       genre: genre?.trim(),
       description: description?.trim(),
       releaseDate: releaseDate,
+      coverImageUrl: coverImageUrl,
+      clearCoverImage: clearCoverImage,
       updatedAt: DateTime.now(),
     );
 

@@ -374,6 +374,17 @@ class BeatCheckoutNotifier extends StateNotifier<BeatCheckoutState> {
                   'Unlocked "${beat.title}" (${tier.displayName}) — Certificate ${cert.certificateId} & 44.1 kHz assets saved to Vault.',
               category: NotificationCategory.creatorActivity,
               priority: NotificationPriority.high,
+              subtype: 'license_acquired',
+              targetRoute: '/license/${cert.certificateId}',
+              targetEntityId: cert.certificateId,
+              ctaLabel: 'View License Deed',
+              metadata: <String, dynamic>{
+                'certificateId': cert.certificateId,
+                'vaultTrackId': vaultTrackId,
+                'beatId': beat.id,
+                'beatTitle': beat.title,
+                'tier': tier.displayName,
+              },
               createdAt: nowUtc.toLocal(),
             ),
           );

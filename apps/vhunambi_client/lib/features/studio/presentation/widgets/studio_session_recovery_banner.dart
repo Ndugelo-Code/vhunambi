@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -50,7 +52,11 @@ class StudioSessionRecoveryBanner extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          const Text('↩', style: TextStyle(fontSize: 16)),
+          const PhosphorIcon(
+            PhosphorIconsRegular.arrowCounterClockwise,
+            size: 16,
+            color: AppColors.accentGold,
+          ),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Column(
@@ -135,8 +141,8 @@ class StudioSessionRecoveryBanner extends ConsumerWidget {
             tooltip: 'Dismiss',
             constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             onPressed: notifier.dismissRecovery,
-            icon: Icon(
-              Icons.close_rounded,
+            icon: PhosphorIcon(
+              AppIcons.close,
               size: 18,
               color: AppColors.textTertiary,
             ),

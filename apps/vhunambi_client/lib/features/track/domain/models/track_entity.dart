@@ -120,11 +120,14 @@ class TrackEntity {
   }
 
   /// Bridges this finished master into the global persistent audio player model.
-  Track toTrack() {
+  Track toTrack({String? creatorName, String? creatorHandle}) {
     return Track(
       id: id,
       title: title,
-      creatorName: 'AI Studio',
+      creatorName: (creatorName != null && creatorName.trim().isNotEmpty)
+          ? creatorName.trim()
+          : 'Vhunambi Creator',
+      creatorHandle: creatorHandle,
       genre: genre,
       language: language,
       duration: duration,

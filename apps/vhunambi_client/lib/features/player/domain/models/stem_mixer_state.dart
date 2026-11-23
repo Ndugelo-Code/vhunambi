@@ -206,8 +206,8 @@ class StemMixerState {
 
 /// Default 4-channel configuration.
 const List<StemChannel> kDefaultStemChannels = [
-  StemChannel(type: StemType.vocals, name: 'Vocals', emoji: '🎤'),
-  StemChannel(type: StemType.drums, name: 'Drums', emoji: '🥁'),
-  StemChannel(type: StemType.bass, name: 'Log Drum / Bass', emoji: '🎹'),
-  StemChannel(type: StemType.melody, name: 'Melody / Synth', emoji: '🎸'),
+  StemChannel(type: StemType.vocals, name: 'Vocals', emoji: 'vox'),
+  StemChannel(type: StemType.drums, name: 'Drums', emoji: 'drm'),
+  StemChannel(type: StemType.bass, name: 'Log Drum / Bass', emoji: 'bas'),
+  StemChannel(type: StemType.melody, name: 'Melody / Synth', emoji: 'mel'),
 ];

@@ -8,6 +8,7 @@ import {
   signAccessJwt,
   verifyPassword,
 } from '../security/crypto_token.js';
+import { validateSovereignPassword } from '../security/password_policy.js';
 import {
   normalizeVhunambiMoodId,
   type VhunambiMoodId,
@@ -860,27 +861,7 @@ export class EdgeIsolateDatabaseEngine {
 
         this.hydrateMarketplaceAssetRows(assetsRows);
         this.hydrateBeatLicenseRows(licensesRows);
-
-        for (const ss of signaturesRows) {
-          if (!ss.id) continue;
-          const parsedData =
-            ss.data_json && typeof ss.data_json === 'object'
-              ? (ss.data_json as Record<string, any>)
-              : {};
-          this.soundSignatures.set(String(ss.id), {
-            ...parsedData,
-            id: String(ss.id),
-            creatorId: String(ss.creator_id ?? 'creator_cern'),
-            name: String(ss.name ?? 'Sound Signature'),
-            category: String(ss.category ?? 'vocal_DNA'),
-            status: String(ss.status ?? 'awaiting_upload'),
-            r2AudioKey: String(ss.r2_audio_key ?? ''),
-            recipe: ss.recipe_json ?? parsedData.recipe ?? {},
-            embedding: ss.embedding_json ?? parsedData.embedding ?? [],
-            consentAtIso: String(ss.consent_at_iso ?? parsedData.consentAtIso ?? ''),
-          });
-        }
-
+        this.hydrateSoundSignatureRows(signaturesRows);
         this.hydrateLibraryRows(libraryRows);
         this.hydratePlaylistRows(playlistRows);
 
@@ -896,25 +877,7 @@ export class EdgeIsolateDatabaseEngine {
           });
         }
 
-        for (const vc of voiceRows) {
-          if (!vc.voice_id) continue;
-          const id = String(vc.voice_id);
-          this.voiceClones.set(id, {
-            id,
-            voiceId: id,
-            creatorId: canonicalizeCreatorId(String(vc.creator_id ?? 'creator_cern')),
-            displayName: String(vc.display_name ?? 'Cloned Voice'),
-            creatorName: String(vc.display_name ?? 'Cloned Voice'),
-            consentVerified: Boolean(vc.consent_verified ?? true),
-            referenceAudioDurationSec: Number(vc.reference_audio_duration_sec ?? 15.0),
-            r2ReferenceUrl: String(vc.r2_reference_url ?? ''),
-            pitchRangeHz: vc.pitch_range_hz_json ?? [110, 660],
-            timbreEmbedding: vc.timbre_embedding_json ?? [],
-            createdAt: String(vc.created_at ?? new Date().toISOString()),
-            createdAtIso: String(vc.created_at ?? new Date().toISOString()),
-          });
-        }
-
+        this.hydrateVoiceCloneRows(voiceRows);
         this.hydrateSocialInteractionRows(socialRows);
 
         const groupedWallet = new Map<string, Array<Record<string, any>>>();
@@ -6200,11 +6163,7 @@ export class EdgeIsolateDatabaseEngine {
     if (!normalizedEmail.includes('@') || normalizedEmail.length < 5) {
       throw new Error('INVALID_EMAIL: A valid email address is required.');
     }
-    if (!input.password || input.password.length < 8) {
-      throw new Error(
-        'WEAK_PASSWORD: Password must be at least 8 characters long.',
-      );
-    }
+    validateSovereignPassword(input.password);
 
     const handleSlug = normalizedHandle.slice(1).replace(/[^a-z0-9_]/g, '_');
     const creatorId = input.creatorId?.trim() || `creator_${handleSlug}`;
@@ -6645,6 +6604,22 @@ export class EdgeIsolateDatabaseEngine {
       updatedAt: new Date(),
     };
     this.upsertGenerationJob(merged, entry.creatorId, entry.jobKind);
+    return this.getGenerationJob(generationId);
+  }
+
+  public async updateGenerationJobAsync(
+    generationId: string,
+    updates: Partial<GenerationJob>,
+    cOrEnv?: unknown,
+  ): Promise<GenerationJob | null> {
+    const entry = this.generationJobs.get(generationId);
+    if (!entry) return null;
+    const merged: GenerationJob = {
+      ...entry.job,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    await this.upsertGenerationJobAsync(merged, entry.creatorId, entry.jobKind, cOrEnv);
     return this.getGenerationJob(generationId);
   }
 
@@ -7401,58 +7376,203 @@ export class EdgeIsolateDatabaseEngine {
   }
 
   // ---------------------------------------------------------------------------
-  // Persistent Voice Clones & Sound Signatures
+  // Persistent Voice Clones & Sound Signatures (Phase 75: 12s SWR + Async)
   // ---------------------------------------------------------------------------
 
-  public upsertVoiceClone(profile: Record<string, any>): void {
-    const voiceId = String(profile.voiceId || profile.id);
-    const mergedProfile = { ...profile, voiceId };
-    this.voiceClones.set(voiceId, mergedProfile);
-    this.mirrorWriteThrough(async (driver) => {
-      await driver.upsertRow(
-        'voice_clones',
-        {
-          voice_id: voiceId,
-          creator_id: canonicalizeCreatorId(String(profile.creatorId || 'creator_cern')),
-          display_name: String(profile.displayName || profile.creatorName || 'Cloned Voice'),
-          consent_verified: Boolean(profile.consentVerified ?? true),
-          reference_audio_duration_sec: Number(profile.referenceAudioDurationSec ?? 15.0),
-          r2_reference_url: String(profile.r2ReferenceUrl || ''),
-          pitch_range_hz_json: profile.pitchRangeHz ?? [110, 660],
-          timbre_embedding_json: profile.timbreEmbedding ?? profile.timbreEmbeddingPreview ?? [],
-          created_at: String(profile.createdAt || profile.createdAtIso || new Date().toISOString()),
-        },
-        'voice_id',
-      );
+  private hydrateVoiceCloneRows(voiceRows: Array<Record<string, any>>): void {
+    for (const vc of voiceRows) {
+      if (!vc.voice_id) continue;
+      const id = String(vc.voice_id);
+      const createdAt = String(vc.created_at ?? new Date().toISOString());
+      this.voiceClones.set(id, {
+        id,
+        voiceId: id,
+        creatorId: canonicalizeCreatorId(String(vc.creator_id ?? 'creator_cern')),
+        displayName: String(vc.display_name ?? 'Cloned Voice'),
+        creatorName: String(vc.display_name ?? 'Cloned Voice'),
+        consentVerified: Boolean(vc.consent_verified ?? true),
+        referenceAudioDurationSec: Number(vc.reference_audio_duration_sec ?? 15.0),
+        r2ReferenceUrl: String(vc.r2_reference_url ?? ''),
+        pitchRangeHz: vc.pitch_range_hz_json ?? [110, 660],
+        timbreEmbedding: vc.timbre_embedding_json ?? [],
+        timbreEmbeddingPreview: vc.timbre_embedding_json ?? [],
+        createdAt,
+        createdAtIso: createdAt,
+      });
+    }
+  }
+
+  private hydrateSoundSignatureRows(signaturesRows: Array<Record<string, any>>): void {
+    for (const ss of signaturesRows) {
+      if (!ss.id) continue;
+      const parsedData =
+        ss.data_json && typeof ss.data_json === 'object'
+          ? (ss.data_json as Record<string, any>)
+          : {};
+      this.soundSignatures.set(String(ss.id), {
+        ...parsedData,
+        id: String(ss.id),
+        creatorId: canonicalizeCreatorId(
+          String(ss.creator_id ?? parsedData.creatorId ?? 'creator_cern'),
+        ),
+        name: String(ss.name ?? parsedData.displayCode ?? 'Sound Signature'),
+        category: String(ss.category ?? 'vocal_DNA'),
+        status: String(ss.status ?? 'awaiting_upload'),
+        r2AudioKey: String(ss.r2_audio_key ?? parsedData.r2AudioKey ?? ''),
+        recipe: ss.recipe_json ?? parsedData.recipe ?? {},
+        embedding: ss.embedding_json ?? parsedData.embedding ?? [],
+        consentAtIso: String(ss.consent_at_iso ?? parsedData.consentAtIso ?? ''),
+      });
+    }
+  }
+
+  public async syncVoicesFromCloud(
+    force = false,
+    cOrEnv?: unknown,
+  ): Promise<boolean> {
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) return false;
+
+    const domainKey = 'voices:global';
+    const lastHydrated = this.domainHydratedAtMs.get(domainKey) ?? 0;
+    if (
+      !force &&
+      lastHydrated > 0 &&
+      Date.now() - lastHydrated < EdgeIsolateDatabaseEngine.DEFAULT_SWR_TTL_MS
+    ) {
+      return true;
+    }
+
+    const existingFlight = this.domainInFlightPromises.get(domainKey);
+    if (existingFlight && !force) {
+      return existingFlight;
+    }
+
+    const syncPromise = (async (): Promise<boolean> => {
+      const [voicesRes, sigsRes] = await Promise.all([
+        EdgeIsolateDatabaseEngine.withTimeoutResult(
+          driver.selectRows<Record<string, any>>('voice_clones', 'select=*&limit=200'),
+          3500,
+        ),
+        EdgeIsolateDatabaseEngine.withTimeoutResult(
+          driver.selectRows<Record<string, any>>('sound_signatures', 'select=*&limit=200'),
+          3500,
+        ),
+      ]);
+
+      if (voicesRes.ok) this.hydrateVoiceCloneRows(voicesRes.value);
+      if (sigsRes.ok) this.hydrateSoundSignatureRows(sigsRes.value);
+
+      const allSucceeded = voicesRes.ok && sigsRes.ok;
+      if (allSucceeded) {
+        this.domainHydratedAtMs.set(domainKey, Date.now());
+      }
+      return allSucceeded;
+    })().finally(() => {
+      if (this.domainInFlightPromises.get(domainKey) === syncPromise) {
+        this.domainInFlightPromises.delete(domainKey);
+      }
     });
+
+    this.domainInFlightPromises.set(domainKey, syncPromise);
+    return syncPromise;
+  }
+
+  private buildVoiceCloneCloudRow(profile: Record<string, any>): {
+    voiceId: string;
+    mergedProfile: Record<string, any>;
+    row: Record<string, any>;
+  } {
+    const voiceId = String(profile.voiceId || profile.id);
+    const mergedProfile = { ...profile, id: voiceId, voiceId };
+    return {
+      voiceId,
+      mergedProfile,
+      row: {
+        voice_id: voiceId,
+        creator_id: canonicalizeCreatorId(String(profile.creatorId || 'creator_cern')),
+        display_name: String(profile.displayName || profile.creatorName || 'Cloned Voice'),
+        consent_verified: Boolean(profile.consentVerified ?? true),
+        reference_audio_duration_sec: Number(profile.referenceAudioDurationSec ?? 15.0),
+        r2_reference_url: String(profile.r2ReferenceUrl || ''),
+        pitch_range_hz_json: profile.pitchRangeHz ?? [110, 660],
+        timbre_embedding_json: profile.timbreEmbedding ?? profile.timbreEmbeddingPreview ?? [],
+        created_at: String(profile.createdAt || profile.createdAtIso || new Date().toISOString()),
+      },
+    };
+  }
+
+  public upsertVoiceClone(profile: Record<string, any>): void {
+    const { voiceId, mergedProfile, row } = this.buildVoiceCloneCloudRow(profile);
+    this.voiceClones.set(voiceId, mergedProfile);
+    this.mirrorWriteThrough('voice_clones.upsert', async (driver) => {
+      await driver.upsertRow('voice_clones', row, 'voice_id');
+    });
+  }
+
+  public async upsertVoiceCloneAsync(
+    profile: Record<string, any>,
+    cOrEnv?: unknown,
+  ): Promise<void> {
+    const { voiceId, mergedProfile, row } = this.buildVoiceCloneCloudRow(profile);
+    this.voiceClones.set(voiceId, mergedProfile);
+    await this.awaitWriteThrough(
+      'voice_clones.upsert',
+      async (driver) => {
+        await driver.upsertRow('voice_clones', row, 'voice_id');
+      },
+      cOrEnv,
+    );
   }
 
   public getVoiceCloneById(voiceId: string): Record<string, any> | null {
     return this.voiceClones.get(voiceId) ?? null;
   }
 
-  public upsertSoundSignature(sig: Record<string, any>): void {
+  private buildSoundSignatureCloudRow(sig: Record<string, any>): {
+    id: string;
+    row: Record<string, any>;
+  } {
     const id = String(sig.id);
+    return {
+      id,
+      row: {
+        id,
+        creator_id: canonicalizeCreatorId(String(sig.creatorId || 'creator_cern')),
+        name: String(sig.name || sig.displayCode || 'Sound Signature'),
+        category: String(sig.category || 'vocal_DNA'),
+        status: String(sig.status || 'awaiting_upload'),
+        r2_audio_key: String(sig.r2AudioKey || ''),
+        recipe_json: sig.recipe ?? {},
+        embedding_json: sig.embedding ?? [],
+        consent_at_iso: String(sig.consentAtIso || ''),
+        data_json: sig,
+        updated_at: Date.now(),
+      },
+    };
+  }
+
+  public upsertSoundSignature(sig: Record<string, any>): void {
+    const { id, row } = this.buildSoundSignatureCloudRow(sig);
     this.soundSignatures.set(id, { ...sig });
-    this.mirrorWriteThrough(async (driver) => {
-      await driver.upsertRow(
-        'sound_signatures',
-        {
-          id,
-          creator_id: canonicalizeCreatorId(String(sig.creatorId || 'creator_cern')),
-          name: String(sig.name || sig.displayCode || 'Sound Signature'),
-          category: String(sig.category || 'vocal_DNA'),
-          status: String(sig.status || 'awaiting_upload'),
-          r2_audio_key: String(sig.r2AudioKey || ''),
-          recipe_json: sig.recipe ?? {},
-          embedding_json: sig.embedding ?? [],
-          consent_at_iso: String(sig.consentAtIso || ''),
-          data_json: sig,
-          updated_at: Date.now(),
-        },
-        'id',
-      );
+    this.mirrorWriteThrough('sound_signatures.upsert', async (driver) => {
+      await driver.upsertRow('sound_signatures', row, 'id');
     });
+  }
+
+  public async upsertSoundSignatureAsync(
+    sig: Record<string, any>,
+    cOrEnv?: unknown,
+  ): Promise<void> {
+    const { id, row } = this.buildSoundSignatureCloudRow(sig);
+    this.soundSignatures.set(id, { ...sig });
+    await this.awaitWriteThrough(
+      'sound_signatures.upsert',
+      async (driver) => {
+        await driver.upsertRow('sound_signatures', row, 'id');
+      },
+      cOrEnv,
+    );
   }
 
   public getSoundSignatureById(sigId: string): Record<string, any> | null {
@@ -7462,9 +7582,26 @@ export class EdgeIsolateDatabaseEngine {
   public deleteSoundSignature(sigId: string): boolean {
     const deleted = this.soundSignatures.delete(sigId);
     if (deleted) {
-      this.mirrorWriteThrough(async (driver) => {
+      this.mirrorWriteThrough('sound_signatures.delete', async (driver) => {
         await driver.deleteRows('sound_signatures', `id=eq.${encodeURIComponent(sigId)}`);
       });
+    }
+    return deleted;
+  }
+
+  public async deleteSoundSignatureAsync(
+    sigId: string,
+    cOrEnv?: unknown,
+  ): Promise<boolean> {
+    const deleted = this.soundSignatures.delete(sigId);
+    if (deleted) {
+      await this.awaitWriteThrough(
+        'sound_signatures.delete',
+        async (driver) => {
+          await driver.deleteRows('sound_signatures', `id=eq.${encodeURIComponent(sigId)}`);
+        },
+        cOrEnv,
+      );
     }
     return deleted;
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../../core/utils/json_safe.dart';
 
 /// Vocal Cleanse & Enhancement flavors (REQ-MST-DOM-03).
 enum VocalCleanseFlavor {
@@ -535,6 +536,22 @@ class GenreMasterPreset {
     required this.description,
     required this.recipe,
   });
+
+  factory GenreMasterPreset.fromJson(Map<String, dynamic> json) {
+    final recipeMap = JsonSafe.asMap(json['recipe']);
+    final fallbackRecipe = StemMasteringRecipe.forGenre(
+      JsonSafe.asString(json['genre'], 'Amapiano'),
+    );
+    return GenreMasterPreset(
+      id: JsonSafe.asString(json['id'], 'amapiano_club_knock'),
+      name: JsonSafe.asString(json['name'], 'Amapiano Club Knock'),
+      genre: JsonSafe.asString(json['genre'], 'Amapiano'),
+      description: JsonSafe.asString(json['description']),
+      recipe: recipeMap.isNotEmpty
+          ? StemMasteringRecipe.fromJson(recipeMap)
+          : fallbackRecipe,
+    );
+  }
 }
 
 /// 6 Regional African Studio Presets (REQ-MST-DOM-02).

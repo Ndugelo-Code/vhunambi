@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -22,7 +23,7 @@ class AddToCollectionSheet extends ConsumerStatefulWidget {
   }) {
     return showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceModal,
+      backgroundColor: AppColors.surfaceModalOf(context),
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
       builder: (_) => AddToCollectionSheet(collectionId: collectionId),
@@ -62,11 +63,13 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
     final candidates = query.isEmpty
         ? available
         : available
-            .where((track) =>
-                track.title.toLowerCase().contains(query) ||
-                track.creatorName.toLowerCase().contains(query) ||
-                track.genre.toLowerCase().contains(query))
-            .toList(growable: false);
+              .where(
+                (track) =>
+                    track.title.toLowerCase().contains(query) ||
+                    track.creatorName.toLowerCase().contains(query) ||
+                    track.genre.toLowerCase().contains(query),
+              )
+              .toList(growable: false);
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -79,7 +82,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.borderSubtle,
+                color: AppColors.borderSubtleOf(context),
                 borderRadius: AppRadius.pillBorder,
               ),
             ),
@@ -87,7 +90,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
             Text(
               'Add Track',
               style: AppTypography.titleMedium.copyWith(
-                color: AppColors.textPrimary,
+                color: AppColors.textPrimaryOf(context),
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -97,21 +100,28 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                 key: const Key('collection_add_search'),
                 controller: _searchController,
                 onChanged: (value) => setState(() => _query = value.trim()),
-                style: AppTypography.bodyLarge,
+                style: AppTypography.bodyLarge.copyWith(
+                  color: AppColors.textPrimaryOf(context),
+                ),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: AppColors.surfaceElevated,
+                  fillColor: AppColors.surfaceElevatedOf(context),
                   hintText: 'Search your vault...',
-                  hintStyle: AppTypography.caption
-                      .copyWith(color: AppColors.textTertiary),
-                  prefixIcon: Icon(
-                    Icons.search_rounded,
+                  hintStyle: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondaryOf(
+                      context,
+                    ).withValues(alpha: 0.72),
+                  ),
+                  prefixIcon: PhosphorIcon(
+                    PhosphorIconsRegular.magnifyingGlass,
                     size: 18,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                   border: OutlineInputBorder(
                     borderRadius: AppRadius.pillBorder,
-                    borderSide: BorderSide(color: AppColors.borderSubtle),
+                    borderSide: BorderSide(
+                      color: AppColors.borderSubtleOf(context),
+                    ),
                   ),
                 ),
               ),

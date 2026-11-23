@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/tokens/vhunambi_mood.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -74,8 +75,8 @@ class CatalogFilterBar extends ConsumerWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.close_rounded,
+                        const PhosphorIcon(
+                          PhosphorIconsRegular.x,
                           size: 14,
                           color: AppColors.brandPrimary,
                         ),
@@ -133,25 +134,30 @@ class CatalogFilterBar extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
 
-          // 2. Mood chip wrap + 3. Language selector
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              for (final mood in exploreMoodCatalog)
-                _FilterPill(
-                  label: mood.label,
-                  isActive: mood.value == activeMood,
-                  inactiveSurface: AppColors.surfaceElevated,
-                  onTap: () {
-                    ref.read(exploreMoodFilterProvider.notifier).state =
-                        mood.value == activeMood ? null : mood.value;
-                    resetExploreCatalogCursor(ref);
-                  },
-                ),
-              _LanguageDropdown(activeLanguage: activeLanguage),
-            ],
+          // 2. Language selector + horizontal frosted Mood rail (`REQ-P78-UX-04`)
+          SingleChildScrollView(
+            key: const Key('catalog_mood_rail'),
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                _LanguageDropdown(activeLanguage: activeLanguage),
+                for (final mood in exploreMoodCatalog) ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  _FilterPill(
+                    label: mood.label,
+                    icon: VhunambiMood.normalize(mood.value).icon,
+                    isActive: mood.value == activeMood,
+                    inactiveSurface: AppColors.surfaceElevatedOf(context),
+                    onTap: () {
+                      ref.read(exploreMoodFilterProvider.notifier).state =
+                          mood.value == activeMood ? null : mood.value;
+                      resetExploreCatalogCursor(ref);
+                    },
+                  ),
+                ],
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.xs),
 
@@ -202,10 +208,10 @@ class _LanguageDropdown extends ConsumerWidget {
 
     return PopupMenuButton<String>(
       tooltip: 'Filter by language',
-      color: AppColors.surfaceModal,
+      color: AppColors.surfaceModalOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.inputBorder,
-        side: BorderSide(color: AppColors.borderSubtle),
+        side: BorderSide(color: AppColors.borderSubtleOf(context)),
       ),
       onSelected: (value) {
         ref.read(exploreLanguageFilterProvider.notifier).state = value;
@@ -221,12 +227,12 @@ class _LanguageDropdown extends ConsumerWidget {
             height: 40,
             child: Row(
               children: [
-                Icon(
-                  Icons.translate_rounded,
+                PhosphorIcon(
+                  PhosphorIconsRegular.translate,
                   size: 15,
                   color: language == activeLanguage
                       ? AppColors.brandPrimary
-                      : AppColors.textSecondary,
+                      : AppColors.textSecondaryOf(context),
                 ),
                 const SizedBox(width: AppSpacing.xs),
                 Expanded(
@@ -235,14 +241,14 @@ class _LanguageDropdown extends ConsumerWidget {
                     style: AppTypography.bodySmall.copyWith(
                       color: language == activeLanguage
                           ? AppColors.brandPrimary
-                          : AppColors.textPrimary,
+                          : AppColors.textPrimaryOf(context),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
                 if (language == activeLanguage)
-                  const Icon(
-                    Icons.check_rounded,
+                  const PhosphorIcon(
+                    PhosphorIconsRegular.check,
                     size: 14,
                     color: AppColors.brandPrimary,
                   ),
@@ -260,21 +266,23 @@ class _LanguageDropdown extends ConsumerWidget {
           vertical: ResponsiveUtils.isMobile(context) ? 8 : 6,
         ),
         decoration: BoxDecoration(
-          color: AppColors.surfaceSecondary,
+          color: AppColors.surfaceSecondaryOf(context),
           borderRadius: AppRadius.pillBorder,
           border: Border.all(
-            color: isFiltered ? AppColors.brandPrimary : AppColors.borderSubtle,
+            color: isFiltered
+                ? AppColors.brandPrimary
+                : AppColors.borderSubtleOf(context),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.language_rounded,
+            PhosphorIcon(
+              PhosphorIconsRegular.globe,
               size: 14,
               color: isFiltered
                   ? AppColors.brandPrimary
-                  : AppColors.textSecondary,
+                  : AppColors.textSecondaryOf(context),
             ),
             const SizedBox(width: AppSpacing.xxs + 2),
             Text(
@@ -283,14 +291,14 @@ class _LanguageDropdown extends ConsumerWidget {
                 fontSize: 12,
                 color: isFiltered
                     ? AppColors.brandPrimary
-                    : AppColors.textSecondary,
+                    : AppColors.textSecondaryOf(context),
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
+            PhosphorIcon(
+              PhosphorIconsRegular.caretDown,
               size: 14,
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryOf(context),
             ),
           ],
         ),
@@ -330,10 +338,14 @@ class _FilterPill extends StatelessWidget {
           vertical: isMobile ? 8 : 6,
         ),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.brandPrimary : (inactiveSurface ?? AppColors.surfaceSecondary),
+          color: isActive
+              ? AppColors.brandPrimary
+              : (inactiveSurface ?? AppColors.surfaceSecondaryOf(context)),
           borderRadius: AppRadius.pillBorder,
           border: Border.all(
-            color: isActive ? AppColors.brandPrimary : AppColors.borderSubtle,
+            color: isActive
+                ? AppColors.brandPrimary
+                : AppColors.borderSubtleOf(context),
           ),
         ),
         child: Row(
@@ -343,7 +355,9 @@ class _FilterPill extends StatelessWidget {
               PhosphorIcon(
                 icon!,
                 size: 13,
-                color: isActive ? AppColors.brandContrast : AppColors.brandPrimary,
+                color: isActive
+                    ? AppColors.brandContrast
+                    : AppColors.brandPrimary,
               ),
               const SizedBox(width: 4),
             ],
@@ -351,7 +365,9 @@ class _FilterPill extends StatelessWidget {
               label,
               style: AppTypography.bodySmall.copyWith(
                 fontSize: 12,
-                color: isActive ? AppColors.brandContrast : AppColors.textSecondary,
+                color: isActive
+                    ? AppColors.brandContrast
+                    : AppColors.textSecondaryOf(context),
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
               ),
             ),

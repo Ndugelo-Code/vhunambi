@@ -1,9 +1,13 @@
+import 'dart:io' show Platform;
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/json_safe.dart';
 import '../../studio/data/services/pre_gen_r2_upload_service.dart';
 import '../domain/codec/sig_codec.dart';
+import '../domain/models/sound_idealizer_recipe.dart';
 import '../domain/models/sound_signature_dna.dart';
 
 /// Sovereign Hive repository for local [SoundSignatureDna] persistence (REQ-SIG-DNA-04 / Design 2.5).
@@ -118,6 +122,88 @@ class SoundSignatureRepository {
     if (!Hive.isBoxOpen(AppConstants.soundSignaturesBoxKey)) return;
     final box = Hive.box<dynamic>(AppConstants.soundSignaturesBoxKey);
     await box.delete(id);
+  }
+
+  static bool _isTestEnv() {
+    if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
+    try {
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  Dio _buildClient(Dio? dio, Interceptor? authInterceptor) {
+    final client = dio ?? Dio();
+    if (dio == null && authInterceptor != null) {
+      client.interceptors.add(authInterceptor);
+    }
+    return client;
+  }
+
+  /// Persists non-destructive recipe changes to `PATCH /v1/voices/signatures/:id/recipe` (`EP-P26`).
+  Future<bool> updateRecipeInCloud({
+    required String signatureId,
+    required SoundIdealizerRecipe recipe,
+    Dio? dio,
+    Interceptor? authInterceptor,
+  }) async {
+    if (_isTestEnv() && dio == null) return false;
+    try {
+      final client = _buildClient(dio, authInterceptor);
+      final response = await client.patch<Map<String, dynamic>>(
+        '${AppConstants.apiBaseUrl}/voices/signatures/$signatureId/recipe',
+        data: recipe.toJson(),
+        options: Options(receiveTimeout: const Duration(seconds: 8)),
+      );
+      return (response.statusCode ?? 500) < 300;
+    } catch (err) {
+      debugPrint('[SoundSignatureRepository] updateRecipeInCloud failed: $err');
+      return false;
+    }
+  }
+
+  /// Hydrates a cloud sound signature from `GET /v1/voices/signatures/:id` (`EP-P26`).
+  Future<SoundSignatureDna?> fetchSignatureFromCloud(
+    String signatureId, {
+    Dio? dio,
+    Interceptor? authInterceptor,
+  }) async {
+    if (_isTestEnv() && dio == null) return null;
+    try {
+      final client = _buildClient(dio, authInterceptor);
+      final response = await client.get<Map<String, dynamic>>(
+        '${AppConstants.apiBaseUrl}/voices/signatures/$signatureId',
+        options: Options(receiveTimeout: const Duration(seconds: 8)),
+      );
+      final rawSig = JsonSafe.asMap(response.data?['signature']);
+      if (rawSig.isEmpty) return null;
+      return SoundSignatureDna.fromJson(rawSig);
+    } catch (err) {
+      debugPrint('[SoundSignatureRepository] fetchSignatureFromCloud failed: $err');
+      return null;
+    }
+  }
+
+  /// Deletes a signature from cloud storage via `DELETE /v1/voices/signatures/:id` (`EP-P26`).
+  Future<bool> deleteSignatureInCloud(
+    String signatureId, {
+    Dio? dio,
+    Interceptor? authInterceptor,
+  }) async {
+    if (_isTestEnv() && dio == null) return false;
+    try {
+      final client = _buildClient(dio, authInterceptor);
+      final response = await client.delete<Map<String, dynamic>>(
+        '${AppConstants.apiBaseUrl}/voices/signatures/$signatureId',
+        options: Options(receiveTimeout: const Duration(seconds: 8)),
+      );
+      return (response.statusCode ?? 500) < 300;
+    } catch (err) {
+      debugPrint('[SoundSignatureRepository] deleteSignatureInCloud failed: $err');
+      return false;
+    }
   }
 }
 

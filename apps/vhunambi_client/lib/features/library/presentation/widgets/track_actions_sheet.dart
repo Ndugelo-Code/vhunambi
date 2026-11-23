@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
-import '../../../../core/constants/app_assets.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -16,7 +15,7 @@ import '../providers/library_providers.dart';
 import 'library_badges.dart';
 import 'library_cover_art.dart';
 import 'track_details_modal.dart';
-import 'package:vhunambi_client/features/content_studio/presentation/views/content_studio_dock_view.dart';
+import 'package:vhunambi_client/features/content_studio/presentation/views/kinetic_reel_studio_view.dart';
 import '../../../beats/presentation/providers/beats_provider.dart';
 import '../../../marketplace/presentation/widgets/license_certificate_sheet.dart';
 
@@ -196,15 +195,9 @@ class TrackActionsSheet extends ConsumerWidget {
     }
 
     void handleCreateLyricReel() {
+      final host = hostContext ?? context;
       close();
-      ContentStudioDockView.open(
-        hostContext ?? context,
-        dna: track.toSongMetadataDna(),
-        audioUrl: track.remoteAudioUrl,
-        coverArtUrl:
-            track.coverImageUrl ??
-            'asset:${AppAssets.resolveGenreCoverAsset(track.genre, seedId: track.id)}',
-      );
+      KineticReelStudioView.show(host, initialTrack: track);
     }
 
     void handleListInBeatstore() {
