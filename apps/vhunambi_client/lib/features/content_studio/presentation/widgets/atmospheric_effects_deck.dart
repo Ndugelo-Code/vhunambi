@@ -19,109 +19,115 @@ class AtmosphericEffectsDeck extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textSecondary = AppColors.textSecondaryOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           children: [
             const PhosphorIcon(
               AppIcons.sparkle,
-              size: 18,
+              size: 16,
               color: AppColors.brandPrimary,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
               'ATMOSPHERIC OVERLAY SHADERS',
               style: AppTypography.caption.copyWith(
-                color: AppColors.textSecondary,
-                letterSpacing: 1.2,
+                color: textSecondary,
+                letterSpacing: 1.0,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        _buildToggleTile(
-          icon: PhosphorIconsRegular.filmStrip,
-          title: '35mm Film Grain',
-          subtitle: 'Organic procedural analog noise texture overlay',
-          value: effects.filmGrain,
-          onChanged: (val) => onToggle(filmGrain: val),
-        ),
         const SizedBox(height: 8),
-        _buildToggleTile(
-          icon: AppIcons.waveform,
-          title: 'Bass-Reactive Pulse',
-          subtitle: 'Subtle radial bounce reacting to log drum frequencies',
-          value: effects.bassPulse,
-          onChanged: (val) => onToggle(bassPulse: val),
-        ),
-        const SizedBox(height: 8),
-        _buildToggleTile(
-          icon: PhosphorIconsRegular.camera,
-          title: 'Ken Burns Motion',
-          subtitle: 'Smooth 1.05x zoom drift and slow kinetic pan',
-          value: effects.kenBurnsMotion,
-          onChanged: (val) => onToggle(kenBurnsMotion: val),
+        SizedBox(
+          height: 62,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              _buildTogglePill(
+                context: context,
+                icon: PhosphorIconsRegular.filmStrip,
+                title: '35mm Film Grain',
+                value: effects.filmGrain,
+                onChanged: (val) => onToggle(filmGrain: val),
+              ),
+              const SizedBox(width: 8),
+              _buildTogglePill(
+                context: context,
+                icon: AppIcons.waveform,
+                title: 'Bass-Reactive Pulse',
+                value: effects.bassPulse,
+                onChanged: (val) => onToggle(bassPulse: val),
+              ),
+              const SizedBox(width: 8),
+              _buildTogglePill(
+                context: context,
+                icon: PhosphorIconsRegular.camera,
+                title: 'Ken Burns Motion',
+                value: effects.kenBurnsMotion,
+                onChanged: (val) => onToggle(kenBurnsMotion: val),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildToggleTile({
+  Widget _buildTogglePill({
+    required BuildContext context,
     required IconData icon,
     required String title,
-    required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.inputBorder,
-        border: Border.all(
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: AppRadius.inputBorder,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
           color: value
-              ? AppColors.brandPrimary.withValues(alpha: 0.4)
-              : AppColors.borderSubtle,
+              ? AppColors.brandPrimary.withValues(alpha: 0.16)
+              : AppColors.surfaceElevatedOf(context),
+          borderRadius: AppRadius.inputBorder,
+          border: Border.all(
+            color: value
+                ? AppColors.brandPrimary
+                : AppColors.borderSubtleOf(context),
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          PhosphorIcon(
-            icon,
-            size: 20,
-            color: value ? AppColors.brandPrimary : AppColors.textTertiary,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: AppTypography.bodyLarge.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.textTertiary,
-                  ),
-                ),
-              ],
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PhosphorIcon(
+              icon,
+              size: 18,
+              color: value ? AppColors.brandPrimary : textSecondary,
             ),
-          ),
-          Switch.adaptive(
-            value: value,
-            activeTrackColor: AppColors.brandPrimary.withValues(alpha: 0.5),
-            activeThumbColor: AppColors.brandPrimary,
-            onChanged: onChanged,
-          ),
-        ],
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: AppTypography.bodySmall.copyWith(
+                color: value ? AppColors.brandPrimary : textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Switch.adaptive(
+              value: value,
+              activeTrackColor: AppColors.brandPrimary.withValues(alpha: 0.5),
+              activeThumbColor: AppColors.brandPrimary,
+              onChanged: onChanged,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,6 @@
+import 'dart:io' show File;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:vhunambi_client/core/constants/app_assets.dart';
@@ -74,7 +77,38 @@ class VhunambiTrackArtwork extends StatelessWidget {
       );
     }
 
-    final Widget imageWidget = isRemote
+    String? resolveLocalPath(String? rawUrl) {
+      if (kIsWeb || rawUrl == null) return null;
+      final trimmed = rawUrl.trim();
+      if (trimmed.isEmpty) return null;
+      if (trimmed.startsWith('file://')) {
+        try {
+          final p = Uri.parse(trimmed).toFilePath();
+          if (File(p).existsSync()) return p;
+        } catch (_) {}
+        return null;
+      }
+      if (!trimmed.startsWith('http://') &&
+          !trimmed.startsWith('https://') &&
+          !trimmed.startsWith('asset:') &&
+          !trimmed.startsWith('assets/')) {
+        try {
+          if (File(trimmed).existsSync()) return trimmed;
+        } catch (_) {}
+      }
+      return null;
+    }
+
+    final localPath = resolveLocalPath(coverUrl);
+    final Widget imageWidget = localPath != null
+        ? Image.file(
+            File(localPath),
+            width: width,
+            height: height,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => buildAssetImage(genreAssetFallback),
+          )
+        : isRemote
         ? Image.network(
             resolvedSource,
             width: width,

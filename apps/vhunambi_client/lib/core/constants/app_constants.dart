@@ -199,6 +199,8 @@ abstract final class AppConstants {
       'vhunambi_tracks'; // Repurposed: Explore Discovery, Radio, Likes & Co-Signs Cache
   static const String socialReelsBoxKey =
       'vhunambi_social_reels_box'; // Kinetic Reels, Comments & Stem Remix Lineage Cache
+  static const String mediaUploadsBoxKey =
+      'vhunambi_uploads_v1'; // Multi-Tenant Local-First Media Upload Vault & Queue
 
   // Tier 2: Heavy Payload & Compaction-Managed Boxes (2 Boxes)
   static const String mmoBoxKey = 'vhunambi_mmo_manifest_box';

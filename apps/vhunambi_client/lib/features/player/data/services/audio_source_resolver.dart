@@ -129,6 +129,29 @@ class AudioSourceResolver implements IAudioSourceResolver {
       }
     }
 
+    // 1b. Unencrypted local file priority (`REQ-P79-AUD-01`, e.g. VhunambiMediaVault)
+    final candidateRaw = (track.audioUrl ?? '').trim();
+    if (!kIsWeb && candidateRaw.isNotEmpty) {
+      String? plainLocalPath;
+      if (candidateRaw.startsWith('file://')) {
+        try {
+          plainLocalPath = Uri.parse(candidateRaw).toFilePath();
+        } catch (_) {}
+      } else if (!candidateRaw.startsWith('http://') &&
+          !candidateRaw.startsWith('https://') &&
+          !candidateRaw.startsWith('/r2/') &&
+          !candidateRaw.startsWith('/mock-storage/')) {
+        plainLocalPath = candidateRaw;
+      }
+      if (plainLocalPath != null && _fileExists(plainLocalPath)) {
+        return ResolvedAudioSource(
+          uri: Uri.file(plainLocalPath),
+          isLocalFile: true,
+          localFilePath: plainLocalPath,
+        );
+      }
+    }
+
     // 2. Forced offline mode with no usable local copy is a hard failure.
     final remoteUrl = track.audioUrl;
     if (isOfflineModeForced) {

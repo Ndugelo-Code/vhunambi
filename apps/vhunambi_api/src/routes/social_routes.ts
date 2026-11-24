@@ -11,6 +11,7 @@ import {
   SA_BANK_REGISTRY,
 } from '../db/vhunambi_db.js';
 import { uploadBytesToR2 } from '../modules/synthesis/r2_storage.js';
+import { inferMediaKindFromMime } from './media_routes.js';
 import {
   assertTenantCreatorAccess,
   resolveEffectiveCreatorId,
@@ -194,11 +195,28 @@ socialRoutes.post('/social/media/upload', async (c) => {
 
   const objectKey = `social/${creatorId}/${Date.now()}_${nanoid(8)}.${ext}`;
   const stored = await uploadBytesToR2(objectKey, bytes, mimeType, c);
+  const remoteUrl = `/r2/${stored.key}`;
+  const uploadedFilename = stored.key.split('/').pop() ?? `upload.${ext}`;
+  await vhunambiDb.recordUserMediaUploadAsync(
+    {
+      id: `upl_soc_${Date.now()}_${nanoid(8)}`,
+      creatorId,
+      mediaKind: inferMediaKindFromMime(mimeType),
+      title: 'Social Media Upload',
+      filename: uploadedFilename,
+      mimeType,
+      sizeBytes: bytes.byteLength,
+      r2Key: stored.key,
+      remoteUrl,
+      sourceSurface: 'social',
+    },
+    c,
+  );
   return c.json(
     {
       success: true,
       key: stored.key,
-      url: `/r2/${stored.key}`,
+      url: remoteUrl,
       contentType: mimeType,
       size: bytes.byteLength,
     },
@@ -290,7 +308,7 @@ socialRoutes.post('/social/clips/:id/react', async (c) => {
   let body: Record<string, unknown> = {};
   try {
     body = (await c.req.json()) as Record<string, unknown>;
-  } catch (_) {}
+  } catch (_) { }
   const rawReaction = body.reactionType ?? body.reaction ?? null;
   if (rawReaction !== null && rawReaction !== undefined) {
     const normalized = normalizeKineticReactionWire(rawReaction);

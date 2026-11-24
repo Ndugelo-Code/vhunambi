@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../content_studio/presentation/views/kinetic_reel_studio_view.dart';
 import '../../domain/models/published_clip.dart';
@@ -41,7 +42,7 @@ class TrendingReelCard extends StatelessWidget {
         margin: const EdgeInsets.only(right: AppSpacing.sm),
         decoration: BoxDecoration(
           borderRadius: AppRadius.cardBorder,
-          border: Border.all(color: AppColors.borderSubtle),
+          border: Border.all(color: AppColors.borderSubtleOf(context)),
         ),
         child: ClipRRect(
           borderRadius: AppRadius.cardBorder,
@@ -81,7 +82,7 @@ class TrendingReelCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.caption.copyWith(
-                              color: AppColors.textPrimary,
+                              color: Colors.white,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -102,7 +103,7 @@ class TrendingReelCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -116,16 +117,16 @@ class TrendingReelCard extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Row(
                         children: [
-                          PhosphorIcon(
+                          const PhosphorIcon(
                             AppIcons.play,
                             size: 13,
-                            color: AppColors.textSecondary,
+                            color: Colors.white70,
                           ),
                           const SizedBox(width: 2),
                           Text(
                             formatLikes(clip.playCount),
                             style: AppTypography.caption.copyWith(
-                              color: AppColors.textSecondary,
+                              color: Colors.white70,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -138,7 +139,7 @@ class TrendingReelCard extends StatelessWidget {
                           Text(
                             formatLikes(clip.likeCount),
                             style: AppTypography.caption.copyWith(
-                              color: AppColors.textSecondary,
+                              color: Colors.white70,
                             ),
                           ),
                         ],
@@ -196,21 +197,15 @@ class _PostKineticReelCard extends StatelessWidget {
     return GestureDetector(
       key: const Key('explore_post_kinetic_reel_card'),
       onTap: onTap,
-      child: Container(
+      child: VhunambiGlassSurface(
+        variant: VhunambiGlassVariant.card,
+        enableLiveBlur: false,
         width: width,
         margin: const EdgeInsets.only(right: AppSpacing.sm),
-        decoration: BoxDecoration(
-          borderRadius: AppRadius.cardBorder,
-          border: Border.all(
-            color: AppColors.brandPrimary.withValues(alpha: 0.5),
-            width: 1.5,
-          ),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.surfaceElevated, AppColors.surfaceCanvas],
-          ),
-        ),
+        borderRadius: AppRadius.cardBorder,
+        tintAccent: AppColors.brandPrimary,
+        borderColorOverride: AppColors.brandPrimary.withValues(alpha: 0.55),
+        borderWidth: 1.5,
         child: ClipRRect(
           borderRadius: AppRadius.cardBorder,
           child: Column(
@@ -223,17 +218,17 @@ class _PostKineticReelCard extends StatelessWidget {
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary,
+                      color: AppColors.surfaceSecondaryOf(context),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.borderSubtle,
+                        color: AppColors.borderSubtleOf(context),
                         width: 2,
                       ),
                     ),
                     child: PhosphorIcon(
                       AppIcons.user,
                       size: 28,
-                      color: AppColors.textSecondary,
+                      color: AppColors.textSecondaryOf(context),
                     ),
                   ),
                   Container(
@@ -255,7 +250,7 @@ class _PostKineticReelCard extends StatelessWidget {
               Text(
                 'Post Reel',
                 style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.textPrimary,
+                  color: AppColors.textPrimaryOf(context),
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -263,7 +258,7 @@ class _PostKineticReelCard extends StatelessWidget {
               Text(
                 'Share creation',
                 style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryOf(context),
                   fontSize: 10,
                 ),
               ),
@@ -401,16 +396,22 @@ class _GenrePill extends StatelessWidget {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.brandPrimary : AppColors.surfaceSecondary,
+          color: isActive
+              ? AppColors.brandPrimary
+              : AppColors.surfaceSecondaryOf(context),
           borderRadius: AppRadius.pillBorder,
           border: Border.all(
-            color: isActive ? AppColors.brandPrimary : AppColors.borderSubtle,
+            color: isActive
+                ? AppColors.brandPrimary
+                : AppColors.borderSubtleOf(context),
           ),
         ),
         child: Text(
           label,
           style: AppTypography.caption.copyWith(
-            color: isActive ? AppColors.brandContrast : AppColors.textSecondary,
+            color: isActive
+                ? AppColors.brandContrast
+                : AppColors.textSecondaryOf(context),
             fontWeight: FontWeight.w600,
           ),
         ),

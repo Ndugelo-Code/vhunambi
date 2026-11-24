@@ -20,6 +20,7 @@ import {
   getEdgeIsolateDatabaseEngine,
   normalizeKineticReactionWire,
   normalizeReactionCounts,
+  normalizeUserMediaUploadRow,
   SA_BANK_REGISTRY,
   sumReactionCounts,
   type AuthTokenBundle,
@@ -30,6 +31,7 @@ import {
   type ExploreTrackRecord,
   type KineticReactionMutationResult,
   type KineticReactionWire,
+  type MediaUploadKindWire,
   type NotificationRecord,
   type PaymentRailId,
   type PlaylistRecord,
@@ -39,6 +41,7 @@ import {
   type SyncDeltaResult,
   type SyncMutationRecord,
   type UpsertNotificationInput,
+  type UserMediaUploadRecord,
   type WriteThroughFailureRecord,
 } from './edge_persistence_bridge.js';
 
@@ -47,6 +50,7 @@ export {
   EdgeIsolateDatabaseEngine,
   EdgePersistenceBridge,
   getEdgeIsolateDatabaseEngine,
+  normalizeUserMediaUploadRow,
   SA_BANK_REGISTRY,
   type AuthTokenBundle,
   type AtomicQuotaConsumeResult,
@@ -54,6 +58,7 @@ export {
   type CreatorQuotaRecord,
   type ExploreFeedOptions,
   type ExploreTrackRecord,
+  type MediaUploadKindWire,
   type NotificationRecord,
   type PaymentRailId,
   type PlaylistRecord,
@@ -63,6 +68,7 @@ export {
   type SyncDeltaResult,
   type SyncMutationRecord,
   type UpsertNotificationInput,
+  type UserMediaUploadRecord,
   type WriteThroughFailureRecord,
 };
 
@@ -629,6 +635,27 @@ export class VhunambiDatabase {
         verified_at TEXT,
         created_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS user_media_uploads (
+        id TEXT PRIMARY KEY,
+        creator_id TEXT NOT NULL,
+        media_kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        duration_ms INTEGER,
+        width INTEGER,
+        height INTEGER,
+        r2_key TEXT NOT NULL,
+        remote_url TEXT NOT NULL,
+        thumbnail_url TEXT,
+        source_surface TEXT NOT NULL DEFAULT 'vault',
+        created_at TEXT NOT NULL,
+        deleted_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_sqlite_user_media_uploads_creator
+        ON user_media_uploads(creator_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_payment_topups_creator
         ON payment_topups(creator_id, created_at DESC);
 
@@ -6012,6 +6039,135 @@ export class VhunambiDatabase {
     _cOrEnv?: unknown,
   ): Promise<GenerationJob | null> {
     return this.updateGenerationJob(generationId, updates);
+  }
+
+  public recordUserMediaUpload(
+    input: Partial<UserMediaUploadRecord> & {
+      id: string;
+      r2Key: string;
+      remoteUrl: string;
+    },
+    _skipMirror = false,
+  ): UserMediaUploadRecord {
+    const record = normalizeUserMediaUploadRow({
+      ...input,
+      creatorId: canonicalizeCreatorId(input.creatorId ?? 'creator_cern'),
+      createdAt: input.createdAt ?? new Date().toISOString(),
+    });
+    this.db
+      .prepare(
+        `INSERT INTO user_media_uploads (
+          id, creator_id, media_kind, title, filename, mime_type, size_bytes,
+          duration_ms, width, height, r2_key, remote_url, thumbnail_url,
+          source_surface, created_at, deleted_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          title = excluded.title,
+          remote_url = excluded.remote_url,
+          thumbnail_url = excluded.thumbnail_url,
+          deleted_at = excluded.deleted_at`,
+      )
+      .run(
+        record.id,
+        record.creatorId,
+        record.mediaKind,
+        record.title,
+        record.filename,
+        record.mimeType,
+        record.sizeBytes,
+        record.durationMs,
+        record.width,
+        record.height,
+        record.r2Key,
+        record.remoteUrl,
+        record.thumbnailUrl,
+        record.sourceSurface,
+        record.createdAt,
+        record.deletedAt,
+      );
+    return record;
+  }
+
+  public async recordUserMediaUploadAsync(
+    input: Partial<UserMediaUploadRecord> & {
+      id: string;
+      r2Key: string;
+      remoteUrl: string;
+    },
+    _cOrEnv?: unknown,
+  ): Promise<UserMediaUploadRecord> {
+    return this.recordUserMediaUpload(input, true);
+  }
+
+  public getUserMediaUploadById(id: string): UserMediaUploadRecord | null {
+    const row = this.db
+      .prepare(
+        `SELECT * FROM user_media_uploads WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+      )
+      .get(id) as Record<string, unknown> | undefined;
+    return row ? normalizeUserMediaUploadRow(row) : null;
+  }
+
+  public listUserMediaUploads(
+    creatorId: string,
+    kind?: MediaUploadKindWire,
+  ): UserMediaUploadRecord[] {
+    const cid = canonicalizeCreatorId(creatorId);
+    const rows = (
+      kind
+        ? this.db
+            .prepare(
+              `SELECT * FROM user_media_uploads
+               WHERE creator_id = ? AND media_kind = ? AND deleted_at IS NULL
+               ORDER BY created_at DESC`,
+            )
+            .all(cid, kind)
+        : this.db
+            .prepare(
+              `SELECT * FROM user_media_uploads
+               WHERE creator_id = ? AND deleted_at IS NULL
+               ORDER BY created_at DESC`,
+            )
+            .all(cid)
+    ) as Array<Record<string, unknown>>;
+    return rows.map((r) => normalizeUserMediaUploadRow(r));
+  }
+
+  public async syncUserMediaUploadsFromCloud(
+    creatorId: string,
+    _cOrEnv?: unknown,
+    _force = false,
+  ): Promise<UserMediaUploadRecord[]> {
+    return this.listUserMediaUploads(creatorId);
+  }
+
+  public deleteUserMediaUpload(
+    id: string,
+    creatorId?: string,
+    _skipMirror = false,
+  ): boolean {
+    const existing = this.getUserMediaUploadById(id);
+    if (!existing) return false;
+    if (
+      creatorId &&
+      canonicalizeCreatorId(existing.creatorId) !==
+        canonicalizeCreatorId(creatorId)
+    ) {
+      return false;
+    }
+    const deletedAt = new Date().toISOString();
+    const res = this.db
+      .prepare(`UPDATE user_media_uploads SET deleted_at = ? WHERE id = ?`)
+      .run(deletedAt, id);
+    return Number(res.changes ?? 0) > 0;
+  }
+
+  public async deleteUserMediaUploadAsync(
+    id: string,
+    creatorId?: string,
+    _cOrEnv?: unknown,
+  ): Promise<boolean> {
+    return this.deleteUserMediaUpload(id, creatorId, true);
   }
 }
 

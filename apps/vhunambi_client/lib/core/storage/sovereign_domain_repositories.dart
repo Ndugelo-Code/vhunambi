@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/core/media/sovereign_media_storage_service.dart';
 import 'package:vhunambi_client/core/storage/hive_compaction_scheduler.dart';
 import 'package:vhunambi_client/core/utils/json_safe.dart';
 
@@ -41,6 +42,7 @@ class SovereignDomainStorageMode {
     ExploreCacheRepository.clearUserSessionMemory();
     SocialReelsCacheRepository.clearUserSessionMemory();
     SovereignPrefsRepository.clearTenantSessionMemory();
+    SovereignMediaStorageService.clearTenantSessionMemory();
   }
 
   @visibleForTesting
@@ -53,6 +55,7 @@ class SovereignDomainStorageMode {
     SocialReelsCacheRepository.clearForTesting();
     MarketplaceCatalogCacheRepository.clearForTesting();
     SovereignPrefsRepository.clearForTesting();
+    SovereignMediaStorageService.clearTenantSessionMemory();
   }
 }
 

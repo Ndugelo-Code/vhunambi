@@ -17,81 +17,94 @@ class TypographyPresetPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final borderSubtle = AppColors.borderSubtleOf(context);
+    final surfaceElevated = AppColors.surfaceElevatedOf(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           children: [
             const PhosphorIcon(
               PhosphorIconsRegular.textAa,
-              size: 18,
+              size: 16,
               color: AppColors.brandPrimary,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
               'LYRIC TYPOGRAPHY PRESETS',
               style: AppTypography.caption.copyWith(
-                color: AppColors.textSecondary,
-                letterSpacing: 1.2,
+                color: textSecondary,
+                letterSpacing: 1.0,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: LyricTypographyPreset.values.map((preset) {
-            final isSelected = preset == selectedPreset;
-            return InkWell(
-              onTap: () => onPresetSelected(preset),
-              borderRadius: AppRadius.inputBorder,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.brandPrimary.withValues(alpha: 0.15)
-                      : AppColors.surfaceElevated,
-                  borderRadius: AppRadius.inputBorder,
-                  border: Border.all(
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 64,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: LyricTypographyPreset.values.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final preset = LyricTypographyPreset.values[index];
+              final isSelected = preset == selectedPreset;
+              return InkWell(
+                onTap: () => onPresetSelected(preset),
+                borderRadius: AppRadius.inputBorder,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
                     color: isSelected
-                        ? AppColors.brandPrimary
-                        : AppColors.borderSubtle,
-                    width: isSelected ? 1.5 : 1.0,
+                        ? AppColors.brandPrimary.withValues(alpha: 0.18)
+                        : surfaceElevated,
+                    borderRadius: AppRadius.inputBorder,
+                    border: Border.all(
+                      color: isSelected ? AppColors.brandPrimary : borderSubtle,
+                      width: isSelected ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        preset.label,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: isSelected
+                              ? AppColors.brandPrimary
+                              : textPrimary,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        preset.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption.copyWith(
+                          color: textSecondary,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      preset.label,
-                      style: AppTypography.bodyLarge.copyWith(
-                        color: isSelected
-                            ? AppColors.brandPrimary
-                            : AppColors.textPrimary,
-                        fontWeight: isSelected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      preset.description,
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.textTertiary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
+              );
+            },
+          ),
         ),
       ],
     );

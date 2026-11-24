@@ -6,7 +6,8 @@ import 'package:vhunambi_client/core/theme/app_colors.dart';
 import 'package:vhunambi_client/core/theme/app_typography.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/content_studio_preset.dart';
 
-/// Glowing 48-bar waveform hook trimmer supporting 15s / 30s / 60s / 90s windows (`REQ-P74-STU-03`).
+/// Glowing 48-bar waveform hook trimmer supporting 15s / 30s / 60s / 90s windows,
+/// dual start/end range handles, and SafeArea clearance (`REQ-P79-STU-02`).
 class ReelAudioTrimmerSheet extends StatefulWidget {
   final String trackTitle;
   final double totalDurationSec;
@@ -30,6 +31,7 @@ class ReelAudioTrimmerSheet extends StatefulWidget {
   }) {
     return showModalBottomSheet<({int startMs, int endMs})>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => ReelAudioTrimmerSheet(
         trackTitle: trackTitle,
@@ -53,16 +55,20 @@ class _ReelAudioTrimmerSheetState extends State<ReelAudioTrimmerSheet> {
   ];
 
   late double _startSec;
-  late double _windowSec;
+  late double _endSec;
 
   double get _maxTrackSec => math.max(15.0, widget.totalDurationSec);
 
   @override
   void initState() {
     super.initState();
-    _startSec = (widget.initialStartMs / 1000.0).clamp(0.0, _maxTrackSec - 5.0);
-    final rawWin = (widget.initialEndMs - widget.initialStartMs) / 1000.0;
-    _windowSec = rawWin.clamp(15.0, math.min(90.0, _maxTrackSec));
+    _startSec = (widget.initialStartMs / 1000.0)
+        .clamp(0.0, _maxTrackSec - 5.0)
+        .toDouble();
+    final rawEnd = widget.initialEndMs / 1000.0;
+    _endSec = rawEnd
+        .clamp(_startSec + 5.0, math.min(_maxTrackSec, _startSec + 90.0))
+        .toDouble();
   }
 
   String _fmt(double seconds) {
@@ -74,112 +80,157 @@ class _ReelAudioTrimmerSheetState extends State<ReelAudioTrimmerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final maxStart = math.max(0.0, _maxTrackSec - _windowSec);
-    final clampedStart = _startSec.clamp(0.0, maxStart);
-    final endSec = math.min(_maxTrackSec, clampedStart + _windowSec);
+    final clampedStart = _startSec
+        .clamp(0.0, math.max(0.0, _maxTrackSec - 5.0))
+        .toDouble();
+    final clampedEnd = _endSec
+        .clamp(math.min(_maxTrackSec, clampedStart + 5.0), _maxTrackSec)
+        .toDouble();
+    final windowSec = clampedEnd - clampedStart;
+    final maxStart = math.max(0.0, _maxTrackSec - windowSec);
 
-    return Container(
-      key: const Key('reel_audio_trimmer_sheet'),
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceModalOf(context),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
+    return SafeArea(
+      top: false,
+      child: Container(
+        key: const Key('reel_audio_trimmer_sheet'),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceModalOf(context),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const PhosphorIcon(
-                AppIcons.waveform,
-                size: 18,
-                color: AppColors.brandPrimary,
+              Row(
+                children: <Widget>[
+                  const PhosphorIcon(
+                    AppIcons.waveform,
+                    size: 18,
+                    color: AppColors.brandPrimary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Trim Hook • ${widget.trackTitle}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.titleMedium.copyWith(
+                        color: AppColors.textPrimaryOf(context),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${_fmt(clampedStart)} – ${_fmt(clampedEnd)}',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.brandPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Trim Hook • ${widget.trackTitle}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.titleMedium.copyWith(
-                    fontWeight: FontWeight.w700,
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: _windowPresets
+                    .map((preset) {
+                      final sec = preset.targetSeconds.toDouble();
+                      final active = (windowSec - sec).abs() < 0.6;
+                      return ChoiceChip(
+                        key: Key('reel_duration_pill_${preset.targetSeconds}'),
+                        selected: active,
+                        label: Text('${preset.targetSeconds}s'),
+                        onSelected: (_) {
+                          setState(() {
+                            final boundedWin = math.min(sec, _maxTrackSec);
+                            _startSec = clampedStart
+                                .clamp(
+                                  0.0,
+                                  math.max(0.0, _maxTrackSec - boundedWin),
+                                )
+                                .toDouble();
+                            _endSec = math.min(
+                              _maxTrackSec,
+                              _startSec + boundedWin,
+                            );
+                          });
+                        },
+                      );
+                    })
+                    .toList(growable: false),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 60,
+                width: double.infinity,
+                child: CustomPaint(
+                  painter: _GlowingWaveformPainter(
+                    startFrac: clampedStart / _maxTrackSec,
+                    endFrac: clampedEnd / _maxTrackSec,
+                    accentColor: AppColors.brandPrimary,
                   ),
                 ),
               ),
-              Text(
-                '${_fmt(clampedStart)} – ${_fmt(endSec)}',
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.brandPrimary,
-                  fontWeight: FontWeight.w700,
+              RangeSlider(
+                key: const Key('reel_audio_trim_range_slider'),
+                values: RangeValues(clampedStart, clampedEnd),
+                min: 0.0,
+                max: _maxTrackSec,
+                activeColor: AppColors.brandPrimary,
+                onChanged: (values) {
+                  final span = (values.end - values.start)
+                      .clamp(5.0, 90.0)
+                      .toDouble();
+                  setState(() {
+                    _startSec = values.start
+                        .clamp(0.0, math.max(0.0, _maxTrackSec - span))
+                        .toDouble();
+                    _endSec = (_startSec + span)
+                        .clamp(5.0, _maxTrackSec)
+                        .toDouble();
+                  });
+                },
+              ),
+              Slider(
+                key: const Key('reel_audio_trim_slider'),
+                value: clampedStart
+                    .clamp(0.0, maxStart > 0 ? maxStart : 1.0)
+                    .toDouble(),
+                min: 0.0,
+                max: maxStart > 0 ? maxStart : 1.0,
+                activeColor: AppColors.brandPrimary,
+                onChanged: maxStart > 0
+                    ? (v) => setState(() {
+                        _startSec = v;
+                        _endSec = math.min(_maxTrackSec, v + windowSec);
+                      })
+                    : null,
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton(
+                  key: const Key('reel_audio_trimmer_done_btn'),
+                  onPressed: () {
+                    Navigator.of(context).pop((
+                      startMs: (clampedStart * 1000).round(),
+                      endMs: (clampedEnd * 1000).round(),
+                    ));
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.brandPrimary,
+                    foregroundColor: AppColors.brandContrast,
+                  ),
+                  child: const Text('Use Hook Segment'),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            children: _windowPresets
-                .map((preset) {
-                  final sec = preset.targetSeconds.toDouble();
-                  final active = (_windowSec - sec).abs() < 0.5;
-                  return ChoiceChip(
-                    key: Key('reel_duration_pill_${preset.targetSeconds}'),
-                    selected: active,
-                    label: Text('${preset.targetSeconds}s'),
-                    onSelected: (_) {
-                      setState(() {
-                        _windowSec = math.min(sec, _maxTrackSec);
-                        _startSec = _startSec.clamp(
-                          0.0,
-                          math.max(0.0, _maxTrackSec - _windowSec),
-                        );
-                      });
-                    },
-                  );
-                })
-                .toList(growable: false),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 64,
-            width: double.infinity,
-            child: CustomPaint(
-              painter: _GlowingWaveformPainter(
-                startFrac: clampedStart / _maxTrackSec,
-                endFrac: endSec / _maxTrackSec,
-                accentColor: AppColors.brandPrimary,
-              ),
-            ),
-          ),
-          Slider(
-            key: const Key('reel_audio_trim_slider'),
-            value: clampedStart,
-            min: 0.0,
-            max: maxStart > 0 ? maxStart : 1.0,
-            activeColor: AppColors.brandPrimary,
-            onChanged:
-                maxStart > 0 ? (v) => setState(() => _startSec = v) : null,
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              key: const Key('reel_audio_trimmer_done_btn'),
-              onPressed: () {
-                Navigator.of(context).pop((
-                  startMs: (clampedStart * 1000).round(),
-                  endMs: (endSec * 1000).round(),
-                ));
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.brandPrimary,
-                foregroundColor: AppColors.brandContrast,
-              ),
-              child: const Text('Use Hook Segment'),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -222,6 +273,15 @@ class _GlowingWaveformPainter extends CustomPainter {
         paint,
       );
     }
+
+    final handlePaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 2.5;
+    final startX =
+        (startFrac * size.width).clamp(1.0, size.width - 1.0).toDouble();
+    final endX = (endFrac * size.width).clamp(1.0, size.width - 1.0).toDouble();
+    canvas.drawLine(Offset(startX, 0), Offset(startX, size.height), handlePaint);
+    canvas.drawLine(Offset(endX, 0), Offset(endX, size.height), handlePaint);
   }
 
   @override

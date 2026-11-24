@@ -23,6 +23,11 @@ class LibraryCategoryRail extends ConsumerWidget {
       icon: AppIcons.reels,
     ),
     _CategoryPillSpec(
+      category: LibraryCategory.uploads,
+      label: 'Uploads',
+      icon: AppIcons.upload,
+    ),
+    _CategoryPillSpec(
       category: LibraryCategory.playlists,
       label: 'Playlists',
       icon: PhosphorIconsRegular.queue,

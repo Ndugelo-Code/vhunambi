@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-11-23T04:17:22.995Z",
-  "latest_completed_phase": "P78",
-  "latest_completed_order": 78,
+  "generated_at": "2026-11-24T08:23:53.545Z",
+  "latest_completed_phase": "P79",
+  "latest_completed_order": 79,
   "stats": {
-    "total_phases": 17,
-    "completed_phases": 17,
-    "total_endpoints": 55,
+    "total_phases": 18,
+    "completed_phases": 18,
+    "total_endpoints": 58,
     "open_count": 0,
-    "connected_extensible_count": 52,
+    "connected_extensible_count": 55,
     "sealed_count": 3
   },
   "phases": [
@@ -1164,6 +1164,86 @@
         "Seeded demo Reels in SocialFeedNotifier use clip_pub_* IDs (not clip_seed_*), so trendingReelsProvider must check SocialFeedNotifier.isSeedClipId(c.id) rather than a prefix guess to avoid promoting a seed above virality-sorted peers.",
         "SocialMusicPost.fromJson must treat creator_current_user alongside current_user and user_current as legacy aliases, since canonicalizeCreatorId preserves creator_current_user and otherwise emits @current_user."
       ]
+    },
+    {
+      "phase_id": "P79",
+      "phase_order": 79,
+      "memory_key": "MEM-P79-SOVEREIGN-MEDIA-UPLOAD-ENGINE",
+      "title": "Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs",
+      "status": "completed",
+      "completed_at": "2026-11-24T10:22:00+02:00",
+      "memory_file": "docs/phases/phase_79_sovereign_media_upload_engine_and_post_cockpit/memory.md",
+      "predecessor_keys": [
+        "MEM-P65-FOUNDATION-CRASH-IMMUNITY",
+        "MEM-P68-HOME-MAIN-ROOM",
+        "MEM-P70-SONG-COCKPIT-VISITOR-PROFILE",
+        "MEM-P74-KINETIC-REELS-STUDIO-V4",
+        "MEM-P77-CHROMATIC-PLAYER-LYRICS-R2-UPLOADS",
+        "MEM-P78-VAULT-EXPLORE-CONTINUITY-UPLOADS-GLASS-TABS"
+      ],
+      "concept_hubs": [
+        "media_artwork",
+        "sync_outbox",
+        "social_graph",
+        "audio_transport",
+        "ui_surface_std",
+        "identity_role"
+      ],
+      "endpoints_defined": [
+        "EP-P79-USER-MEDIA-REGISTRY-API",
+        "EP-P79-MEDIA-UPLOAD-ENGINE",
+        "EP-P79-POST-COCKPIT-V2"
+      ],
+      "consumes": [
+        "EP-P60-HIVE-SYNC-CORE",
+        "EP-P65-CRASH-AUDIO-SHIELD",
+        "EP-P68-TRACK-ARTWORK",
+        "EP-P70-GLASS-SURFACE",
+        "EP-P71-EDGE-SWR-READTHROUGH",
+        "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
+        "EP-P77-UNIFIED-R2-IMAGE-UPLOAD",
+        "EP-P78-CREATOR-REELS-HUB",
+        "EP-P78-GLASS-TAB-BAR",
+        "EP-P78-REAL-AUDIO-VIDEO-INGEST"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/media/presentation/providers/media_upload_queue_provider.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P79-USER-MEDIA-REGISTRY-API",
+          "note": "Streams staged local media to POST /api/media/upload with 90s sendTimeout and syncs cross-device uploads via GET /api/media/uploads"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/content_studio/presentation/views/kinetic_reel_studio_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P65-CRASH-AUDIO-SHIELD",
+          "note": "Acquires AudioEngineSlot.studioPreview on SafeAudioOrchestrator for real-time looped studio audio playback and releases in dispose()"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/explore/presentation/widgets/create_kinetic_post_sheet.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P79-MEDIA-UPLOAD-ENGINE",
+          "note": "Stages picked photos locally for instant above-the-fold preview and reuses audio/images from My Uploads"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/library/presentation/views/uploads_vault_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P78-GLASS-TAB-BAR",
+          "note": "Renders All | Audio | Video | Images filter strip and surfaces LibraryCategory.uploads in LibraryCategoryRail"
+        }
+      ],
+      "breakthroughs": [
+        "Shipped durable Supabase public.user_media_uploads DDL/RLS + 1:1 SQLite/EdgeIsolateDatabaseEngine 12s SWR proxy + /api/media/* routes (and backward-compatible /api/social/media/upload indexing), verified by 32/32 backend suites (npx tsc --noEmit + npm test).",
+        "Shipped local-first SovereignMediaStorageService (27th Hive box vhunambi_uploads_v1 with per-creator tenant keys) + MediaUploadQueueNotifier (90s sendTimeout, Dio onSendProgress, zero fake /r2/social/local/ URL masking on cellular drops) + local FileImage/Uri.file priority across VhunambiTrackArtwork and AudioSourceResolver + SafeAudioOrchestrator studio playback.",
+        "Shipped CreateKineticPostSheet Glass Cockpit v2 (above-the-fold live preview carousel, From My Uploads reuse sheet, VhunambiGlassTabBar audio deck & audition player), LibraryCategory.uploads + UploadsVaultView, 5-tab ReelAudioPickerSheet with legacy 'AI Studio' scrubbing, Dark Mode _PostKineticReelCard, bounded tool rail, SafeArea dual-handle trimmer, and <=34% Stage 2 drawer with draggable stickers (+687 regression tests + Phase 79 suite green, 0 flutter analyze issues, 0 STD-UIUX-001 violations)."
+      ],
+      "gotchas": [
+        "Registering vhunambi_uploads_v1 in SovereignHiveBootstrapService.tier1BoxKeys increments tier1BoxKeys from 17 to 18 and totalDeclaredBoxes from 26 to 27; update test/features/storage/sovereign_hive_bootstrap_test.dart in Pass 1.",
+        "Never use PhosphorIconsRegular.sparkle as the category icon for LibraryCategory.uploads in LibraryCategoryRail because library_view_test.dart#L79 asserts find.byIcon(PhosphorIconsRegular.sparkle) findsOneWidget on mobile; use AppIcons.upload (uploadSimple).",
+        "Under FLUTTER_TEST (FakeAsync), async dart:io file writes (await file.writeAsBytes / await file.readAsBytes) stall pumpAndSettle() indefinitely because FakeAsync does not pump IO isolates; always use writeAsBytesSync / readAsBytesSync / deleteSync when SovereignMediaStorageService.isTestEnv is true.",
+        "EdgeIsolateDatabaseEngine uses awaitWriteThrough(label, async (driver) => ..., cOrEnv) (not awaitCloudWrite), PlayerStateNotifier.pause() returns void (never await it), and CreateKineticPostSheet's 3-button visual strip must use Wrap instead of Row+Expanded to avoid 1.9px overflow at 360dp.",
+        "Always apply 20261124000001_phase79_user_media_uploads.sql to Supabase Cloud via supabase_mcp BEFORE deploying vhunambi-api to Cloudflare Workers so PostgREST never returns 404 PGRST205."
+      ]
     }
   ],
   "endpoints": {
@@ -1217,12 +1297,14 @@
         "P60:hive_brain_telemetry_card",
         "P64:Full Cloud Production Pipeline, Hardware Audio Bootstrap & ACE-Step 1.5 LoRA GPU Activation",
         "P65:Foundation Stability, Crash Immunity & 5-Layer Fault-Containment Architecture",
-        "P67:Notifications Center Two-Pass Overhaul & 10 Free Monthly Songs Engine"
+        "P67:Notifications Center Two-Pass Overhaul & 10 Free Monthly Songs Engine",
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
       ],
       "consumed_by_phases": [
         "P64",
         "P65",
-        "P67"
+        "P67",
+        "P79"
       ],
       "open_opportunities": "Wire Worker routes beyond auth_routes.ts to SupabaseCloudDriver instead of volatile EdgeIsolateDatabaseEngine memory"
     },
@@ -1441,13 +1523,15 @@
         "P66:VH001-VH006 Studio Cockpit Wiring, ACE-Step Lyric Sanitizer, Bantu Phonetic Guard & -14 LUFS Mastering",
         "P67:Notifications Center Two-Pass Overhaul & 10 Free Monthly Songs Engine",
         "P68:Home Dashboard Main Room & Studio Utility Overhaul",
-        "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul"
+        "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul",
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
       ],
       "consumed_by_phases": [
         "P66",
         "P67",
         "P68",
-        "P69"
+        "P69",
+        "P79"
       ],
       "open_opportunities": "Adopt SafeNetworkAvatar across ArtistProfileView, TrackDetailView, and remaining Image.network avatars; include phase65_foundation_resilience.test.ts in api npm test"
     },
@@ -1657,7 +1741,8 @@
         "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
         "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload",
         "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
-        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs",
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
       ],
       "consumed_by_phases": [
         "P69",
@@ -1666,7 +1751,8 @@
         "P73",
         "P74",
         "P77",
-        "P78"
+        "P78",
+        "P79"
       ],
       "open_opportunities": "Not yet adopted in TrackDetailView (936 lines, 6 stock Icons.*) or ArtistProfileView (803 lines, 10 stock Icons.*) — prime Phase 70 upgrade"
     },
@@ -1871,7 +1957,8 @@
         "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge",
         "P76:Post-Release Live Device Theme Stability, Release Auth Security, Auth/Settings/Onboarding Glass, Full Notification Deep-Link Coverage & Platform Hygiene",
         "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
-        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs",
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
       ],
       "consumed_by_phases": [
         "P72",
@@ -1880,7 +1967,8 @@
         "P75",
         "P76",
         "P77",
-        "P78"
+        "P78",
+        "P79"
       ],
       "open_opportunities": "Adopt VhunambiGlassSurface across Home dashboard cards, Explore headers, Notifications drawer, and OwnerProfileView"
     },
@@ -1966,13 +2054,15 @@
         "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
         "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
         "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload",
-        "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge"
+        "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge",
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
       ],
       "consumed_by_phases": [
         "P72",
         "P73",
         "P74",
-        "P75"
+        "P75",
+        "P79"
       ],
       "open_opportunities": "Adopt domain-scoped SWR sync helpers in marketplace_routes, playlist_routes, library_routes, and voice_routes for full multi-isolate durability across every Cloudflare Worker endpoint"
     },
@@ -2204,11 +2294,13 @@
         "P74:HttpSocialRepository",
         "P74:KineticReelPublishView",
         "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
-        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs",
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
       ],
       "consumed_by_phases": [
         "P77",
-        "P78"
+        "P78",
+        "P79"
       ],
       "open_opportunities": "Reuse POST /api/social/media/upload for CreateKineticPostSheet custom device photo uploads and custom playlist cover uploads"
     },
@@ -2473,10 +2565,12 @@
         "P77:CreateKineticPostSheet",
         "P77:PlaylistsVaultView",
         "P77:PlaylistDetailView",
-        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs",
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
       ],
       "consumed_by_phases": [
-        "P78"
+        "P78",
+        "P79"
       ],
       "open_opportunities": "Reuse VhunambiMediaUploadService for OwnerProfileView avatar & banner cover uploads and Studio custom single artwork uploads"
     },
@@ -2497,9 +2591,12 @@
         "P78:OwnerProfileView",
         "P78:ArtistProfileView",
         "P78:ExploreView",
-        "P78:LibraryCategoryRail"
+        "P78:LibraryCategoryRail",
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P79"
+      ],
       "open_opportunities": "Adopt VhunambiGlassTabBar inside ReelAudioPickerSheet, StudioView sub-modes, and MarketplaceView category headers in Phase 79"
     },
     "EP-P78-CREATOR-REELS-HUB": {
@@ -2520,9 +2617,12 @@
       "consumers": [
         "P78:LibraryView",
         "P78:TrendingReelsShelf",
-        "P78:OwnerProfileView"
+        "P78:OwnerProfileView",
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P79"
+      ],
       "open_opportunities": "Bind Phase 79 Hold-for-Quick-Actions context menu and Pin-to-Profile controls onto ReelsVaultView and CreatorReelThumbnailCard"
     },
     "EP-P78-REAL-AUDIO-VIDEO-INGEST": {
@@ -2544,10 +2644,85 @@
         "P78:DirectDawVocalUploadSheet",
         "P78:KineticReelStudioView",
         "P78:KineticReelPublishView",
-        "P78:KineticReelsModal"
+        "P78:KineticReelsModal",
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
+      ],
+      "consumed_by_phases": [
+        "P79"
+      ],
+      "open_opportunities": "Feed uploaded/recorded image & video keyframes directly into Phase 80 VhunambiVisualDnaMatcher for automatic song & chorus cue recommendations"
+    },
+    "EP-P79-USER-MEDIA-REGISTRY-API": {
+      "id": "EP-P79-USER-MEDIA-REGISTRY-API",
+      "kind": "backend_api_and_schema",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P79",
+      "origin_order": 79,
+      "memory_file": "docs/phases/phase_79_sovereign_media_upload_engine_and_post_cockpit/memory.md",
+      "hubs": [
+        "media_artwork",
+        "sync_outbox",
+        "identity_role"
+      ],
+      "spec_anchor": "docs/phases/phase_79_sovereign_media_upload_engine_and_post_cockpit/design.md#1-pass-1-m791--backend-durable-media-asset-registry-supabase--appsvhunambi_api",
+      "code_anchor": "apps/vhunambi_api/src/routes/media_routes.ts",
+      "summary": "Durable Supabase public.user_media_uploads registry + 12s Edge SWR + POST /api/media/upload, GET /api/media/uploads, and owner-isolated DELETE /api/media/uploads/:id backed by Cloudflare R2 VHUNAMBI_VAULT.",
+      "consumers": [
+        "P79:HttpMediaUploadRepository",
+        "P79:MediaUploadQueueNotifier",
+        "P79:social_routes.ts"
       ],
       "consumed_by_phases": [],
-      "open_opportunities": "Feed uploaded/recorded image & video keyframes directly into Phase 80 VhunambiVisualDnaMatcher for automatic song & chorus cue recommendations"
+      "open_opportunities": "Connect Phase 80 VhunambiVisualDnaMatcher to GET /api/media/uploads?kind=image,video for automatic chorus mood matching"
+    },
+    "EP-P79-MEDIA-UPLOAD-ENGINE": {
+      "id": "EP-P79-MEDIA-UPLOAD-ENGINE",
+      "kind": "client_vault_and_queue",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P79",
+      "origin_order": 79,
+      "memory_file": "docs/phases/phase_79_sovereign_media_upload_engine_and_post_cockpit/memory.md",
+      "hubs": [
+        "media_artwork",
+        "sync_outbox",
+        "audio_transport"
+      ],
+      "spec_anchor": "docs/phases/phase_79_sovereign_media_upload_engine_and_post_cockpit/design.md#2-pass-1-m792--client-vhunambimediavault-resumable-sync-queue--studio-real-time-playback",
+      "code_anchor": "apps/vhunambi_client/lib/features/media/presentation/providers/media_upload_queue_provider.dart",
+      "summary": "Local-first SovereignMediaStorageService + multi-tenant Hive vhunambi_uploads_v1 + resumable MediaUploadQueueNotifier with Dio onSendProgress (0-100%), cellular drop failure preservation (zero fake /r2/social/local/ 404 URLs), local VhunambiTrackArtwork/AudioSourceResolver priority, and SafeAudioOrchestrator studio playback.",
+      "consumers": [
+        "P79:UploadsVaultView",
+        "P79:CreateKineticPostSheet",
+        "P79:ReelAudioPickerSheet",
+        "P79:DirectDawVocalUploadSheet",
+        "P79:KineticReelStudioView",
+        "P79:KineticReelPublishView"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Wire voice clone raw mic takes and custom ArtistProfileView banner uploads into mediaUploadQueueProvider"
+    },
+    "EP-P79-POST-COCKPIT-V2": {
+      "id": "EP-P79-POST-COCKPIT-V2",
+      "kind": "ui_surface",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P79",
+      "origin_order": 79,
+      "memory_file": "docs/phases/phase_79_sovereign_media_upload_engine_and_post_cockpit/memory.md",
+      "hubs": [
+        "social_graph",
+        "media_artwork",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_79_sovereign_media_upload_engine_and_post_cockpit/design.md#31-createkineticpostsheet-glass-cockpit-v2-create_kinetic_post_sheetdart",
+      "code_anchor": "apps/vhunambi_client/lib/features/explore/presentation/widgets/create_kinetic_post_sheet.dart",
+      "summary": "Glassmorphic CreateKineticPostSheet v2 with above-the-fold live Image.file preview carousel, upload progress/retry ring, From My Uploads picker, VhunambiGlassTabBar sound tabs, and SafeAudioOrchestrator audio auditioning.",
+      "consumers": [
+        "P79:ExploreView",
+        "P79:KineticPostComposerBar",
+        "P79:UploadsVaultView"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Support multi-photo carousel swipe-reorder and crop focal-point pinning in Phase 80"
     }
   },
   "hub_index": {
@@ -2563,7 +2738,8 @@
         "EP-P76-AUTH-RELEASE-GATE",
         "EP-P76-DEEPLINK-COVERAGE",
         "EP-P76-ONBOARDING-GLASS-STD",
-        "EP-P78-CREATOR-REELS-HUB"
+        "EP-P78-CREATOR-REELS-HUB",
+        "EP-P79-USER-MEDIA-REGISTRY-API"
       ],
       "phases": [
         "P00_P63",
@@ -2575,7 +2751,8 @@
         "P75",
         "P76",
         "P77",
-        "P78"
+        "P78",
+        "P79"
       ]
     },
     "media_artwork": {
@@ -2593,7 +2770,10 @@
         "EP-P77-CHROMATIC-PLAYER-CHROME",
         "EP-P77-UNIFIED-R2-IMAGE-UPLOAD",
         "EP-P78-CREATOR-REELS-HUB",
-        "EP-P78-REAL-AUDIO-VIDEO-INGEST"
+        "EP-P78-REAL-AUDIO-VIDEO-INGEST",
+        "EP-P79-USER-MEDIA-REGISTRY-API",
+        "EP-P79-MEDIA-UPLOAD-ENGINE",
+        "EP-P79-POST-COCKPIT-V2"
       ],
       "phases": [
         "P64",
@@ -2606,7 +2786,8 @@
         "P73",
         "P74",
         "P77",
-        "P78"
+        "P78",
+        "P79"
       ]
     },
     "quota_economy": {
@@ -2645,7 +2826,8 @@
         "EP-P75-CREATION-TO-REELS-BRIDGE",
         "EP-P77-CHROMATIC-PLAYER-CHROME",
         "EP-P77-SYNCED-BANTU-KARAOKE",
-        "EP-P78-REAL-AUDIO-VIDEO-INGEST"
+        "EP-P78-REAL-AUDIO-VIDEO-INGEST",
+        "EP-P79-MEDIA-UPLOAD-ENGINE"
       ],
       "phases": [
         "P00_P63",
@@ -2658,7 +2840,8 @@
         "P74",
         "P75",
         "P77",
-        "P78"
+        "P78",
+        "P79"
       ]
     },
     "mood_taxonomy": {
@@ -2703,7 +2886,8 @@
         "EP-P76-DEEPLINK-COVERAGE",
         "EP-P77-UNIFIED-R2-IMAGE-UPLOAD",
         "EP-P78-CREATOR-REELS-HUB",
-        "EP-P78-REAL-AUDIO-VIDEO-INGEST"
+        "EP-P78-REAL-AUDIO-VIDEO-INGEST",
+        "EP-P79-POST-COCKPIT-V2"
       ],
       "phases": [
         "P00_P63",
@@ -2716,7 +2900,8 @@
         "P75",
         "P76",
         "P77",
-        "P78"
+        "P78",
+        "P79"
       ]
     },
     "notifications_bus": {
@@ -2751,7 +2936,9 @@
         "EP-P73-MULTI-REACTIONS-API",
         "EP-P74-SOCIAL-MEDIA-R2-UPLOAD",
         "EP-P74-SOCIAL-SWR-READTHROUGH",
-        "EP-P75-VOICES-CLOUD-SWR"
+        "EP-P75-VOICES-CLOUD-SWR",
+        "EP-P79-USER-MEDIA-REGISTRY-API",
+        "EP-P79-MEDIA-UPLOAD-ENGINE"
       ],
       "phases": [
         "P00_P63",
@@ -2763,7 +2950,8 @@
         "P73",
         "P74",
         "P75",
-        "P76"
+        "P76",
+        "P79"
       ]
     },
     "ui_surface_std": {
@@ -2786,7 +2974,8 @@
         "EP-P77-CHROMATIC-PLAYER-CHROME",
         "EP-P77-SYNCED-BANTU-KARAOKE",
         "EP-P77-UNIFIED-R2-IMAGE-UPLOAD",
-        "EP-P78-GLASS-TAB-BAR"
+        "EP-P78-GLASS-TAB-BAR",
+        "EP-P79-POST-COCKPIT-V2"
       ],
       "phases": [
         "P00_P63",
@@ -2802,7 +2991,8 @@
         "P75",
         "P76",
         "P77",
-        "P78"
+        "P78",
+        "P79"
       ]
     },
     "ai_synthesis_gpu": {
@@ -2976,6 +3166,15 @@
     ],
     "apps/vhunambi_client/lib/features/studio/presentation/widgets/direct_daw_vocal_upload_sheet.dart": [
       "EP-P78-REAL-AUDIO-VIDEO-INGEST"
+    ],
+    "apps/vhunambi_api/src/routes/media_routes.ts": [
+      "EP-P79-USER-MEDIA-REGISTRY-API"
+    ],
+    "apps/vhunambi_client/lib/features/media/presentation/providers/media_upload_queue_provider.dart": [
+      "EP-P79-MEDIA-UPLOAD-ENGINE"
+    ],
+    "apps/vhunambi_client/lib/features/explore/presentation/widgets/create_kinetic_post_sheet.dart": [
+      "EP-P79-POST-COCKPIT-V2"
     ]
   }
 }

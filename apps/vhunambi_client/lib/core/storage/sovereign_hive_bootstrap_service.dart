@@ -54,7 +54,7 @@ class SovereignHiveBootstrapService {
     AppConstants.playbackSessionBoxKey,
   ];
 
-  /// Tier 1: Eager Domain Repository Matrix (17 Boxes)
+  /// Tier 1: Eager Domain Repository Matrix (18 Boxes)
   static const List<String> tier1BoxKeys = <String>[
     AppConstants.libraryTracksV1BoxKey,
     AppConstants.vaultBoxKey,
@@ -73,6 +73,7 @@ class SovereignHiveBootstrapService {
     AppConstants.crateMpcKitsBoxKey,
     AppConstants.tracksBoxKey,
     AppConstants.socialReelsBoxKey,
+    AppConstants.mediaUploadsBoxKey,
   ];
 
   /// Tier 2: Heavy Payload & Compaction-Managed Boxes (2 Boxes)

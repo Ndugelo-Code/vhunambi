@@ -22,19 +22,30 @@ enum KineticPostAspectRatio {
 @immutable
 class KineticPostImageAttachment {
   final String imageUrl;
+  final String? localFilePath;
+  final String? uploadAssetId;
   final bool isAiGeneratedVision;
   final String? visionPrompt;
   final KineticPostAspectRatio aspectRatio;
 
   const KineticPostImageAttachment({
     required this.imageUrl,
+    this.localFilePath,
+    this.uploadAssetId,
     this.isAiGeneratedVision = false,
     this.visionPrompt,
     this.aspectRatio = KineticPostAspectRatio.square1x1,
   });
 
+  String get bestRenderPath =>
+      (localFilePath != null && localFilePath!.trim().isNotEmpty)
+      ? localFilePath!
+      : imageUrl;
+
   Map<String, dynamic> toJson() => {
     'imageUrl': imageUrl,
+    if (localFilePath != null) 'localFilePath': localFilePath,
+    if (uploadAssetId != null) 'uploadAssetId': uploadAssetId,
     'isAiGeneratedVision': isAiGeneratedVision,
     if (visionPrompt != null) 'visionPrompt': visionPrompt,
     'aspectRatio': aspectRatio.name,
@@ -43,6 +54,8 @@ class KineticPostImageAttachment {
   factory KineticPostImageAttachment.fromJson(Map<String, dynamic> json) =>
       KineticPostImageAttachment(
         imageUrl: json['imageUrl'] as String,
+        localFilePath: json['localFilePath'] as String?,
+        uploadAssetId: json['uploadAssetId'] as String?,
         isAiGeneratedVision: json['isAiGeneratedVision'] as bool? ?? false,
         visionPrompt: json['visionPrompt'] as String?,
         aspectRatio: KineticPostAspectRatio.values.firstWhere(

@@ -5,11 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:video_player/video_player.dart';
+import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/navigation/navigation_providers.dart';
+import 'package:vhunambi_client/core/resilience/safe_audio_orchestrator.dart';
 import 'package:vhunambi_client/core/theme/app_colors.dart';
 import 'package:vhunambi_client/core/theme/app_typography.dart';
 import 'package:vhunambi_client/core/theme/post_chromatic_palette_resolver.dart';
@@ -25,6 +28,7 @@ import 'package:vhunambi_client/features/content_studio/presentation/widgets/ree
 import 'package:vhunambi_client/features/content_studio/presentation/widgets/typography_preset_picker.dart';
 import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
 import 'package:vhunambi_client/features/library/presentation/providers/library_providers.dart';
+import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
 import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
 import 'package:vhunambi_client/features/social/domain/models/sovereign_sticker_pack.dart';
 
@@ -165,6 +169,7 @@ class _KineticReelStudioViewState
   );
   LyricTypographyPreset _typographyPreset = LyricTypographyPreset.kineticBounce;
   String? _selectedStickerId;
+  Offset _stickerOffset = const Offset(200, 88);
   String _activeEditorDrawer = 'lyrics'; // lyrics | effects | stickers
 
   late ReelStudioAudioSelection _audio;
@@ -185,6 +190,10 @@ class _KineticReelStudioViewState
   Timer? _recordingTicker;
   VideoPlayerController? _stage2VideoController;
   bool _stage2VideoReady = false;
+  AudioPlayer? _studioAudioPlayer;
+  StreamSubscription<Duration>? _studioPosSub;
+  bool _isStudioAudioPlaying = false;
+  double _studioPlaybackPosSec = 0.0;
 
   static bool get _isTestEnv {
     if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
@@ -213,7 +222,77 @@ class _KineticReelStudioViewState
           ref.read(pushedFullScreenOverlayCountProvider.notifier);
       _overlayCountController!.state++;
       _incrementedOverlayCount = true;
+      unawaited(_syncStudioAudioTransport());
     });
+  }
+
+  Future<void> _syncStudioAudioTransport() async {
+    if (_isTestEnv) return;
+    if (_stage == _ReelStudioStage.publish) {
+      await _pauseStudioAudio();
+      return;
+    }
+    final localPath = _audio.localFilePath;
+    final remoteRaw = _audio.audioUrl;
+    if ((localPath == null || localPath.trim().isEmpty) &&
+        remoteRaw.trim().isEmpty) {
+      return;
+    }
+    try {
+      ref.read(playerStateProvider.notifier).pause();
+    } catch (_) {}
+    await SafeAudioOrchestrator.instance.acquireSlot(
+      AudioEngineSlot.studioPreview,
+      onPreemptPause: _pauseStudioAudio,
+    );
+    final player = _studioAudioPlayer ??= AudioPlayer();
+    _studioPosSub ??= player.positionStream.listen((pos) {
+      if (!mounted) return;
+      final ms = pos.inMilliseconds;
+      if (ms >= _audioEndMs) {
+        unawaited(player.seek(Duration(milliseconds: _audioStartMs)));
+      }
+      setState(() {
+        _studioPlaybackPosSec = ms / 1000.0;
+        _isStudioAudioPlaying = player.playing;
+      });
+    });
+    try {
+      if (!kIsWeb &&
+          localPath != null &&
+          localPath.trim().isNotEmpty &&
+          File(localPath).existsSync()) {
+        await player.setFilePath(localPath);
+      } else if (remoteRaw.trim().isNotEmpty) {
+        if (!kIsWeb &&
+            !remoteRaw.startsWith('http://') &&
+            !remoteRaw.startsWith('https://') &&
+            !remoteRaw.startsWith('/r2/') &&
+            File(remoteRaw).existsSync()) {
+          await player.setFilePath(remoteRaw);
+        } else {
+          await player.setUrl(AppConstants.normalizeCloudMediaUrl(remoteRaw));
+        }
+      }
+      await player.setSpeed(_speedSteps[_speedIdx]);
+      await player.seek(Duration(milliseconds: _audioStartMs));
+      unawaited(player.play());
+      if (mounted) {
+        setState(() {
+          _isStudioAudioPlaying = true;
+          _studioPlaybackPosSec = _audioStartMs / 1000.0;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _pauseStudioAudio() async {
+    try {
+      await _studioAudioPlayer?.pause();
+    } catch (_) {}
+    if (mounted) {
+      setState(() => _isStudioAudioPlaying = false);
+    }
   }
 
   ReelStudioAudioSelection _resolveInitialAudio() {
@@ -491,6 +570,9 @@ class _KineticReelStudioViewState
   void dispose() {
     _countdownTimer?.cancel();
     _recordingTicker?.cancel();
+    _studioPosSub?.cancel();
+    _studioAudioPlayer?.dispose();
+    SafeAudioOrchestrator.instance.unregisterSlot(AudioEngineSlot.studioPreview);
     _stage2VideoController?.dispose();
     _cameraController?.dispose();
     if (_incrementedOverlayCount && _overlayCountController != null) {
@@ -584,8 +666,10 @@ class _KineticReelStudioViewState
                         : const <LyricWordTimestamp>[],
                     preset: _typographyPreset,
                     effects: _effects,
-                    playbackPositionSec: _audioStartMs / 1000.0,
-                    isPlaying: false,
+                    playbackPositionSec: _isStudioAudioPlaying
+                        ? _studioPlaybackPosSec
+                        : _audioStartMs / 1000.0,
+                    isPlaying: _isStudioAudioPlaying,
                     fullScreen: true,
                     showInternalPlayOverlay: false,
                   ),
@@ -614,8 +698,10 @@ class _KineticReelStudioViewState
                         : const <LyricWordTimestamp>[],
                     preset: _typographyPreset,
                     effects: _effects,
-                    playbackPositionSec: _audioStartMs / 1000.0,
-                    isPlaying: false,
+                    playbackPositionSec: _isStudioAudioPlaying
+                        ? _studioPlaybackPosSec
+                        : _audioStartMs / 1000.0,
+                    isPlaying: _isStudioAudioPlaying,
                     fullScreen: true,
                     showInternalPlayOverlay: false,
                   ),
@@ -648,8 +734,10 @@ class _KineticReelStudioViewState
                       : const <LyricWordTimestamp>[],
                   preset: _typographyPreset,
                   effects: _effects,
-                  playbackPositionSec: _audioStartMs / 1000.0,
-                  isPlaying: false,
+                  playbackPositionSec: _isStudioAudioPlaying
+                      ? _studioPlaybackPosSec
+                      : _audioStartMs / 1000.0,
+                  isPlaying: _isStudioAudioPlaying,
                   fullScreen: true,
                   showInternalPlayOverlay: false,
                 ),
@@ -664,17 +752,46 @@ class _KineticReelStudioViewState
               ),
             ),
 
-            // 3. Optional Sovereign Cultural Sticker Overlay
+            // 3. Optional Sovereign Cultural Sticker Overlay (Draggable in Stage 2)
             if (activeSticker != null)
-              Positioned(
-                top: 84,
-                right: 76,
-                child: SovereignStickerGraphic(
-                  key: Key('reel_studio_canvas_sticker_${activeSticker.id}'),
-                  sticker: activeSticker,
-                  width: 96,
-                  height: 74,
-                ),
+              Builder(
+                builder: (context) {
+                  final vp = MediaQuery.sizeOf(context);
+                  final clampedLeft = _stickerOffset.dx.clamp(
+                    12.0,
+                    (vp.width - 108.0).clamp(12.0, 900.0),
+                  );
+                  final clampedTop = _stickerOffset.dy.clamp(
+                    68.0,
+                    (vp.height - 240.0).clamp(68.0, 1200.0),
+                  );
+                  return Positioned(
+                    left: clampedLeft,
+                    top: clampedTop,
+                    child: GestureDetector(
+                      key: Key('reel_studio_canvas_sticker_${activeSticker.id}'),
+                      onPanUpdate: (details) {
+                        setState(() {
+                          _stickerOffset = Offset(
+                            (_stickerOffset.dx + details.delta.dx).clamp(
+                              12.0,
+                              (vp.width - 108.0).clamp(12.0, 900.0),
+                            ),
+                            (_stickerOffset.dy + details.delta.dy).clamp(
+                              68.0,
+                              (vp.height - 240.0).clamp(68.0, 1200.0),
+                            ),
+                          );
+                        });
+                      },
+                      child: SovereignStickerGraphic(
+                        sticker: activeSticker,
+                        width: 96,
+                        height: 74,
+                      ),
+                    ),
+                  );
+                },
               ),
 
             // 4. Countdown & Live Recording HUD
@@ -751,11 +868,16 @@ class _KineticReelStudioViewState
                         child: GestureDetector(
                           key: const Key('reel_studio_audio_pill'),
                           onTap: () async {
+                            await _pauseStudioAudio();
+                            if (!context.mounted) return;
                             final picked = await ReelAudioPickerSheet.show(
                               context,
                             );
                             if (picked != null && mounted) {
                               setState(() => _audio = picked);
+                            }
+                            if (mounted) {
+                              unawaited(_syncStudioAudioTransport());
                             }
                           },
                           child: VhunambiGlassSurface(
@@ -813,21 +935,30 @@ class _KineticReelStudioViewState
             // 6. Collapsible Left/Right Floating Tool Rail + Vertical Intensity Slider
             if (_stage == _ReelStudioStage.capture)
               Positioned(
-                top: 96,
+                top: 76,
+                bottom: 156,
                 right: _railOnRight ? 12 : null,
                 left: _railOnRight ? null : 12,
-                child: Column(
-                  key: const Key('reel_studio_tool_rail'),
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
+                child: SingleChildScrollView(
+                  key: const Key('reel_studio_tool_rail_scroll'),
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    key: const Key('reel_studio_tool_rail'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
                     _RailToolButton(
                       key: const Key('reel_rail_audio_btn'),
                       icon: AppIcons.songsOutline,
                       label: 'Audio',
                       onTap: () async {
+                        await _pauseStudioAudio();
+                        if (!context.mounted) return;
                         final picked = await ReelAudioPickerSheet.show(context);
                         if (picked != null && mounted) {
                           setState(() => _audio = picked);
+                        }
+                        if (mounted) {
+                          unawaited(_syncStudioAudioTransport());
                         }
                       },
                     ),
@@ -924,6 +1055,7 @@ class _KineticReelStudioViewState
                       ),
                   ],
                 ),
+              ),
               ),
 
             // 7. Bottom Capture Deck (Stage 1) OR Studio Editor Drawers (Stage 2)
@@ -1058,15 +1190,21 @@ class _KineticReelStudioViewState
       minimumSize: const Size(44, 36),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 18),
-      decoration: const BoxDecoration(
-        color: Color(0xE6111116),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
+    final maxDrawerHeight = MediaQuery.sizeOf(context).height * 0.34;
+    return ConstrainedBox(
+      key: const Key('reel_studio_stage2_bottom_drawer'),
+      constraints: BoxConstraints(maxHeight: maxDrawerHeight),
+      child: VhunambiGlassSurface(
+        variant: VhunambiGlassVariant.chrome,
+        enableLiveBlur: false,
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        borderRadius: BorderRadius.circular(22),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
           Row(
             children: <Widget>[
               Expanded(
@@ -1131,6 +1269,7 @@ class _KineticReelStudioViewState
                               _audioStartMs = trimmed.startMs;
                               _audioEndMs = trimmed.endMs;
                             });
+                            unawaited(_syncStudioAudioTransport());
                           }
                         },
                         child: const Text(
@@ -1145,8 +1284,10 @@ class _KineticReelStudioViewState
               const SizedBox(width: 6),
               ElevatedButton(
                 key: const Key('reel_editor_next_to_publish_btn'),
-                onPressed: () =>
-                    setState(() => _stage = _ReelStudioStage.publish),
+                onPressed: () {
+                  unawaited(_pauseStudioAudio());
+                  setState(() => _stage = _ReelStudioStage.publish);
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandPrimary,
                   foregroundColor: AppColors.brandContrast,
@@ -1216,6 +1357,8 @@ class _KineticReelStudioViewState
             ),
         ],
       ),
+    ),
+    ),
     );
   }
 }
@@ -1237,15 +1380,15 @@ class _RailToolButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
         onTap: onTap,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Container(
-              width: 40,
-              height: 40,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 color: active ? AppColors.brandPrimary : Colors.black54,
                 shape: BoxShape.circle,

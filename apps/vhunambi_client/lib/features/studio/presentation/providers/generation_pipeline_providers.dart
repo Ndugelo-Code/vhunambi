@@ -220,7 +220,9 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
     if (!mounted) return;
 
     try {
-      _ref.read(creatorAllowanceProvider.notifier).consumeOneSongOptimistically();
+      _ref
+          .read(creatorAllowanceProvider.notifier)
+          .consumeOneSongOptimistically();
     } catch (_) {}
 
     final realGenerationId =
@@ -437,8 +439,7 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
     try {
       final session = _ref.read(authSessionProvider);
       final ownerProfile = _ref.read(ownerProfileProvider);
-      resolvedCreatorId =
-          ownerProfile.id.isNotEmpty && ownerProfile.id != 'me'
+      resolvedCreatorId = ownerProfile.id.isNotEmpty && ownerProfile.id != 'me'
           ? canonicalizeCreatorId(ownerProfile.id)
           : canonicalizeCreatorId(session.canonicalCreatorId);
       if (ownerProfile.displayName.trim().isNotEmpty) {

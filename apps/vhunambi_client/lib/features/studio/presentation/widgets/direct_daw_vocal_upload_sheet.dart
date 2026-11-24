@@ -21,8 +21,9 @@ import '../../../library/domain/models/library_models.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../marketplace/domain/models/marketplace_models.dart';
 import '../../../marketplace/presentation/providers/marketplace_providers.dart';
+import '../../../media/domain/models/uploaded_media_asset.dart';
+import '../../../media/presentation/providers/media_upload_queue_provider.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
-import '../../../social/presentation/providers/social_repository_provider.dart';
 
 /// Direct DAW & Natural Vocal/Stem Uploader Workstation (Phase 39 REQ-UPL-01).
 ///
@@ -237,10 +238,7 @@ class _DirectDawVocalUploadSheetState
     if (!_isTestEnv && !kIsWeb) {
       try {
         final docs = await getApplicationDocumentsDirectory();
-        final safeName = pickedName.replaceAll(
-          RegExp(r'[^a-zA-Z0-9._-]'),
-          '_',
-        );
+        final safeName = pickedName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
         final outFile = File(
           '${docs.path}/vhunambi_uploads_${DateTime.now().millisecondsSinceEpoch}_$safeName',
         );
@@ -280,7 +278,9 @@ class _DirectDawVocalUploadSheetState
         ?..hideCurrentSnackBar()
         ..showSnackBar(
           const SnackBar(
-            content: Text('Please tap to select an MP3, M4A, or WAV audio file.'),
+            content: Text(
+              'Please tap to select an MP3, M4A, or WAV audio file.',
+            ),
             backgroundColor: AppColors.brandPrimary,
           ),
         );
@@ -290,17 +290,35 @@ class _DirectDawVocalUploadSheetState
     setState(() => _isUploading = true);
 
     try {
-      final upload = await ref
-          .read(socialRepositoryProvider)
-          .uploadReelMedia(
+      final staged = await ref
+          .read(mediaUploadQueueProvider.notifier)
+          .stageAndEnqueue(
             bytes: _selectedAudioBytes!,
             filename: _selectedFileName,
             mimeType: _selectedMimeType,
+            kind: MediaAssetKind.audio,
+            title: _titleController.text.trim(),
+            sourceSurface: 'daw_upload',
+            awaitUpload: true,
           );
       if (!mounted) return;
+      if (staged.status == MediaUploadStatus.failed) {
+        ScaffoldMessenger.maybeOf(context)
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Upload saved locally in My Uploads — reconnect and tap Retry.',
+              ),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        return;
+      }
 
+      final effectiveLocalPath = staged.localFilePath ?? _selectedLocalPath;
       final normalizedRemoteUrl = AppConstants.normalizeCloudMediaUrl(
-        upload.url,
+        staged.remoteUrl ?? effectiveLocalPath ?? '',
       );
       final title = _titleController.text.trim();
       final bpm = int.tryParse(_bpmController.text.trim()) ?? 112;
@@ -348,9 +366,9 @@ class _DirectDawVocalUploadSheetState
               language: newTrack.language,
               durationSeconds: newTrack.duration.inSeconds,
               remoteAudioUrl: normalizedRemoteUrl,
-              localAudioFilePath: _selectedLocalPath,
+              localAudioFilePath: effectiveLocalPath,
               createdAt: now,
-              syncStatus: _selectedLocalPath != null
+              syncStatus: effectiveLocalPath != null
                   ? TrackSyncStatus.cachedLocally
                   : TrackSyncStatus.synced,
               isInstrumental: false,

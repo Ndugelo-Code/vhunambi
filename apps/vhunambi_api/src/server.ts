@@ -24,6 +24,7 @@ import { melodyRoutes } from './routes/melody_routes.js';
 import { marketplaceRoutes } from './routes/marketplace_routes.js';
 import { exploreRoutes } from './routes/explore_routes.js';
 import { libraryRoutes } from './routes/library_routes.js';
+import { mediaRoutes } from './routes/media_routes.js';
 import { playlistRoutes } from './routes/playlist_routes.js';
 import { notificationRoutes } from './routes/notification_routes.js';
 import { walletRoutes } from './routes/wallet_routes.js';
@@ -61,6 +62,8 @@ app.use('*', async (c, next) => {
       p.startsWith('/api/v1/social') ||
       p.startsWith('/api/library') ||
       p.startsWith('/api/v1/library') ||
+      p.startsWith('/api/media') ||
+      p.startsWith('/api/v1/media') ||
       p.startsWith('/api/playlists') ||
       p.startsWith('/api/v1/playlists') ||
       p.startsWith('/api/marketplace') ||
@@ -325,6 +328,8 @@ app.route('/api/explore', exploreRoutes);
 app.route('/api/v1/explore', exploreRoutes);
 app.route('/api/library', libraryRoutes);
 app.route('/api/v1/library', libraryRoutes);
+app.route('/api/media', mediaRoutes);
+app.route('/api/v1/media', mediaRoutes);
 app.route('/api/playlists', playlistRoutes);
 app.route('/api/v1/playlists', playlistRoutes);
 app.route('/api/notifications', notificationRoutes);

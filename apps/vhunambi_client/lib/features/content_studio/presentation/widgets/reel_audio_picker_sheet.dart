@@ -1,18 +1,25 @@
+import 'dart:io' show File;
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+import 'package:vhunambi_client/core/auth/auth_providers.dart';
 import 'package:vhunambi_client/core/design_system/tokens/app_icons.dart';
 import 'package:vhunambi_client/core/design_system/tokens/vhunambi_mood.dart';
 import 'package:vhunambi_client/core/theme/app_colors.dart';
 import 'package:vhunambi_client/core/theme/app_dimensions.dart';
 import 'package:vhunambi_client/core/theme/app_typography.dart';
+import 'package:vhunambi_client/core/widgets/vhunambi_glass_tab_bar.dart';
 import 'package:vhunambi_client/core/widgets/vhunambi_track_artwork.dart';
 import 'package:vhunambi_client/features/content_studio/domain/models/song_metadata_dna.dart';
 import 'package:vhunambi_client/features/explore/presentation/providers/explore_providers.dart';
 import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
 import 'package:vhunambi_client/features/library/presentation/providers/library_providers.dart';
+import 'package:vhunambi_client/features/media/domain/models/uploaded_media_asset.dart';
+import 'package:vhunambi_client/features/media/presentation/providers/media_upload_queue_provider.dart';
+import 'package:vhunambi_client/features/profile/presentation/providers/profile_providers.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
 
 /// Selected audio payload returned from [ReelAudioPickerSheet] (`REQ-P74-STU-03`).
@@ -24,6 +31,7 @@ class ReelStudioAudioSelection {
   final String genre;
   final String mood;
   final String audioUrl;
+  final String? localFilePath;
   final String coverUrl;
   final double durationSeconds;
   final bool isInitiallySaved;
@@ -38,6 +46,7 @@ class ReelStudioAudioSelection {
     required this.genre,
     required this.mood,
     required this.audioUrl,
+    this.localFilePath,
     required this.coverUrl,
     required this.durationSeconds,
     this.isInitiallySaved = false,
@@ -46,19 +55,64 @@ class ReelStudioAudioSelection {
     this.importedAudioMime,
   });
 
-  factory ReelStudioAudioSelection.fromLibraryTrack(LibraryTrack track) {
+  String get bestAudioSource =>
+      (localFilePath != null && localFilePath!.trim().isNotEmpty)
+      ? localFilePath!
+      : audioUrl;
+
+  factory ReelStudioAudioSelection.fromLibraryTrack(
+    LibraryTrack track, {
+    String? fallbackCreatorHandle,
+  }) {
+    final rawCreator = (track.creatorHandle ?? track.creatorName).trim();
+    final lowerCreator = rawCreator.toLowerCase();
+    final sanitizedCreator =
+        (lowerCreator.isEmpty ||
+            lowerCreator == 'ai studio' ||
+            lowerCreator == '@aistudio' ||
+            lowerCreator == 'aistudio')
+        ? (fallbackCreatorHandle ?? '@creator')
+        : rawCreator;
     return ReelStudioAudioSelection(
       trackId: track.id,
       title: track.title,
-      creatorHandle: track.creatorHandle ?? track.creatorName,
+      creatorHandle: sanitizedCreator,
       genre: track.genre,
       mood: track.moodId ?? track.mood ?? 'uplifting',
       audioUrl: track.remoteAudioUrl,
+      localFilePath: track.localAudioFilePath,
       coverUrl: track.coverImageUrl ?? '',
       durationSeconds:
           track.durationSeconds > 5 ? track.durationSeconds.toDouble() : 120.0,
       isInitiallySaved: track.isFavorite,
       dna: track.toSongMetadataDna(),
+    );
+  }
+
+  factory ReelStudioAudioSelection.fromUploadedAsset(
+    UploadedMediaAsset asset, {
+    String creatorHandle = '@creator',
+  }) {
+    final sec = asset.durationMs != null && asset.durationMs! > 5000
+        ? asset.durationMs! / 1000.0
+        : 90.0;
+    return ReelStudioAudioSelection(
+      trackId: asset.id,
+      title: asset.title,
+      creatorHandle: creatorHandle,
+      genre: 'Amapiano',
+      mood: 'uplifting',
+      audioUrl: asset.remoteUrl ?? asset.localFilePath ?? '',
+      localFilePath: asset.localFilePath,
+      coverUrl: asset.thumbnailLocalPath ?? '',
+      durationSeconds: sec,
+      dna: SongMetadataDna.fromTrackInfo(
+        id: asset.id,
+        title: asset.title,
+        genre: 'Amapiano',
+        language: 'English',
+        durationSec: sec.round(),
+      ),
     );
   }
 
@@ -117,10 +171,19 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
   String _query = '';
   VhunambiMood _selectedMood = VhunambiMood.uplifting;
 
+  int _selectedTabIndex = 0;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging &&
+          _selectedTabIndex != _tabController.index &&
+          mounted) {
+        setState(() => _selectedTabIndex = _tabController.index);
+      }
+    });
   }
 
   @override
@@ -134,34 +197,108 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
     try {
       final picked = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: const <String>['mp3', 'm4a'],
+        allowedExtensions: const <String>['mp3', 'm4a', 'wav', 'aac', 'ogg'],
         withData: true,
       );
       if (picked == null || picked.files.isEmpty) return;
       final file = picked.files.first;
       final ext = (file.extension ?? 'mp3').toLowerCase();
-      final mime = ext == 'm4a' ? 'audio/mp4' : 'audio/mpeg';
+      final mime = switch (ext) {
+        'm4a' => 'audio/mp4',
+        'wav' => 'audio/wav',
+        'aac' => 'audio/aac',
+        'ogg' => 'audio/ogg',
+        _ => 'audio/mpeg',
+      };
+      var bytes = file.bytes;
+      if ((bytes == null || bytes.isEmpty) &&
+          !kIsWeb &&
+          file.path != null &&
+          file.path!.isNotEmpty) {
+        final f = File(file.path!);
+        if (await f.exists()) {
+          bytes = await f.readAsBytes();
+        }
+      }
       final rawTitle = file.name.replaceAll(RegExp(r'\.[^.]+$'), '').trim();
       final resolvedTitle = rawTitle.isEmpty ? 'Imported Audio' : rawTitle;
-      final id = 'local_audio_${DateTime.now().millisecondsSinceEpoch}';
+      final owner = ref.read(ownerProfileProvider);
+      final session = ref.read(authSessionProvider);
+      final creatorId = owner.id.isNotEmpty && owner.id != 'me'
+          ? owner.id
+          : session.canonicalCreatorId;
+      final creatorName = owner.displayName.isNotEmpty
+          ? owner.displayName
+          : (session.displayName.isNotEmpty ? session.displayName : 'Creator');
+      final rawHandle = owner.handle.isNotEmpty
+          ? owner.handle
+          : (session.rawUsername.isNotEmpty ? session.rawUsername : 'creator');
+      final creatorHandle =
+          rawHandle.startsWith('@') ? rawHandle : '@$rawHandle';
+
+      String? stagedLocalPath = file.path;
+      String trackId = 'local_audio_${DateTime.now().millisecondsSinceEpoch}';
+      String? remoteUrl;
+
+      if (bytes != null && bytes.isNotEmpty) {
+        final staged = await ref
+            .read(mediaUploadQueueProvider.notifier)
+            .stageAndEnqueue(
+              bytes: bytes,
+              filename: file.name,
+              mimeType: mime,
+              kind: MediaAssetKind.audio,
+              title: resolvedTitle,
+              sourceSurface: 'reel_picker',
+            );
+        trackId = staged.id;
+        stagedLocalPath = staged.localFilePath ?? stagedLocalPath;
+        remoteUrl = staged.remoteUrl;
+      }
+
+      // Immediately persist imported audio into My Vault so it is reusable offline & across surfaces (`REQ-P79-AUD-02`)
+      ref.read(libraryTracksProvider.notifier).addTrack(
+            LibraryTrack(
+              id: trackId,
+              title: resolvedTitle,
+              creatorName: creatorName,
+              creatorId: creatorId,
+              creatorHandle: creatorHandle,
+              genre: 'Amapiano',
+              moodId: _selectedMood.moodId,
+              mood: _selectedMood.moodId,
+              language: 'English',
+              durationSeconds: 90,
+              remoteAudioUrl: remoteUrl ?? stagedLocalPath ?? '',
+              localAudioFilePath: stagedLocalPath,
+              createdAt: DateTime.now(),
+              syncStatus: stagedLocalPath != null
+                  ? TrackSyncStatus.cachedLocally
+                  : TrackSyncStatus.synced,
+              isInstrumental: false,
+            ),
+          );
+
+      if (!mounted) return;
       widget.onSelected(
         ReelStudioAudioSelection(
-          trackId: id,
+          trackId: trackId,
           title: resolvedTitle,
-          creatorHandle: 'local_import',
+          creatorHandle: creatorHandle,
           genre: 'Amapiano',
           mood: _selectedMood.moodId,
-          audioUrl: file.path ?? '',
+          audioUrl: remoteUrl ?? stagedLocalPath ?? '',
+          localFilePath: stagedLocalPath,
           coverUrl: '',
           durationSeconds: 90.0,
           dna: SongMetadataDna.fromTrackInfo(
-            id: id,
+            id: trackId,
             title: resolvedTitle,
             genre: 'Amapiano',
             language: 'English',
             durationSec: 90,
           ),
-          importedAudioBytes: file.bytes,
+          importedAudioBytes: bytes,
           importedAudioMime: mime,
         ),
       );
@@ -192,15 +329,32 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
 
   @override
   Widget build(BuildContext context) {
+    final activeHandle = ref.watch(currentCreatorHandleProvider);
     final vaultTracks = ref
         .watch(libraryTracksProvider)
-        .map(ReelStudioAudioSelection.fromLibraryTrack)
+        .map(
+          (t) => ReelStudioAudioSelection.fromLibraryTrack(
+            t,
+            fallbackCreatorHandle: activeHandle,
+          ),
+        )
+        .toList(growable: false);
+    final uploadedAudioTracks = ref
+        .watch(mediaUploadQueueProvider)
+        .where((u) => u.kind == MediaAssetKind.audio)
+        .map(
+          (u) => ReelStudioAudioSelection.fromUploadedAsset(
+            u,
+            creatorHandle: activeHandle,
+          ),
+        )
         .toList(growable: false);
     final exploreTracks = ref
         .watch(exploreTracksProvider)
         .map(ReelStudioAudioSelection.fromExploreTrack)
         .toList(growable: false);
     final combined = <ReelStudioAudioSelection>[
+      ...uploadedAudioTracks,
       ...vaultTracks,
       ...exploreTracks,
     ];
@@ -238,7 +392,7 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
                     controller: _searchController,
                     onChanged: (v) => setState(() => _query = v),
                     decoration: InputDecoration(
-                      hintText: 'Search Vault, Trending, or Moods...',
+                      hintText: 'Search Vault, Uploads, Trending, or Vibes...',
                       prefixIcon: Padding(
                         padding: const EdgeInsets.all(12),
                         child: PhosphorIcon(
@@ -261,16 +415,41 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
               ],
             ),
           ),
-          TabBar(
-            controller: _tabController,
-            labelColor: AppColors.brandPrimary,
-            unselectedLabelColor: AppColors.textSecondaryOf(context),
-            indicatorColor: AppColors.brandPrimary,
-            tabs: const <Tab>[
-              Tab(text: 'My Vault'),
-              Tab(text: 'Trending'),
-              Tab(text: 'Saved'),
-              Tab(text: 'Vibes'),
+          VhunambiGlassTabBar(
+            key: const Key('reel_audio_picker_glass_tabs'),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            selectedIndex: _selectedTabIndex,
+            onSelected: (index) {
+              setState(() => _selectedTabIndex = index);
+              _tabController.animateTo(index);
+            },
+            items: <VhunambiGlassTabItem>[
+              const VhunambiGlassTabItem(
+                key: Key('reel_audio_tab_vault'),
+                label: 'My Vault',
+                icon: AppIcons.songs,
+              ),
+              VhunambiGlassTabItem(
+                key: const Key('reel_audio_tab_uploads'),
+                label: 'My Uploads',
+                icon: AppIcons.upload,
+                badgeCount: uploadedAudioTracks.length,
+              ),
+              const VhunambiGlassTabItem(
+                key: Key('reel_audio_tab_trending'),
+                label: 'Trending',
+                icon: AppIcons.flame,
+              ),
+              const VhunambiGlassTabItem(
+                key: Key('reel_audio_tab_saved'),
+                label: 'Saved',
+                icon: PhosphorIconsRegular.bookmarkSimple,
+              ),
+              const VhunambiGlassTabItem(
+                key: Key('reel_audio_tab_vibes'),
+                label: 'Vibes',
+                icon: AppIcons.sparkle,
+              ),
             ],
           ),
           Expanded(
@@ -280,6 +459,10 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
                 controller: _tabController,
                 children: <Widget>[
                   _buildTrackList(_filterItems(vaultTracks), prefix: 'vault'),
+                  _buildTrackList(
+                    _filterItems(uploadedAudioTracks),
+                    prefix: 'uploads',
+                  ),
                   _buildTrackList(
                     _filterItems(exploreTracks),
                     prefix: 'trending',

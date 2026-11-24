@@ -178,6 +178,66 @@ export interface UpsertNotificationInput {
   createdAt?: string;
 }
 
+export type MediaUploadKindWire = 'audio' | 'video' | 'image';
+
+export interface UserMediaUploadRecord {
+  id: string;
+  creatorId: string;
+  mediaKind: MediaUploadKindWire;
+  title: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  durationMs: number | null;
+  width: number | null;
+  height: number | null;
+  r2Key: string;
+  remoteUrl: string;
+  thumbnailUrl: string | null;
+  sourceSurface: string;
+  createdAt: string;
+  deletedAt: string | null;
+}
+
+export function normalizeUserMediaUploadRow(
+  raw: Record<string, unknown>,
+): UserMediaUploadRecord {
+  const kindRaw = String(raw.media_kind ?? raw.mediaKind ?? 'image').toLowerCase();
+  const mediaKind: MediaUploadKindWire =
+    kindRaw === 'audio' || kindRaw === 'video' ? kindRaw : 'image';
+  return {
+    id: String(raw.id ?? ''),
+    creatorId: canonicalizeCreatorId(
+      String(raw.creator_id ?? raw.creatorId ?? 'creator_cern'),
+    ),
+    mediaKind,
+    title: String(raw.title ?? 'Uploaded Media'),
+    filename: String(raw.filename ?? 'upload.bin'),
+    mimeType: String(raw.mime_type ?? raw.mimeType ?? 'application/octet-stream'),
+    sizeBytes: Math.max(1, Number(raw.size_bytes ?? raw.sizeBytes ?? 1)),
+    durationMs:
+      raw.duration_ms != null || raw.durationMs != null
+        ? Number(raw.duration_ms ?? raw.durationMs)
+        : null,
+    width: raw.width != null ? Number(raw.width) : null,
+    height: raw.height != null ? Number(raw.height) : null,
+    r2Key: String(raw.r2_key ?? raw.r2Key ?? ''),
+    remoteUrl: String(raw.remote_url ?? raw.remoteUrl ?? ''),
+    thumbnailUrl:
+      raw.thumbnail_url != null || raw.thumbnailUrl != null
+        ? String(raw.thumbnail_url ?? raw.thumbnailUrl)
+        : null,
+    sourceSurface: String(raw.source_surface ?? raw.sourceSurface ?? 'vault'),
+    createdAt: String(
+      raw.created_at ?? raw.createdAt ?? new Date().toISOString(),
+    ),
+    deletedAt:
+      raw.deleted_at != null || raw.deletedAt != null
+        ? String(raw.deleted_at ?? raw.deletedAt)
+        : null,
+  };
+}
+
 export interface CreatorQuotaRecord {
   userId: string;
   planTier: string;
@@ -614,6 +674,7 @@ export class EdgeIsolateDatabaseEngine {
     this.socialInteractionReactions.clear();
     this.notifications.clear();
     this.creatorQuotas.clear();
+    this.userMediaUploads.clear();
     this.seedDefaults();
   }
 
@@ -7864,6 +7925,226 @@ export class EdgeIsolateDatabaseEngine {
       isPaid || before.freeMonthlySongsUsed < before.freeMonthlySongsLimit;
     const updated = allowed ? this.consumeFreeMonthlySongQuota(cid) : before;
     return { ...updated, allowed };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 79: Durable User Media Uploads Registry & 12s Edge SWR (REQ-P79-BE-02)
+  // ---------------------------------------------------------------------------
+  private readonly userMediaUploads = new Map<string, UserMediaUploadRecord>();
+
+  private hydrateUserMediaUploadRows(rows: Array<Record<string, unknown>>): void {
+    for (const raw of rows) {
+      const normalized = normalizeUserMediaUploadRow(raw);
+      if (normalized.id) {
+        this.userMediaUploads.set(normalized.id, normalized);
+      }
+    }
+  }
+
+  public recordUserMediaUpload(
+    input: Partial<UserMediaUploadRecord> & {
+      id: string;
+      r2Key: string;
+      remoteUrl: string;
+    },
+    skipMirror = false,
+  ): UserMediaUploadRecord {
+    const record = normalizeUserMediaUploadRow({
+      ...input,
+      creatorId: canonicalizeCreatorId(input.creatorId ?? 'creator_cern'),
+      createdAt: input.createdAt ?? new Date().toISOString(),
+    });
+    this.userMediaUploads.set(record.id, record);
+    if (!skipMirror) {
+      this.mirrorWriteThrough('user_media_uploads.upsert', (driver) =>
+        driver.upsertRow(
+          'user_media_uploads',
+          {
+            id: record.id,
+            creator_id: record.creatorId,
+            media_kind: record.mediaKind,
+            title: record.title,
+            filename: record.filename,
+            mime_type: record.mimeType,
+            size_bytes: record.sizeBytes,
+            duration_ms: record.durationMs,
+            width: record.width,
+            height: record.height,
+            r2_key: record.r2Key,
+            remote_url: record.remoteUrl,
+            thumbnail_url: record.thumbnailUrl,
+            source_surface: record.sourceSurface,
+            created_at: record.createdAt,
+            deleted_at: record.deletedAt,
+          },
+          'id',
+        ),
+      );
+    }
+    return record;
+  }
+
+  public async recordUserMediaUploadAsync(
+    input: Partial<UserMediaUploadRecord> & {
+      id: string;
+      r2Key: string;
+      remoteUrl: string;
+    },
+    cOrEnv?: unknown,
+  ): Promise<UserMediaUploadRecord> {
+    const record = this.recordUserMediaUpload(input, true);
+    await this.awaitWriteThrough(
+      'user_media_uploads.upsert_async',
+      async (driver) => {
+        await driver.upsertRow(
+          'user_media_uploads',
+          {
+            id: record.id,
+            creator_id: record.creatorId,
+            media_kind: record.mediaKind,
+            title: record.title,
+            filename: record.filename,
+            mime_type: record.mimeType,
+            size_bytes: record.sizeBytes,
+            duration_ms: record.durationMs,
+            width: record.width,
+            height: record.height,
+            r2_key: record.r2Key,
+            remote_url: record.remoteUrl,
+            thumbnail_url: record.thumbnailUrl,
+            source_surface: record.sourceSurface,
+            created_at: record.createdAt,
+            deleted_at: record.deletedAt,
+          },
+          'id',
+        );
+      },
+      cOrEnv,
+    );
+    return record;
+  }
+
+  public getUserMediaUploadById(id: string): UserMediaUploadRecord | null {
+    const found = this.userMediaUploads.get(id);
+    if (!found || found.deletedAt) return null;
+    return found;
+  }
+
+  public listUserMediaUploads(
+    creatorId: string,
+    kind?: MediaUploadKindWire,
+  ): UserMediaUploadRecord[] {
+    const cid = canonicalizeCreatorId(creatorId);
+    const items = Array.from(this.userMediaUploads.values()).filter((u) => {
+      if (u.deletedAt) return false;
+      if (canonicalizeCreatorId(u.creatorId) !== cid) return false;
+      if (kind && u.mediaKind !== kind) return false;
+      return true;
+    });
+    items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return items;
+  }
+
+  public async syncUserMediaUploadsFromCloud(
+    creatorId: string,
+    cOrEnv?: unknown,
+    force = false,
+  ): Promise<UserMediaUploadRecord[]> {
+    const cid = canonicalizeCreatorId(creatorId);
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (!driver.isConfigured()) {
+      return this.listUserMediaUploads(cid);
+    }
+
+    const domainKey = `media_uploads:${cid}`;
+    const lastHydrated = this.domainHydratedAtMs.get(domainKey) ?? 0;
+    if (
+      !force &&
+      lastHydrated > 0 &&
+      Date.now() - lastHydrated < EdgeIsolateDatabaseEngine.DEFAULT_SWR_TTL_MS
+    ) {
+      return this.listUserMediaUploads(cid);
+    }
+
+    const existing = this.domainInFlightPromises.get(domainKey);
+    if (existing && !force) {
+      await existing;
+      return this.listUserMediaUploads(cid);
+    }
+
+    const flight = (async (): Promise<boolean> => {
+      const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+        driver.selectRows<Record<string, unknown>>(
+          'user_media_uploads',
+          `select=*&creator_id=eq.${encodeURIComponent(cid)}&order=created_at.desc&limit=200`,
+        ),
+        3500,
+      );
+      if (res.ok) {
+        this.hydrateUserMediaUploadRows(res.value);
+        this.domainHydratedAtMs.set(domainKey, Date.now());
+        return true;
+      }
+      return false;
+    })().finally(() => {
+      if (this.domainInFlightPromises.get(domainKey) === flight) {
+        this.domainInFlightPromises.delete(domainKey);
+      }
+    });
+
+    this.domainInFlightPromises.set(domainKey, flight);
+    await flight;
+    return this.listUserMediaUploads(cid);
+  }
+
+  public deleteUserMediaUpload(
+    id: string,
+    creatorId?: string,
+    skipMirror = false,
+  ): boolean {
+    const existing = this.userMediaUploads.get(id);
+    if (!existing || existing.deletedAt) return false;
+    if (
+      creatorId &&
+      canonicalizeCreatorId(existing.creatorId) !== canonicalizeCreatorId(creatorId)
+    ) {
+      return false;
+    }
+    const deletedAt = new Date().toISOString();
+    this.userMediaUploads.set(id, { ...existing, deletedAt });
+    if (!skipMirror) {
+      this.mirrorWriteThrough('user_media_uploads.soft_delete', (driver) =>
+        driver.patchRows(
+          'user_media_uploads',
+          `id=eq.${encodeURIComponent(id)}`,
+          { deleted_at: deletedAt },
+        ),
+      );
+    }
+    return true;
+  }
+
+  public async deleteUserMediaUploadAsync(
+    id: string,
+    creatorId?: string,
+    cOrEnv?: unknown,
+  ): Promise<boolean> {
+    const deleted = this.deleteUserMediaUpload(id, creatorId, true);
+    if (!deleted) return false;
+    const deletedAt =
+      this.userMediaUploads.get(id)?.deletedAt ?? new Date().toISOString();
+    await this.awaitWriteThrough(
+      'user_media_uploads.soft_delete_async',
+      async (driver) => {
+        await driver.patchRows(
+          'user_media_uploads',
+          `id=eq.${encodeURIComponent(id)}`,
+          { deleted_at: deletedAt },
+        );
+      },
+      cOrEnv,
+    );
+    return true;
   }
 }
 

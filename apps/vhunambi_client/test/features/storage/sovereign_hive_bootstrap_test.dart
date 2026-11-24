@@ -30,12 +30,12 @@ void main() {
       'registry declares exactly 26 unique Sovereign Hive boxes across Tiers 0-2',
       () {
         expect(SovereignHiveBootstrapService.tier0BoxKeys.length, 7);
-        expect(SovereignHiveBootstrapService.tier1BoxKeys.length, 17);
+        expect(SovereignHiveBootstrapService.tier1BoxKeys.length, 18);
         expect(SovereignHiveBootstrapService.tier2BoxKeys.length, 2);
 
         final all = SovereignHiveBootstrapService.allBoxKeys;
-        expect(all.length, 26);
-        expect(all.toSet().length, 26);
+        expect(all.length, 27);
+        expect(all.toSet().length, 27);
 
         expect(SovereignHiveBootstrapService.encryptedBoxKeys.length, 7);
         expect(
@@ -112,10 +112,10 @@ void main() {
         });
 
         final snap = SovereignHiveBootstrapService.getTelemetrySnapshot();
-        expect(snap.totalDeclaredBoxes, 26);
-        expect(snap.openBoxesCount, 26);
+        expect(snap.totalDeclaredBoxes, 27);
+        expect(snap.openBoxesCount, 27);
         expect(snap.tier0Count, 7);
-        expect(snap.tier1Count, 17);
+        expect(snap.tier1Count, 18);
         expect(snap.tier2Count, 2);
         expect(snap.encryptedBoxesCount, 7);
         expect(snap.totalPersistedRecords, greaterThanOrEqualTo(2));

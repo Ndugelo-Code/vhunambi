@@ -235,6 +235,7 @@ class HttpSocialRepository implements ISocialRepository {
     required Uint8List bytes,
     required String filename,
     required String mimeType,
+    void Function(int sent, int total)? onSendProgress,
   }) async {
     final kind = mimeType.startsWith('image/')
         ? 'gallery_photo'
@@ -247,41 +248,44 @@ class HttpSocialRepository implements ISocialRepository {
         sizeBytes: bytes.length,
       );
     }
-    try {
-      final form = FormData.fromMap(<String, dynamic>{
-        'file': MultipartFile.fromBytes(
-          bytes,
-          filename: filename,
-          contentType: DioMediaType.parse(mimeType),
-        ),
-      });
-      final response = await _dio.post<Map<String, dynamic>>(
-        '$_baseUrl/social/media/upload',
-        data: form,
-        options: Options(contentType: 'multipart/form-data'),
-      );
-      if (response.statusCode == 201 && response.data != null) {
-        final d = JsonSafe.asMap(response.data);
-        final url = AppConstants.normalizeCloudMediaUrl(
-          JsonSafe.asString(d['url']),
-        );
-        return (
-          url: url.isNotEmpty
-              ? url
-              : JsonSafe.asString(d['url'], '/r2/social/local/$filename'),
-          mediaKind: kind,
-          mimeType: JsonSafe.asString(d['contentType'], mimeType),
-          sizeBytes: JsonSafe.asInt(d['size'], bytes.length),
+    final form = FormData.fromMap(<String, dynamic>{
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: DioMediaType.parse(mimeType),
+      ),
+    });
+    final response = await _dio.post<Map<String, dynamic>>(
+      '$_baseUrl/social/media/upload',
+      data: form,
+      onSendProgress: onSendProgress,
+      options: Options(
+        contentType: 'multipart/form-data',
+        sendTimeout: const Duration(seconds: 90),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
+    );
+    if (response.statusCode == 201 && response.data != null) {
+      final d = JsonSafe.asMap(response.data);
+      final rawUrl = JsonSafe.asString(d['url']);
+      final url = AppConstants.normalizeCloudMediaUrl(rawUrl);
+      if (url.isEmpty) {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          message: 'Upload response did not include a valid media URL',
         );
       }
-    } catch (e) {
-      debugPrint('[HttpSocialRepository] uploadReelMedia fallback: $e');
+      return (
+        url: url,
+        mediaKind: kind,
+        mimeType: JsonSafe.asString(d['contentType'], mimeType),
+        sizeBytes: JsonSafe.asInt(d['size'], bytes.length),
+      );
     }
-    return (
-      url: '/r2/social/local/${DateTime.now().millisecondsSinceEpoch}_$filename',
-      mediaKind: kind,
-      mimeType: mimeType,
-      sizeBytes: bytes.length,
+    throw DioException(
+      requestOptions: response.requestOptions,
+      response: response,
+      message: 'Media upload failed with HTTP ${response.statusCode}',
     );
   }
 

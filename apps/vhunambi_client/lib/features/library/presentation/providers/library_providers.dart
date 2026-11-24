@@ -8,6 +8,8 @@ import 'package:vhunambi_client/core/sync/sync_outbox_service.dart';
 import 'package:vhunambi_client/core/utils/creator_id_utils.dart';
 import 'package:vhunambi_client/features/library/data/repositories/http_library_sync_repository.dart';
 import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
+import 'package:vhunambi_client/features/media/domain/models/uploaded_media_asset.dart';
+import 'package:vhunambi_client/features/media/presentation/providers/media_upload_queue_provider.dart';
 import 'package:vhunambi_client/features/offline/presentation/providers/offline_providers.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
 import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
@@ -99,21 +101,35 @@ final ownerVaultReelsProvider = Provider<List<PublishedClip>>((ref) {
     return clip.title.toLowerCase().contains(query) ||
         clip.genre.toLowerCase().contains(query) ||
         clip.caption.toLowerCase().contains(query);
-  }).toList()
-    ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+  }).toList()..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
   return List.unmodifiable(clips);
 });
 
-/// Record count per vault category (drives the Trash & Reels rail badges).
+/// Active creator's local+cloud uploaded media assets (`REQ-P79-HUB-01`).
+final ownerMediaUploadsProvider = Provider<List<UploadedMediaAsset>>((ref) {
+  final query = ref.watch(librarySearchQueryProvider).trim().toLowerCase();
+  final uploads = ref.watch(mediaUploadQueueProvider).where((item) {
+    if (query.isEmpty) return true;
+    return item.title.toLowerCase().contains(query) ||
+        item.filename.toLowerCase().contains(query) ||
+        item.kind.name.toLowerCase().contains(query);
+  }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  return List.unmodifiable(uploads);
+});
+
+/// Record count per vault category (drives the Trash, Reels & Uploads rail badges).
 final libraryCategoryCountsProvider = Provider<Map<LibraryCategory, int>>((
   ref,
 ) {
   final tracks = ref.watch(libraryTracksProvider);
   final reelsCount = ref.watch(ownerVaultReelsProvider).length;
+  final uploadsCount = ref.watch(ownerMediaUploadsProvider).length;
   return {
     for (final category in LibraryCategory.values)
       category: category == LibraryCategory.reels
           ? reelsCount
+          : category == LibraryCategory.uploads
+          ? uploadsCount
           : filterLibraryTracks(tracks: tracks, category: category).length,
   };
 });
@@ -224,13 +240,30 @@ class LibraryTracksNotifier extends StateNotifier<List<LibraryTrack>> {
   }
 
   /// Hydrates locally persisted tracks from Hive without erasing initial seeds.
+  /// Also scrubs legacy `'AI Studio'` / `'@aistudio'` labels (`REQ-P79-HUB-02`).
   Future<void> hydrateFromLocalBox() async {
     final repo = _syncRepository;
     if (repo == null) return;
     final stored = await repo.loadLocalTracks();
     if (!mounted || stored.isEmpty) return;
+    final activeHandle = _ref?.read(currentCreatorHandleProvider) ?? '@creator';
+    final fallbackName = activeHandle.replaceFirst(RegExp(r'^@+'), '');
     final safeStored = stored
         .where((t) => !_localMutatedIds.contains(t.id))
+        .map((t) {
+          final lowerName = t.creatorName.trim().toLowerCase();
+          final lowerHandle = (t.creatorHandle ?? '').trim().toLowerCase();
+          final isLegacyAi =
+              lowerName == 'ai studio' ||
+              lowerName == '@aistudio' ||
+              lowerHandle == '@aistudio' ||
+              lowerHandle == 'ai studio';
+          if (!isLegacyAi) return t;
+          return t.copyWith(
+            creatorName: fallbackName.isNotEmpty ? fallbackName : 'Creator',
+            creatorHandle: activeHandle,
+          );
+        })
         .toList(growable: false);
     if (safeStored.isEmpty) return;
     state = HttpLibrarySyncRepository.mergeTracksLww(state, safeStored);
@@ -529,6 +562,7 @@ bool _matchesCategory(LibraryTrack track, LibraryCategory category) {
               (track.licenseType.trim().isNotEmpty &&
                   track.licenseType != 'Commercial')),
     LibraryCategory.reels ||
+    LibraryCategory.uploads ||
     LibraryCategory.playlists ||
     LibraryCategory.collections => false,
   };

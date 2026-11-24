@@ -47,16 +47,19 @@ class TrackEntity {
       parsedStemUrls = <StemType, String>{};
       rawStems.forEach((key, val) {
         if (val != null) {
-          parsedStemUrls![stemTypeFromWireString(key.toString())] = val.toString();
+          parsedStemUrls![stemTypeFromWireString(key.toString())] = val
+              .toString();
         }
       });
     }
 
     return TrackEntity(
-      id: (json['id'] ?? json['generationId'] ?? json['generation_id'])
+      id:
+          (json['id'] ?? json['generationId'] ?? json['generation_id'])
               as String? ??
           '',
-      title: (json['title'] ?? json['trackTitle'] ?? json['track_title'])
+      title:
+          (json['title'] ?? json['trackTitle'] ?? json['track_title'])
               as String? ??
           'Untitled',
       genre: json['genre'] as String? ?? 'Afro House',
@@ -71,10 +74,9 @@ class TrackEntity {
           (json['master_mp3_url'] ?? json['masterMp3Url'] ?? json['audio_url'])
               as String? ??
           '',
-      stemsUrl: (json['stems_url'] ??
-              json['stems_zip_url'] ??
-              json['stemsZipUrl'])
-          as String?,
+      stemsUrl:
+          (json['stems_url'] ?? json['stems_zip_url'] ?? json['stemsZipUrl'])
+              as String?,
       stemUrls: parsedStemUrls,
       coverUrl: (json['cover_url'] ?? json['coverUrl']) as String?,
       lyrics: json['lyrics'] as String?,
@@ -82,20 +84,20 @@ class TrackEntity {
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'id': id,
-        'title': title,
-        'genre': genre,
-        'language': language,
-        'duration_seconds': duration.inSeconds,
-        'master_mp3_url': masterMp3Url,
-        'stems_url': stemsUrl,
-        if (stemUrls != null)
-          'stem_urls': stemUrls!.map(
-            (k, v) => MapEntry(stemTypeToWireString(k), v),
-          ),
-        'cover_url': coverUrl,
-        'lyrics': lyrics,
-      };
+    'id': id,
+    'title': title,
+    'genre': genre,
+    'language': language,
+    'duration_seconds': duration.inSeconds,
+    'master_mp3_url': masterMp3Url,
+    'stems_url': stemsUrl,
+    if (stemUrls != null)
+      'stem_urls': stemUrls!.map(
+        (k, v) => MapEntry(stemTypeToWireString(k), v),
+      ),
+    'cover_url': coverUrl,
+    'lyrics': lyrics,
+  };
 
   /// Whether an archive of stems is available for download.
   bool get hasStems => stemsUrl != null && stemsUrl!.isNotEmpty;
@@ -194,16 +196,16 @@ class TrackEntity {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        title,
-        genre,
-        language,
-        duration,
-        masterMp3Url,
-        stemsUrl,
-        coverUrl,
-        lyrics,
-      );
+    id,
+    title,
+    genre,
+    language,
+    duration,
+    masterMp3Url,
+    stemsUrl,
+    coverUrl,
+    lyrics,
+  );
 
   @override
   String toString() => 'TrackEntity($id, $title)';

@@ -409,7 +409,8 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
           final isLegacyAiStudio =
               lt.creatorName.trim().toLowerCase() == 'ai studio' ||
               (lt.creatorId ?? '').trim().toLowerCase() == 'ai_studio' ||
-              (lt.creatorId ?? '').trim().toLowerCase() == 'creator_ai_studio' ||
+              (lt.creatorId ?? '').trim().toLowerCase() ==
+                  'creator_ai_studio' ||
               (lt.creatorHandle ?? '').trim().toLowerCase() == '@aistudio';
           var resolvedCreatorId = isLegacyAiStudio
               ? canonicalizeCreatorId(ref.read(currentCreatorIdProvider))
@@ -427,7 +428,9 @@ TrackDetailEntity _lookupInitialTrack(String trackId, {Ref? ref}) {
           if (isLegacyAiStudio) {
             final activeHandle = ref.read(currentCreatorHandleProvider).trim();
             resolvedHandle = activeHandle.isNotEmpty
-                ? (activeHandle.startsWith('@') ? activeHandle : '@$activeHandle')
+                ? (activeHandle.startsWith('@')
+                      ? activeHandle
+                      : '@$activeHandle')
                 : handleFromCreatorId(resolvedCreatorId);
             resolvedCreatorName = extractRawCreatorId(resolvedCreatorId);
           }

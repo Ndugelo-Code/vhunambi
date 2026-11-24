@@ -11,6 +11,7 @@ enum AudioEngineSlot {
   stemMixer,
   reelPool,
   sketchpad,
+  studioPreview,
 }
 
 /// Centralized single-active-engine hardware audio mutex & exception guard.

@@ -167,6 +167,14 @@ class _EmptyStateCopy {
           ctaLabel: 'Create your first reel',
           ctaIcon: AppIcons.reels,
         ),
+      LibraryCategory.uploads => const _EmptyStateCopy(
+          icon: AppIcons.upload,
+          headline: 'No uploads yet',
+          description:
+              'Upload your audio masters, recorded takes, or photos once — reuse them across Reels, Posts, and Vault.',
+          ctaLabel: 'Upload audio or media',
+          ctaIcon: AppIcons.upload,
+        ),
       LibraryCategory.playlists => const _EmptyStateCopy(
           icon: PhosphorIconsRegular.queue,
           headline: 'No playlists yet',

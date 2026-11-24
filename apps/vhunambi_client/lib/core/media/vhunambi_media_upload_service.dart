@@ -11,12 +11,14 @@ class VhunambiUploadedMedia {
   final String filename;
   final String mimeType;
   final int sizeBytes;
+  final String? localFilePath;
 
   const VhunambiUploadedMedia({
     required this.url,
     required this.filename,
     required this.mimeType,
     required this.sizeBytes,
+    this.localFilePath,
   });
 }
 
@@ -58,6 +60,7 @@ class VhunambiMediaUploadService {
     Uint8List bytes;
     String filename;
     String mimeType;
+    String? pickedLocalPath;
 
     if (testBytesOverride != null || _isTestEnv) {
       bytes = testBytesOverride ??
@@ -74,6 +77,7 @@ class VhunambiMediaUploadService {
       );
       if (picked == null) return null;
       bytes = await picked.readAsBytes();
+      pickedLocalPath = picked.path.isNotEmpty ? picked.path : null;
       filename = picked.name.isNotEmpty
           ? picked.name
           : '${purposePrefix}_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -103,6 +107,7 @@ class VhunambiMediaUploadService {
       filename: filename,
       mimeType: uploaded.mimeType,
       sizeBytes: uploaded.sizeBytes,
+      localFilePath: pickedLocalPath,
     );
   }
 }

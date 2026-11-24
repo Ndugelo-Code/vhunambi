@@ -1,30 +1,38 @@
-import 'dart:io' show Platform;
+import 'dart:async';
+import 'dart:io' show File, Platform;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/media/vhunambi_media_upload_service.dart';
+import '../../../../core/navigation/navigation_providers.dart';
+import '../../../../core/resilience/safe_audio_orchestrator.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/navigation/navigation_providers.dart';
 import '../../../../core/widgets/vhunambi_glass_surface.dart';
+import '../../../../core/widgets/vhunambi_glass_tab_bar.dart';
 import '../../../../core/widgets/vhunambi_track_artwork.dart';
+import '../../../library/presentation/providers/library_providers.dart';
+import '../../../media/domain/models/uploaded_media_asset.dart';
+import '../../../media/presentation/providers/media_upload_queue_provider.dart';
+import '../../../player/presentation/providers/player_provider.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
-import '../../../social/presentation/providers/social_repository_provider.dart';
 import '../../../../shared/models/track.dart';
 import '../../domain/models/social_music_post.dart';
 import '../providers/explore_providers.dart';
 
-/// Full-featured authoring workstation for publishing Kinetic Posts (REQ-KPOST-01..05).
-/// Supports static images (1–4), Vhunambi Vision AI generation, resizable aspect ratios,
-/// and universal 4-category audio vault attachment with duration trimming.
+/// Glass Cockpit v2 authoring workstation for publishing Kinetic Posts
+/// (`EP-P79-POST-COCKPIT-V2`, `REQ-P79-KPOST-01..02`).
 class CreateKineticPostSheet extends ConsumerStatefulWidget {
   final int initialTab;
 
@@ -56,15 +64,45 @@ class _CreateKineticPostSheetState
   bool _isGeneratingVision = false;
   bool _isUploadingPhoto = false;
 
-  // Audio Attachment State
+  // Audio Attachment State (0: My Uploads, 1: My Vault, 2: Trending, 3: Grooves)
+  int _audioSourceTabIndex = 2;
   KineticAudioSourceType _selectedAudioCategory =
       KineticAudioSourceType.librarySong;
   Track? _selectedTrack;
   double _clipStartSec = 0.0;
   double _clipDurationSec = 30.0;
+  AudioPlayer? _auditionPlayer;
+  bool _isAuditioning = false;
 
   StateController<int>? _modalSheetCounter;
   bool _didIncrementModalCount = false;
+
+  static const List<Track> _grooveSeeds = <Track>[
+    Track(
+      id: 'sk_01',
+      title: 'Midnight Log Drum Pattern A',
+      creatorName: 'Pocket DAW',
+      creatorHandle: '@cern',
+      genre: 'Amapiano',
+      duration: Duration(seconds: 30),
+    ),
+    Track(
+      id: 'sk_02',
+      title: 'Private School Rhodes Chords',
+      creatorName: 'Sketchpad 3-Step',
+      creatorHandle: '@cern',
+      genre: 'Afro House',
+      duration: Duration(seconds: 30),
+    ),
+    Track(
+      id: 'sk_03',
+      title: 'Euclidean African Percussion',
+      creatorName: 'Groove Sequencer',
+      creatorHandle: '@cern',
+      genre: 'Afro-fusion',
+      duration: Duration(seconds: 30),
+    ),
+  ];
 
   @override
   void initState() {
@@ -76,12 +114,10 @@ class _CreateKineticPostSheetState
       _didIncrementModalCount = true;
       counter.state++;
     });
-    // Default fallback track from explore catalog
     final initialTracks = ref.read(exploreTracksProvider);
     if (initialTracks.isNotEmpty) {
       _selectedTrack = initialTracks.first;
     }
-    // If opened via quick action
     if (widget.initialTab == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _pickAndUploadPhoto();
@@ -93,6 +129,10 @@ class _CreateKineticPostSheetState
 
   @override
   void dispose() {
+    _auditionPlayer?.dispose();
+    SafeAudioOrchestrator.instance.unregisterSlot(
+      AudioEngineSlot.studioPreview,
+    );
     final counter = _modalSheetCounter;
     if (_didIncrementModalCount && counter != null) {
       _didIncrementModalCount = false;
@@ -117,29 +157,114 @@ class _CreateKineticPostSheetState
     return false;
   }
 
+  Future<void> _pauseAudition() async {
+    try {
+      await _auditionPlayer?.pause();
+    } catch (_) {}
+    if (mounted) setState(() => _isAuditioning = false);
+  }
+
+  Future<void> _toggleAudioAudition() async {
+    final track = _selectedTrack;
+    if (track == null) return;
+    HapticFeedback.selectionClick();
+    if (_isAuditioning) {
+      await _pauseAudition();
+      return;
+    }
+    if (_detectTestMode()) {
+      setState(() => _isAuditioning = true);
+      return;
+    }
+    final rawSrc = (track.audioUrl ?? '').trim();
+    if (rawSrc.isEmpty) {
+      setState(() => _isAuditioning = true);
+      return;
+    }
+    try {
+      ref.read(playerStateProvider.notifier).pause();
+    } catch (_) {}
+    await SafeAudioOrchestrator.instance.acquireSlot(
+      AudioEngineSlot.studioPreview,
+      onPreemptPause: _pauseAudition,
+    );
+    final player = _auditionPlayer ??= AudioPlayer();
+    try {
+      if (!kIsWeb &&
+          !rawSrc.startsWith('http://') &&
+          !rawSrc.startsWith('https://') &&
+          !rawSrc.startsWith('/r2/') &&
+          File(rawSrc).existsSync()) {
+        await player.setFilePath(rawSrc);
+      } else {
+        await player.setUrl(AppConstants.normalizeCloudMediaUrl(rawSrc));
+      }
+      await player.seek(Duration(seconds: _clipStartSec.round()));
+      unawaited(player.play());
+      if (mounted) setState(() => _isAuditioning = true);
+    } catch (_) {
+      if (mounted) setState(() => _isAuditioning = false);
+    }
+  }
+
   Future<void> _pickAndUploadPhoto() async {
     if (_isUploadingPhoto || _attachedImages.length >= 4) return;
     HapticFeedback.lightImpact();
     setState(() => _isUploadingPhoto = true);
 
     try {
-      final uploaded = await VhunambiMediaUploadService.pickAndUploadImage(
-        socialRepository: ref.read(socialRepositoryProvider),
-        purposePrefix: 'kpost_photo',
-      );
-      if (!mounted || uploaded == null) return;
+      Uint8List bytes;
+      String filename;
+      String mimeType;
 
-      final url = AppConstants.normalizeCloudMediaUrl(uploaded.url);
-      if (!isAllowedKineticPostMedia(url)) {
-        _showVideoFormatRejectionDialog();
+      if (_detectTestMode()) {
+        bytes = Uint8List.fromList(<int>[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]);
+        filename = 'kpost_photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        mimeType = 'image/jpeg';
+      } else {
+        final picker = ImagePicker();
+        final picked = await picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1600,
+          imageQuality: 88,
+        );
+        if (picked == null) return;
+        bytes = await picked.readAsBytes();
+        filename = picked.name.isNotEmpty
+            ? picked.name
+            : 'kpost_photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        mimeType = VhunambiMediaUploadService.inferImageMimeType(filename);
+      }
+
+      if (!isAllowedKineticPostMedia(filename) &&
+          !isAllowedKineticPostMedia(mimeType)) {
+        if (mounted) _showVideoFormatRejectionDialog();
         return;
       }
 
-      if (_attachedImages.length >= 4) return;
+      final staged = await ref
+          .read(mediaUploadQueueProvider.notifier)
+          .stageAndEnqueue(
+            bytes: bytes,
+            filename: filename,
+            mimeType: mimeType,
+            kind: MediaAssetKind.image,
+            sourceSurface: 'kinetic_post',
+            awaitUpload: _detectTestMode(),
+          );
+      if (!mounted || _attachedImages.length >= 4) return;
+
+      final resolvedUrl =
+          (staged.remoteUrl != null && staged.remoteUrl!.isNotEmpty)
+          ? AppConstants.normalizeCloudMediaUrl(staged.remoteUrl!)
+          : (staged.localFilePath ?? '');
+
       setState(() {
         _attachedImages.add(
           KineticPostImageAttachment(
-            imageUrl: url,
+            imageUrl: resolvedUrl,
+            localFilePath: staged.localFilePath,
+            uploadAssetId: staged.id,
             aspectRatio: _selectedAspectRatio,
           ),
         );
@@ -157,6 +282,116 @@ class _CreateKineticPostSheetState
         setState(() => _isUploadingPhoto = false);
       }
     }
+  }
+
+  void _showPickFromUploadsSheet() {
+    final imageUploads = ref
+        .read(mediaUploadQueueProvider)
+        .where((u) => u.kind == MediaAssetKind.image)
+        .toList();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceModalOf(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final textPrimary = AppColors.textPrimaryOf(ctx);
+        final textSecondary = AppColors.textSecondaryOf(ctx);
+        return SafeArea(
+          top: false,
+          child: Padding(
+            key: const Key('kpost_from_uploads_sheet'),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Select from My Uploads',
+                  style: AppTypography.titleMedium.copyWith(
+                    color: textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                if (imageUploads.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: Text(
+                        'No uploaded images yet. Add a photo to save it here for reuse.',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: textSecondary,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 150,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: imageUploads.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(width: AppSpacing.sm),
+                      itemBuilder: (context, idx) {
+                        final item = imageUploads[idx];
+                        return GestureDetector(
+                          key: Key('kpost_reuse_upload_${item.id}'),
+                          onTap: () {
+                            if (_attachedImages.length < 4) {
+                              setState(() {
+                                _attachedImages.add(
+                                  KineticPostImageAttachment(
+                                    imageUrl:
+                                        item.remoteUrl ??
+                                        item.localFilePath ??
+                                        '',
+                                    localFilePath: item.localFilePath,
+                                    uploadAssetId: item.id,
+                                    aspectRatio: _selectedAspectRatio,
+                                  ),
+                                );
+                              });
+                            }
+                            Navigator.of(ctx).pop();
+                          },
+                          child: Column(
+                            children: <Widget>[
+                              VhunambiTrackArtwork(
+                                coverUrl: item.bestPlayableOrRenderableSource,
+                                genre: _selectedTrack?.genre ?? 'Amapiano',
+                                trackId: item.id,
+                                width: 108,
+                                height: 108,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              const SizedBox(height: 6),
+                              SizedBox(
+                                width: 108,
+                                child: Text(
+                                  item.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: AppTypography.caption.copyWith(
+                                    color: textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _generateVisionAiArtwork() async {
@@ -195,9 +430,7 @@ class _CreateKineticPostSheetState
         if (remoteUrl != null && remoteUrl.trim().isNotEmpty) {
           resolvedImageUrl = AppConstants.normalizeCloudMediaUrl(remoteUrl);
         }
-      } catch (_) {
-        // Fall back to deterministic normalized URL when offline
-      }
+      } catch (_) {}
     } else {
       await Future.delayed(const Duration(milliseconds: 600));
     }
@@ -268,6 +501,7 @@ class _CreateKineticPostSheetState
     }
 
     HapticFeedback.mediumImpact();
+    unawaited(_pauseAudition());
     final now = DateTime.now();
 
     final owner = ref.read(ownerProfileProvider);
@@ -276,6 +510,29 @@ class _CreateKineticPostSheetState
         : 'Cern';
     final creatorHandle = owner.handle.isNotEmpty ? owner.handle : '@cern';
     final creatorId = owner.id.isNotEmpty ? owner.id : 'creator_cern';
+
+    final queueById = <String, UploadedMediaAsset>{
+      for (final item in ref.read(mediaUploadQueueProvider)) item.id: item,
+    };
+    final finalizedImages = _attachedImages
+        .map((att) {
+          final tracked = att.uploadAssetId != null
+              ? queueById[att.uploadAssetId!]
+              : null;
+          final effectiveUrl =
+              (tracked?.remoteUrl != null && tracked!.remoteUrl!.isNotEmpty)
+              ? AppConstants.normalizeCloudMediaUrl(tracked.remoteUrl!)
+              : att.imageUrl;
+          return KineticPostImageAttachment(
+            imageUrl: effectiveUrl,
+            localFilePath: att.localFilePath ?? tracked?.localFilePath,
+            uploadAssetId: att.uploadAssetId,
+            isAiGeneratedVision: att.isAiGeneratedVision,
+            visionPrompt: att.visionPrompt,
+            aspectRatio: _selectedAspectRatio,
+          );
+        })
+        .toList(growable: false);
 
     final trackToAttach =
         _selectedTrack ??
@@ -299,10 +556,10 @@ class _CreateKineticPostSheetState
       location: 'South Africa',
       caption: caption,
       track: trackToAttach,
-      imageAttachment: _attachedImages.isNotEmpty
-          ? _attachedImages.first
+      imageAttachment: finalizedImages.isNotEmpty
+          ? finalizedImages.first
           : null,
-      imageAttachments: _attachedImages,
+      imageAttachments: finalizedImages,
       audioAttachment: KineticPostAudioAttachment(
         sourceType: _selectedAudioCategory,
         clipStartSec: _clipStartSec,
@@ -316,10 +573,185 @@ class _CreateKineticPostSheetState
     Navigator.of(context).pop();
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Kinetic Post published to Explore feed!'),
+      const SnackBar(
+        content: Text('Kinetic Post published to Explore feed!'),
         backgroundColor: AppColors.brandPrimary,
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  List<Track> _tracksForActiveAudioTab(
+    List<UploadedMediaAsset> queueItems,
+    List<Track> vaultTracks,
+    List<Track> trendingTracks,
+    String creatorHandle,
+  ) {
+    return switch (_audioSourceTabIndex) {
+      0 =>
+        queueItems
+            .where((u) => u.kind == MediaAssetKind.audio)
+            .map(
+              (u) => Track(
+                id: u.id,
+                title: u.title,
+                creatorName: creatorHandle.replaceFirst(RegExp(r'^@+'), ''),
+                creatorHandle: creatorHandle,
+                genre: 'Amapiano',
+                duration: Duration(milliseconds: u.durationMs ?? 90000),
+                audioUrl: u.bestPlayableOrRenderableSource,
+                coverUrl: u.thumbnailLocalPath,
+              ),
+            )
+            .toList(growable: false),
+      1 => vaultTracks,
+      2 => trendingTracks.take(10).toList(growable: false),
+      _ => _grooveSeeds,
+    };
+  }
+
+  Widget _buildLiveVisualStageCarousel(
+    BuildContext context,
+    List<UploadedMediaAsset> queueAssets,
+  ) {
+    if (_attachedImages.isEmpty) return const SizedBox.shrink();
+    final byId = <String, UploadedMediaAsset>{
+      for (final item in queueAssets) item.id: item,
+    };
+
+    return Padding(
+      key: const Key('kpost_media_preview_carousel'),
+      padding: const EdgeInsets.only(top: AppSpacing.xs, bottom: AppSpacing.sm),
+      child: SizedBox(
+        height: 148,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _attachedImages.length,
+          separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+          itemBuilder: (context, idx) {
+            final img = _attachedImages[idx];
+            final tracked = img.uploadAssetId != null
+                ? byId[img.uploadAssetId!]
+                : null;
+            final frameWidth = (148 * _selectedAspectRatio.ratio).clamp(
+              112.0,
+              224.0,
+            );
+            return SizedBox(
+              width: frameWidth,
+              height: 148,
+              child: Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  VhunambiTrackArtwork(
+                    coverUrl: img.bestRenderPath,
+                    genre: _selectedTrack?.genre ?? 'Amapiano',
+                    trackId: '${_selectedTrack?.id ?? "kpost"}_$idx',
+                    width: frameWidth,
+                    height: 148,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  if (tracked != null &&
+                      tracked.status == MediaUploadStatus.uploading)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.52),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: CircularProgressIndicator(
+                              value: tracked.progress,
+                              strokeWidth: 2.6,
+                              color: AppColors.brandPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${(tracked.progress * 100).round()}%',
+                            style: AppTypography.badge.copyWith(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (tracked != null &&
+                      tracked.status == MediaUploadStatus.failed)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.70),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      alignment: Alignment.center,
+                      child: TextButton.icon(
+                        key: Key('kpost_retry_image_$idx'),
+                        onPressed: () async {
+                          final retried = await ref
+                              .read(mediaUploadQueueProvider.notifier)
+                              .retryUpload(tracked.id);
+                          if (retried != null &&
+                              retried.remoteUrl != null &&
+                              mounted) {
+                            setState(() {
+                              _attachedImages[idx] = KineticPostImageAttachment(
+                                imageUrl: AppConstants.normalizeCloudMediaUrl(
+                                  retried.remoteUrl!,
+                                ),
+                                localFilePath: retried.localFilePath,
+                                uploadAssetId: retried.id,
+                                aspectRatio: _selectedAspectRatio,
+                              );
+                            });
+                          }
+                        },
+                        icon: const PhosphorIcon(
+                          AppIcons.remix,
+                          size: 14,
+                          color: AppColors.brandPrimary,
+                        ),
+                        label: Text(
+                          'Retry',
+                          style: AppTypography.caption.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: GestureDetector(
+                      key: Key('kpost_remove_image_$idx'),
+                      onTap: () =>
+                          setState(() => _attachedImages.removeAt(idx)),
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.72),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: const PhosphorIcon(
+                          AppIcons.close,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -328,10 +760,25 @@ class _CreateKineticPostSheetState
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final allTracks = ref.watch(exploreTracksProvider);
+    final vaultTracks = ref
+        .watch(libraryTracksProvider)
+        .where((t) => !t.isDeleted)
+        .map((t) => t.toTrack())
+        .toList(growable: false);
+    final queueItems = ref.watch(mediaUploadQueueProvider);
+    final activeHandle = ref.watch(currentCreatorHandleProvider);
+
     final textPrimary = AppColors.textPrimaryOf(context);
     final textSecondary = AppColors.textSecondaryOf(context);
     final borderSubtle = AppColors.borderSubtleOf(context);
     final surfaceSecondary = AppColors.surfaceSecondaryOf(context);
+
+    final audioCandidates = _tracksForActiveAudioTab(
+      queueItems,
+      vaultTracks,
+      allTracks,
+      activeHandle,
+    );
 
     return VhunambiGlassSurface(
       variant: VhunambiGlassVariant.chrome,
@@ -403,7 +850,7 @@ class _CreateKineticPostSheetState
 
           Divider(height: 1, color: borderSubtle),
 
-          // Main Scrollable Workstation Body
+          // Main Scrollable Glass Cockpit Body
           Expanded(
             child: ListView(
               padding: EdgeInsets.fromLTRB(
@@ -433,17 +880,16 @@ class _CreateKineticPostSheetState
                   ),
                 ),
 
-                const SizedBox(height: AppSpacing.sm),
+                // 2. Above-the-Fold Live Visual Stage (`REQ-P79-KPOST-01`)
+                _buildLiveVisualStageCarousel(context, queueItems),
 
-                // 2. Aspect Ratio Selector
-                Container(
+                const SizedBox(height: AppSpacing.xs),
+
+                // 3. Aspect Ratio Selector (Glass Pill Strip)
+                VhunambiGlassSurface(
                   key: const Key('kpost_aspect_ratio_selector'),
-                  padding: const EdgeInsets.all(AppSpacing.xs),
-                  decoration: BoxDecoration(
-                    color: surfaceSecondary,
-                    borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: borderSubtle),
-                  ),
+                  variant: VhunambiGlassVariant.pill,
+                  padding: const EdgeInsets.all(3),
                   child: Row(
                     children: [
                       for (final ratio in KineticPostAspectRatio.values)
@@ -462,6 +908,8 @@ class _CreateKineticPostSheetState
                                   _attachedImages[i] =
                                       KineticPostImageAttachment(
                                         imageUrl: current.imageUrl,
+                                        localFilePath: current.localFilePath,
+                                        uploadAssetId: current.uploadAssetId,
                                         isAiGeneratedVision:
                                             current.isAiGeneratedVision,
                                         visionPrompt: current.visionPrompt,
@@ -474,16 +922,23 @@ class _CreateKineticPostSheetState
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
                                 color: _selectedAspectRatio == ratio
-                                    ? AppColors.brandPrimary
+                                    ? AppColors.brandPrimary.withValues(
+                                        alpha: 0.22,
+                                      )
                                     : Colors.transparent,
                                 borderRadius: AppRadius.pillBorder,
+                                border: Border.all(
+                                  color: _selectedAspectRatio == ratio
+                                      ? AppColors.brandPrimary
+                                      : Colors.transparent,
+                                ),
                               ),
                               alignment: Alignment.center,
                               child: Text(
                                 ratio.label,
                                 style: AppTypography.caption.copyWith(
                                   color: _selectedAspectRatio == ratio
-                                      ? AppColors.brandContrast
+                                      ? textPrimary
                                       : textSecondary,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -495,103 +950,125 @@ class _CreateKineticPostSheetState
                   ),
                 ),
 
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
 
-                // 3. Visual Attachment Deck (Upload / Vhunambi Vision)
-                Row(
+                // 4. Visual Attachment Action Strip (Add Photo / My Uploads / Vision AI)
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
                   children: [
-                    // Upload Photo Button (R2 Media Pipeline EP-P74-SOCIAL-MEDIA-R2-UPLOAD)
-                    Expanded(
-                      child: Opacity(
-                        opacity: _attachedImages.length >= 4 ? 0.45 : 1.0,
-                        child: KeyedSubtree(
-                          key: const Key('kpost_pick_photo_btn'),
-                          child: OutlinedButton.icon(
-                            key: const Key('kpost_upload_photo_btn'),
-                            onPressed:
-                                (_attachedImages.length >= 4 ||
-                                    _isUploadingPhoto)
-                                ? null
-                                : _pickAndUploadPhoto,
-                            icon: _isUploadingPhoto
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const PhosphorIcon(
-                                    PhosphorIconsRegular.image,
-                                    size: 18,
-                                  ),
-                            label: Text(
-                              _isUploadingPhoto
-                                  ? 'Uploading...'
-                                  : 'Add Photo (${_attachedImages.length}/4)',
-                              style: AppTypography.bodySmall.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: textPrimary,
-                              side: BorderSide(color: borderSubtle),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: AppRadius.pillBorder,
-                              ),
-                              minimumSize: const Size(0, 44),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-
-                    // Vhunambi Vision AI Button
-                    Expanded(
-                      child: Opacity(
-                        opacity: _attachedImages.length >= 4 ? 0.45 : 1.0,
-                        child: ElevatedButton.icon(
-                          key: const Key('kpost_vision_ai_btn'),
-                          onPressed: _attachedImages.length >= 4
+                    Opacity(
+                      opacity: _attachedImages.length >= 4 ? 0.45 : 1.0,
+                      child: KeyedSubtree(
+                        key: const Key('kpost_pick_photo_btn'),
+                        child: OutlinedButton.icon(
+                          key: const Key('kpost_upload_photo_btn'),
+                          onPressed:
+                              (_attachedImages.length >= 4 || _isUploadingPhoto)
                               ? null
-                              : _generateVisionAiArtwork,
-                          icon: const PhosphorIcon(
-                            PhosphorIconsFill.sparkle,
-                            size: 18,
-                            color: AppColors.badgeCyan,
-                          ),
-                          label: _isGeneratingVision
-                              ? SizedBox(
-                                  width: 16,
-                                  height: 16,
+                              : _pickAndUploadPhoto,
+                          icon: _isUploadingPhoto
+                              ? const SizedBox(
+                                  width: 15,
+                                  height: 15,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(
-                                      textPrimary,
-                                    ),
                                   ),
                                 )
-                              : Text(
-                                  'Vision AI',
-                                  style: AppTypography.bodySmall.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: textPrimary,
-                                  ),
+                              : const PhosphorIcon(
+                                  PhosphorIconsRegular.image,
+                                  size: 16,
                                 ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: surfaceSecondary,
-                            side: const BorderSide(color: AppColors.badgeCyan),
+                          label: Text(
+                            _isUploadingPhoto
+                                ? 'Staging...'
+                                : 'Add Photo (${_attachedImages.length}/4)',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.caption.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: textPrimary,
+                            side: BorderSide(color: borderSubtle),
                             shape: RoundedRectangleBorder(
                               borderRadius: AppRadius.pillBorder,
                             ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             minimumSize: const Size(0, 44),
                           ),
                         ),
                       ),
                     ),
+                    OutlinedButton.icon(
+                      key: const Key('kpost_pick_from_uploads_btn'),
+                      onPressed: _attachedImages.length >= 4
+                          ? null
+                          : _showPickFromUploadsSheet,
+                      icon: const PhosphorIcon(AppIcons.upload, size: 15),
+                      label: Text(
+                        'My Uploads',
+                        style: AppTypography.caption.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: textPrimary,
+                        side: BorderSide(color: borderSubtle),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: AppRadius.pillBorder,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        minimumSize: const Size(0, 44),
+                      ),
+                    ),
+                    Opacity(
+                      opacity: _attachedImages.length >= 4 ? 0.45 : 1.0,
+                      child: ElevatedButton.icon(
+                        key: const Key('kpost_vision_ai_btn'),
+                        onPressed: _attachedImages.length >= 4
+                            ? null
+                            : _generateVisionAiArtwork,
+                        icon: const PhosphorIcon(
+                          PhosphorIconsFill.sparkle,
+                          size: 16,
+                          color: AppColors.badgeCyan,
+                        ),
+                        label: _isGeneratingVision
+                            ? SizedBox(
+                                width: 15,
+                                height: 15,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    textPrimary,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                'Vision AI',
+                                style: AppTypography.caption.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: textPrimary,
+                                ),
+                              ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: surfaceSecondary,
+                          side: const BorderSide(color: AppColors.badgeCyan),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.pillBorder,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          minimumSize: const Size(0, 44),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
+
                 if (_attachedImages.length >= 4) ...[
                   const SizedBox(height: AppSpacing.xs),
                   Container(
@@ -615,7 +1092,6 @@ class _CreateKineticPostSheetState
                   ),
                 ],
 
-                // Vision Prompt input if user desires
                 const SizedBox(height: AppSpacing.xs),
                 TextField(
                   key: const Key('kpost_vision_prompt_input'),
@@ -649,75 +1125,11 @@ class _CreateKineticPostSheetState
                   ),
                 ),
 
-                // Attached Visual Thumbnails
-                if (_attachedImages.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  SizedBox(
-                    height: 90,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _attachedImages.length,
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(width: AppSpacing.xs),
-                      itemBuilder: (context, idx) {
-                        final img = _attachedImages[idx];
-                        return Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: SizedBox(
-                                height: 90,
-                                child: AspectRatio(
-                                  aspectRatio: _selectedAspectRatio.ratio,
-                                  child: VhunambiTrackArtwork(
-                                    coverUrl:
-                                        AppConstants.normalizeCloudMediaUrl(
-                                          img.imageUrl,
-                                        ),
-                                    genre: _selectedTrack?.genre ?? 'Amapiano',
-                                    trackId:
-                                        '${_selectedTrack?.id ?? "vision"}_$idx',
-                                    borderRadius: BorderRadius.circular(10),
-                                    showSubtleBorder: false,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _attachedImages.removeAt(idx);
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.black87,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const PhosphorIcon(
-                                    PhosphorIconsRegular.x,
-                                    size: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
-
                 const SizedBox(height: AppSpacing.md),
-                Divider(color: AppColors.borderSubtle),
+                Divider(color: borderSubtle),
                 const SizedBox(height: AppSpacing.xs),
 
-                // 4. Universal Vault Audio Attachment Picker (Songs, Beats, Voice DNA, Grooves)
+                // 5. Interactive Sound Attachment Deck (`REQ-P79-KPOST-02`)
                 Row(
                   children: [
                     const PhosphorIcon(
@@ -730,205 +1142,165 @@ class _CreateKineticPostSheetState
                       'Attach Sound / Snippet',
                       style: AppTypography.titleSmall.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: textPrimary,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
 
-                // Category Tabs
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final cat in KineticAudioSourceType.values)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ChoiceChip(
-                            label: Text(cat.label),
-                            selected: _selectedAudioCategory == cat,
-                            onSelected: (val) {
-                              if (val) {
-                                setState(() => _selectedAudioCategory = cat);
-                              }
-                            },
-                            selectedColor: AppColors.brandPrimary,
-                            labelStyle: TextStyle(
-                              color: _selectedAudioCategory == cat
-                                  ? AppColors.brandContrast
-                                  : AppColors.textPrimary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                            backgroundColor: AppColors.surfaceSecondary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: AppRadius.pillBorder,
-                              side: BorderSide(color: AppColors.borderSubtle),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                VhunambiGlassTabBar(
+                  key: const Key('kpost_audio_source_tabs'),
+                  selectedIndex: _audioSourceTabIndex,
+                  onSelected: (idx) {
+                    setState(() {
+                      _audioSourceTabIndex = idx;
+                      _selectedAudioCategory = switch (idx) {
+                        0 || 1 || 2 => KineticAudioSourceType.librarySong,
+                        _ => KineticAudioSourceType.sketchpadGroove,
+                      };
+                    });
+                  },
+                  items: const <VhunambiGlassTabItem>[
+                    VhunambiGlassTabItem(
+                      label: 'My Uploads',
+                      icon: AppIcons.upload,
+                    ),
+                    VhunambiGlassTabItem(
+                      label: 'My Vault',
+                      icon: AppIcons.songs,
+                    ),
+                    VhunambiGlassTabItem(
+                      label: 'Trending',
+                      icon: AppIcons.flame,
+                    ),
+                    VhunambiGlassTabItem(
+                      label: 'Grooves',
+                      icon: AppIcons.waveform,
+                    ),
+                  ],
                 ),
 
-                const SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: AppSpacing.sm),
 
-                // Selected Track Picker Carousel / Dropdown
-                Container(
+                // Frosted Interactive Audio Attachment Card with Artwork + Audition Player
+                VhunambiGlassSurface(
+                  key: const Key('kpost_audio_attachment_card'),
+                  variant: VhunambiGlassVariant.card,
                   padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceSecondary,
-                    borderRadius: AppRadius.cardBorder,
-                    border: Border.all(color: AppColors.borderSubtle),
-                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const PhosphorIcon(
-                            PhosphorIconsRegular.waveform,
-                            size: 20,
-                            color: AppColors.brandPrimary,
+                          VhunambiTrackArtwork(
+                            coverUrl: _selectedTrack?.coverUrl,
+                            genre: _selectedTrack?.genre ?? 'Amapiano',
+                            trackId: _selectedTrack?.id ?? 'kpost_sound',
+                            width: 48,
+                            height: 48,
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(width: AppSpacing.xs),
+                          const SizedBox(width: AppSpacing.sm),
                           Expanded(
-                            child: Text(
-                              _selectedTrack?.title ?? 'No Track Attached',
-                              style: AppTypography.bodySmall.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _selectedTrack?.title ?? 'No Track Attached',
+                                  style: AppTypography.bodySmall.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: textPrimary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${_selectedTrack?.genre ?? "Amapiano"} • ${_selectedTrack?.creatorHandle ?? activeHandle}',
+                                  style: AppTypography.caption.copyWith(
+                                    color: textSecondary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
                           ),
-                          PopupMenuButton<Track>(
+                          IconButton(
+                            key: const Key('kpost_audio_audition_btn'),
+                            tooltip: _isAuditioning
+                                ? 'Pause Preview'
+                                : 'Play Preview',
+                            onPressed: _toggleAudioAudition,
                             icon: PhosphorIcon(
-                              PhosphorIconsRegular.caretDown,
-                              size: 18,
-                              color: AppColors.textSecondary,
+                              _isAuditioning ? AppIcons.pause : AppIcons.play,
+                              size: 20,
+                              color: AppColors.brandPrimary,
                             ),
-                            onSelected: (track) {
-                              setState(() => _selectedTrack = track);
-                            },
-                            itemBuilder: (_) {
-                              List<Track> items;
-                              switch (_selectedAudioCategory) {
-                                case KineticAudioSourceType.librarySong:
-                                  items = allTracks.take(8).toList();
-                                  break;
-                                case KineticAudioSourceType.beatListing:
-                                  items = const [
-                                    Track(
-                                      id: 'beat_01',
-                                      title: 'Pretoria Deep 112 BPM',
-                                      creatorName: 'Kabza Producer',
-                                      creatorHandle: '@kabza',
-                                      genre: 'Amapiano',
-                                      duration: Duration(minutes: 2),
-                                    ),
-                                    Track(
-                                      id: 'beat_02',
-                                      title: 'Durban Gqom Sgubhu 127',
-                                      creatorName: 'Makhadzi Beats',
-                                      creatorHandle: '@makhadzi',
-                                      genre: 'Gqom',
-                                      duration: Duration(minutes: 2),
-                                    ),
-                                    Track(
-                                      id: 'beat_03',
-                                      title: 'Polokwane Sunset Groove',
-                                      creatorName: 'Sigwa Riffs',
-                                      creatorHandle: '@sigwa',
-                                      genre: 'Afro-fusion',
-                                      duration: Duration(minutes: 2),
-                                    ),
-                                    Track(
-                                      id: 'beat_04',
-                                      title: '3-Step African Soul 115',
-                                      creatorName: 'Fifi Sound',
-                                      creatorHandle: '@fifi',
-                                      genre: 'Afro House',
-                                      duration: Duration(minutes: 2),
-                                    ),
-                                  ];
-                                  break;
-                                case KineticAudioSourceType.voiceSignature:
-                                  items = const [
-                                    Track(
-                                      id: 'dna_01',
-                                      title: 'Venda Folk Warmth (98% Timbre)',
-                                      creatorName: 'Vocal DNA Studio',
-                                      creatorHandle: '@cern',
-                                      genre: 'Folk / Choral',
-                                      duration: Duration(seconds: 45),
-                                    ),
-                                    Track(
-                                      id: 'dna_02',
-                                      title: 'Soprano Harmonies (94% Match)',
-                                      creatorName: 'Makhadzi Clone',
-                                      creatorHandle: '@makhadzi',
-                                      genre: 'Amapiano',
-                                      duration: Duration(seconds: 45),
-                                    ),
-                                    Track(
-                                      id: 'dna_03',
-                                      title: 'Deep Baritone Chant (96% Match)',
-                                      creatorName: 'Zulu Heritage DNA',
-                                      creatorHandle: '@sigwa',
-                                      genre: 'Gqom',
-                                      duration: Duration(seconds: 45),
-                                    ),
-                                  ];
-                                  break;
-                                case KineticAudioSourceType.sketchpadGroove:
-                                  items = const [
-                                    Track(
-                                      id: 'sk_01',
-                                      title: 'Midnight Log Drum Pattern A',
-                                      creatorName: 'Pocket DAW',
-                                      creatorHandle: '@cern',
-                                      genre: 'Amapiano',
-                                      duration: Duration(seconds: 30),
-                                    ),
-                                    Track(
-                                      id: 'sk_02',
-                                      title: 'Private School Rhodes Chords',
-                                      creatorName: 'Sketchpad 3-Step',
-                                      creatorHandle: '@cern',
-                                      genre: 'Afro House',
-                                      duration: Duration(seconds: 30),
-                                    ),
-                                    Track(
-                                      id: 'sk_03',
-                                      title: 'Euclidean African Percussion',
-                                      creatorName: 'Groove Sequencer',
-                                      creatorHandle: '@cern',
-                                      genre: 'Afro-fusion',
-                                      duration: Duration(seconds: 30),
-                                    ),
-                                  ];
-                                  break;
-                              }
-                              return items
-                                  .map(
-                                    (t) => PopupMenuItem(
-                                      value: t,
-                                      child: Text(
-                                        '${t.title} (${t.genre})',
-                                        style: AppTypography.bodySmall,
-                                      ),
-                                    ),
-                                  )
-                                  .toList();
-                            },
                           ),
                         ],
                       ),
 
-                      const SizedBox(height: AppSpacing.xs),
+                      if (audioCandidates.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        SizedBox(
+                          height: 36,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: audioCandidates.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(width: 6),
+                            itemBuilder: (context, idx) {
+                              final candidate = audioCandidates[idx];
+                              final selected =
+                                  _selectedTrack?.id == candidate.id;
+                              return GestureDetector(
+                                key: Key('kpost_audio_chip_${candidate.id}'),
+                                onTap: () {
+                                  unawaited(_pauseAudition());
+                                  setState(() => _selectedTrack = candidate);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: selected
+                                        ? AppColors.brandPrimary.withValues(
+                                            alpha: 0.18,
+                                          )
+                                        : surfaceSecondary,
+                                    borderRadius: AppRadius.pillBorder,
+                                    border: Border.all(
+                                      color: selected
+                                          ? AppColors.brandPrimary
+                                          : borderSubtle,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    candidate.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.caption.copyWith(
+                                      color: selected
+                                          ? AppColors.brandPrimary
+                                          : textPrimary,
+                                      fontWeight: selected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: AppSpacing.sm),
 
                       // Duration Trimming Pills (15s, 30s, 60s, Full)
                       Wrap(
@@ -936,21 +1308,25 @@ class _CreateKineticPostSheetState
                         runSpacing: 6,
                         children: [
                           _buildTrimPill(
+                            context: context,
                             key: const Key('kpost_trim_15s'),
                             label: '15s Hook',
                             durationSec: 15.0,
                           ),
                           _buildTrimPill(
+                            context: context,
                             key: const Key('kpost_trim_30s'),
                             label: '30s Hook',
                             durationSec: 30.0,
                           ),
                           _buildTrimPill(
+                            context: context,
                             key: const Key('kpost_trim_60s'),
                             label: '60s Verse',
                             durationSec: 60.0,
                           ),
                           _buildTrimPill(
+                            context: context,
                             key: const Key('kpost_trim_full'),
                             label: 'Full Song',
                             durationSec:
@@ -971,6 +1347,7 @@ class _CreateKineticPostSheetState
   }
 
   Widget _buildTrimPill({
+    required BuildContext context,
     required Key key,
     required String label,
     required double durationSec,
@@ -982,11 +1359,7 @@ class _CreateKineticPostSheetState
         HapticFeedback.selectionClick();
         setState(() {
           _clipDurationSec = durationSec;
-          if (durationSec <= 30.0) {
-            _clipStartSec = 15.0; // Standard hook start offset
-          } else {
-            _clipStartSec = 0.0;
-          }
+          _clipStartSec = durationSec <= 30.0 ? 15.0 : 0.0;
         });
       },
       borderRadius: AppRadius.pillBorder,
@@ -994,11 +1367,13 @@ class _CreateKineticPostSheetState
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.brandPrimary.withValues(alpha: 0.15)
-              : AppColors.surfaceElevated,
+              ? AppColors.brandPrimary.withValues(alpha: 0.16)
+              : AppColors.surfaceElevatedOf(context),
           borderRadius: AppRadius.pillBorder,
           border: Border.all(
-            color: isSelected ? AppColors.brandPrimary : AppColors.borderSubtle,
+            color: isSelected
+                ? AppColors.brandPrimary
+                : AppColors.borderSubtleOf(context),
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
@@ -1007,7 +1382,7 @@ class _CreateKineticPostSheetState
           style: AppTypography.caption.copyWith(
             color: isSelected
                 ? AppColors.brandPrimary
-                : AppColors.textSecondary,
+                : AppColors.textSecondaryOf(context),
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             fontSize: 11,
           ),
