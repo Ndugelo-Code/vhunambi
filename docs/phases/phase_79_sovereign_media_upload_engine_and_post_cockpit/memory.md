@@ -119,11 +119,12 @@
     "Never use PhosphorIconsRegular.sparkle as the category icon for LibraryCategory.uploads in LibraryCategoryRail because library_view_test.dart#L79 asserts find.byIcon(PhosphorIconsRegular.sparkle) findsOneWidget on mobile; use AppIcons.upload (uploadSimple).",
     "Under FLUTTER_TEST (FakeAsync), async dart:io file writes (await file.writeAsBytes / await file.readAsBytes) stall pumpAndSettle() indefinitely because FakeAsync does not pump IO isolates; always use writeAsBytesSync / readAsBytesSync / deleteSync when SovereignMediaStorageService.isTestEnv is true.",
     "EdgeIsolateDatabaseEngine uses awaitWriteThrough(label, async (driver) => ..., cOrEnv) (not awaitCloudWrite), PlayerStateNotifier.pause() returns void (never await it), and CreateKineticPostSheet's 3-button visual strip must use Wrap instead of Row+Expanded to avoid 1.9px overflow at 360dp.",
-    "Always apply 20261124000001_phase79_user_media_uploads.sql to Supabase Cloud via supabase_mcp BEFORE deploying vhunambi-api to Cloudflare Workers so PostgREST never returns 404 PGRST205."
+    "Always apply 20261124000001_phase79_user_media_uploads.sql to Supabase Cloud via supabase_mcp BEFORE deploying vhunambi-api to Cloudflare Workers so PostgREST never returns 404 PGRST205.",
+    "Supabase Performance Advisor 0003_auth_rls_initplan requires wrapping ONLY auth.jwt() in SELECT — use ((SELECT auth.jwt()) ->> 'creator_id') = creator_id rather than (SELECT auth.jwt() ->> 'creator_id') = creator_id so all RLS policies pass with 0 warnings."
   ]
 }
 ```
 
 # Phase 79 Session Memory (Completed)
 
-> Stage 4 executed and verified 100% across Pass 1 (`M79.1–M79.2`) and Pass 2 (`M79.3–M79.4`): `apps/vhunambi_api` (`npx tsc --noEmit` + `32/32` suites), `apps/vhunambi_client` (`flutter analyze` `0` issues, `STD-UIUX-001` `0` violations, `+687` full domain regression sweep + `storage`/`library`/`phase74`/`phase77`/`phase78` green).
+> Stage 4 executed and verified 100% across Pass 1 (`M79.1–M79.2`) and Pass 2 (`M79.3–M79.4`): `apps/vhunambi_api` (`npx tsc --noEmit` + `32/32` suites), `apps/vhunambi_client` (`flutter analyze` `0` issues, `STD-UIUX-001` `0` violations, `+687` full domain regression sweep + `storage`/`library`/`phase74`/`phase77`/`phase78` green). Deployed to Supabase Cloud (`public.user_media_uploads`, 4 RLS policies, 0 security/performance advisor warnings) and Cloudflare Workers (`vhunambi-api`).
