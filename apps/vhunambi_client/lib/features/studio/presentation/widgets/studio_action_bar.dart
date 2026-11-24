@@ -34,7 +34,13 @@ class StudioActionBar extends ConsumerWidget {
     final isPublic = state.visibility == 'public';
     final isAiLyrics =
         !state.isInstrumental && state.lyricsMode == LyricsMode.aiWrite;
-    final ctaLabel = isAiLyrics ? 'Write Lyrics First' : 'Generate Song';
+    final ctaLabel = isAiLyrics
+        ? (state.batchCount > 1
+              ? 'Write Lyrics (${state.batchCount} Takes)'
+              : 'Write Lyrics First')
+        : (state.batchCount > 1
+              ? 'Generate Song (${state.batchCount} Takes)'
+              : 'Generate Song');
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -124,9 +130,9 @@ class StudioActionBar extends ConsumerWidget {
               height: 46,
               padding: const EdgeInsets.only(left: AppSpacing.sm, right: 2),
               decoration: BoxDecoration(
-                color: AppColors.surfaceSecondary,
+                color: AppColors.surfaceSecondaryOf(context),
                 borderRadius: AppRadius.pillBorder,
-                border: Border.all(color: AppColors.borderSubtle),
+                border: Border.all(color: AppColors.borderSubtleOf(context)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -142,7 +148,7 @@ class StudioActionBar extends ConsumerWidget {
                   Text(
                     isPublic ? 'Public' : 'Private',
                     style: AppTypography.caption.copyWith(
-                      color: AppColors.textPrimary,
+                      color: AppColors.textPrimaryOf(context),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -157,8 +163,8 @@ class StudioActionBar extends ConsumerWidget {
                       },
                       activeThumbColor: accent,
                       activeTrackColor: accent.withAlpha(80),
-                      inactiveThumbColor: AppColors.textSecondary,
-                      inactiveTrackColor: AppColors.surfaceElevated,
+                      inactiveThumbColor: AppColors.textSecondaryOf(context),
+                      inactiveTrackColor: AppColors.surfaceElevatedOf(context),
                     ),
                   ),
                 ],
@@ -220,7 +226,7 @@ class StudioActionBar extends ConsumerWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppTypography.caption.copyWith(
-              color: AppColors.textTertiary,
+              color: AppColors.textSecondaryOf(context).withValues(alpha: 0.72),
               fontSize: 9.5,
               height: 1.1,
             ),
@@ -242,7 +248,7 @@ class StudioActionBar extends ConsumerWidget {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: AppColors.surfaceModal,
+        backgroundColor: AppColors.surfaceModalOf(context),
         content: Row(
           children: [
             const PhosphorIcon(
@@ -257,7 +263,7 @@ class StudioActionBar extends ConsumerWidget {
                     ? 'Synthesizing lyrics in ${formState.language} for review...'
                     : 'Generating ${formState.genre} track...',
                 style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.textPrimary,
+                  color: AppColors.textPrimaryOf(context),
                 ),
               ),
             ),

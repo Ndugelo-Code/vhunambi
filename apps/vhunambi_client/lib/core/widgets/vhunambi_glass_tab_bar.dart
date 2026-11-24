@@ -139,10 +139,7 @@ class VhunambiGlassTabBar extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 11,
-            vertical: 6,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
           decoration: BoxDecoration(
             color: isSelected ? activeBg : Colors.transparent,
             borderRadius: AppRadius.pillBorder,
@@ -170,14 +167,16 @@ class VhunambiGlassTabBar extends StatelessWidget {
                 PhosphorIcon(item.icon!, size: 14, color: iconColor),
                 const SizedBox(width: 5),
               ],
-              Text(
-                item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.bodySmall.copyWith(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: labelColor,
+              Flexible(
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodySmall.copyWith(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: labelColor,
+                  ),
                 ),
               ),
               if (item.badgeCount != null && item.badgeCount! > 0) ...[

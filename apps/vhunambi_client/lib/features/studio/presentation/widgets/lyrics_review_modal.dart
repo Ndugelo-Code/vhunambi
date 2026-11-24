@@ -379,8 +379,8 @@ class _LyricsReviewModalState extends ConsumerState<LyricsReviewModal> {
             children: [
               Row(
                 children: [
-                  Icon(
-                    PhosphorIcons.treeStructure(PhosphorIconsStyle.regular),
+                  const PhosphorIcon(
+                    PhosphorIconsRegular.gitBranch,
                     size: 18,
                     color: AppColors.brandPrimary,
                   ),
@@ -1060,6 +1060,7 @@ void _approveDraft(BuildContext context, WidgetRef ref) {
         .read(generationProgressProvider.notifier)
         .submitAndStartGeneration(
           trackTitle: formState.resolvedTitle,
+          prompt: formState.prompt,
           genre: formState.genre,
           language: formState.language,
           lyrics: lyrics,

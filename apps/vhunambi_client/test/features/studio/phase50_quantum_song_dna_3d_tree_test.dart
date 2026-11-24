@@ -231,7 +231,7 @@ void main() {
       // 4. Verify Synthesize Song CTA button
       final synthesizeBtn = find.byKey(const Key('song_dna_synthesize_btn'));
       expect(synthesizeBtn, findsOneWidget);
-      expect(find.text('⚡ Synthesize Song from 3D DNA'), findsOneWidget);
+      expect(find.text('Synthesize Song from 3D DNA'), findsOneWidget);
 
       // Tap synthesize CTA
       await tester.tap(synthesizeBtn);

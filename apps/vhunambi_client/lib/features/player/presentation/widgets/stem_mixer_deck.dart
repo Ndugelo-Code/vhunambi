@@ -103,8 +103,15 @@ class _StemMixerDeckState extends ConsumerState<StemMixerDeck> {
         _ChannelStrip(channel: channel, isInteractive: hasRealStems),
     ];
 
+    final surfaceModal = AppColors.surfaceModalOf(context);
+    final surfaceSecondary = AppColors.surfaceSecondaryOf(context);
+    final surfaceElevated = AppColors.surfaceElevatedOf(context);
+    final borderSubtle = AppColors.borderSubtleOf(context);
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+
     return Container(
-      color: AppColors.surfaceCanvas,
+      color: surfaceModal,
       padding: const EdgeInsets.all(AppSpacing.md),
       child: SingleChildScrollView(
         child: Column(
@@ -122,13 +129,14 @@ class _StemMixerDeckState extends ConsumerState<StemMixerDeck> {
                       Text(
                         widget.title ?? 'Pocket Stem Mixer',
                         style: AppTypography.titleMedium.copyWith(
+                          color: textPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
                         '4-Channel Console & Master DSP',
                         style: AppTypography.caption.copyWith(
-                          color: AppColors.textSecondary,
+                          color: textSecondary,
                         ),
                       ),
                     ],
@@ -172,9 +180,9 @@ class _StemMixerDeckState extends ConsumerState<StemMixerDeck> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary,
+                      color: surfaceSecondary,
                       borderRadius: AppRadius.pillBorder,
-                      border: Border.all(color: AppColors.borderSubtle),
+                      border: Border.all(color: borderSubtle),
                     ),
                     child: Text(
                       'Master Only',
@@ -258,7 +266,7 @@ class _StemMixerDeckState extends ConsumerState<StemMixerDeck> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
+                  color: surfaceElevated,
                   borderRadius: AppRadius.inputBorder,
                   border: Border.all(
                     color: AppColors.accentGold.withValues(alpha: 0.4),
@@ -276,7 +284,7 @@ class _StemMixerDeckState extends ConsumerState<StemMixerDeck> {
                       child: Text(
                         'Master-Only Mode: Stems are unavailable or processing on the cloud GPU worker. Channel strips are locked to master balance.',
                         style: AppTypography.caption.copyWith(
-                          color: AppColors.textSecondary,
+                          color: textSecondary,
                           fontSize: 11,
                         ),
                       ),
@@ -332,9 +340,9 @@ class _ChannelStrip extends ConsumerWidget {
         margin: const EdgeInsets.only(right: AppSpacing.sm),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         decoration: BoxDecoration(
-          color: AppColors.surfaceElevated,
+          color: AppColors.surfaceElevatedOf(context),
           borderRadius: AppRadius.inputBorder,
-          border: Border.all(color: AppColors.borderSubtle),
+          border: Border.all(color: AppColors.borderSubtleOf(context)),
         ),
         child: Column(
           children: [
@@ -354,7 +362,7 @@ class _ChannelStrip extends ConsumerWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.caption.copyWith(
-                color: AppColors.textPrimary,
+                color: AppColors.textPrimaryOf(context),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -362,7 +370,7 @@ class _ChannelStrip extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppColors.surfaceSecondary,
+                color: AppColors.surfaceSecondaryOf(context),
                 borderRadius: AppRadius.pillBorder,
               ),
               child: Text(
@@ -386,7 +394,7 @@ class _ChannelStrip extends ConsumerWidget {
                     min: 0.0,
                     max: 1.5,
                     activeColor: AppColors.brandPrimary,
-                    inactiveColor: AppColors.surfaceSecondary,
+                    inactiveColor: AppColors.surfaceSecondaryOf(context),
                     onChanged: isInteractive
                         ? (v) {
                             HapticFeedback.selectionClick();
@@ -405,7 +413,7 @@ class _ChannelStrip extends ConsumerWidget {
                 min: -1.0,
                 max: 1.0,
                 activeColor: AppColors.badgeCyan,
-                inactiveColor: AppColors.surfaceSecondary,
+                inactiveColor: AppColors.surfaceSecondaryOf(context),
                 onChanged: isInteractive
                     ? (v) {
                         HapticFeedback.selectionClick();
@@ -419,15 +427,24 @@ class _ChannelStrip extends ConsumerWidget {
               children: [
                 Text(
                   'L',
-                  style: TextStyle(color: AppColors.textTertiary, fontSize: 10),
+                  style: TextStyle(
+                    color: AppColors.textSecondaryOf(context),
+                    fontSize: 10,
+                  ),
                 ),
                 Text(
                   'C',
-                  style: TextStyle(color: AppColors.textTertiary, fontSize: 10),
+                  style: TextStyle(
+                    color: AppColors.textSecondaryOf(context),
+                    fontSize: 10,
+                  ),
                 ),
                 Text(
                   'R',
-                  style: TextStyle(color: AppColors.textTertiary, fontSize: 10),
+                  style: TextStyle(
+                    color: AppColors.textSecondaryOf(context),
+                    fontSize: 10,
+                  ),
                 ),
               ],
             ),
@@ -502,16 +519,18 @@ class _MsButton extends StatelessWidget {
         height: 28,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: active ? activeColor : AppColors.surfaceSecondary,
+          color: active ? activeColor : AppColors.surfaceSecondaryOf(context),
           borderRadius: AppRadius.thumbBorder,
           border: Border.all(
-            color: active ? activeColor : AppColors.borderSubtle,
+            color: active ? activeColor : AppColors.borderSubtleOf(context),
           ),
         ),
         child: Text(
           label,
           style: AppTypography.caption.copyWith(
-            color: active ? AppColors.brandContrast : AppColors.textSecondary,
+            color: active
+                ? AppColors.brandContrast
+                : AppColors.textSecondaryOf(context),
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -551,6 +570,7 @@ class _MasterDspSection extends ConsumerWidget {
             Text(
               'Master Bus DSP',
               style: AppTypography.titleMedium.copyWith(
+                color: AppColors.textPrimaryOf(context),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -596,11 +616,11 @@ class _MasterDspSection extends ConsumerWidget {
                 label: Text(
                   preset,
                   style: AppTypography.caption.copyWith(
-                    color: AppColors.textPrimary,
+                    color: AppColors.textPrimaryOf(context),
                   ),
                 ),
-                backgroundColor: AppColors.surfaceSecondary,
-                side: BorderSide(color: AppColors.borderSubtle),
+                backgroundColor: AppColors.surfaceSecondaryOf(context),
+                side: BorderSide(color: AppColors.borderSubtleOf(context)),
                 onPressed: () {
                   HapticFeedback.lightImpact();
                   notifier.applyPreset(preset);
@@ -771,10 +791,10 @@ class _DspSlider extends StatelessWidget {
       children: [
         SizedBox(
           width: 130,
-          child: Text(
+            child: Text(
             label,
             style: AppTypography.caption.copyWith(
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryOf(context),
             ),
           ),
         ),
@@ -784,7 +804,7 @@ class _DspSlider extends StatelessWidget {
             min: 0.0,
             max: max,
             activeColor: AppColors.coinGold,
-            inactiveColor: AppColors.surfaceSecondary,
+            inactiveColor: AppColors.surfaceSecondaryOf(context),
             onChanged: (v) {
               HapticFeedback.selectionClick();
               onChanged(v);
@@ -809,9 +829,9 @@ class StemMixerBiomeEntanglementStrip extends ConsumerWidget {
       key: const Key('stem_mixer_biome_strip'),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.surfaceElevatedOf(context),
         borderRadius: AppRadius.inputBorder,
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -828,7 +848,7 @@ class StemMixerBiomeEntanglementStrip extends ConsumerWidget {
                 child: Text(
                   'Living 3D Mycelium Stem Entanglement',
                   style: AppTypography.caption.copyWith(
-                    color: AppColors.textPrimary,
+                    color: AppColors.textPrimaryOf(context),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -836,7 +856,7 @@ class StemMixerBiomeEntanglementStrip extends ConsumerWidget {
               Text(
                 'Tap: Solo • Hold: Mute',
                 style: AppTypography.badge.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryOf(context),
                 ),
               ),
             ],
@@ -878,7 +898,7 @@ class StemMixerBiomeEntanglementStrip extends ConsumerWidget {
                           decoration: BoxDecoration(
                             color: isSolo
                                 ? color.withValues(alpha: 0.25)
-                                : AppColors.surfaceSecondary,
+                                : AppColors.surfaceSecondaryOf(context),
                             borderRadius: AppRadius.pillBorder,
                             border: Border.all(
                               color: isSolo
@@ -895,7 +915,7 @@ class StemMixerBiomeEntanglementStrip extends ConsumerWidget {
                                 height: 8,
                                 decoration: BoxDecoration(
                                   color: isDormant
-                                      ? AppColors.textSecondary
+                                      ? AppColors.textSecondaryOf(context)
                                       : color,
                                   shape: BoxShape.circle,
                                 ),
@@ -904,7 +924,7 @@ class StemMixerBiomeEntanglementStrip extends ConsumerWidget {
                               Text(
                                 '${domain.shortLabel} ${isDormant ? "MUTED" : "$energyPct%"}',
                                 style: AppTypography.badge.copyWith(
-                                  color: Colors.white,
+                                  color: AppColors.textPrimaryOf(context),
                                   fontWeight: isSolo
                                       ? FontWeight.w800
                                       : FontWeight.w600,

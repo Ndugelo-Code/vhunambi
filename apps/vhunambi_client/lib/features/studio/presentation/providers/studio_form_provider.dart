@@ -151,6 +151,101 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
     state = state.copyWith(
       referenceAudioPath: path,
       clearReferenceAudio: path == null,
+      audioMode: path == null
+          ? ReferenceAudioMode.none
+          : (state.audioMode == ReferenceAudioMode.none
+                ? ReferenceAudioMode.reference
+                : state.audioMode),
+    );
+  }
+
+  void setAudioMode(ReferenceAudioMode mode) {
+    state = state.copyWith(audioMode: mode);
+  }
+
+  void setEngineTier(StudioEngineTier tier) {
+    state = state.copyWith(engineTier: tier);
+  }
+
+  void setBatchCount(int count) {
+    state = state.copyWith(batchCount: count.clamp(1, 4));
+  }
+
+  void toggleSelectedVoiceId(String voiceId) {
+    final next = List<String>.from(state.selectedVoiceIds);
+    if (next.contains(voiceId)) {
+      next.remove(voiceId);
+    } else {
+      if (next.length >= 6) return;
+      next.add(voiceId);
+    }
+    final nextVoices = next.length >= 3
+        ? VocalVoices.choir
+        : (next.length == 2 ? VocalVoices.duet : state.vocalVoices);
+    state = state.copyWith(
+      selectedVoiceIds: next,
+      vocalVoices: nextVoices,
+    );
+  }
+
+  void applyQuickDuet({
+    String firstVoiceId = 'venda_folk_elder',
+    String secondVoiceId = 'kwaito_queen_soweto',
+  }) {
+    final cast = state.selectedVoiceIds.length >= 2
+        ? state.selectedVoiceIds
+        : <String>[firstVoiceId, secondVoiceId];
+    state = state.copyWith(
+      vocalVoices: VocalVoices.duet,
+      vocalGender: VocalGender.mixed,
+      selectedVoiceIds: cast,
+    );
+  }
+
+  void setSourcePhoto({String? path, String? url}) {
+    state = state.copyWith(
+      sourcePhotoPath: path,
+      sourcePhotoUrl: url,
+      lyricsMode: LyricsMode.fromPhoto,
+      isInstrumental: false,
+    );
+  }
+
+  void clearSourcePhoto() {
+    state = state.copyWith(clearSourcePhoto: true);
+  }
+
+  void applyPastTrackRemix({
+    required String trackId,
+    required String title,
+    required String genre,
+    required String region,
+    required String language,
+    String? referenceAudioPath,
+    String? lyrics,
+    bool isInstrumental = false,
+  }) {
+    state = state.copyWith(
+      sourceTrackId: trackId,
+      customTitle: '$title (Remix)',
+      isAutoTitle: false,
+      genre: genre,
+      region: region,
+      language: language,
+      referenceAudioPath: referenceAudioPath,
+      clearReferenceAudio: referenceAudioPath == null || referenceAudioPath.isEmpty,
+      audioMode: referenceAudioPath != null && referenceAudioPath.isNotEmpty
+          ? ReferenceAudioMode.remix
+          : ReferenceAudioMode.none,
+      customLyrics: lyrics,
+      isInstrumental: isInstrumental,
+      lyricsMode: isInstrumental
+          ? LyricsMode.instrumental
+          : ((lyrics != null && lyrics.trim().isNotEmpty)
+                ? LyricsMode.myOwn
+                : LyricsMode.aiWrite),
+      engineTier: StudioEngineTier.sovereignCustom,
+      prompt: 'Remix of "$title" keeping its $genre harmonic pocket with fresh Afro-fusion lift',
     );
   }
 

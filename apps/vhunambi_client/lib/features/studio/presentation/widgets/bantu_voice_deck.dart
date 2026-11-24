@@ -6,6 +6,7 @@ import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../domain/models/bantu_voice_profile.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../providers/studio_form_provider.dart';
@@ -31,14 +32,10 @@ class BantuVoiceDeck extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final formNotifier = ref.read(studioFormProvider.notifier);
 
-    return Container(
+    return VhunambiGlassSurface(
       key: const Key('bantu_voice_deck'),
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+      borderRadius: AppRadius.cardBorder,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -54,6 +51,7 @@ class BantuVoiceDeck extends ConsumerWidget {
                 child: Text(
                   'Bantu Voice LoRA Engine',
                   style: AppTypography.titleMedium.copyWith(
+                    color: AppColors.textPrimaryOf(context),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -87,13 +85,12 @@ class BantuVoiceDeck extends ConsumerWidget {
             decoration: BoxDecoration(
               color: isDark
                   ? AppColors.darkBackground.withValues(alpha: 0.55)
-                  : AppColors.surfaceSecondary,
+                  : AppColors.surfaceSecondaryOf(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDark ? AppColors.darkBorder : AppColors.borderSubtle,
-              ),
+              border: Border.all(color: AppColors.borderSubtleOf(context)),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildCompactSegmentRow<VocalVoices>(
                   label: 'Voices',
@@ -103,6 +100,55 @@ class BantuVoiceDeck extends ConsumerWidget {
                   keyPrefix: 'voice_config',
                   onSelect: formNotifier.setVocalVoices,
                   isDark: isDark,
+                ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: InkWell(
+                    key: const Key('voice_quick_duet_btn'),
+                    onTap: () => formNotifier.applyQuickDuet(),
+                    borderRadius: AppRadius.pillBorder,
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: state.vocalVoices == VocalVoices.duet
+                            ? AppColors.brandPrimary.withValues(alpha: 0.2)
+                            : AppColors.surfaceElevatedOf(context),
+                        borderRadius: AppRadius.pillBorder,
+                        border: Border.all(
+                          color: state.vocalVoices == VocalVoices.duet
+                              ? AppColors.brandPrimary
+                              : AppColors.borderSubtleOf(context),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const PhosphorIcon(
+                            PhosphorIconsFill.usersThree,
+                            size: 14,
+                            color: AppColors.brandPrimary,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Quick Duet: A + B',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.brandPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 _buildCompactSegmentRow<VocalGender>(
@@ -129,15 +175,15 @@ class BantuVoiceDeck extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
 
-          // Phase 26: 24-Voice Regional Catalog & Zero-Shot Voice Cloning Actions (Compact 2-Column Row)
+          // Phase 26/80: 24-Voice Regional Catalog, Multi-Voice Cast & Voice Cloning Actions
           Container(
             key: const Key('active_vocal_identity_badge'),
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.xs),
             decoration: BoxDecoration(
-              color: AppColors.surfaceSecondary,
+              color: AppColors.surfaceSecondaryOf(context),
               borderRadius: AppRadius.inputBorder,
-              border: Border.all(color: AppColors.borderSubtle),
+              border: Border.all(color: AppColors.borderSubtleOf(context)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,89 +193,120 @@ class BantuVoiceDeck extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.caption.copyWith(
-                    color: AppColors.textPrimary,
+                    color: AppColors.textPrimaryOf(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (state.selectedVoiceIds.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final id in state.selectedVoiceIds)
+                        Chip(
+                          label: Text(id, style: AppTypography.caption),
+                          onDeleted: () =>
+                              formNotifier.toggleSelectedVoiceId(id),
+                        ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        key: const Key('open_vocal_identity_catalog_btn'),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(0, 38),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          side: BorderSide(
-                            color: AppColors.coinGold.withAlpha(110),
-                          ),
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: AppRadius.buttonBorder,
-                          ),
-                        ),
-                        onPressed: () => VocalIdentityPickerSheet.show(context),
-                        icon: const PhosphorIcon(
-                          AppIcons.songs,
-                          size: 14,
-                          color: AppColors.coinGold,
-                        ),
-                        label: Text(
-                          '24 Regional Voices',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.coinGold,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        key: const Key('open_voice_clone_recorder_btn'),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(0, 38),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          side: BorderSide(
-                            color: AppColors.brandPrimary.withAlpha(110),
-                          ),
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: AppRadius.buttonBorder,
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final btnWidth = constraints.maxWidth >= 340
+                        ? (constraints.maxWidth - AppSpacing.xs) / 2
+                        : constraints.maxWidth;
+                    return Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        SizedBox(
+                          width: btnWidth,
+                          child: OutlinedButton.icon(
+                            key: const Key('open_vocal_identity_catalog_btn'),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 44),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              side: BorderSide(
+                                color: AppColors.coinGold.withAlpha(110),
+                              ),
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: AppRadius.buttonBorder,
+                              ),
+                            ),
+                            onPressed: () =>
+                                VocalIdentityPickerSheet.show(context),
+                            icon: const PhosphorIcon(
+                              AppIcons.songs,
+                              size: 14,
+                              color: AppColors.coinGold,
+                            ),
+                            label: Text(
+                              '24 Regional Voices',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.coinGold,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
-                        onPressed: () => VoiceCloneRecorderSheet.show(
-                          context,
-                          lyrics: state.customLyrics,
-                          language: state.language,
-                        ),
-                        icon: const PhosphorIcon(
-                          AppIcons.voiceClone,
-                          size: 14,
-                          color: AppColors.brandPrimary,
-                        ),
-                        label: Text(
-                          'Clone My Voice',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.brandPrimary,
-                            fontWeight: FontWeight.w700,
+                        SizedBox(
+                          width: btnWidth,
+                          child: OutlinedButton.icon(
+                            key: const Key('open_voice_clone_recorder_btn'),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 44),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              side: BorderSide(
+                                color: AppColors.brandPrimary.withAlpha(110),
+                              ),
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: AppRadius.buttonBorder,
+                              ),
+                            ),
+                            onPressed: () => VoiceCloneRecorderSheet.show(
+                              context,
+                              lyrics: state.customLyrics,
+                              language: state.language,
+                            ),
+                            icon: const PhosphorIcon(
+                              AppIcons.voiceClone,
+                              size: 14,
+                              color: AppColors.brandPrimary,
+                            ),
+                            label: Text(
+                              'Clone My Voice',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.brandPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
 
-          // Timbre profile selector
+          // Timbre profile selector (padded to avoid left border clipping)
           SizedBox(
-            height: 132,
+            height: 136,
             child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               scrollDirection: Axis.horizontal,
               itemCount: kBantuVoiceProfiles.length,
               separatorBuilder: (context, index) =>

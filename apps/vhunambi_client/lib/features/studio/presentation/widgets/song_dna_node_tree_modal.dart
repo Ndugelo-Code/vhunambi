@@ -1699,7 +1699,7 @@ class _SongDnaNodeTreeModalState extends ConsumerState<SongDnaNodeTreeModal>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '⚡ Synthesize Song from 3D DNA',
+                  'Synthesize Song from 3D DNA',
                   style: AppTypography.titleMedium.copyWith(
                     fontWeight: FontWeight.w900,
                     color: Colors.black,

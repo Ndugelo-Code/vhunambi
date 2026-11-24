@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-11-24T08:56:37.187Z",
-  "latest_completed_phase": "P79",
-  "latest_completed_order": 79,
+  "generated_at": "2026-11-24T12:09:48.438Z",
+  "latest_completed_phase": "P80",
+  "latest_completed_order": 80,
   "stats": {
-    "total_phases": 18,
-    "completed_phases": 18,
-    "total_endpoints": 58,
+    "total_phases": 19,
+    "completed_phases": 19,
+    "total_endpoints": 61,
     "open_count": 0,
-    "connected_extensible_count": 55,
+    "connected_extensible_count": 58,
     "sealed_count": 3
   },
   "phases": [
@@ -1245,6 +1245,88 @@
         "Always apply 20261124000001_phase79_user_media_uploads.sql to Supabase Cloud via supabase_mcp BEFORE deploying vhunambi-api to Cloudflare Workers so PostgREST never returns 404 PGRST205.",
         "Supabase Performance Advisor 0003_auth_rls_initplan requires wrapping ONLY auth.jwt() in SELECT — use ((SELECT auth.jwt()) ->> 'creator_id') = creator_id rather than (SELECT auth.jwt() ->> 'creator_id') = creator_id so all RLS policies pass with 0 warnings."
       ]
+    },
+    {
+      "phase_id": "P80",
+      "phase_order": 80,
+      "memory_key": "MEM-P80-STUDIO-COCKPIT-V6-PRODUCTION-CONTRACT",
+      "title": "Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend",
+      "status": "completed",
+      "completed_at": "2026-11-24T14:09:00+02:00",
+      "memory_file": "docs/phases/phase_80_studio_cockpit_v6_and_production_contract/memory.md",
+      "predecessor_keys": [
+        "MEM-P65-FOUNDATION-CRASH-IMMUNITY",
+        "MEM-P70-SONG-COCKPIT-VISITOR-PROFILE",
+        "MEM-P75-STUDIO-COCKPIT-V5-CONNECTOME-CLOSURE",
+        "MEM-P78-VAULT-EXPLORE-CONTINUITY-UPLOADS-GLASS-TABS",
+        "MEM-P79-SOVEREIGN-MEDIA-UPLOAD-ENGINE"
+      ],
+      "concept_hubs": [
+        "ai_synthesis_gpu",
+        "audio_transport",
+        "mood_taxonomy",
+        "ui_surface_std",
+        "media_artwork",
+        "quota_economy",
+        "notifications_bus",
+        "sync_outbox"
+      ],
+      "endpoints_defined": [
+        "EP-P80-GENERATION-CONTRACT-V6",
+        "EP-P80-STUDIO-AI-ASSIST-API",
+        "EP-P80-STUDIO-COCKPIT-V6"
+      ],
+      "consumes": [
+        "EP-P65-CRASH-AUDIO-SHIELD",
+        "EP-P67-QUOTA-API",
+        "EP-P67-NOTIF-API",
+        "EP-P70-GLASS-SURFACE",
+        "EP-P71-EDGE-SWR-READTHROUGH",
+        "EP-P75-VOICES-CLOUD-SWR",
+        "EP-P75-STUDIO-CONNECTOME-CLIENTS",
+        "EP-P75-CREATION-TO-REELS-BRIDGE",
+        "EP-P78-GLASS-TAB-BAR",
+        "EP-P79-MEDIA-UPLOAD-ENGINE",
+        "EP-P79-USER-MEDIA-REGISTRY-API"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/studio/presentation/widgets/reference_audio_dropzone.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P79-MEDIA-UPLOAD-ENGINE",
+          "note": "Stages uploaded reference audio and picks reusable audio from VhunambiMediaVault with SafeAudioOrchestrator preview"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/studio/presentation/views/studio_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P78-GLASS-TAB-BAR",
+          "note": "Replaces flat solid-orange Studio mode buttons and Crate/MPC sub-tabs with unified frosted VhunambiGlassTabBar"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/studio/data/services/http_generation_submission_service.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P80-GENERATION-CONTRACT-V6",
+          "note": "Submits lossless StudioGenerationContractV6 DTO and polls up to 18 minutes for multi-take Studio Bakes"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/studio/presentation/widgets/prompt_input_box.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P80-STUDIO-AI-ASSIST-API",
+          "note": "Invokes POST /v1/studio/improve-prompt via StudioAiAssistService with offline deterministic fallback"
+        }
+      ],
+      "breakthroughs": [
+        "Draft spec established: lossless StudioGenerationContractV6, multi-take generation_jobs schema (batch_id + takes_json), MiniMax Music 3.0 serving guardrails (unique 64-bit seeds, instrumental -> ACE-Step XL-SFT auto-routing, MiniMax-Music3 attribution), and full Studio Cockpit V6 glass parity."
+      ],
+      "gotchas": [
+        "Do NOT add new required or optional parameters to ILyricsGenerationService abstract methods because existing test doubles (e.g. _ThrowingLyricsService) implement ILyricsGenerationService directly; place improvePrompt, generateLyricsFromPhoto, and duet lyric generation on StudioAiAssistService instead.",
+        "vhunambi_db.ts#updateGenerationJob previously called this.upsertGenerationJob(merged) without passing existing.creatorId, silently overwriting creator_id with 'creator_cern' on every job progress update; store creatorId directly on GenerationJob and forward it on every upsert/update.",
+        "Removing CockpitQuantumEntanglementRack from pre-gen Compose (STU-02) requires updating Test #1 in test/features/studio/phase56_studio_cockpit_and_mobile_biome_overhaul_test.dart while keeping CockpitQuantumEntanglementRack intact for phase54 standalone test #4 and Phase 83 post-gen Remix.",
+        "Supabase Performance Advisor 0003_auth_rls_initplan requires ((SELECT auth.jwt()) ->> 'creator_id') = creator_id on all public.generation_jobs RLS policies, and migration 20261124000002_phase80_generation_jobs_v6_multitake.sql must be applied to Supabase Cloud BEFORE deploying vhunambi-api.",
+        "Route isInstrumental == true away from minimax_music_3 to ace_step_xl_sft so Phase 81 sglang-omni /v1/audio/speech never returns HTTP 400 on empty lyrics, and always generate unique non-zero 64-bit takeSeeds per take so sglang-omni seed=0 never produces identical batches.",
+        "POST /v1/generations must upsert notif_gen_<generationId> initially as 'Studio Bake Queued' (not omit it) because phase67_notifications_quota.test.ts#L150 asserts ids.some(id => id.startsWith('notif_gen_')) immediately after POST, then upgrade notif_gen_<generationId> to unread 'Studio Track Ready' on completion.",
+        "Keep StudioFormState default durationSeconds = 30 (studio_form_test.dart#L19 & studio_session_repository_test.dart#L64), preserve GenerationPipelineCard's 4 step titles + 2 CircularProgressIndicators + 4 AppIcons.check glyphs (generation_pipeline_card_test.dart#L115-L148), and preserve BantuVoiceDeck's 4 Sliders (bantu_voice_deck_test.dart#L29)."
+      ]
     }
   ],
   "endpoints": {
@@ -1525,14 +1607,16 @@
         "P67:Notifications Center Two-Pass Overhaul & 10 Free Monthly Songs Engine",
         "P68:Home Dashboard Main Room & Studio Utility Overhaul",
         "P69:Kinetic Post Focus Domain, Threaded Replies & Feed Card Refinement Overhaul",
-        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs",
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
       ],
       "consumed_by_phases": [
         "P66",
         "P67",
         "P68",
         "P69",
-        "P79"
+        "P79",
+        "P80"
       ],
       "open_opportunities": "Adopt SafeNetworkAvatar across ArtistProfileView, TrackDetailView, and remaining Image.network avatars; include phase65_foundation_resilience.test.ts in api npm test"
     },
@@ -1596,10 +1680,12 @@
       "code_anchor": "apps/vhunambi_api/src/routes/notification_routes.ts",
       "summary": "5 REST routes: GET/POST /api/notifications, PATCH /:id/read, POST /mark-all-read, DELETE /:id backed by 20261116000001 migration.",
       "consumers": [
-        "P71:Cloudflare Worker Supabase Read/Write-Through Durability, OPEN Connectome Closure (EP-P67, EP-P69, EP-P37, EP-P68) & 100% Green Test Baseline"
+        "P71:Cloudflare Worker Supabase Read/Write-Through Durability, OPEN Connectome Closure (EP-P67, EP-P69, EP-P37, EP-P68) & 100% Green Test Baseline",
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
       ],
       "consumed_by_phases": [
-        "P71"
+        "P71",
+        "P80"
       ],
       "open_opportunities": "Zero Dart client HTTP callers yet (NotificationRepository uses local Hive only); wire cross-device cloud notification sync"
     },
@@ -1617,10 +1703,12 @@
       "code_anchor": "apps/vhunambi_api/src/routes/wallet_routes.ts",
       "summary": "GET /api/wallet/allowance returning 10 free monthly songs quota balance & monthly reset cycle.",
       "consumers": [
-        "P68:Home Dashboard Main Room & Studio Utility Overhaul"
+        "P68:Home Dashboard Main Room & Studio Utility Overhaul",
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
       ],
       "consumed_by_phases": [
-        "P68"
+        "P68",
+        "P80"
       ],
       "open_opportunities": "Expose live monthly quota allowance in Studio Compose & SubscriptionUpgradeModal in addition to Home"
     },
@@ -1959,7 +2047,8 @@
         "P76:Post-Release Live Device Theme Stability, Release Auth Security, Auth/Settings/Onboarding Glass, Full Notification Deep-Link Coverage & Platform Hygiene",
         "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
         "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs",
-        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs",
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
       ],
       "consumed_by_phases": [
         "P72",
@@ -1969,7 +2058,8 @@
         "P76",
         "P77",
         "P78",
-        "P79"
+        "P79",
+        "P80"
       ],
       "open_opportunities": "Adopt VhunambiGlassSurface across Home dashboard cards, Explore headers, Notifications drawer, and OwnerProfileView"
     },
@@ -2056,14 +2146,16 @@
         "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
         "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload",
         "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge",
-        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs",
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
       ],
       "consumed_by_phases": [
         "P72",
         "P73",
         "P74",
         "P75",
-        "P79"
+        "P79",
+        "P80"
       ],
       "open_opportunities": "Adopt domain-scoped SWR sync helpers in marketplace_routes, playlist_routes, library_routes, and voice_routes for full multi-isolate durability across every Cloudflare Worker endpoint"
     },
@@ -2373,9 +2465,12 @@
       "consumers": [
         "P75:voice_routes",
         "P75:generation_routes",
-        "P75:server_scoped_bypass"
+        "P75:server_scoped_bypass",
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P80"
+      ],
       "open_opportunities": "Reuse syncVoicesFromCloud to hydrate creator voice clone roster on OwnerProfileView and cross-device Studio sign-in"
     },
     "EP-P75-STUDIO-CONNECTOME-CLIENTS": {
@@ -2400,9 +2495,12 @@
         "P75:SoundPackManagerNotifier",
         "P75:CrossModuleSynergyDeck",
         "P75:MasteringSessionNotifier",
-        "P75:TrackDetailNotifier"
+        "P75:TrackDetailNotifier",
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P80"
+      ],
       "open_opportunities": "Expose offline-cached MMO 4-stem waveform peaks from /v1/generations/:id/manifest inside TrackSonicTelemetryCard and ExpandedCockpitModal"
     },
     "EP-P75-CREATION-TO-REELS-BRIDGE": {
@@ -2424,9 +2522,12 @@
         "P75:GenerationPipelineCard",
         "P75:TrackDetailView",
         "P75:TrackActionsSheet",
-        "P75:ExpandedCockpitModal"
+        "P75:ExpandedCockpitModal",
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P80"
+      ],
       "open_opportunities": "Add post-bake 'Drop Mastered Track as Reel' CTA inside DesktopMasteringStudioView and MobileQuickMasterSheet"
     },
     "EP-P76-AUTH-RELEASE-GATE": {
@@ -2593,10 +2694,12 @@
         "P78:ArtistProfileView",
         "P78:ExploreView",
         "P78:LibraryCategoryRail",
-        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs",
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
       ],
       "consumed_by_phases": [
-        "P79"
+        "P79",
+        "P80"
       ],
       "open_opportunities": "Adopt VhunambiGlassTabBar inside ReelAudioPickerSheet, StudioView sub-modes, and MarketplaceView category headers in Phase 79"
     },
@@ -2671,9 +2774,12 @@
       "consumers": [
         "P79:HttpMediaUploadRepository",
         "P79:MediaUploadQueueNotifier",
-        "P79:social_routes.ts"
+        "P79:social_routes.ts",
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P80"
+      ],
       "open_opportunities": "Connect Phase 80 VhunambiVisualDnaMatcher to GET /api/media/uploads?kind=image,video for automatic chorus mood matching"
     },
     "EP-P79-MEDIA-UPLOAD-ENGINE": {
@@ -2697,9 +2803,12 @@
         "P79:ReelAudioPickerSheet",
         "P79:DirectDawVocalUploadSheet",
         "P79:KineticReelStudioView",
-        "P79:KineticReelPublishView"
+        "P79:KineticReelPublishView",
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P80"
+      ],
       "open_opportunities": "Wire voice clone raw mic takes and custom ArtistProfileView banner uploads into mediaUploadQueueProvider"
     },
     "EP-P79-POST-COCKPIT-V2": {
@@ -2724,6 +2833,78 @@
       ],
       "consumed_by_phases": [],
       "open_opportunities": "Support multi-photo carousel swipe-reorder and crop focal-point pinning in Phase 80"
+    },
+    "EP-P80-GENERATION-CONTRACT-V6": {
+      "id": "EP-P80-GENERATION-CONTRACT-V6",
+      "kind": "backend_api_and_schema",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P80",
+      "origin_order": 80,
+      "memory_file": "docs/phases/phase_80_studio_cockpit_v6_and_production_contract/memory.md",
+      "hubs": [
+        "ai_synthesis_gpu",
+        "sync_outbox",
+        "notifications_bus",
+        "quota_economy"
+      ],
+      "spec_anchor": "docs/phases/phase_80_studio_cockpit_v6_and_production_contract/design.md#1-pass-1-m801--backend-studiogenerationcontractv6-multi-take-schema--ai-assist-apis",
+      "code_anchor": "apps/vhunambi_api/src/routes/generation_routes.ts",
+      "summary": "Lossless StudioGenerationContractV6 across POST /v1/generations, prompt_compiler.ts (deterministic MiniMax 3.0 vs ACE-Step 1.5 XL routing, >48c prompt preservation, [Voice A]/[Voice B] duet tags, unique 64-bit takeSeeds), public.generation_jobs multi-take migration (batch_id + takes_json + initplan-clean RLS), true creatorId retention, and deferred Ready notifications.",
+      "consumers": [
+        "P80:HttpGenerationSubmissionService",
+        "P80:GenerationPipelineNotifier",
+        "P80:webhook_routes.ts"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Consume resolvedEngine, takeSeeds, audio_mode, voice_cast, and rich_prompt directly inside Phase 81 RunPod L40S 48GB multi-model handler.py and Phase 82 BS-RoFormer + Seed-VC + Matchering 2.0 chain"
+    },
+    "EP-P80-STUDIO-AI-ASSIST-API": {
+      "id": "EP-P80-STUDIO-AI-ASSIST-API",
+      "kind": "backend_api",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P80",
+      "origin_order": 80,
+      "memory_file": "docs/phases/phase_80_studio_cockpit_v6_and_production_contract/memory.md",
+      "hubs": [
+        "ai_synthesis_gpu",
+        "mood_taxonomy",
+        "media_artwork"
+      ],
+      "spec_anchor": "docs/phases/phase_80_studio_cockpit_v6_and_production_contract/design.md#16-studio-ai-assist--photo-lyrics-routes-studio_routests--lyrics_routests",
+      "code_anchor": "apps/vhunambi_api/src/routes/studio_routes.ts",
+      "summary": "POST /v1/studio/improve-prompt (genre/mood/duet-aware prompt expansion), POST /v1/lyrics/from-photo (Phase 79 Vault image to structured lyrics), and duet-aware POST /v1/lyrics/generate ([Voice A]/[Voice B] scripts) with scoped Edge read-through bypass.",
+      "consumers": [
+        "P80:StudioAiAssistService",
+        "P80:PromptInputBox",
+        "P80:StudioLyricsAndBakeDeck"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Connect Phase 82/83 vision captioning models to POST /v1/lyrics/from-photo for pixel-level visual lyric grounding"
+    },
+    "EP-P80-STUDIO-COCKPIT-V6": {
+      "id": "EP-P80-STUDIO-COCKPIT-V6",
+      "kind": "ui_surface",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P80",
+      "origin_order": 80,
+      "memory_file": "docs/phases/phase_80_studio_cockpit_v6_and_production_contract/memory.md",
+      "hubs": [
+        "ui_surface_std",
+        "audio_transport",
+        "media_artwork",
+        "ai_synthesis_gpu"
+      ],
+      "spec_anchor": "docs/phases/phase_80_studio_cockpit_v6_and_production_contract/design.md#2-pass-1--pass-2-m802m804--flutter-studio-cockpit-v6-glass-overhaul--vhunambicom-parity",
+      "code_anchor": "apps/vhunambi_client/lib/features/studio/presentation/views/studio_view.dart",
+      "summary": "Frosted-glass Studio Cockpit V6 using VhunambiGlassSurface + VhunambiGlassTabBar, zero pre-gen stem lock clutter (STU-02), zero 360dp truncation (STU-03), 42-genre 5-region catalog, Reference Audio + 4 Recreate Modes wired to VhunambiMediaVault, Instrumental/Length/3-Mode Lyrics/Title/Batch/Engine Tier, Multi-Voice Duet Casting, Cinematic 4-Stage Baking Monitor with MiniMax-Music3 attribution, and Past-Song Remix Shelf.",
+      "consumers": [
+        "P80:StudioView",
+        "P80:BantuVoiceDeck",
+        "P80:InlineCrateMpcWorkbench",
+        "P80:GenerationPipelineCard"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Mount relocated CockpitQuantumEntanglementRack inside Phase 83 Post-Generation Track/Remix Studio wired to ACE-Step 1.5 XL-Base section repaint"
     }
   },
   "hub_index": {
@@ -2774,7 +2955,9 @@
         "EP-P78-REAL-AUDIO-VIDEO-INGEST",
         "EP-P79-USER-MEDIA-REGISTRY-API",
         "EP-P79-MEDIA-UPLOAD-ENGINE",
-        "EP-P79-POST-COCKPIT-V2"
+        "EP-P79-POST-COCKPIT-V2",
+        "EP-P80-STUDIO-AI-ASSIST-API",
+        "EP-P80-STUDIO-COCKPIT-V6"
       ],
       "phases": [
         "P64",
@@ -2788,7 +2971,8 @@
         "P74",
         "P77",
         "P78",
-        "P79"
+        "P79",
+        "P80"
       ]
     },
     "quota_economy": {
@@ -2802,7 +2986,8 @@
         "EP-P71-ATOMIC-QUOTA-RPC",
         "EP-P72-VAULT-CLOUD-SWR",
         "EP-P72-BUYER-LICENSES-HTTP",
-        "EP-P76-DEEPLINK-COVERAGE"
+        "EP-P76-DEEPLINK-COVERAGE",
+        "EP-P80-GENERATION-CONTRACT-V6"
       ],
       "phases": [
         "P00_P63",
@@ -2811,7 +2996,8 @@
         "P70",
         "P71",
         "P72",
-        "P76"
+        "P76",
+        "P80"
       ]
     },
     "audio_transport": {
@@ -2828,7 +3014,8 @@
         "EP-P77-CHROMATIC-PLAYER-CHROME",
         "EP-P77-SYNCED-BANTU-KARAOKE",
         "EP-P78-REAL-AUDIO-VIDEO-INGEST",
-        "EP-P79-MEDIA-UPLOAD-ENGINE"
+        "EP-P79-MEDIA-UPLOAD-ENGINE",
+        "EP-P80-STUDIO-COCKPIT-V6"
       ],
       "phases": [
         "P00_P63",
@@ -2842,7 +3029,8 @@
         "P75",
         "P77",
         "P78",
-        "P79"
+        "P79",
+        "P80"
       ]
     },
     "mood_taxonomy": {
@@ -2853,7 +3041,8 @@
         "EP-P70-MOOD-TAXONOMY",
         "EP-P73-POST-CHROMATIC-SYNTH",
         "EP-P75-STUDIO-CONNECTOME-CLIENTS",
-        "EP-P77-CHROMATIC-PLAYER-CHROME"
+        "EP-P77-CHROMATIC-PLAYER-CHROME",
+        "EP-P80-STUDIO-AI-ASSIST-API"
       ],
       "phases": [
         "P66",
@@ -2864,7 +3053,8 @@
         "P74",
         "P75",
         "P77",
-        "P78"
+        "P78",
+        "P80"
       ]
     },
     "social_graph": {
@@ -2913,12 +3103,14 @@
         "EP-P67-ONBOARDING-NOTIFS",
         "EP-P67-SCRUB-LEGACY-NOTIFS",
         "EP-P69-KPOST-FOCUS-ROUTE",
-        "EP-P71-EDGE-SWR-READTHROUGH"
+        "EP-P71-EDGE-SWR-READTHROUGH",
+        "EP-P80-GENERATION-CONTRACT-V6"
       ],
       "phases": [
         "P67",
         "P69",
-        "P71"
+        "P71",
+        "P80"
       ]
     },
     "sync_outbox": {
@@ -2939,7 +3131,8 @@
         "EP-P74-SOCIAL-SWR-READTHROUGH",
         "EP-P75-VOICES-CLOUD-SWR",
         "EP-P79-USER-MEDIA-REGISTRY-API",
-        "EP-P79-MEDIA-UPLOAD-ENGINE"
+        "EP-P79-MEDIA-UPLOAD-ENGINE",
+        "EP-P80-GENERATION-CONTRACT-V6"
       ],
       "phases": [
         "P00_P63",
@@ -2952,7 +3145,8 @@
         "P74",
         "P75",
         "P76",
-        "P79"
+        "P79",
+        "P80"
       ]
     },
     "ui_surface_std": {
@@ -2976,7 +3170,8 @@
         "EP-P77-SYNCED-BANTU-KARAOKE",
         "EP-P77-UNIFIED-R2-IMAGE-UPLOAD",
         "EP-P78-GLASS-TAB-BAR",
-        "EP-P79-POST-COCKPIT-V2"
+        "EP-P79-POST-COCKPIT-V2",
+        "EP-P80-STUDIO-COCKPIT-V6"
       ],
       "phases": [
         "P00_P63",
@@ -2993,7 +3188,8 @@
         "P76",
         "P77",
         "P78",
-        "P79"
+        "P79",
+        "P80"
       ]
     },
     "ai_synthesis_gpu": {
@@ -3006,13 +3202,17 @@
         "EP-P66-LYRICS-REFINE-STORY",
         "EP-P68-MOOD-FRAGMENTED",
         "EP-P75-VOICES-CLOUD-SWR",
-        "EP-P75-STUDIO-CONNECTOME-CLIENTS"
+        "EP-P75-STUDIO-CONNECTOME-CLIENTS",
+        "EP-P80-GENERATION-CONTRACT-V6",
+        "EP-P80-STUDIO-AI-ASSIST-API",
+        "EP-P80-STUDIO-COCKPIT-V6"
       ],
       "phases": [
         "P00_P63",
         "P64",
         "P66",
-        "P75"
+        "P75",
+        "P80"
       ]
     }
   },
@@ -3041,7 +3241,8 @@
       "EP-P26-VOICE-CALIBRATION-RECIPE"
     ],
     "apps/vhunambi_api/src/routes/generation_routes.ts": [
-      "EP-P25-GEN-MASTER-PRESETS"
+      "EP-P25-GEN-MASTER-PRESETS",
+      "EP-P80-GENERATION-CONTRACT-V6"
     ],
     "apps/vhunambi_api/src/routes/system_routes.ts": [
       "EP-P63-R2-SEEDER"
@@ -3176,6 +3377,12 @@
     ],
     "apps/vhunambi_client/lib/features/explore/presentation/widgets/create_kinetic_post_sheet.dart": [
       "EP-P79-POST-COCKPIT-V2"
+    ],
+    "apps/vhunambi_api/src/routes/studio_routes.ts": [
+      "EP-P80-STUDIO-AI-ASSIST-API"
+    ],
+    "apps/vhunambi_client/lib/features/studio/presentation/views/studio_view.dart": [
+      "EP-P80-STUDIO-COCKPIT-V6"
     ]
   }
 }

@@ -5,6 +5,7 @@ import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../providers/studio_form_provider.dart';
 
 class MultilingualLanguageSelector extends ConsumerStatefulWidget {
@@ -62,12 +63,8 @@ class _MultilingualLanguageSelectorState
       studioFormProvider.select((s) => s.language),
     );
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+    return VhunambiGlassSurface(
+      borderRadius: AppRadius.cardBorder,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -92,30 +89,37 @@ class _MultilingualLanguageSelectorState
                     'Language',
                     style: AppTypography.bodyLarge.copyWith(
                       fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimaryOf(context),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.xs,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary,
-                      borderRadius: AppRadius.pillBorder,
-                      border: Border.all(color: AppColors.borderSubtle),
-                    ),
-                    child: Text(
-                      activeLanguage,
-                      style: AppTypography.badge.copyWith(
-                        color: AppColors.brandPrimary,
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceSecondaryOf(context),
+                        borderRadius: AppRadius.pillBorder,
+                        border: Border.all(
+                          color: AppColors.borderSubtleOf(context),
+                        ),
+                      ),
+                      child: Text(
+                        activeLanguage,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.badge.copyWith(
+                          color: AppColors.brandPrimary,
+                        ),
                       ),
                     ),
                   ),
                   const Spacer(),
                   PhosphorIcon(
                     _isExpanded ? AppIcons.caretUp : AppIcons.caretDown,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                 ],
               ),
@@ -123,7 +127,7 @@ class _MultilingualLanguageSelectorState
           ),
 
           if (_isExpanded) ...[
-            Divider(color: AppColors.borderSubtle, height: 1),
+            Divider(color: AppColors.borderSubtleOf(context), height: 1),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
@@ -132,7 +136,7 @@ class _MultilingualLanguageSelectorState
                   Text(
                     'South African Official Languages',
                     style: AppTypography.caption.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.textSecondaryOf(context),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -142,7 +146,7 @@ class _MultilingualLanguageSelectorState
                   Text(
                     'Continental African Languages',
                     style: AppTypography.caption.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.textSecondaryOf(context),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -152,7 +156,7 @@ class _MultilingualLanguageSelectorState
                   Text(
                     'Diaspora & Global Languages',
                     style: AppTypography.caption.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.textSecondaryOf(context),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -180,18 +184,18 @@ class _MultilingualLanguageSelectorState
           borderRadius: AppRadius.pillBorder,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            constraints: const BoxConstraints(minHeight: 34),
+            constraints: const BoxConstraints(minHeight: 44),
             alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: isSelected
                   ? AppColors.brandPrimary
-                  : AppColors.surfaceSecondary,
+                  : AppColors.surfaceSecondaryOf(context),
               borderRadius: AppRadius.pillBorder,
               border: Border.all(
                 color: isSelected
                     ? AppColors.brandPrimary
-                    : AppColors.borderSubtle,
+                    : AppColors.borderSubtleOf(context),
               ),
             ),
             child: Text(
@@ -199,9 +203,9 @@ class _MultilingualLanguageSelectorState
               style: AppTypography.caption.copyWith(
                 color: isSelected
                     ? AppColors.brandContrast
-                    : AppColors.textPrimary,
+                    : AppColors.textPrimaryOf(context),
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                fontSize: 11.5,
+                fontSize: 12,
               ),
             ),
           ),

@@ -325,7 +325,16 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // 1. Master A/B Toggle
+        // 1. Expand collapsible Track Tools tray (collapsed by default)
+        final toolsToggle = find.byKey(const Key('cockpit_tools_toggle'));
+        expect(toolsToggle, findsOneWidget);
+        expect(find.byKey(const Key('cockpit_master_ab_btn')), findsNothing);
+        await tester.ensureVisible(toolsToggle);
+        await tester.pumpAndSettle();
+        await tester.tap(toolsToggle);
+        await tester.pumpAndSettle();
+
+        // 2. Master A/B Toggle
         final masterBtn = find.byKey(const Key('cockpit_master_ab_btn'));
         expect(masterBtn, findsOneWidget);
         expect(
@@ -342,7 +351,7 @@ void main() {
           isFalse,
         );
 
-        // 2. Remix in Studio Button
+        // 3. Remix in Studio Button
         final remixBtn = find.byKey(const Key('cockpit_remix_in_studio_btn'));
         expect(remixBtn, findsOneWidget);
 

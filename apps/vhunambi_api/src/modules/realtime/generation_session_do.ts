@@ -2,12 +2,17 @@ import type {
   CfDurableObjectState,
   VhunambiWorkerEnv,
 } from '../../types/cloudflare_worker_types.js';
+import type {
+  GenerationTakeRecord,
+  ResolvedAudioEngine,
+} from '../jobs/job_types.js';
 
 export interface GenerationPipelineEventPayload {
   generationId: string;
   status: string;
   step?: string;
   progressPct?: number;
+  message?: string;
   trackTitle?: string;
   genre?: string;
   language?: string;
@@ -18,6 +23,9 @@ export interface GenerationPipelineEventPayload {
   manifestUrl?: string;
   coverUrl?: string;
   lyrics?: string;
+  resolvedEngine?: ResolvedAudioEngine;
+  attributionTag?: string | null;
+  takes?: GenerationTakeRecord[];
   error?: string;
   timestamp?: number;
 }
@@ -69,24 +77,24 @@ export function buildDualDialectPipelineEventFrame(
       rawStep === 'completed' ||
       payload.status === 'succeeded' ||
       payload.status === 'completed') &&
-    payload.masterMp3Url
+      payload.masterMp3Url
       ? {
-          id: payload.generationId,
-          title: payload.trackTitle ?? 'Studio Master',
-          genre: payload.genre ?? 'Amapiano',
-          language: payload.language ?? 'English',
-          master_mp3_url: payload.masterMp3Url,
-          masterMp3Url: payload.masterMp3Url,
-          stems_url: payload.stemsZipUrl ?? null,
-          stemsZipUrl: payload.stemsZipUrl ?? null,
-          stem_urls: payload.stemUrls ?? null,
-          stemUrls: payload.stemUrls ?? null,
-          manifest_url: payload.manifestUrl ?? null,
-          cover_url: payload.coverUrl ?? null,
-          coverUrl: payload.coverUrl ?? null,
-          lyrics: payload.lyrics ?? null,
-          duration_seconds: payload.durationSec ?? 180,
-        }
+        id: payload.generationId,
+        title: payload.trackTitle ?? 'Studio Master',
+        genre: payload.genre ?? 'Amapiano',
+        language: payload.language ?? 'English',
+        master_mp3_url: payload.masterMp3Url,
+        masterMp3Url: payload.masterMp3Url,
+        stems_url: payload.stemsZipUrl ?? null,
+        stemsZipUrl: payload.stemsZipUrl ?? null,
+        stem_urls: payload.stemUrls ?? null,
+        stemUrls: payload.stemUrls ?? null,
+        manifest_url: payload.manifestUrl ?? null,
+        cover_url: payload.coverUrl ?? null,
+        coverUrl: payload.coverUrl ?? null,
+        lyrics: payload.lyrics ?? null,
+        duration_seconds: payload.durationSec ?? 180,
+      }
       : null;
 
   return {
@@ -99,7 +107,10 @@ export function buildDualDialectPipelineEventFrame(
     step: rawStep,
     step_index: stepIndex,
     progress_percent: progressFraction,
-    status_message: statusMessage,
+    status_message: payload.message ?? statusMessage,
+    resolved_engine: payload.resolvedEngine ?? null,
+    attribution_tag: payload.attributionTag ?? null,
+    takes: payload.takes ?? [],
     completed_track: completedTrack,
   };
 }

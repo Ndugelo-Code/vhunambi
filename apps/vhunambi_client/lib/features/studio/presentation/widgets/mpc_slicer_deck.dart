@@ -7,7 +7,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/heritage_crate_models.dart';
+import '../../domain/models/studio_form_state.dart';
 import '../providers/heritage_crate_provider.dart';
+import '../providers/studio_form_provider.dart';
 
 /// 8-Pad AI MPC tactile slicer with chromatic pitch, reverse, time-stretch,
 /// and DAW bounce bridges (REQ-MPC-01 … REQ-MPC-05).
@@ -21,7 +23,7 @@ class MpcSlicerDeck extends ConsumerWidget {
     final selected = state.selectedPad;
 
     return Container(
-      color: AppColors.surfaceCanvas,
+      color: AppColors.surfaceCanvasOf(context),
       padding: const EdgeInsets.all(AppSpacing.md),
       child: SingleChildScrollView(
         child: Column(
@@ -30,18 +32,27 @@ class MpcSlicerDeck extends ConsumerWidget {
             // Header
             Row(
               children: [
-                const PhosphorIcon(PhosphorIconsRegular.squaresFour, color: AppColors.coinGold),
+                const PhosphorIcon(
+                  PhosphorIconsRegular.squaresFour,
+                  color: AppColors.coinGold,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(state.sourceTitle,
-                          style: AppTypography.titleMedium
-                              .copyWith(fontWeight: FontWeight.bold)),
-                      Text('${state.bpm} BPM · 8 AI Transient Slices',
-                          style: AppTypography.caption
-                              .copyWith(color: AppColors.textSecondary)),
+                      Text(
+                        state.sourceTitle,
+                        style: AppTypography.titleMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${state.bpm} BPM · 8 AI Transient Slices',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -54,8 +65,9 @@ class MpcSlicerDeck extends ConsumerWidget {
               children: [
                 Text(
                   'Stretch: ${state.timeStretchRatio.toStringAsFixed(1)}x',
-                  style: AppTypography.caption
-                      .copyWith(color: AppColors.textSecondary),
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 Expanded(
                   child: Slider(
@@ -120,36 +132,71 @@ class MpcSlicerDeck extends ConsumerWidget {
                 backgroundColor: AppColors.brandPrimary,
                 minimumSize: const Size.fromHeight(48),
                 shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.inputBorder),
+                  borderRadius: AppRadius.inputBorder,
+                ),
               ),
-              icon: const PhosphorIcon(AppIcons.sliders, color: AppColors.brandContrast),
-              label: Text('Send to Stem Mixer',
-                  style: AppTypography.bodyLarge.copyWith(
-                      color: AppColors.brandContrast,
-                      fontWeight: FontWeight.bold)),
+              icon: const PhosphorIcon(
+                AppIcons.sliders,
+                color: AppColors.brandContrast,
+              ),
+              label: Text(
+                'Send to Stem Mixer',
+                style: AppTypography.bodyLarge.copyWith(
+                  color: AppColors.brandContrast,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             const SizedBox(height: AppSpacing.xs),
             OutlinedButton.icon(
               key: const Key('mpc_send_to_studio'),
               onPressed: () {
                 HapticFeedback.mediumImpact();
+                final formNotifier = ref.read(studioFormProvider.notifier);
+                final currentPrompt = ref
+                    .read(studioFormProvider)
+                    .prompt
+                    .trim();
+                final mpcTag =
+                    'chopped MPC groove (${state.sourceTitle} @ ${state.bpm} BPM, stretch ${state.timeStretchRatio.toStringAsFixed(1)}x)';
+                formNotifier.updatePrompt(
+                  currentPrompt.isEmpty ? mpcTag : '$currentPrompt — $mpcTag',
+                );
+                final refSource =
+                    (state.lastBouncedChopPath != null &&
+                        state.lastBouncedChopPath!.isNotEmpty)
+                    ? state.lastBouncedChopPath!
+                    : selected.sourceAudioUrl;
+                if (refSource.isNotEmpty) {
+                  formNotifier.setReferenceAudio(refSource);
+                  formNotifier.setAudioMode(ReferenceAudioMode.remix);
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Chop kit routed into Studio prompt context'),
-                    backgroundColor: AppColors.surfaceModal,
+                    content: const Text(
+                      'Chop kit routed into Studio prompt context',
+                    ),
+                    backgroundColor: AppColors.surfaceModalOf(context),
                   ),
                 );
               },
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AppColors.borderSubtle),
+                side: BorderSide(color: AppColors.borderSubtleOf(context)),
                 minimumSize: const Size.fromHeight(48),
                 shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.inputBorder),
+                  borderRadius: AppRadius.inputBorder,
+                ),
               ),
-              icon: PhosphorIcon(AppIcons.mic, color: AppColors.textPrimary),
-              label: Text('Record into Studio',
-                  style: AppTypography.bodyLarge
-                      .copyWith(color: AppColors.textPrimary)),
+              icon: PhosphorIcon(
+                AppIcons.mic,
+                color: AppColors.textPrimaryOf(context),
+              ),
+              label: Text(
+                'Record into Studio',
+                style: AppTypography.bodyLarge.copyWith(
+                  color: AppColors.textPrimaryOf(context),
+                ),
+              ),
             ),
           ],
         ),
@@ -162,8 +209,11 @@ class _MpcPad extends StatelessWidget {
   final MpcPadEntity pad;
   final bool isSelected;
   final VoidCallback onTap;
-  const _MpcPad(
-      {required this.pad, required this.isSelected, required this.onTap});
+  const _MpcPad({
+    required this.pad,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +224,9 @@ class _MpcPad extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         decoration: BoxDecoration(
-          color: active ? AppColors.surfaceSecondary : AppColors.surfaceElevated,
+          color: active
+              ? AppColors.surfaceSecondary
+              : AppColors.surfaceElevated,
           borderRadius: AppRadius.inputBorder,
           border: Border.all(
             color: pad.isTriggered
@@ -195,22 +247,31 @@ class _MpcPad extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(pad.label,
-                style: AppTypography.caption.copyWith(
-                    color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+            Text(
+              pad.label,
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 2),
-            Text('${pad.startSec.toStringAsFixed(1)}s',
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textTertiary, fontSize: 9)),
+            Text(
+              '${pad.startSec.toStringAsFixed(1)}s',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textTertiary,
+                fontSize: 9,
+              ),
+            ),
             if (pad.pitchShiftSemitones != 0) ...[
               const SizedBox(height: 2),
               _padPill(
-                  '${pad.pitchShiftSemitones > 0 ? '+' : ''}${pad.pitchShiftSemitones} st',
-                  AppColors.badgeCyan),
+                '${pad.pitchShiftSemitones > 0 ? '+' : ''}${pad.pitchShiftSemitones} st',
+                AppColors.badgeCyan,
+              ),
             ],
             if (pad.isReversed) ...[
               const SizedBox(height: 2),
-              _padPill('◀ REV', AppColors.coinGold),
+              _padPill('REV', AppColors.coinGold),
             ],
           ],
         ),
@@ -225,9 +286,14 @@ class _MpcPad extends StatelessWidget {
         color: color.withAlpha(40),
         borderRadius: AppRadius.pillBorder,
       ),
-      child: Text(text,
-          style: AppTypography.caption.copyWith(
-              color: color, fontSize: 8, fontWeight: FontWeight.w700)),
+      child: Text(
+        text,
+        style: AppTypography.caption.copyWith(
+          color: color,
+          fontSize: 8,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
@@ -242,23 +308,32 @@ class _ModulationDeck extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.surfaceElevatedOf(context),
         borderRadius: AppRadius.inputBorder,
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Modulate ${pad.label}',
-              style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+          Text(
+            'Modulate ${pad.label}',
+            style: AppTypography.bodySmall.copyWith(
+              color: AppColors.textPrimaryOf(context),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           Row(
             children: [
               SizedBox(
-                  width: 60,
-                  child: Text('Pitch',
-                      style:
-                          TextStyle(color: AppColors.textSecondary, fontSize: 11))),
+                width: 60,
+                child: Text(
+                  'Pitch',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
               Expanded(
                 child: Slider(
                   key: const Key('mpc_pitch_slider'),
@@ -280,10 +355,15 @@ class _ModulationDeck extends ConsumerWidget {
           Row(
             children: [
               SizedBox(
-                  width: 60,
-                  child: Text('Volume',
-                      style:
-                          TextStyle(color: AppColors.textSecondary, fontSize: 11))),
+                width: 60,
+                child: Text(
+                  'Volume',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
               Expanded(
                 child: Slider(
                   key: const Key('mpc_vol_slider'),
@@ -302,9 +382,10 @@ class _ModulationDeck extends ConsumerWidget {
           ),
           Row(
             children: [
-              Text('Reverse',
-                  style:
-                      TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+              Text(
+                'Reverse',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+              ),
               const Spacer(),
               Switch(
                 key: const Key('mpc_reverse_toggle'),

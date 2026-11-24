@@ -40,8 +40,6 @@ void main() {
         final stackFinder = find.byType(Stack);
         expect(stackFinder, findsWidgets);
 
-
-
         // Verify selected card #0 is present and rendered on top
         expect(find.byKey(Key(kIdentityCards[0].testKey)), findsOneWidget);
 
@@ -100,7 +98,9 @@ void main() {
         addTearDown(container.dispose);
 
         // Attach reference audio so invasive node is present
-        container.read(studioFormProvider.notifier).setReferenceAudio('test/path.wav');
+        container
+            .read(studioFormProvider.notifier)
+            .setReferenceAudio('test/path.wav');
 
         final graph = container.read(songDnaGraphProvider);
         // 22-26 interactive nodes
@@ -228,7 +228,7 @@ void main() {
         // Find synthesize button
         final synthesizeBtn = find.byKey(const Key('song_dna_synthesize_btn'));
         expect(synthesizeBtn, findsOneWidget);
-        expect(find.text('⚡ Synthesize Song from 3D DNA'), findsOneWidget);
+        expect(find.text('Synthesize Song from 3D DNA'), findsOneWidget);
 
         // Tap button
         await tester.tap(synthesizeBtn);

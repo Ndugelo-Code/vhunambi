@@ -432,12 +432,24 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
 
           // Atmosphere Descriptors for current Genre + Section (REQ-GLC-03, REQ-GLC-04)
           if (atmosphereList.isNotEmpty) ...[
-            Text(
-              '✦ Atmosphere for $genre ${scaffold.title}:',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
+            Row(
+              children: [
+                const PhosphorIcon(
+                  AppIcons.sparkle,
+                  size: 14,
+                  color: AppColors.coinGold,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Atmosphere for $genre ${scaffold.title}:',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.xxs),
             Wrap(
@@ -534,7 +546,7 @@ class _GuidedLyricsComposerState extends ConsumerState<GuidedLyricsComposer> {
                     borderRadius: AppRadius.pillBorder,
                   ),
                   child: Text(
-                    isLastSection ? 'Finish & Apply ➔' : 'Next →',
+                    isLastSection ? 'Finish & Apply' : 'Next →',
                     style: AppTypography.bodyLarge.copyWith(
                       color: AppColors.brandContrast,
                       fontWeight: FontWeight.bold,

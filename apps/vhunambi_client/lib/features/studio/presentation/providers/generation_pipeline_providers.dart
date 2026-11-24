@@ -198,7 +198,42 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
       resolvedMusicalKey ??= snap.toSongMetadataDna().musical.key;
     } catch (_) {}
 
-    // 2. Submit to backend API
+    Map<String, dynamic>? resolvedVoiceCast;
+    String? resolvedCloneRefUrl;
+    if (formSnapshot != null) {
+      try {
+        resolvedCloneRefUrl = _ref
+            .read(vocalIdentityProvider)
+            .activeClonedProfile
+            ?.r2ReferenceUrl;
+      } catch (_) {}
+      final mergedVoiceIds = <String>{
+        if (resolvedVoiceId != null && resolvedVoiceId.isNotEmpty)
+          resolvedVoiceId,
+        ...formSnapshot.selectedVoiceIds,
+      }.take(6).toList(growable: false);
+      resolvedVoiceCast = <String, dynamic>{
+        'ensemble': formSnapshot.vocalVoices.name,
+        'gender': formSnapshot.vocalGender.name,
+        'deliveryMode': formSnapshot.vocalMode.name,
+        'energy': formSnapshot.vocalEnergy.name,
+        'selectedVoiceIds': mergedVoiceIds,
+        if (resolvedCloneId != null && resolvedCloneId.isNotEmpty)
+          'clonedVoiceProfileId': resolvedCloneId,
+        if (resolvedCloneRefUrl != null && resolvedCloneRefUrl.isNotEmpty)
+          'clonedVoiceReferenceUrl': resolvedCloneRefUrl,
+        'dialectInflection': formSnapshot.dialectInflection.toJson(),
+      };
+    }
+
+    final lyricsModeWire = switch (formSnapshot?.lyricsMode) {
+      LyricsMode.myOwn => 'my_own',
+      LyricsMode.fromPhoto => 'from_photo',
+      LyricsMode.instrumental => 'instrumental',
+      _ => 'ai_writes',
+    };
+
+    // 2. Submit full V6 cockpit contract to backend API
     final submissionService = _ref.read(generationSubmissionServiceProvider);
     final response = await submissionService.submitGeneration(
       trackTitle: trackTitle,
@@ -210,6 +245,19 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
       tempoBpm: tempoBpm ?? formSnapshot?.tempo.defaultBpm,
       musicalKey: resolvedMusicalKey,
       mood: formSnapshot?.mood,
+      region: formSnapshot?.region,
+      durationSec: formSnapshot?.durationSeconds,
+      lyricsMode: lyricsModeWire,
+      isAutoTitle: formSnapshot?.isAutoTitle,
+      era: formSnapshot?.era.name,
+      songStructure: formSnapshot?.songStructure.name,
+      visibility: formSnapshot?.visibility,
+      engineTier: formSnapshot?.engineTier.wireValue,
+      batchCount: formSnapshot?.batchCount,
+      audioMode: formSnapshot?.audioMode.wireValue,
+      sourcePhotoUrl: formSnapshot?.sourcePhotoUrl,
+      sourceTrackId: formSnapshot?.sourceTrackId,
+      voiceCast: resolvedVoiceCast,
       selectedVoiceId: resolvedVoiceId,
       clonedVoiceProfileId: resolvedCloneId,
       melodyPattern: resolvedMelodyPattern,
@@ -232,13 +280,23 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
                 response['generatedLyrics'] ??
                 response['generated_lyrics'])
             as String?;
+    final resolvedEngine =
+        (response['resolvedEngine'] ?? response['resolved_engine'])
+            as String? ??
+        formSnapshot?.resolvedEnginePreview;
+    final attributionTag =
+        (response['attributionTag'] ?? response['attribution_tag'])
+            as String? ??
+        formSnapshot?.resolvedAttributionTag;
     _completedGenerationIds.remove(realGenerationId);
 
-    // 3. Update state with real generation ID
+    // 3. Update state with real generation ID & engine metadata
     state =
         state?.copyWith(
           generationId: realGenerationId,
           generatedLyrics: initialLyrics,
+          resolvedEngine: resolvedEngine,
+          attributionTag: attributionTag,
         ) ??
         GenerationProgressState(
           generationId: realGenerationId,
@@ -246,6 +304,8 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
           genre: genre,
           currentStep: PipelineStep.startingUp,
           generatedLyrics: initialLyrics,
+          resolvedEngine: resolvedEngine,
+          attributionTag: attributionTag,
         );
 
     // T6.8: Record generation telemetry for Creator DNA (REQ-DNA-CAP-03).
@@ -347,6 +407,10 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
       errorMessage: event.step == PipelineStep.failed
           ? (event.error ?? 'Generation failed. Please try again.')
           : null,
+      bakeStage: event.bakeStage,
+      resolvedEngine: event.resolvedEngine ?? current.resolvedEngine,
+      attributionTag: event.attributionTag ?? current.attributionTag,
+      takes: event.takes.isNotEmpty ? event.takes : current.takes,
     );
 
     if (event.step == PipelineStep.ready && event.completedTrack != null) {
@@ -358,6 +422,21 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
       if (_completedGenerationIds.add(completionKey)) {
         _onGenerationComplete(event.completedTrack!);
       }
+    }
+  }
+
+  /// Switches the active rendered take (`1..batchCount`) in the multi-take switcher.
+  void selectActiveTake(int index) {
+    final current = state;
+    if (current == null || current.takes.isEmpty) return;
+    final clamped = index.clamp(0, current.takes.length - 1);
+    final updated = current.copyWith(activeTakeIndex: clamped);
+    state = updated;
+    final nextTrack = updated.activeCompletedTrack;
+    if (nextTrack != null && nextTrack.masterMp3Url.isNotEmpty) {
+      try {
+        _ref.read(playerStateProvider.notifier).playTrack(nextTrack.toTrack());
+      } catch (_) {}
     }
   }
 

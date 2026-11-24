@@ -1,5 +1,5 @@
 /**
- * African Regional Music Genres & Synthesis Parameters
+ * African Regional Music Genres & Synthesis Parameters (Phase 80: 42+ Canonical Presets)
  */
 
 export interface GenreSynthesisSpec {
@@ -20,13 +20,29 @@ export const GENRE_PRESETS: Record<string, GenreSynthesisSpec> = {
     instruments: ['log_drum', 'shakers', 'jazzy_piano_stabs', 'deep_sub_bass'],
     characteristicStyle: 'Private School Amapiano, warm syncopated shakers, iconic bouncy log drum, lush electric piano Rhodes chords',
   },
-  maskandi: {
-    bpmRange: [120, 138],
-    defaultBpm: 128,
-    defaultKey: 'D minor',
+  privateschoolamapiano: {
+    bpmRange: [108, 114],
+    defaultBpm: 111,
+    defaultKey: 'F# minor',
+    defaultMood: 'soulful',
+    instruments: ['rhodes_electric_piano', 'live_saxophone', 'acoustic_bass', 'soft_log_drum', 'shakers'],
+    characteristicStyle: 'Lush private school Amapiano, warm Rhodes jazz voicings, live soprano sax fills, subtle resonant log drum pocket',
+  },
+  sgija: {
+    bpmRange: [112, 117],
+    defaultBpm: 114,
+    defaultKey: 'G minor',
+    defaultMood: 'hypnotic',
+    instruments: ['staccato_log_drum', 'percussive_rimshots', 'dark_synth_chords', 'shakers'],
+    characteristicStyle: 'Pretoria Sgija groove, stripped-back bouncy log drum stabs, minimal dark synth chords, crisp percussion',
+  },
+  bacardi: {
+    bpmRange: [113, 118],
+    defaultBpm: 115,
+    defaultKey: 'C minor',
     defaultMood: 'energetic',
-    instruments: ['acoustic_guitar_picking', 'concertina', 'bass_guitar', 'hand_claps'],
-    characteristicStyle: 'Fast fingerpicked acoustic guitar intro (izihlabo), rhythmic concertina, energetic percussive footwork',
+    instruments: ['rolling_bassline', 'brass_stabs', 'snappy_snares', 'chant_vocals'],
+    characteristicStyle: 'Tshwane Bacardi bounce, heavy rolling bass kicks, punchy brass hits, high-energy township street vibe',
   },
   gqom: {
     bpmRange: [124, 130],
@@ -36,13 +52,13 @@ export const GENRE_PRESETS: Record<string, GenreSynthesisSpec> = {
     instruments: ['heavy_distorted_sub', 'raw_kick', 'syncopated_woodblocks', 'dark_drones'],
     characteristicStyle: 'Raw Durban minimal club energy, aggressive syncopated broken beat kick, dark hypnotic tension',
   },
-  gospel: {
-    bpmRange: [90, 125],
-    defaultBpm: 105,
-    defaultKey: 'C major',
-    defaultMood: 'uplifting',
-    instruments: ['organ', 'grand_piano', 'brass_section', 'drum_kit', 'choral_choir'],
-    characteristicStyle: 'South African Afro-Gospel praise, uplifting Hammond organ runs, brass fanfares, mass choral harmonies',
+  maskandi: {
+    bpmRange: [120, 138],
+    defaultBpm: 128,
+    defaultKey: 'D minor',
+    defaultMood: 'energetic',
+    instruments: ['acoustic_guitar_picking', 'concertina', 'bass_guitar', 'hand_claps'],
+    characteristicStyle: 'Fast fingerpicked acoustic guitar intro (izihlabo), rhythmic concertina, energetic percussive footwork',
   },
   kwaito: {
     bpmRange: [95, 105],
@@ -60,15 +76,303 @@ export const GENRE_PRESETS: Record<string, GenreSynthesisSpec> = {
     instruments: ['tribal_percussion', 'congas', 'djembe', 'synth_pads'],
     characteristicStyle: 'Deep ancestral afro house, rolling congas, spiritual synthesizer pads, progressive percussive build',
   },
+  gospel: {
+    bpmRange: [90, 125],
+    defaultBpm: 105,
+    defaultKey: 'C major',
+    defaultMood: 'uplifting',
+    instruments: ['organ', 'grand_piano', 'brass_section', 'drum_kit', 'choral_choir'],
+    characteristicStyle: 'South African Afro-Gospel praise, uplifting Hammond organ runs, brass fanfares, mass choral harmonies',
+  },
+  mbaqanga: {
+    bpmRange: [110, 128],
+    defaultBpm: 118,
+    defaultKey: 'G major',
+    defaultMood: 'joyful',
+    instruments: ['electric_guitar', 'bass_guitar', 'accordion', 'brass_horns', 'drum_kit'],
+    characteristicStyle: 'Classic township Mbaqanga jive, interlocking electric guitars, bouncy walking bassline, warm horn riffs',
+  },
+  marabi: {
+    bpmRange: [108, 122],
+    defaultBpm: 114,
+    defaultKey: 'Bb major',
+    defaultMood: 'nostalgic',
+    instruments: ['upright_piano', 'brass_section', 'jazz_brushes', 'upright_bass'],
+    characteristicStyle: 'Golden era Johannesburg Marabi jazz swing, stride piano, warm brass harmonies',
+  },
+  bubblegum: {
+    bpmRange: [114, 124],
+    defaultBpm: 118,
+    defaultKey: 'A major',
+    defaultMood: 'uplifting',
+    instruments: ['analog_synth', 'synth_bass', 'linndrum_clap', 'electric_guitar'],
+    characteristicStyle: '1980s South African township disco pop, bright analog synths, punchy boogie bass, jubilant choruses',
+  },
+  isicathamiya: {
+    bpmRange: [72, 92],
+    defaultBpm: 80,
+    defaultKey: 'Eb major',
+    defaultMood: 'spiritual',
+    instruments: ['a_cappella_choir', 'baritone_lead', 'bass_harmony'],
+    characteristicStyle: 'Warm Zulu a cappella close-harmony choir, tender call-and-response, resonant bass vocal bed',
+  },
+  mbube: {
+    bpmRange: [78, 96],
+    defaultBpm: 86,
+    defaultKey: 'F major',
+    defaultMood: 'triumphant',
+    instruments: ['choral_choir', 'tenor_lead', 'bass_vocals'],
+    characteristicStyle: 'Powerful South African choral Mbube, soaring lead falsetto over bold four-part harmonies',
+  },
+  lekompo: {
+    bpmRange: [114, 122],
+    defaultBpm: 118,
+    defaultKey: 'D minor',
+    defaultMood: 'party',
+    instruments: ['heavy_kick', 'synthesizer_lead', 'percussion', 'vocal_chants'],
+    characteristicStyle: 'Limpopo Lekompo street bounce, driving percussion, infectious Sepedi/Tshivenda hook chants',
+  },
+  malende: {
+    bpmRange: [104, 122],
+    defaultBpm: 112,
+    defaultKey: 'G minor',
+    defaultMood: 'joyful',
+    instruments: ['tshigombela_drums', 'marimba', 'hand_claps', 'call_response_vocals'],
+    characteristicStyle: 'Authentic Venda Malende polyrhythmic drums, celebratory communal clapping and call-and-response vocals',
+  },
+  afrobeats: {
+    bpmRange: [98, 114],
+    defaultBpm: 104,
+    defaultKey: 'A minor',
+    defaultMood: 'vibrant',
+    instruments: ['clean_electric_guitar', 'talking_drum', 'shekere', 'warm_sub_bass', 'rimshot_groove'],
+    characteristicStyle: 'Lagos Afrobeats groove, interlocking plucked guitars, warm rolling bass, crisp shaker & rimshot pocket',
+  },
+  afrofusion: {
+    bpmRange: [96, 114],
+    defaultBpm: 105,
+    defaultKey: 'E minor',
+    defaultMood: 'soulful',
+    instruments: ['electric_guitar', 'warm_synth_pads', 'live_drums', 'african_percussion', 'choir_pads'],
+    characteristicStyle: 'Commercial Afro Fusion radio production, clean electric guitar arpeggios, dynamic drum drop, soaring duet harmonies',
+  },
+  afrosoul: {
+    bpmRange: [76, 98],
+    defaultBpm: 86,
+    defaultKey: 'C minor',
+    defaultMood: 'soulful',
+    instruments: ['warm_rhodes', 'acoustic_guitar', 'brush_drums', 'cello_pad', 'deep_bass'],
+    characteristicStyle: 'Intimate Afro Soul ballad, velvet electric piano chords, expressive vocal runs, warm organic percussion',
+  },
+  afrojazz: {
+    bpmRange: [92, 118],
+    defaultBpm: 104,
+    defaultKey: 'D minor',
+    defaultMood: 'reflective',
+    instruments: ['tenor_sax', 'flugelhorn', 'upright_bass', 'marimba', 'jazz_kit'],
+    characteristicStyle: 'Cape & Joburg Afro Jazz, lyrical brass improvisation, intricate 6/8 & 4/4 percussion groove',
+  },
+  highlife: {
+    bpmRange: [102, 118],
+    defaultBpm: 110,
+    defaultKey: 'C major',
+    defaultMood: 'joyful',
+    instruments: ['clean_highlife_guitar', 'trumpet_horns', 'congas', 'bass_guitar'],
+    characteristicStyle: 'West African Highlife, shimmering twin electric guitars, sunny horn stabs, infectious palmwine sway',
+  },
+  rumba: {
+    bpmRange: [98, 114],
+    defaultBpm: 106,
+    defaultKey: 'F major',
+    defaultMood: 'romantic',
+    instruments: ['sebene_guitar', 'bass_guitar', 'congas', 'brass_section'],
+    characteristicStyle: 'Congolese Rumba, liquid cascading clean guitars, warm melodic basslines, sweet Lingala-style harmonies',
+  },
+  soukous: {
+    bpmRange: [118, 134],
+    defaultBpm: 126,
+    defaultKey: 'G major',
+    defaultMood: 'euphoric',
+    instruments: ['fast_sebene_guitar', 'snare_rolls', 'congas', 'brass_hits'],
+    characteristicStyle: 'High-energy Kinshasa Soukous, sparkling sebene guitar solos, jubilant dance percussion',
+  },
+  chimurenga: {
+    bpmRange: [108, 124],
+    defaultBpm: 116,
+    defaultKey: 'A major',
+    defaultMood: 'triumphant',
+    instruments: ['electric_mbira_guitar', 'hosho_shakers', 'ngoma_drums', 'bass'],
+    characteristicStyle: 'Zimbabwean Chimurenga groove translating ancestral mbira interlocking patterns onto clean electric guitars',
+  },
+  kuduro: {
+    bpmRange: [128, 140],
+    defaultBpm: 134,
+    defaultKey: 'E minor',
+    defaultMood: 'intense',
+    instruments: ['punchy_kicks', 'acid_stabs', 'tribal_percussion', 'hype_vocals'],
+    characteristicStyle: 'Luanda Kuduro club blaster, hard four-on-the-floor syncopation, infectious call-and-response chants',
+  },
+  kizomba: {
+    bpmRange: [88, 100],
+    defaultBpm: 94,
+    defaultKey: 'F# minor',
+    defaultMood: 'romantic',
+    instruments: ['sensual_synth_bass', 'zouk_kick', 'acoustic_guitar', 'soft_pads'],
+    characteristicStyle: 'Lusophone Kizomba / Semba fusion, hypnotic slow pulse, warm guitar plucks, intimate duet vocals',
+  },
+  gengetone: {
+    bpmRange: [100, 112],
+    defaultBpm: 105,
+    defaultKey: 'C minor',
+    defaultMood: 'party',
+    instruments: ['dancehall_808', 'reggaeton_kick', 'bright_lead_synth'],
+    characteristicStyle: 'Nairobi Gengetone street energy, bouncy dembow percussion, bold rhythmic cadence',
+  },
+  ethiojazz: {
+    bpmRange: [88, 108],
+    defaultBpm: 96,
+    defaultKey: 'D minor',
+    defaultMood: 'mystical',
+    instruments: ['farfisa_organ', 'vibraphone', 'brass_horns', 'kebero_drums', 'electric_bass'],
+    characteristicStyle: 'Addis Ethio-Jazz tizita scale groove, hypnotic brass & organ riffs, vintage analog warmth',
+  },
+  coupedecale: {
+    bpmRange: [118, 128],
+    defaultBpm: 122,
+    defaultKey: 'G minor',
+    defaultMood: 'party',
+    instruments: ['crispy_snares', 'atalaku_chants', 'synth_brass', 'sub_bass'],
+    characteristicStyle: 'Abidjan Coupe-Decale dancefloor anthem, tight snare rolls, celebratory hype chants',
+  },
+  bongoflava: {
+    bpmRange: [94, 108],
+    defaultBpm: 100,
+    defaultKey: 'Bb minor',
+    defaultMood: 'romantic',
+    instruments: ['acoustic_guitar', 'taarab_strings', 'afropop_drums', 'warm_bass'],
+    characteristicStyle: 'Dar es Salaam Bongo Flava, sweet melodic hooks over East African percussion and coastal string flourishes',
+  },
+  afrodrill: {
+    bpmRange: [136, 146],
+    defaultBpm: 140,
+    defaultKey: 'C# minor',
+    defaultMood: 'dark',
+    instruments: ['sliding_808', 'drill_hi_hats', 'log_drum_accents', 'dark_piano'],
+    characteristicStyle: 'Sliding 808 drill basslines blended with African log-drum percussion and razor-sharp rap delivery',
+  },
+  reggae: {
+    bpmRange: [72, 86],
+    defaultBpm: 78,
+    defaultKey: 'A minor',
+    defaultMood: 'relaxed',
+    instruments: ['one_drop_drums', 'deep_reggae_bass', 'organ_skank', 'clean_guitar'],
+    characteristicStyle: 'Roots Reggae one-drop pocket, thick warm bassline, crisp off-beat skank chords',
+  },
+  dancehall: {
+    bpmRange: [95, 108],
+    defaultBpm: 102,
+    defaultKey: 'F minor',
+    defaultMood: 'energetic',
+    instruments: ['dembow_riddim', 'sub_808', 'synth_stabs'],
+    characteristicStyle: 'Modern Dancehall riddim with sub-heavy bass drops and infectious rhythmic patois cadence',
+  },
+  samba: {
+    bpmRange: [96, 114],
+    defaultBpm: 104,
+    defaultKey: 'G major',
+    defaultMood: 'joyful',
+    instruments: ['cavaquinho', 'surdo', 'pandeiro', 'acoustic_guitar'],
+    characteristicStyle: 'Rio Samba / Samba-Enredo swing, syncopated cavaquinho strums and warm carnival percussion',
+  },
+  afrocuban: {
+    bpmRange: [96, 116],
+    defaultBpm: 106,
+    defaultKey: 'D minor',
+    defaultMood: 'vibrant',
+    instruments: ['clave', 'montuno_piano', 'tumbao_bass', 'brass_section', 'congas'],
+    characteristicStyle: 'Afro-Cuban Son Montuno groove, interlocking piano & clave rhythms, fiery horn arrangements',
+  },
+  gospelsoul: {
+    bpmRange: [74, 96],
+    defaultBpm: 84,
+    defaultKey: 'Eb major',
+    defaultMood: 'uplifting',
+    instruments: ['hammond_b3', 'grand_piano', 'gospel_choir', 'live_bass'],
+    characteristicStyle: 'Soaring Gospel Soul with church organ swells, emotional harmonies, and impassioned lead belts',
+  },
+  hiphop: {
+    bpmRange: [84, 100],
+    defaultBpm: 92,
+    defaultKey: 'C minor',
+    defaultMood: 'confident',
+    instruments: ['boom_bap_or_trap_drums', '808_sub', 'soul_sample_keys'],
+    characteristicStyle: 'Hard-hitting drums, crisp pocket, warm melodic sample bed, confident vocal cadence',
+  },
+  rb: {
+    bpmRange: [70, 92],
+    defaultBpm: 82,
+    defaultKey: 'Ab major',
+    defaultMood: 'romantic',
+    instruments: ['silk_rhodes', 'sub_bass', 'finger_snaps', 'layered_harmonies'],
+    characteristicStyle: 'Silky modern R&B, lush chord extensions, intimate lead vocals and stacked background harmonies',
+  },
+  pop: {
+    bpmRange: [104, 124],
+    defaultBpm: 114,
+    defaultKey: 'C major',
+    defaultMood: 'uplifting',
+    instruments: ['punchy_pop_drums', 'synth_pluck', 'wide_chorus_pads', 'bass'],
+    characteristicStyle: 'Radio-ready modern pop anthem, crystal hook clarity, wide stereo chorus lift',
+  },
+  electronic: {
+    bpmRange: [120, 132],
+    defaultBpm: 126,
+    defaultKey: 'A minor',
+    defaultMood: 'euphoric',
+    instruments: ['analog_arpeggio', 'four_on_floor_kick', 'sidechain_pads'],
+    characteristicStyle: 'Lush melodic electronic production, wide stereo synthesizers, driving club groove',
+  },
+  lofichill: {
+    bpmRange: [70, 86],
+    defaultBpm: 78,
+    defaultKey: 'F major',
+    defaultMood: 'relaxed',
+    instruments: ['warm_rhodes', 'kalimba', 'vinyl_crackle', 'soft_boom_bap'],
+    characteristicStyle: 'Afro Lo-Fi chill study beat with warm Rhodes chords, gentle kalimba plucks, dusty tape saturation',
+  },
+  kpop: {
+    bpmRange: [110, 128],
+    defaultBpm: 118,
+    defaultKey: 'F# minor',
+    defaultMood: 'vibrant',
+    instruments: ['glossy_synths', 'punchy_808', 'brass_hits', 'layered_vocals'],
+    characteristicStyle: 'High-polish K-Pop production, dynamic beat switches, crisp vocal harmonies and anthemic chorus',
+  },
+  bollywoodfusion: {
+    bpmRange: [96, 118],
+    defaultBpm: 106,
+    defaultKey: 'D minor',
+    defaultMood: 'vibrant',
+    instruments: ['tabla', 'bansuri_flute', 'dhol', 'modern_bass', 'strings'],
+    characteristicStyle: 'Lush Bollywood Afro-Fusion, expressive tabla & bansuri interwoven with warm modern grooves',
+  },
+  afroasianlofi: {
+    bpmRange: [74, 90],
+    defaultBpm: 82,
+    defaultKey: 'E minor',
+    defaultMood: 'calm',
+    instruments: ['koto_pluck', 'mbira', 'warm_rhodes', 'soft_shakers'],
+    characteristicStyle: 'Cross-cultural Afro-Asian Lo-Fi, delicate koto & mbira melodies over mellow beat pocket',
+  },
 };
 
 export function getGenrePreset(genre: string): GenreSynthesisSpec {
   const key = genre.toLowerCase().replace(/[^a-z]/g, '');
   if (GENRE_PRESETS[key]) return GENRE_PRESETS[key];
-  // Fuzzy: cockpit labels like "90s Kwaito" / "Private School Amapiano" must not
-  // silently fall back to Amapiano.
-  const fuzzy = Object.keys(GENRE_PRESETS).find((k) => key.includes(k));
-  return GENRE_PRESETS[fuzzy ?? 'amapiano'];
+  const fuzzy = Object.keys(GENRE_PRESETS)
+    .filter((k) => key.includes(k))
+    .sort((a, b) => b.length - a.length)[0];
+  return GENRE_PRESETS[fuzzy ?? 'amapiano']!;
 }
 
 /** True when the genre string maps to a known preset (exact or fuzzy). */
@@ -76,4 +380,3 @@ export function hasGenrePreset(genre: string): boolean {
   const key = genre.toLowerCase().replace(/[^a-z]/g, '');
   return Object.keys(GENRE_PRESETS).some((k) => key === k || key.includes(k));
 }
-

@@ -6504,6 +6504,7 @@ export class EdgeIsolateDatabaseEngine {
         : existingJob?.visionMeta;
     const resolvedCoverUrl =
       existingJob?.coverUrl ??
+      (gj.cover_url ? String(gj.cover_url) : undefined) ??
       manifest?.assets?.coverArt1x1Url ??
       manifest?.assets?.coverArt9x16Url ??
       (typeof visionMeta?.coverUrl === 'string' ? visionMeta.coverUrl : undefined);
@@ -6512,8 +6513,56 @@ export class EdgeIsolateDatabaseEngine {
       rawStemUrls &&
       typeof rawStemUrls === 'object' &&
       Object.keys(rawStemUrls as Record<string, unknown>).length > 0;
+    const rawTakes = gj.takes_json;
+    const takes =
+      Array.isArray(rawTakes) && rawTakes.length > 0
+        ? (rawTakes as GenerationJob['takes'])
+        : existingJob?.takes;
+    const rawVoiceCast =
+      gj.voice_cast_json &&
+      typeof gj.voice_cast_json === 'object' &&
+      Object.keys(gj.voice_cast_json as Record<string, unknown>).length > 0
+        ? (gj.voice_cast_json as Record<string, unknown>)
+        : existingJob?.voiceCast;
+    const rawSpec =
+      gj.generation_spec_json &&
+      typeof gj.generation_spec_json === 'object' &&
+      Object.keys(gj.generation_spec_json as Record<string, unknown>).length > 0
+        ? (gj.generation_spec_json as Record<string, unknown>)
+        : existingJob?.generationSpec;
+
     return {
       generationId: String(gj.generation_id),
+      creatorId: canonicalizeCreatorId(
+        String(gj.creator_id ?? existingJob?.creatorId ?? 'creator_cern'),
+      ),
+      batchId: gj.batch_id ? String(gj.batch_id) : existingJob?.batchId,
+      batchCount:
+        gj.batch_count !== undefined && gj.batch_count !== null
+          ? Number(gj.batch_count)
+          : existingJob?.batchCount,
+      engineTier: gj.engine_tier
+        ? (String(gj.engine_tier) as GenerationJob['engineTier'])
+        : existingJob?.engineTier,
+      resolvedEngine: gj.resolved_engine
+        ? (String(gj.resolved_engine) as GenerationJob['resolvedEngine'])
+        : existingJob?.resolvedEngine,
+      audioMode: gj.audio_mode
+        ? (String(gj.audio_mode) as GenerationJob['audioMode'])
+        : existingJob?.audioMode,
+      referenceAudioUrl: gj.reference_audio_url
+        ? String(gj.reference_audio_url)
+        : existingJob?.referenceAudioUrl,
+      visibility: gj.visibility
+        ? (String(gj.visibility) as 'public' | 'private')
+        : existingJob?.visibility,
+      attributionTag:
+        gj.attribution_tag !== undefined && gj.attribution_tag !== null
+          ? String(gj.attribution_tag)
+          : existingJob?.attributionTag,
+      voiceCast: rawVoiceCast,
+      generationSpec: rawSpec,
+      takes,
       trackTitle: String(gj.track_title ?? existingJob?.trackTitle ?? 'Untitled Track'),
       genre: String(gj.genre ?? existingJob?.genre ?? 'Amapiano'),
       language: String(gj.language ?? existingJob?.language ?? 'Instrumental'),
@@ -6535,7 +6584,7 @@ export class EdgeIsolateDatabaseEngine {
       manifest,
       visionMeta,
       coverUrl: resolvedCoverUrl,
-      lyrics: existingJob?.lyrics,
+      lyrics: gj.lyrics_text ? String(gj.lyrics_text) : existingJob?.lyrics,
       durationSec: Number(gj.duration_sec ?? existingJob?.durationSec ?? 180),
       errorMessage: gj.error_message
         ? String(gj.error_message)
@@ -6575,10 +6624,32 @@ export class EdgeIsolateDatabaseEngine {
     jobKind: string,
   ): { merged: GenerationJob; effectiveCreatorId: string; payload: Record<string, unknown> } {
     const existing = this.generationJobs.get(job.generationId);
+    const effectiveCreatorId = canonicalizeCreatorId(
+      creatorId !== 'creator_cern'
+        ? creatorId
+        : (job.creatorId ?? existing?.creatorId ?? creatorId),
+    );
     const merged: GenerationJob = {
       ...(existing?.job ?? ({} as GenerationJob)),
       ...job,
+      creatorId: effectiveCreatorId,
       providerTaskId: job.providerTaskId ?? existing?.job.providerTaskId,
+      batchId: job.batchId ?? existing?.job.batchId,
+      batchCount: job.batchCount ?? existing?.job.batchCount ?? 1,
+      engineTier: job.engineTier ?? existing?.job.engineTier ?? 'studio_bake',
+      resolvedEngine:
+        job.resolvedEngine ?? existing?.job.resolvedEngine ?? 'minimax_music_3',
+      audioMode: job.audioMode ?? existing?.job.audioMode ?? 'none',
+      referenceAudioUrl:
+        job.referenceAudioUrl ?? existing?.job.referenceAudioUrl,
+      visibility: job.visibility ?? existing?.job.visibility ?? 'public',
+      attributionTag:
+        job.attributionTag !== undefined
+          ? job.attributionTag
+          : existing?.job.attributionTag,
+      voiceCast: job.voiceCast ?? existing?.job.voiceCast,
+      generationSpec: job.generationSpec ?? existing?.job.generationSpec,
+      takes: job.takes ?? existing?.job.takes,
       masterMp3Url: job.masterMp3Url ?? existing?.job.masterMp3Url,
       stemsZipUrl: job.stemsZipUrl ?? existing?.job.stemsZipUrl,
       stemUrls: job.stemUrls ?? existing?.job.stemUrls,
@@ -6588,7 +6659,6 @@ export class EdgeIsolateDatabaseEngine {
       coverUrl: job.coverUrl ?? existing?.job.coverUrl,
       lyrics: job.lyrics ?? existing?.job.lyrics,
     };
-    const effectiveCreatorId = canonicalizeCreatorId(creatorId);
     const resolvedKind = existing?.jobKind && jobKind === 'audio_synthesis' ? existing.jobKind : jobKind;
     this.generationJobs.set(job.generationId, {
       job: merged,
@@ -6603,6 +6673,19 @@ export class EdgeIsolateDatabaseEngine {
         creator_id: effectiveCreatorId,
         job_kind: resolvedKind,
         provider_task_id: merged.providerTaskId ?? null,
+        batch_id: merged.batchId ?? null,
+        batch_count: Math.max(1, Math.min(4, Math.round(merged.batchCount ?? 1))),
+        engine_tier: merged.engineTier ?? 'studio_bake',
+        resolved_engine: merged.resolvedEngine ?? 'minimax_music_3',
+        audio_mode: merged.audioMode ?? 'none',
+        reference_audio_url: merged.referenceAudioUrl ?? null,
+        visibility: merged.visibility ?? 'public',
+        attribution_tag: merged.attributionTag ?? null,
+        lyrics_text: merged.lyrics ?? null,
+        cover_url: merged.coverUrl ?? null,
+        voice_cast_json: merged.voiceCast ?? {},
+        generation_spec_json: merged.generationSpec ?? {},
+        takes_json: merged.takes ?? [],
         status: merged.status,
         step: merged.step,
         progress_pct: Math.round(Number(merged.progressPct ?? 0)),

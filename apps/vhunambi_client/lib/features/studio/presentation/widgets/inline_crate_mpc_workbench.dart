@@ -5,6 +5,8 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
+import '../../../../core/widgets/vhunambi_glass_tab_bar.dart';
 import '../../domain/models/heritage_crate_models.dart';
 import '../../domain/models/mycelium_biome_models.dart';
 import '../../domain/models/studio_form_state.dart';
@@ -40,13 +42,9 @@ class InlineCrateMpcWorkbench extends ConsumerWidget {
         formState.branchStemLockModes['node_branch_beat'] ==
             StemLockMode.lockedPure44k;
 
-    return Container(
+    return VhunambiGlassSurface(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevatedOf(context),
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtleOf(context)),
-      ),
+      borderRadius: AppRadius.cardBorder,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -164,56 +162,36 @@ class InlineCrateMpcWorkbench extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
 
-          // Unified 4-Pill Mode Switcher (Zero Truncation on 360dp Mobile)
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceSecondaryOf(context),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                _buildModeTab(
-                  context: context,
-                  ref: ref,
-                  mode: InlineWorkbenchMode.crate,
-                  activeMode: activeMode,
-                  keyName: 'workbench_mode_crate',
-                  label: 'Crate',
-                  icon: PhosphorIconsBold.disc,
-                ),
-                const SizedBox(width: 4),
-                _buildModeTab(
-                  context: context,
-                  ref: ref,
-                  mode: InlineWorkbenchMode.mpc,
-                  activeMode: activeMode,
-                  keyName: 'workbench_mode_mpc',
-                  label: '8-Pad MPC',
-                  icon: PhosphorIconsBold.squaresFour,
-                ),
-                const SizedBox(width: 4),
-                _buildModeTab(
-                  context: context,
-                  ref: ref,
-                  mode: InlineWorkbenchMode.sketchpad,
-                  activeMode: activeMode,
-                  keyName: 'workbench_mode_sketchpad',
-                  label: '5-Ch Groove',
-                  icon: PhosphorIconsBold.pianoKeys,
-                ),
-                const SizedBox(width: 4),
-                _buildModeTab(
-                  context: context,
-                  ref: ref,
-                  mode: InlineWorkbenchMode.dawUpload,
-                  activeMode: activeMode,
-                  keyName: 'workbench_mode_daw_upload',
-                  label: 'DAW Upload',
-                  icon: PhosphorIconsBold.uploadSimple,
-                ),
-              ],
-            ),
+          // Unified 4-Pill Glass Mode Switcher (Scrollable, zero truncation on 360dp Mobile)
+          VhunambiGlassTabBar(
+            scrollable: true,
+            selectedIndex: activeMode.index,
+            onSelected: (idx) {
+              ref.read(inlineWorkbenchModeProvider.notifier).state =
+                  InlineWorkbenchMode.values[idx];
+            },
+            items: const <VhunambiGlassTabItem>[
+              VhunambiGlassTabItem(
+                key: Key('workbench_mode_crate'),
+                label: 'Crate',
+                icon: PhosphorIconsBold.disc,
+              ),
+              VhunambiGlassTabItem(
+                key: Key('workbench_mode_mpc'),
+                label: '8-Pad MPC',
+                icon: PhosphorIconsBold.squaresFour,
+              ),
+              VhunambiGlassTabItem(
+                key: Key('workbench_mode_sketchpad'),
+                label: '5-Ch Groove',
+                icon: PhosphorIconsBold.pianoKeys,
+              ),
+              VhunambiGlassTabItem(
+                key: Key('workbench_mode_daw_upload'),
+                label: 'DAW Upload',
+                icon: PhosphorIconsBold.uploadSimple,
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.md),
 
@@ -227,69 +205,6 @@ class InlineCrateMpcWorkbench extends ConsumerWidget {
           else
             _buildInlineDawUploadSurface(context),
         ],
-      ),
-    );
-  }
-
-  Widget _buildModeTab({
-    required BuildContext context,
-    required WidgetRef ref,
-    required InlineWorkbenchMode mode,
-    required InlineWorkbenchMode activeMode,
-    required String keyName,
-    required String label,
-    required PhosphorIconData icon,
-  }) {
-    final isSelected = activeMode == mode;
-    return Expanded(
-      child: GestureDetector(
-        key: Key(keyName),
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          HapticFeedback.selectionClick();
-          ref.read(inlineWorkbenchModeProvider.notifier).state = mode;
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.brandPrimary.withValues(alpha: 0.16)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(
-              color: isSelected
-                  ? AppColors.brandPrimary
-                  : Colors.transparent,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              PhosphorIcon(
-                icon,
-                size: 13,
-                color: isSelected
-                    ? AppColors.brandPrimary
-                    : AppColors.textSecondaryOf(context),
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.caption.copyWith(
-                    color: isSelected
-                        ? AppColors.brandPrimary
-                        : AppColors.textSecondaryOf(context),
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                    fontSize: 10.5,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -373,15 +288,19 @@ class InlineCrateMpcWorkbench extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              '${mpcState.sourceTitle} • ${mpcState.bpm} BPM',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.textPrimaryOf(context),
-                fontWeight: FontWeight.w700,
+            Expanded(
+              child: Text(
+                '${mpcState.sourceTitle} • ${mpcState.bpm} BPM',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textPrimaryOf(context),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
+            const SizedBox(width: 12),
             Text(
               'Stretch: ${mpcState.timeStretchRatio.toStringAsFixed(1)}x',
               style: AppTypography.caption.copyWith(
@@ -392,59 +311,66 @@ class InlineCrateMpcWorkbench extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: List.generate(mpcState.pads.length, (i) {
-            final pad = mpcState.pads[i];
-            final isSelected = mpcState.selectedPadIndex == i;
-            return GestureDetector(
-              key: Key('workbench_mpc_pad_$i'),
-              onTap: () {
-                HapticFeedback.lightImpact();
-                ref.read(mpcSlicerProvider.notifier).selectPad(i);
-                ref.read(mpcSlicerProvider.notifier).triggerPad(i);
-              },
-              child: Container(
-                width: 72,
-                height: 54,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.brandPrimary.withValues(alpha: 0.22)
-                      : AppColors.surfaceSecondaryOf(context),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppColors.brandPrimary
-                        : AppColors.borderSubtleOf(context),
-                    width: isSelected ? 1.5 : 1.0,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      pad.label,
-                      style: AppTypography.caption.copyWith(
-                        fontWeight: FontWeight.w800,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 280 ? 4 : 2;
+            final padWidth =
+                (constraints.maxWidth - ((columns - 1) * 8)) / columns;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(mpcState.pads.length, (i) {
+                final pad = mpcState.pads[i];
+                final isSelected = mpcState.selectedPadIndex == i;
+                return GestureDetector(
+                  key: Key('workbench_mpc_pad_$i'),
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    ref.read(mpcSlicerProvider.notifier).selectPad(i);
+                    ref.read(mpcSlicerProvider.notifier).triggerPad(i);
+                  },
+                  child: Container(
+                    width: padWidth,
+                    constraints: const BoxConstraints(minHeight: 56),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.brandPrimary.withValues(alpha: 0.22)
+                          : AppColors.surfaceSecondaryOf(context),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
                         color: isSelected
                             ? AppColors.brandPrimary
-                            : AppColors.textPrimaryOf(context),
+                            : AppColors.borderSubtleOf(context),
+                        width: isSelected ? 1.5 : 1.0,
                       ),
                     ),
-                    Text(
-                      '${pad.startSec.toStringAsFixed(1)}s',
-                      style: AppTypography.caption.copyWith(
-                        fontSize: 9,
-                        color: AppColors.textSecondaryOf(context),
-                      ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          pad.label,
+                          style: AppTypography.caption.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: isSelected
+                                ? AppColors.brandPrimary
+                                : AppColors.textPrimaryOf(context),
+                          ),
+                        ),
+                        Text(
+                          '${pad.startSec.toStringAsFixed(1)}s',
+                          style: AppTypography.caption.copyWith(
+                            fontSize: 9,
+                            color: AppColors.textSecondaryOf(context),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              }),
             );
-          }),
+          },
         ),
       ],
     );

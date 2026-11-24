@@ -8,6 +8,101 @@ import '../../../track/domain/models/track_entity.dart';
 /// card (T10.1).
 enum PipelineStep { startingUp, writingLyrics, producingBeat, ready, failed }
 
+/// Granular backend telemetry substages shown inside `GenerationPipelineCard` (`Phase 80`).
+enum BakeStage {
+  queued,
+  planningLyrics,
+  composingArrangement,
+  convertingVocals,
+  broadcastMastering,
+  uploading,
+  ready,
+  failed;
+
+  static BakeStage fromWire(String? raw, {PipelineStep? fallbackStep}) {
+    final normalized = (raw ?? '').trim().toLowerCase();
+    return switch (normalized) {
+      'queued' || 'in_queue' || 'starting_up' => BakeStage.queued,
+      'planning_lyrics' || 'writing_lyrics' => BakeStage.planningLyrics,
+      'synthesizing' ||
+      'producing_beat' ||
+      'running' ||
+      'processing' ||
+      'in_progress' => BakeStage.composingArrangement,
+      'separating_stems' || 'converting_vocals' => BakeStage.convertingVocals,
+      'mastering' => BakeStage.broadcastMastering,
+      'uploading' => BakeStage.uploading,
+      'ready' || 'completed' || 'succeeded' => BakeStage.ready,
+      'failed' => BakeStage.failed,
+      _ => switch (fallbackStep) {
+        PipelineStep.startingUp => BakeStage.queued,
+        PipelineStep.writingLyrics => BakeStage.planningLyrics,
+        PipelineStep.producingBeat => BakeStage.composingArrangement,
+        PipelineStep.ready => BakeStage.ready,
+        PipelineStep.failed => BakeStage.failed,
+        null => BakeStage.queued,
+      },
+    };
+  }
+
+  /// Maps to 0..3 pill index in the 4-stage bake strip.
+  int get stripIndex => switch (this) {
+    BakeStage.queued || BakeStage.planningLyrics => 0,
+    BakeStage.composingArrangement => 1,
+    BakeStage.convertingVocals => 2,
+    BakeStage.broadcastMastering || BakeStage.uploading || BakeStage.ready => 3,
+    BakeStage.failed => -1,
+  };
+
+  String get label => switch (this) {
+    BakeStage.queued => 'Queued',
+    BakeStage.planningLyrics => 'Planning Lyrics',
+    BakeStage.composingArrangement => 'Composing',
+    BakeStage.convertingVocals => 'Vocals & Stems',
+    BakeStage.broadcastMastering => 'Mastering',
+    BakeStage.uploading => 'Uploading',
+    BakeStage.ready => 'Ready',
+    BakeStage.failed => 'Failed',
+  };
+}
+
+/// Individual take output when `batchCount > 1` (`1..4`).
+@immutable
+class GenerationTake {
+  final int takeIndex;
+  final int seed;
+  final String audioUrl;
+  final String? stemsZipUrl;
+  final String? coverUrl;
+  final int durationSec;
+
+  const GenerationTake({
+    required this.takeIndex,
+    required this.seed,
+    required this.audioUrl,
+    this.stemsZipUrl,
+    this.coverUrl,
+    this.durationSec = 180,
+  });
+
+  factory GenerationTake.fromJson(Map<String, dynamic> json, {int index = 0}) {
+    return GenerationTake(
+      takeIndex: (json['takeIndex'] ?? json['take_index'] ?? index) is num
+          ? ((json['takeIndex'] ?? json['take_index'] ?? index) as num).toInt()
+          : index,
+      seed: (json['seed'] as num?)?.toInt() ?? 0,
+      audioUrl:
+          (json['audioUrl'] ?? json['audio_url'] ?? json['masterMp3Url'] ?? '')
+              .toString(),
+      stemsZipUrl: (json['stemsZipUrl'] ?? json['stems_zip_url'])?.toString(),
+      coverUrl: (json['coverUrl'] ?? json['cover_url'])?.toString(),
+      durationSec:
+          ((json['durationSec'] ?? json['duration_sec']) as num?)?.toInt() ??
+          180,
+    );
+  }
+}
+
 /// Parsed representation of a single WebSocket `pipeline_event` frame.
 @immutable
 class PipelineSocketEvent {
@@ -23,6 +118,10 @@ class PipelineSocketEvent {
   final String? generatedLyrics;
   final TrackEntity? completedTrack;
   final String? error;
+  final BakeStage bakeStage;
+  final String? resolvedEngine;
+  final String? attributionTag;
+  final List<GenerationTake> takes;
 
   const PipelineSocketEvent({
     required this.generationId,
@@ -33,6 +132,10 @@ class PipelineSocketEvent {
     this.generatedLyrics,
     this.completedTrack,
     this.error,
+    this.bakeStage = BakeStage.queued,
+    this.resolvedEngine,
+    this.attributionTag,
+    this.takes = const <GenerationTake>[],
   });
 
   /// Tolerant decoder — a malformed frame must never tear down the socket.
@@ -108,6 +211,23 @@ class PipelineSocketEvent {
       }
     }
 
+    final resolvedEngine =
+        (json['resolvedEngine'] ?? json['resolved_engine']) as String?;
+    final attributionTag =
+        (json['attributionTag'] ?? json['attribution_tag']) as String?;
+    final rawTakes = json['takes'] ?? json['takes_json'];
+    final parsedTakes = <GenerationTake>[];
+    if (rawTakes is List) {
+      for (var i = 0; i < rawTakes.length; i++) {
+        final item = rawTakes[i];
+        if (item is Map) {
+          parsedTakes.add(
+            GenerationTake.fromJson(Map<String, dynamic>.from(item), index: i),
+          );
+        }
+      }
+    }
+
     return PipelineSocketEvent(
       generationId: generationId,
       step: step,
@@ -121,6 +241,10 @@ class PipelineSocketEvent {
               as String?,
       completedTrack: completedTrack,
       error: explicitError,
+      bakeStage: BakeStage.fromWire(rawStep, fallbackStep: step),
+      resolvedEngine: resolvedEngine,
+      attributionTag: attributionTag,
+      takes: parsedTakes,
     );
   }
 
@@ -128,12 +252,13 @@ class PipelineSocketEvent {
   static PipelineStep stepFromString(String raw) {
     return switch (raw.trim().toLowerCase()) {
       'starting_up' || 'queued' || 'in_queue' => PipelineStep.startingUp,
-      'writing_lyrics' => PipelineStep.writingLyrics,
+      'writing_lyrics' || 'planning_lyrics' => PipelineStep.writingLyrics,
       'producing_beat' ||
       'synthesizing' ||
       'running' ||
       'processing' ||
       'separating_stems' ||
+      'converting_vocals' ||
       'uploading' ||
       'mastering' ||
       'in_progress' => PipelineStep.producingBeat,
@@ -154,6 +279,10 @@ class PipelineSocketEvent {
     String? generatedLyrics,
     TrackEntity? completedTrack,
     String? error,
+    BakeStage? bakeStage,
+    String? resolvedEngine,
+    String? attributionTag,
+    List<GenerationTake>? takes,
   }) {
     return PipelineSocketEvent(
       generationId: generationId ?? this.generationId,
@@ -164,6 +293,10 @@ class PipelineSocketEvent {
       generatedLyrics: generatedLyrics ?? this.generatedLyrics,
       completedTrack: completedTrack ?? this.completedTrack,
       error: error ?? this.error,
+      bakeStage: bakeStage ?? this.bakeStage,
+      resolvedEngine: resolvedEngine ?? this.resolvedEngine,
+      attributionTag: attributionTag ?? this.attributionTag,
+      takes: takes ?? this.takes,
     );
   }
 
@@ -199,6 +332,11 @@ class GenerationProgressState {
   final String? generatedLyrics;
   final TrackEntity? completedTrack;
   final String? errorMessage;
+  final BakeStage bakeStage;
+  final String? resolvedEngine;
+  final String? attributionTag;
+  final List<GenerationTake> takes;
+  final int activeTakeIndex;
 
   const GenerationProgressState({
     required this.generationId,
@@ -210,7 +348,29 @@ class GenerationProgressState {
     this.generatedLyrics,
     this.completedTrack,
     this.errorMessage,
+    this.bakeStage = BakeStage.queued,
+    this.resolvedEngine,
+    this.attributionTag,
+    this.takes = const <GenerationTake>[],
+    this.activeTakeIndex = 0,
   });
+
+  /// Returns `completedTrack` pointed at the active multi-take audio URL when present.
+  TrackEntity? get activeCompletedTrack {
+    final track = completedTrack;
+    if (track == null || takes.isEmpty) return track;
+    final idx = activeTakeIndex.clamp(0, takes.length - 1);
+    final take = takes[idx];
+    if (take.audioUrl.isEmpty || take.audioUrl == track.masterMp3Url) {
+      return track;
+    }
+    return track.copyWith(
+      masterMp3Url: take.audioUrl,
+      stemsUrl: take.stemsZipUrl ?? track.stemsUrl,
+      coverUrl: take.coverUrl ?? track.coverUrl,
+      duration: Duration(seconds: take.durationSec),
+    );
+  }
 
   /// `true` while the four synthesis stages are still running.
   bool get isGenerating =>
@@ -242,6 +402,11 @@ class GenerationProgressState {
     String? generatedLyrics,
     TrackEntity? completedTrack,
     String? errorMessage,
+    BakeStage? bakeStage,
+    String? resolvedEngine,
+    String? attributionTag,
+    List<GenerationTake>? takes,
+    int? activeTakeIndex,
   }) {
     return GenerationProgressState(
       generationId: generationId ?? this.generationId,
@@ -253,6 +418,11 @@ class GenerationProgressState {
       generatedLyrics: generatedLyrics ?? this.generatedLyrics,
       completedTrack: completedTrack ?? this.completedTrack,
       errorMessage: errorMessage,
+      bakeStage: bakeStage ?? this.bakeStage,
+      resolvedEngine: resolvedEngine ?? this.resolvedEngine,
+      attributionTag: attributionTag ?? this.attributionTag,
+      takes: takes ?? this.takes,
+      activeTakeIndex: activeTakeIndex ?? this.activeTakeIndex,
     );
   }
 
@@ -264,11 +434,25 @@ class GenerationProgressState {
           generationId == other.generationId &&
           currentStep == other.currentStep &&
           progressPercent == other.progressPercent &&
-          statusMessage == other.statusMessage;
+          statusMessage == other.statusMessage &&
+          bakeStage == other.bakeStage &&
+          resolvedEngine == other.resolvedEngine &&
+          attributionTag == other.attributionTag &&
+          activeTakeIndex == other.activeTakeIndex &&
+          takes.length == other.takes.length;
 
   @override
-  int get hashCode =>
-      Object.hash(generationId, currentStep, progressPercent, statusMessage);
+  int get hashCode => Object.hash(
+    generationId,
+    currentStep,
+    progressPercent,
+    statusMessage,
+    bakeStage,
+    resolvedEngine,
+    attributionTag,
+    activeTakeIndex,
+    takes.length,
+  );
 
   @override
   String toString() =>

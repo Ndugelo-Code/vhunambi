@@ -1,20 +1,21 @@
 /**
- * ACE-Step lyric sanitizer.
+ * Lyric sanitizer for ACE-Step 1.5 XL & MiniMax Music 3.0.
  *
- * ACE-Step tokenizes every non-structural word in the `lyrics` field as a word
- * to be SUNG. Production notes / stage directions such as
- * `[Log drum drop: heavy sub-808]` or `(Listen... hear that horn)` therefore get
- * vocalized. This keeps only the structural section tags ACE-Step understands
- * and strips every other bracketed / parenthesized fragment.
+ * ACE-Step tokenizes non-structural words in brackets/parens as sung text unless
+ * they are recognized arrangement or voice-turn cue headers. Phase 80 expands the
+ * allowed tags to preserve `[Voice A]`, `[Voice B]`, `[Duet]`, `[Choir]`,
+ * `[Call]`, `[Response]`, and solo breaks (`[Guitar Solo]`, `[Sax Solo]`,
+ * `[Log Drum Drop]`) while still stripping arbitrary prose directions.
  */
 
 const ALLOWED_SECTION =
-  /^(intro|verse(?:\s*\d+)?|pre-?chorus|chorus(?:\s*\d+)?|bridge|outro|instrumental|hook)$/;
+  /^(intro|verse(?:\s*\d+)?|pre-?chorus|chorus(?:\s*\d+)?|bridge|outro|instrumental|hook|voice\s*[a-d]|duet|choir|call|response|guitar\s*solo|sax\s*solo|drop|breakdown)$/;
 
 function normalizeSectionLabel(raw: string): string | null {
-  // "[INTRO: 8 bars percussive shaker]" -> "intro"; "[Verse 1]" -> "verse 1"
   const head = raw.split(/[:\-–—]/)[0]!.trim().toLowerCase().replace(/\s+/g, ' ');
-  const label = head.replace(/^pre chorus$/, 'pre-chorus').replace(/^prechorus$/, 'pre-chorus');
+  const label = head
+    .replace(/^pre chorus$/, 'pre-chorus')
+    .replace(/^prechorus$/, 'pre-chorus');
   return ALLOWED_SECTION.test(label) ? label : null;
 }
 
@@ -36,10 +37,10 @@ export function sanitizeLyricsForAceStep(rawLyrics: string): string {
       continue;
     }
 
-    // Lines that are only a parenthesized note are dropped entirely.
+    // Lines that are only a parenthesized stage note are dropped.
     if (/^\([^)]*\)$/.test(line)) continue;
 
-    // Inline tag followed by sung text: "[CHORUS] Sing it loud" -> header + text.
+    // Inline tag followed by sung text: "[Voice A] Sing it loud" -> "[voice a]\nSing it loud".
     let rest = line;
     const leadingTag = /^\[([^\]]*)\]\s*(.*)$/.exec(rest);
     if (leadingTag) {
@@ -56,7 +57,6 @@ export function sanitizeLyricsForAceStep(rawLyrics: string): string {
     if (cleaned) out.push(cleaned);
   }
 
-  // Trim leading/trailing blank lines and collapse duplicates.
   while (out.length > 0 && out[0] === '') out.shift();
   while (out.length > 0 && out[out.length - 1] === '') out.pop();
   return out.join('\n');

@@ -9,6 +9,8 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_gradients.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/responsive_utils.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
+import '../../domain/models/studio_genre_catalog.dart';
 import '../providers/studio_form_provider.dart';
 
 class RegionalGenreSelector extends ConsumerStatefulWidget {
@@ -24,34 +26,8 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
   String _searchQuery = '';
   final TextEditingController _customGenreController = TextEditingController();
 
-  static const List<String> _regions = [
-    'South Africa',
-    'Africa',
-    'Americas',
-    'Global',
-    'Asia',
-  ];
-
-  static const List<_GenreItem> _allGenres = [
-    _GenreItem(name: 'Amapiano', icon: AppIcons.piano, region: 'South Africa'),
-    _GenreItem(name: 'Kwaito', icon: AppIcons.releases, region: 'South Africa'),
-    _GenreItem(name: 'Gqom', icon: AppIcons.lightning, region: 'South Africa'),
-    _GenreItem(name: 'Maskandi', icon: AppIcons.guitar, region: 'South Africa'),
-    _GenreItem(name: 'Mbaqanga', icon: AppIcons.guitar, region: 'South Africa'),
-    _GenreItem(name: 'Marabi', icon: AppIcons.piano, region: 'South Africa'),
-    _GenreItem(name: 'Bubblegum', icon: AppIcons.songs, region: 'South Africa'),
-    _GenreItem(name: 'Afro House', icon: AppIcons.drums, region: 'South Africa'),
-    _GenreItem(name: 'Afrobeats', icon: AppIcons.flame, region: 'Africa'),
-    _GenreItem(name: 'Afro Jazz', icon: AppIcons.songsOutline, region: 'Africa'),
-    _GenreItem(name: 'Afro Soul', icon: AppIcons.vocals, region: 'Africa'),
-    _GenreItem(name: 'Highlife', icon: AppIcons.songs, region: 'Africa'),
-    _GenreItem(name: 'Coupé-Décalé', icon: AppIcons.lightning, region: 'Africa'),
-    _GenreItem(name: 'Bongo Flava', icon: AppIcons.waveform, region: 'Africa'),
-    _GenreItem(name: 'Reggae', icon: AppIcons.songsOutline, region: 'Americas'),
-    _GenreItem(name: 'Dancehall', icon: AppIcons.volumeHigh, region: 'Americas'),
-    _GenreItem(name: 'Hip Hop', icon: AppIcons.mic, region: 'Global'),
-    _GenreItem(name: 'R&B', icon: AppIcons.sparkle, region: 'Global'),
-  ];
+  static const List<String> _regions = kStudioRegions;
+  static const List<StudioGenreEntry> _allGenres = kStudioGenreCatalog;
 
   @override
   void dispose() {
@@ -75,12 +51,8 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
       return matchesSearch && matchesRegion;
     }).toList();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+    return VhunambiGlassSurface(
+      borderRadius: AppRadius.cardBorder,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -105,30 +77,37 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                     'Genre',
                     style: AppTypography.bodyLarge.copyWith(
                       fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimaryOf(context),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.xs,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary,
-                      borderRadius: AppRadius.pillBorder,
-                      border: Border.all(color: AppColors.borderSubtle),
-                    ),
-                    child: Text(
-                      activeGenre,
-                      style: AppTypography.badge.copyWith(
-                        color: AppColors.brandPrimary,
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceSecondaryOf(context),
+                        borderRadius: AppRadius.pillBorder,
+                        border: Border.all(
+                          color: AppColors.borderSubtleOf(context),
+                        ),
+                      ),
+                      child: Text(
+                        activeGenre,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.badge.copyWith(
+                          color: AppColors.brandPrimary,
+                        ),
                       ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: AppSpacing.xs),
                   PhosphorIcon(
                     _isExpanded ? AppIcons.caretUp : AppIcons.caretDown,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                 ],
               ),
@@ -136,7 +115,7 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
           ),
 
           if (_isExpanded) ...[
-            Divider(color: AppColors.borderSubtle, height: 1),
+            Divider(color: AppColors.borderSubtleOf(context), height: 1),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
@@ -144,33 +123,37 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                 children: [
                   // Search Pill
                   Container(
-                    height: 40,
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary,
+                      color: AppColors.surfaceSecondaryOf(context),
                       borderRadius: AppRadius.pillBorder,
-                      border: Border.all(color: AppColors.borderSubtle),
+                      border: Border.all(
+                        color: AppColors.borderSubtleOf(context),
+                      ),
                     ),
                     child: TextField(
                       onChanged: (val) => setState(() => _searchQuery = val),
                       style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
+                        color: AppColors.textPrimaryOf(context),
                       ),
                       cursorColor: AppColors.brandPrimary,
                       decoration: InputDecoration(
                         prefixIcon: PhosphorIcon(
                           AppIcons.search,
                           size: 18,
-                          color: AppColors.textSecondary,
+                          color: AppColors.textSecondaryOf(context),
                         ),
-                        hintText: 'Search genres (e.g. Ama, Hip...)',
+                        hintText: 'Search 42 genres (e.g. Ama, Ethio, K-Pop...)',
                         hintStyle: AppTypography.bodySmall.copyWith(
-                          color: AppColors.textTertiary,
+                          color: AppColors.textSecondaryOf(
+                            context,
+                          ).withValues(alpha: 0.7),
                         ),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         contentPadding:
-                            const EdgeInsets.symmetric(vertical: 10),
+                            const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
@@ -185,6 +168,9 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                         return Padding(
                           padding: const EdgeInsets.only(right: AppSpacing.xs),
                           child: InkWell(
+                            key: Key(
+                              'genre_region_${region.toLowerCase().replaceAll(' ', '_')}',
+                            ),
                             onTap: () {
                               ref
                                   .read(studioFormProvider.notifier)
@@ -202,12 +188,12 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? AppColors.brandPrimary
-                                    : AppColors.surfaceSecondary,
+                                    : AppColors.surfaceSecondaryOf(context),
                                 borderRadius: AppRadius.pillBorder,
                                 border: Border.all(
                                   color: isSelected
                                       ? AppColors.brandPrimary
-                                      : AppColors.borderSubtle,
+                                      : AppColors.borderSubtleOf(context),
                                 ),
                               ),
                               child: Text(
@@ -215,7 +201,7 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                                 style: AppTypography.bodySmall.copyWith(
                                   color: isSelected
                                       ? AppColors.brandContrast
-                                      : AppColors.textSecondary,
+                                      : AppColors.textSecondaryOf(context),
                                   fontWeight: isSelected
                                       ? FontWeight.w700
                                       : FontWeight.w500,
@@ -258,12 +244,12 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                             vertical: AppSpacing.xs,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceSecondary,
+                            color: AppColors.surfaceSecondaryOf(context),
                             borderRadius: AppRadius.cardBorder,
                             border: Border.all(
                               color: isSelected
                                   ? AppColors.brandPrimary
-                                  : AppColors.borderSubtle,
+                                  : AppColors.borderSubtleOf(context),
                               width: isSelected ? 2 : 1,
                             ),
                             boxShadow: isSelected
@@ -303,8 +289,8 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                                         ? FontWeight.w700
                                         : FontWeight.w500,
                                     color: isSelected
-                                        ? AppColors.textPrimary
-                                        : AppColors.textSecondary,
+                                        ? AppColors.textPrimaryOf(context)
+                                        : AppColors.textSecondaryOf(context),
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -328,55 +314,62 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
                     children: [
                       Expanded(
                         child: Container(
-                          height: 38,
+                          height: 44,
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceSecondary,
+                            color: AppColors.surfaceSecondaryOf(context),
                             borderRadius: AppRadius.inputBorder,
-                            border: Border.all(color: AppColors.borderSubtle),
+                            border: Border.all(
+                              color: AppColors.borderSubtleOf(context),
+                            ),
                           ),
                           child: TextField(
                             controller: _customGenreController,
-                            style: AppTypography.bodySmall,
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.textPrimaryOf(context),
+                            ),
                             cursorColor: AppColors.brandPrimary,
                             decoration: InputDecoration(
                               hintText: '+ Add a genre not in the list...',
-                              hintStyle: AppTypography.caption,
+                              hintStyle: AppTypography.caption.copyWith(
+                                color: AppColors.textSecondaryOf(context),
+                              ),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: AppSpacing.sm,
-                                vertical: 10,
+                                vertical: 12,
                               ),
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.xs),
-                      ElevatedButton(
-                        onPressed: () {
-                          final custom = _customGenreController.text.trim();
-                          if (custom.isNotEmpty) {
-                            ref
-                                .read(studioFormProvider.notifier)
-                                .setGenre(custom);
-                            _customGenreController.clear();
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: accent.withAlpha(30),
-                          foregroundColor: accent,
-                          side: BorderSide(
-                            color: accent,
+                      SizedBox(
+                        height: 44,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            final custom = _customGenreController.text.trim();
+                            if (custom.isNotEmpty) {
+                              ref
+                                  .read(studioFormProvider.notifier)
+                                  .setGenre(custom);
+                              _customGenreController.clear();
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: accent.withAlpha(30),
+                            foregroundColor: accent,
+                            side: BorderSide(color: accent),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: AppRadius.inputBorder,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                            ),
                           ),
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: AppRadius.inputBorder,
+                          child: Text(
+                            'Add',
+                            style: TextStyle(color: accent),
                           ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                          ),
-                        ),
-                        child: Text(
-                          'Add',
-                          style: TextStyle(color: accent),
                         ),
                       ),
                     ],
@@ -413,16 +406,4 @@ class _RegionalGenreSelectorState extends ConsumerState<RegionalGenreSelector> {
       _ => Genre.amapiano,
     };
   }
-}
-
-class _GenreItem {
-  final String name;
-  final IconData icon;
-  final String region;
-
-  const _GenreItem({
-    required this.name,
-    required this.icon,
-    required this.region,
-  });
 }

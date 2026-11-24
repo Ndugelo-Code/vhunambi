@@ -7,8 +7,10 @@ import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../creator_dna/domain/entities/creator_dna_profile.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
+import '../../data/services/studio_ai_assist_service.dart';
 import '../../domain/models/prompt_enhancement_result.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../../domain/services/studio_prompt_intelligence.dart';
@@ -32,6 +34,7 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
 
   PromptEnhancementResult? _intelligenceResult;
   final Set<String> _dismissedSuggestions = <String>{};
+  bool _isImprovingPrompt = false;
 
   static const Duration _typingPause = Duration(milliseconds: 1500);
 
@@ -198,6 +201,38 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
     });
   }
 
+  Future<void> _handleImproveWithAi() async {
+    if (_isImprovingPrompt) return;
+    unawaited(StudioHaptics.chipSnap());
+    final form = ref.read(studioFormProvider);
+    setState(() => _isImprovingPrompt = true);
+    try {
+      final improved = await ref
+          .read(studioAiAssistServiceProvider)
+          .improvePrompt(
+            prompt: _controller.text.trim().isNotEmpty
+                ? _controller.text
+                : form.prompt,
+            genre: form.genre,
+            region: form.region,
+            language: form.language,
+            mood: form.mood,
+            ensemble: form.vocalVoices.name,
+            isInstrumental: form.isInstrumental,
+          );
+      if (!mounted) return;
+      ref.read(studioFormProvider.notifier).updatePrompt(improved);
+      _controller.text = improved;
+      _controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: improved.length),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isImprovingPrompt = false);
+      }
+    }
+  }
+
   /// 3 preset chips are shown; DNA top-genre matches win the slots.
   List<_PromptPreset> _visiblePresets(CreatorDnaProfile dna) {
     if (!dna.onboardingCompleted || dna.genreWeights.isEmpty) {
@@ -238,25 +273,179 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
       }
     });
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Section Header
-        Row(
-          children: [
-            const PhosphorIcon(
-              AppIcons.sparkle,
-              size: 18,
-              color: AppColors.brandPrimary,
+    return VhunambiGlassSurface(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Header
+          Row(
+            children: [
+              const PhosphorIcon(
+                AppIcons.sparkle,
+                size: 18,
+                color: AppColors.brandPrimary,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  'Describe your song',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.titleMedium.copyWith(
+                    color: AppColors.textPrimaryOf(context),
+                  ),
+                ),
+              ),
+              // DNA pre-fill (M10 / REQ-PRI-02) — only once taste exists.
+              if (dna.onboardingCompleted && dna.strengthPercent > 0)
+                InkWell(
+                  key: const Key('studio_dna_prefill_btn'),
+                  onTap: _applyDnaPrefill,
+                  borderRadius: AppRadius.pillBorder,
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.brandPrimary.withAlpha(20),
+                      borderRadius: AppRadius.pillBorder,
+                      border: Border.all(
+                        color: AppColors.brandPrimary.withAlpha(80),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const PhosphorIcon(
+                          AppIcons.dna,
+                          size: 14,
+                          color: AppColors.brandPrimary,
+                        ),
+                        const SizedBox(width: AppSpacing.xxs),
+                        Text(
+                          'Use My DNA',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.brandPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Multiline Input Box (breathing AI aura while refining — REQ-KIN-04)
+          PulsingAuraContainer(
+            isPulsing:
+                _intelligenceResult != null ||
+                (_enhanceTimer?.isActive ?? false),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSecondaryOf(
+                  context,
+                ).withValues(alpha: 0.65),
+                borderRadius: AppRadius.inputBorder,
+                border: Border.all(color: AppColors.borderSubtleOf(context)),
+              ),
+              child: TextField(
+                controller: _controller,
+                onChanged: _onPromptChanged,
+                maxLines: 5,
+                minLines: 3,
+                style: AppTypography.bodyLarge.copyWith(
+                  color: AppColors.textPrimaryOf(context),
+                ),
+                cursorColor: AppColors.brandPrimary,
+                decoration: InputDecoration(
+                  hintText:
+                      'A powerful anthem about rising from hardship, full of hope and energy...',
+                  hintStyle: AppTypography.bodyMuted.copyWith(
+                    color: AppColors.textSecondaryOf(
+                      context,
+                    ).withValues(alpha: 0.7),
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.all(AppSpacing.md),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: AppRadius.inputBorder,
+                    borderSide: BorderSide(
+                      color: AppColors.brandPrimary.withValues(alpha: 0.55),
+                      width: 1.2,
+                    ),
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(width: AppSpacing.xs),
-            Text('Describe your song', style: AppTypography.titleMedium),
-            const Spacer(),
-            // DNA pre-fill (M10 / REQ-PRI-02) — only once taste exists.
-            if (dna.onboardingCompleted && dna.strengthPercent > 0)
+          ),
+
+          // AI refinement overlay (M10 / REQ-PRI-04) — appears after a
+          // 1500ms typing pause when meaningful signals were detected.
+          if (_intelligenceResult != null)
+            PromptIntelligenceOverlay(
+              result: _intelligenceResult!,
+              dismissedFields: _dismissedSuggestions,
+              onApplyOverride: (field, value) {
+                _applyOverride(field, value);
+                setState(() => _dismissedSuggestions.add(field));
+              },
+              onDismissSuggestion: (field) {
+                setState(() => _dismissedSuggestions.add(field));
+              },
+              onApplyAll: _applyAllSuggestions,
+              onDismiss: () => setState(() => _intelligenceResult = null),
+            ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Quick Preset Chips, Improve with AI & Inspire Me Row
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ..._visiblePresets(dna).asMap().entries.map(
+                (entry) => InkWell(
+                  key: Key('studio_preset_chip_${entry.key}'),
+                  onTap: () {
+                    unawaited(StudioHaptics.chipSnap());
+                    ref
+                        .read(studioFormProvider.notifier)
+                        .applyPromptPreset(entry.value.fullPrompt);
+                  },
+                  borderRadius: AppRadius.pillBorder,
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSecondaryOf(context),
+                      borderRadius: AppRadius.pillBorder,
+                      border: Border.all(
+                        color: AppColors.borderSubtleOf(context),
+                      ),
+                    ),
+                    child: Text(
+                      entry.value.shortLabel,
+                      style: AppTypography.bodySmall.copyWith(
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Improve with AI Button (Phase 80 vhunambi.com parity)
               InkWell(
-                key: const Key('studio_dna_prefill_btn'),
-                onTap: _applyDnaPrefill,
+                key: const Key('studio_improve_prompt_btn'),
+                onTap: _handleImproveWithAi,
                 borderRadius: AppRadius.pillBorder,
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 44),
@@ -266,24 +455,26 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.brandPrimary.withAlpha(20),
+                    color: AppColors.brandPrimary.withValues(alpha: 0.14),
                     borderRadius: AppRadius.pillBorder,
                     border: Border.all(
-                      color: AppColors.brandPrimary.withAlpha(80),
+                      color: AppColors.brandPrimary.withValues(alpha: 0.55),
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const PhosphorIcon(
-                        AppIcons.dna,
+                      PhosphorIcon(
+                        _isImprovingPrompt
+                            ? PhosphorIconsRegular.hourglassMedium
+                            : AppIcons.magicWand,
                         size: 14,
                         color: AppColors.brandPrimary,
                       ),
                       const SizedBox(width: AppSpacing.xxs),
                       Text(
-                        'Use My DNA',
-                        style: AppTypography.caption.copyWith(
+                        _isImprovingPrompt ? 'Improving...' : 'Improve with AI',
+                        style: AppTypography.bodySmall.copyWith(
                           color: AppColors.brandPrimary,
                           fontWeight: FontWeight.w700,
                         ),
@@ -292,79 +483,10 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
                   ),
                 ),
               ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-
-        // Multiline Input Box (breathing AI aura while refining — REQ-KIN-04)
-        PulsingAuraContainer(
-          isPulsing:
-              _intelligenceResult != null || (_enhanceTimer?.isActive ?? false),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
-              borderRadius: AppRadius.inputBorder,
-              border: Border.all(color: AppColors.borderSubtle),
-            ),
-            child: TextField(
-              controller: _controller,
-              onChanged: _onPromptChanged,
-              maxLines: 5,
-              minLines: 3,
-              style: AppTypography.bodyLarge,
-              cursorColor: AppColors.brandPrimary,
-              decoration: InputDecoration(
-                hintText:
-                    'A powerful anthem about rising from hardship, full of hope and energy...',
-                hintStyle: AppTypography.bodyMuted.copyWith(
-                  color: AppColors.textTertiary,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.all(AppSpacing.md),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: AppRadius.inputBorder,
-                  borderSide: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.24),
-                    width: 1.0,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // AI refinement overlay (M10 / REQ-PRI-04) — appears after a
-        // 1500ms typing pause when meaningful signals were detected.
-        if (_intelligenceResult != null)
-          PromptIntelligenceOverlay(
-            result: _intelligenceResult!,
-            dismissedFields: _dismissedSuggestions,
-            onApplyOverride: (field, value) {
-              _applyOverride(field, value);
-              setState(() => _dismissedSuggestions.add(field));
-            },
-            onDismissSuggestion: (field) {
-              setState(() => _dismissedSuggestions.add(field));
-            },
-            onApplyAll: _applyAllSuggestions,
-            onDismiss: () => setState(() => _intelligenceResult = null),
-          ),
-        const SizedBox(height: AppSpacing.sm),
-
-        // Quick Preset Chips and Inspire Me Row (DNA-routed, M10 / REQ-PRI-01)
-        Wrap(
-          spacing: AppSpacing.xs,
-          runSpacing: AppSpacing.xs,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            ..._visiblePresets(dna).asMap().entries.map(
-              (entry) => InkWell(
-                key: Key('studio_preset_chip_${entry.key}'),
+              // Inspire Me Button
+              InkWell(
                 onTap: () {
-                  unawaited(StudioHaptics.chipSnap());
-                  ref
-                      .read(studioFormProvider.notifier)
-                      .applyPromptPreset(entry.value.fullPrompt);
+                  ref.read(studioFormProvider.notifier).inspireMe();
                 },
                 borderRadius: AppRadius.pillBorder,
                 child: Container(
@@ -375,60 +497,34 @@ class _PromptInputBoxState extends ConsumerState<PromptInputBox> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceSecondary,
+                    color: AppColors.surfaceSecondaryOf(context),
                     borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: AppColors.borderSubtle),
+                    border: Border.all(color: AppColors.brandPrimary),
                   ),
-                  child: Text(
-                    entry.value.shortLabel,
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // Inspire Me Button
-            InkWell(
-              onTap: () {
-                ref.read(studioFormProvider.notifier).inspireMe();
-              },
-              borderRadius: AppRadius.pillBorder,
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 44),
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSecondary,
-                  borderRadius: AppRadius.pillBorder,
-                  border: Border.all(color: AppColors.brandPrimary),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const PhosphorIcon(
-                      AppIcons.sparkle,
-                      size: 14,
-                      color: AppColors.brandPrimary,
-                    ),
-                    const SizedBox(width: AppSpacing.xxs),
-                    Text(
-                      'Inspire Me',
-                      style: AppTypography.bodySmall.copyWith(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const PhosphorIcon(
+                        AppIcons.sparkle,
+                        size: 14,
                         color: AppColors.brandPrimary,
-                        fontWeight: FontWeight.w600,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: AppSpacing.xxs),
+                      Text(
+                        'Inspire Me',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.brandPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

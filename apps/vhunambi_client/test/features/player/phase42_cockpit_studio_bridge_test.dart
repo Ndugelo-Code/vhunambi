@@ -8,6 +8,7 @@ import 'package:vhunambi_client/features/notifications/domain/models/notificatio
 import 'package:vhunambi_client/features/notifications/presentation/providers/notifications_provider.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
 import 'package:vhunambi_client/features/player/presentation/widgets/expanded_cockpit_modal.dart';
+import 'package:vhunambi_client/features/studio/domain/models/studio_form_state.dart';
 import 'package:vhunambi_client/features/studio/presentation/providers/studio_form_provider.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
 
@@ -50,8 +51,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // DSP indicator is visible even when Track Tools drawer is collapsed
       expect(find.byKey(const Key('cockpit_dsp_led_indicator')), findsOneWidget);
       expect(find.text('DSP'), findsOneWidget);
+
+      // Expand Track Tools drawer to reveal Master A/B toggle
+      await tester.tap(find.byKey(const Key('cockpit_tools_toggle')));
+      await tester.pumpAndSettle();
 
       // Toggle A/B DSP
       await tester.tap(find.byKey(const Key('cockpit_master_ab_btn')));
@@ -89,14 +95,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Expand Track Tools drawer
+      await tester.tap(find.byKey(const Key('cockpit_tools_toggle')));
+      await tester.pumpAndSettle();
+
       expect(find.byKey(const Key('cockpit_remix_in_studio_btn')), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('cockpit_remix_in_studio_btn')));
       await tester.pumpAndSettle();
 
-      // Verify studio form state updated
+      // Verify Studio V6 Remix parameters + legacy prompt contract populated
       final studioForm = container.read(studioFormProvider);
       expect(studioForm.genre, 'Gqom');
+      expect(studioForm.sourceTrackId, 'trk_cockpit_01');
+      expect(studioForm.audioMode, ReferenceAudioMode.remix);
+      expect(studioForm.referenceAudioPath, testTrack.audioUrl);
       expect(studioForm.prompt, contains('Remix of Durban Midnight Groove'));
 
       // Verify app navigation tab switched to 2 (Studio Cockpit)

@@ -1,6 +1,11 @@
 import { extractWorkerEnv, resolveMediaUrl, resolveRuntimeEnv } from '../../config/env.js';
 import type { VhunambiWorkerEnv } from '../../types/cloudflare_worker_types.js';
-import { getJob, updateJobProgress, completeJob } from '../jobs/job_store.js';
+import {
+  getJob,
+  updateJobProgress,
+  completeJob,
+  notifyGenerationCompletedOnce,
+} from '../jobs/job_store.js';
 import { broadcastGenerationEventToDo } from '../realtime/generation_session_do.js';
 import { compileMasterMediaObjectManifest } from '../dna/dna_compiler.js';
 import {
@@ -218,6 +223,27 @@ export function simulateSynthesisPipeline(
       // Non-fatal
     }
 
+    const resolvedEngine = existingJob?.resolvedEngine ?? 'minimax_music_3';
+    const attributionTag =
+      existingJob?.attributionTag !== undefined
+        ? existingJob.attributionTag
+        : resolvedEngine === 'minimax_music_3'
+          ? 'MiniMax-Music3'
+          : null;
+    const rawSeeds = Array.isArray(existingJob?.generationSpec?.takeSeeds)
+      ? (existingJob.generationSpec.takeSeeds as number[])
+      : [Date.now()];
+    const batchCount = Math.max(1, Math.min(4, existingJob?.batchCount ?? 1));
+    const takes = Array.from({ length: batchCount }, (_, idx) => ({
+      takeIndex: idx,
+      seed: Number(rawSeeds[idx] ?? Date.now() + idx + 1),
+      engineUsed: resolvedEngine,
+      audioUrl: masterMp3Url,
+      durationSec,
+      score: Number((0.96 - idx * 0.03).toFixed(2)),
+      attribution: attributionTag,
+    }));
+
     completeJob(generationId, {
       masterMp3Url,
       stemsZipUrl,
@@ -227,13 +253,23 @@ export function simulateSynthesisPipeline(
       coverUrl,
       lyrics: existingJob?.lyrics,
       durationSec,
+      takes,
+      attributionTag,
+      resolvedEngine,
     });
+    const completed = getJob(generationId);
+    if (completed) {
+      await notifyGenerationCompletedOnce(completed, cOrEnv);
+    }
     await broadcastGenerationEventToDo(workerEnv, {
       generationId,
       trackTitle: title,
       genre,
       language,
       durationSec,
+      resolvedEngine,
+      attributionTag,
+      takes,
       status: 'succeeded',
       step: 'ready',
       progressPct: 100,

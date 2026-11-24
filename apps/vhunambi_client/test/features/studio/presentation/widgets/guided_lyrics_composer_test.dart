@@ -108,13 +108,13 @@ void main() {
     // Outro (Last section)
     expect(find.text('6 of 6'), findsOneWidget);
     expect(find.text('Outro'), findsOneWidget);
-    expect(find.text('Finish & Apply ➔'), findsOneWidget);
+    expect(find.text('Finish & Apply'), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const Key('guided_section_input_Outro')),
       'Fade into the morning light',
     );
-    await tester.tap(find.text('Finish & Apply ➔'));
+    await tester.tap(find.text('Finish & Apply'));
     await tester.pumpAndSettle();
 
     expect(doneCalled, isTrue);

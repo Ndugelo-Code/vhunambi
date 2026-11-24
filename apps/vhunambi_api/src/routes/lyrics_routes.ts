@@ -1,11 +1,19 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { getGenreSystemPrompt } from '../modules/lyrics/system_prompts.js';
-import { generateLyricsFromLLM, parseStanzas } from '../modules/lyrics/llm_handler.js';
-import { refineLyricsWithLLM } from '../modules/lyrics/llm_handler.js';
+import {
+  generateEnsembleLyricsFromLLM,
+  generateLyricsFromPhotoWithLLM,
+  parseStanzas,
+  refineLyricsWithLLM,
+} from '../modules/lyrics/llm_handler.js';
 import { sanitizeLyricsForClient } from '../modules/lyrics/lyrics_sanitizer.js';
 import { MUSIC_LANGUAGES } from '../modules/bantu/language_context.js';
-import { STORY_GENRES, normalizeGenre, transformStoryToLyrics } from '../modules/lyrics/story_transform.js';
+import {
+  STORY_GENRES,
+  normalizeGenre,
+  transformStoryToLyrics,
+} from '../modules/lyrics/story_transform.js';
 import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
 
 export const lyricsRoutes = new Hono<{ Bindings: VhunambiWorkerEnv }>();
@@ -18,6 +26,9 @@ const GenerateLyricsSchema = z.object({
     .transform((v) => (v && v.trim().length > 0 ? v.trim() : 'Untitled song')),
   genre: z.string().default('Amapiano'),
   language: z.string().default('ve'),
+  ensemble: z.enum(['solo', 'duet', 'choir']).optional(),
+  voiceCast: z.array(z.string()).max(6).optional(),
+  mood: z.string().optional(),
 });
 
 lyricsRoutes.post('/generate', async (c) => {
@@ -29,13 +40,18 @@ lyricsRoutes.post('/generate', async (c) => {
       return c.json({ error: 'INVALID_REQUEST', details: parsed.error.flatten() }, 400);
     }
 
-    const { prompt, genre, language } = parsed.data;
+    const { prompt, genre, language, ensemble, voiceCast, mood } = parsed.data;
     const systemPrompt = getGenreSystemPrompt(genre);
-    const result = await generateLyricsFromLLM(
-      prompt,
-      genre,
-      language,
-      systemPrompt,
+    const result = await generateEnsembleLyricsFromLLM(
+      {
+        prompt,
+        genre,
+        language,
+        systemPrompt,
+        ensemble,
+        voiceCast,
+        mood,
+      },
       c,
     );
 
@@ -50,6 +66,7 @@ lyricsRoutes.post('/generate', async (c) => {
       detectedLanguage: result.detectedLanguage,
       moodAnalysis: result.moodAnalysis,
       cultureTags: result.cultureTags,
+      ...(ensemble ? { ensemble } : {}),
     });
   } catch (error) {
     console.error('[Lyrics Route Error]', error);
@@ -58,6 +75,44 @@ lyricsRoutes.post('/generate', async (c) => {
       message: 'Failed to generate lyrics',
       details: error instanceof Error ? error.stack || error.message : String(error),
     }, 500);
+  }
+});
+
+const PhotoLyricsSchema = z.object({
+  photoUrl: z.string().trim().min(1),
+  captionHint: z.string().max(600).optional(),
+  genre: z.string().default('Amapiano'),
+  language: z.string().default('English'),
+  mood: z.string().optional(),
+  ensemble: z.enum(['solo', 'duet', 'choir']).optional(),
+});
+
+lyricsRoutes.post('/from-photo', async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = PhotoLyricsSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: 'INVALID_REQUEST', details: parsed.error.flatten() }, 400);
+    }
+
+    const result = await generateLyricsFromPhotoWithLLM(parsed.data, c);
+    const cleanLyrics = sanitizeLyricsForClient(result.rawLyrics);
+    return c.json({
+      success: true,
+      rawLyrics: cleanLyrics,
+      stanzas: parseStanzas(cleanLyrics),
+      vocalInstructions: result.vocalInstructions,
+      detectedLanguage: result.detectedLanguage,
+      moodAnalysis: result.moodAnalysis,
+      cultureTags: result.cultureTags,
+      sourcePhotoUrl: parsed.data.photoUrl,
+    });
+  } catch (error) {
+    console.error('[Photo Lyrics Error]', error);
+    return c.json(
+      { error: 'PHOTO_LYRICS_ERROR', message: 'Failed to synthesize lyrics from photo' },
+      500,
+    );
   }
 });
 

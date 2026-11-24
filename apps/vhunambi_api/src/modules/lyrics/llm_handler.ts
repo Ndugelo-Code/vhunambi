@@ -707,3 +707,198 @@ export async function refineLyricsWithLLM(
     provider: 'local_deterministic',
   };
 }
+
+/**
+ * Phase 80: Expands a terse song idea into a rich, genre-authentic arrangement
+ * and vocal phrasing brief for Studio Cockpit V6 ("Improve with AI").
+ */
+export async function improveStudioPromptWithLLM(
+  params: {
+    prompt: string;
+    genre: string;
+    region?: string;
+    language: string;
+    mood?: string;
+    ensemble?: 'solo' | 'duet' | 'choir';
+    isInstrumental?: boolean;
+  },
+  cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,
+): Promise<{
+  improvedPrompt: string;
+  suggestedBpm: number;
+  suggestedMood: string;
+  provider: string;
+}> {
+  const preset = getGenrePreset(params.genre);
+  const langCtx = getLanguageContext(params.language);
+  const rawIdea = params.prompt.trim() || `${params.genre} anthem`;
+  const mood = params.mood?.trim() || preset.defaultMood;
+  const ensembleDesc = params.isInstrumental
+    ? 'instrumental showcase with zero vocals and expressive lead solo breaks'
+    : params.ensemble === 'duet'
+      ? 'passionate male and female duet harmonies with call-and-response interplay'
+      : params.ensemble === 'choir'
+        ? 'soaring four-part African choir harmonies and soulful lead phrasing'
+        : 'emotive lead vocal phrasing with authentic regional resonance';
+
+  const sysPrompt =
+    'You are a world-class African music producer at VHUNAMBI Studio. Expand the user idea into 2 vivid, concise sentences (max 65 words) specifying acoustic instrumentation, groove pocket, dynamic verse-to-chorus lift, and vocal direction. Output ONLY the expanded prompt text without quotes or markdown.';
+  const usrMsg = `Idea: "${rawIdea}"\nGenre: ${params.genre} (${params.region || 'South Africa'})\nLanguage: ${langCtx.languageName}\nMood: ${mood}\nVocal setup: ${ensembleDesc}\nReference instruments: ${preset.instruments.join(', ')}`;
+
+  const llmText = await callRunPodOpenSourceLLM(sysPrompt, usrMsg, cOrEnv, 0.7, 260);
+  if (llmText && llmText.length >= 24) {
+    return {
+      improvedPrompt: llmText.replace(/^["']|["']$/g, '').trim(),
+      suggestedBpm: preset.defaultBpm,
+      suggestedMood: mood,
+      provider: 'runpod_vllm',
+    };
+  }
+
+  const instrStr = preset.instruments.slice(0, 4).map((i) => i.replace(/_/g, ' ')).join(', ');
+  const fallback = `Lush ${params.genre} arrangement rooted in ${params.region || 'South Africa'} at ${preset.defaultBpm} BPM, driven by ${instrStr}, building dynamically from an intimate verse into an anthemic chorus around "${rawIdea}", shaped with ${mood.toLowerCase()} warmth and ${ensembleDesc} in ${langCtx.nativeName}.`;
+  return {
+    improvedPrompt: fallback,
+    suggestedBpm: preset.defaultBpm,
+    suggestedMood: mood,
+    provider: 'local_deterministic',
+  };
+}
+
+/**
+ * Phase 80: Generates duet/choir structured lyrics (`[VOICE A]`, `[VOICE B]`, `[DUET]`)
+ * or delegates to standard solo generation while preserving full stage clarity.
+ */
+export async function generateEnsembleLyricsFromLLM(
+  params: {
+    prompt: string;
+    genre: string;
+    language: string;
+    systemPrompt: string;
+    ensemble?: 'solo' | 'duet' | 'choir';
+    voiceCast?: string[];
+    mood?: string;
+  },
+  cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,
+): Promise<GeneratedLyricsResult> {
+  if (!params.ensemble || params.ensemble === 'solo') {
+    return generateLyricsFromLLM(
+      params.prompt,
+      params.genre,
+      params.language,
+      params.systemPrompt,
+      cOrEnv,
+    );
+  }
+
+  const ensembleInstruction =
+    params.ensemble === 'duet'
+      ? `${params.systemPrompt}\nIMPORTANT DUET FORMAT: Format dialogue alternating between [VOICE A] and [VOICE B] with united [DUET] / [CHORUS] sections and optional [GUITAR SOLO] or [INSTRUMENTAL] break.`
+      : `${params.systemPrompt}\nIMPORTANT CHOIR FORMAT: Use [CHOIR], [CALL], [RESPONSE], and [CHORUS] headers for communal polyphonic energy.`;
+  const castNote =
+    params.voiceCast && params.voiceCast.length > 0
+      ? ` Cast timbres: ${params.voiceCast.join(', ')}.`
+      : '';
+  const duetPrompt = `${params.prompt}${params.mood ? ` (${params.mood} mood)` : ''}${castNote}`;
+
+  const llmAttempt = await callRunPodOpenSourceLLM(
+    ensembleInstruction,
+    `Compose structured ${params.ensemble} ${params.genre} lyrics in ${params.language} for: "${duetPrompt}".`,
+    cOrEnv,
+    0.74,
+    1500,
+  );
+  const langCtx = getLanguageContext(params.language);
+  if (llmAttempt) {
+    const clean = sanitizeLyricsForClient(llmAttempt);
+    return {
+      rawLyrics: clean,
+      stanzas: parseStanzas(clean),
+      vocalInstructions: `${params.ensemble.toUpperCase()} arrangement — ${langCtx.vocalStyleAdvice}`,
+      detectedLanguage: langCtx.languageName,
+      moodAnalysis: [params.mood?.toLowerCase() || 'soulful', params.ensemble],
+      cultureTags: ['african_music', params.genre.toLowerCase(), params.ensemble],
+    };
+  }
+
+  const base = generateLocalMockLyrics(params.prompt, params.genre, params.language);
+  if (params.ensemble === 'duet') {
+    const { primaryPhrase, keywords } = extractPromptMotifs(params.prompt, params.genre);
+    const kw0 = keywords[0] ?? params.genre;
+    const kw1 = keywords[1] ?? langCtx.languageName;
+    const rawLyrics = sanitizeLyricsForClient(`[INTRO]
+${langCtx.adLibs[0] || 'Yebo!'}
+
+[VOICE A]
+Light falls warm across ${primaryPhrase}
+${kw0} rising slow inside the midnight air
+
+[VOICE B]
+I hear your echo calling through the ${kw1} sound
+Side by side we lift the rhythm off the ground
+
+[DUET]
+We move together as one flame tonight
+From valley shadows into morning light
+${langCtx.adLibs[1] || 'Woza!'}
+
+[GUITAR SOLO]
+
+[BRIDGE]
+Hold every note until the drums return
+Every heartbeat is a bridge we earn
+
+[CHORUS]
+Lift our voices high in ${langCtx.nativeName} harmony
+${params.genre} spirit flowing wild and free`);
+    return {
+      ...base,
+      rawLyrics,
+      stanzas: parseStanzas(rawLyrics),
+      vocalInstructions: `DUET alternating [VOICE A] / [VOICE B] with [DUET] chorus. ${base.vocalInstructions}`,
+    };
+  }
+
+  return base;
+}
+
+/**
+ * Phase 80: Converts an uploaded photo (Vault URL / caption hint) into structured song lyrics.
+ */
+export async function generateLyricsFromPhotoWithLLM(
+  params: {
+    photoUrl: string;
+    captionHint?: string;
+    genre: string;
+    language: string;
+    mood?: string;
+    ensemble?: 'solo' | 'duet' | 'choir';
+  },
+  cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,
+): Promise<GeneratedLyricsResult> {
+  const filenameMotif = params.photoUrl
+    .split(/[/?#]/)
+    .filter(Boolean)
+    .pop()
+    ?.replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+  const seedHint =
+    params.captionHint?.trim() ||
+    (filenameMotif && filenameMotif.length >= 3
+      ? `visual memory captured in ${filenameMotif}`
+      : 'golden hour snapshot filled with music and togetherness');
+
+  return generateEnsembleLyricsFromLLM(
+    {
+      prompt: `Song inspired by a photograph showing ${seedHint}`,
+      genre: params.genre,
+      language: params.language,
+      systemPrompt:
+        'Transform vivid visual imagery from the creator photo context into lyrical, singable stanzas.',
+      ensemble: params.ensemble ?? 'solo',
+      mood: params.mood,
+    },
+    cOrEnv,
+  );
+}

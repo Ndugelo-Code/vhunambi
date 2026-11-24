@@ -1,10 +1,54 @@
 import { MasterMediaObjectManifest } from '../dna/dna_types.js';
 
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
-export type PipelineStep = 'queued' | 'synthesizing' | 'separating_stems' | 'ready' | 'failed';
+export type PipelineStep =
+  | 'queued'
+  | 'planning_lyrics'
+  | 'synthesizing'
+  | 'separating_stems'
+  | 'converting_vocals'
+  | 'mastering'
+  | 'uploading'
+  | 'ready'
+  | 'failed';
+
+export type StudioEngineTier = 'fast_draft' | 'studio_bake' | 'sovereign_custom';
+export type ResolvedAudioEngine =
+  | 'ace_step_xl_turbo'
+  | 'ace_step_xl_sft'
+  | 'ace_step_xl_base'
+  | 'minimax_music_3';
+export type ReferenceAudioMode =
+  | 'none'
+  | 'remix'
+  | 'cover'
+  | 'reference'
+  | 'inspiration';
+
+export interface GenerationTakeRecord {
+  takeIndex: number;
+  seed: number;
+  engineUsed: ResolvedAudioEngine | string;
+  audioUrl: string;
+  durationSec?: number;
+  score?: number;
+  attribution?: string | null;
+}
 
 export interface GenerationJob {
   generationId: string;
+  creatorId?: string;
+  batchId?: string;
+  batchCount?: number;
+  engineTier?: StudioEngineTier;
+  resolvedEngine?: ResolvedAudioEngine;
+  audioMode?: ReferenceAudioMode;
+  referenceAudioUrl?: string;
+  visibility?: 'public' | 'private';
+  attributionTag?: string | null;
+  voiceCast?: Record<string, unknown>;
+  generationSpec?: Record<string, unknown>;
+  takes?: GenerationTakeRecord[];
   trackTitle: string;
   genre: string;
   language: string;
@@ -25,4 +69,3 @@ export interface GenerationJob {
   createdAt: Date;
   updatedAt: Date;
 }
-

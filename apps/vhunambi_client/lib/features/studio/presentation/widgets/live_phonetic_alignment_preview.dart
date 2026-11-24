@@ -5,6 +5,7 @@ import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../providers/studio_form_provider.dart';
 
 /// Venda dental consonants (highlighted gold).
@@ -30,13 +31,9 @@ class LivePhoneticAlignmentPreview extends ConsumerWidget {
         ? const <String>[]
         : lyrics.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
 
-    return Container(
+    return VhunambiGlassSurface(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+      borderRadius: AppRadius.cardBorder,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -54,6 +51,7 @@ class LivePhoneticAlignmentPreview extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.titleMedium.copyWith(
+                    color: AppColors.textPrimaryOf(context),
                     fontWeight: FontWeight.bold,
                   ),
                 ),

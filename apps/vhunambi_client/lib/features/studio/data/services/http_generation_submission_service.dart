@@ -45,7 +45,7 @@ class HttpGenerationSubmissionService {
 
   bool get _shouldSkipNetwork => isTestMode && !_hasCustomDio;
 
-  /// Submits the prompt, genre, and lyrics to `POST /v1/generations`.
+  /// Submits the prompt, genre, lyrics, and full V6 cockpit contract to `POST /v1/generations`.
   Future<Map<String, dynamic>> submitGeneration({
     required String trackTitle,
     String? prompt,
@@ -62,12 +62,27 @@ class HttpGenerationSubmissionService {
     String? melodyReferenceId,
     String? referenceAudioUrl,
     Map<String, String>? pregenStemLocks,
+    String? region,
+    int? durationSec,
+    String? lyricsMode,
+    bool? isAutoTitle,
+    String? era,
+    String? songStructure,
+    String? visibility,
+    String? engineTier,
+    int? batchCount,
+    String? audioMode,
+    String? sourcePhotoUrl,
+    String? sourceTrackId,
+    Map<String, dynamic>? voiceCast,
   }) async {
     if (_shouldSkipNetwork) {
       return <String, dynamic>{
         'generationId': 'gen_${DateTime.now().millisecondsSinceEpoch}',
         'status': 'queued',
         'pollUrl': '/v1/generations/local',
+        'engineTier': engineTier ?? 'studio_bake',
+        'batchCount': batchCount ?? 1,
       };
     }
 
@@ -76,6 +91,7 @@ class HttpGenerationSubmissionService {
       final response = await _dio.post<Map<String, dynamic>>(
         '$_baseUrl/generations',
         data: <String, dynamic>{
+          'contractVersion': 'v6',
           'trackTitle': trackTitle,
           if (trimmedPrompt != null && trimmedPrompt.isNotEmpty)
             'prompt': trimmedPrompt,
@@ -86,6 +102,21 @@ class HttpGenerationSubmissionService {
           'tempoBpm': tempoBpm,
           'musicalKey': musicalKey,
           if (mood != null && mood.trim().isNotEmpty) 'mood': mood.trim(),
+          if (region != null && region.trim().isNotEmpty) 'region': region.trim(),
+          'durationSec': ?durationSec,
+          'lyricsMode': ?lyricsMode,
+          'isAutoTitle': ?isAutoTitle,
+          'era': ?era,
+          'songStructure': ?songStructure,
+          'visibility': ?visibility,
+          'engineTier': ?engineTier,
+          'batchCount': ?batchCount,
+          'audioMode': ?audioMode,
+          if (sourcePhotoUrl != null && sourcePhotoUrl.isNotEmpty)
+            'sourcePhotoUrl': sourcePhotoUrl,
+          if (sourceTrackId != null && sourceTrackId.isNotEmpty)
+            'sourceTrackId': sourceTrackId,
+          'voiceCast': ?voiceCast,
           if (selectedVoiceId != null && selectedVoiceId.isNotEmpty)
             'selectedVoiceId': selectedVoiceId,
           if (clonedVoiceProfileId != null && clonedVoiceProfileId.isNotEmpty)
@@ -128,11 +159,14 @@ class HttpGenerationSubmissionService {
 
     var isDone = false;
     var attempts = 0;
-    const maxAttempts = 60; // 2 minutes max
+    const maxAttempts = 380; // Adaptive 18-minute bake window
 
     while (!isDone && attempts < maxAttempts) {
       attempts++;
-      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      final pollDelay = attempts <= 40
+          ? const Duration(milliseconds: 1500)
+          : const Duration(milliseconds: 3000);
+      await Future<void>.delayed(pollDelay);
 
       try {
         final response = await _dio.get<Map<String, dynamic>>(
@@ -161,6 +195,7 @@ class HttpGenerationSubmissionService {
           int stepIndex;
           switch (stepStr) {
             case 'writing_lyrics':
+            case 'planning_lyrics':
               step = PipelineStep.writingLyrics;
               stepIndex = 2;
               break;
@@ -169,6 +204,7 @@ class HttpGenerationSubmissionService {
             case 'running':
             case 'processing':
             case 'separating_stems':
+            case 'converting_vocals':
             case 'uploading':
             case 'mastering':
             case 'in_progress':
@@ -192,8 +228,48 @@ class HttpGenerationSubmissionService {
               stepIndex = 1;
           }
 
+          final parsedTakes = <GenerationTake>[];
+          final rawTakes = data['takes'] ?? data['takes_json'];
+          if (rawTakes is List) {
+            for (var i = 0; i < rawTakes.length; i++) {
+              final rawItem = rawTakes[i];
+              if (rawItem is Map) {
+                final take = GenerationTake.fromJson(
+                  Map<String, dynamic>.from(rawItem),
+                  index: i,
+                );
+                final normalizedTakeAudio = take.audioUrl.isNotEmpty
+                    ? AppConstants.normalizeCloudMediaUrl(
+                        take.audioUrl,
+                        overrideOrigin: originOverride,
+                      )
+                    : take.audioUrl;
+                final normalizedTakeStems =
+                    (take.stemsZipUrl != null && take.stemsZipUrl!.isNotEmpty)
+                        ? AppConstants.normalizeCloudMediaUrl(
+                            take.stemsZipUrl!,
+                            overrideOrigin: originOverride,
+                          )
+                        : take.stemsZipUrl;
+                parsedTakes.add(
+                  GenerationTake(
+                    takeIndex: take.takeIndex,
+                    seed: take.seed,
+                    audioUrl: normalizedTakeAudio,
+                    stemsZipUrl: normalizedTakeStems,
+                    coverUrl: take.coverUrl,
+                    durationSec: take.durationSec,
+                  ),
+                );
+              }
+            }
+          }
+          final effectiveMasterUrl = masterMp3Url.isNotEmpty
+              ? masterMp3Url
+              : (parsedTakes.isNotEmpty ? parsedTakes.first.audioUrl : '');
+
           TrackEntity? completedTrack;
-          if (step == PipelineStep.ready && masterMp3Url.isNotEmpty) {
+          if (step == PipelineStep.ready && effectiveMasterUrl.isNotEmpty) {
             Map<StemType, String>? parsedStemUrls;
             final rawStems = data['stemUrls'] ?? data['stem_urls'];
             if (rawStems is Map) {
@@ -231,7 +307,7 @@ class HttpGenerationSubmissionService {
               title: (data['trackTitle'] ?? data['title']) as String? ?? 'Studio Master',
               genre: data['genre'] as String? ?? 'Amapiano',
               language: data['language'] as String? ?? 'English',
-              masterMp3Url: masterMp3Url,
+              masterMp3Url: effectiveMasterUrl,
               stemsUrl: stemsZipUrl,
               stemUrls: parsedStemUrls,
               coverUrl: coverUrl,
@@ -253,6 +329,12 @@ class HttpGenerationSubmissionService {
                     as String?,
             completedTrack: completedTrack,
             error: data['errorMessage'] as String?,
+            bakeStage: BakeStage.fromWire(stepStr, fallbackStep: step),
+            resolvedEngine:
+                (data['resolvedEngine'] ?? data['resolved_engine']) as String?,
+            attributionTag:
+                (data['attributionTag'] ?? data['attribution_tag']) as String?,
+            takes: parsedTakes,
           );
         }
       } catch (err) {

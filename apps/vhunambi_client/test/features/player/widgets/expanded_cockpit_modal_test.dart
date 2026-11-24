@@ -8,12 +8,13 @@ import 'package:vhunambi_client/features/player/data/services/vhunambi_audio_han
 import 'package:vhunambi_client/features/player/presentation/providers/audio_bridge_providers.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
 import 'package:vhunambi_client/features/player/presentation/widgets/expanded_cockpit_modal.dart';
+import 'package:vhunambi_client/features/player/presentation/widgets/stem_mixer_deck.dart';
+import 'package:vhunambi_client/features/profile/presentation/views/artist_profile_view.dart';
+import 'package:vhunambi_client/features/track/presentation/views/track_detail_view.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
 
-/// Missions 14 & 15 — Expanded cockpit lyrics toggle + 3-dots action sheet.
-///
-/// The active player track id is mirrored into the vault (`libraryTracksProvider`)
-/// so the cockpit can resolve its lyrics / action sheet.
+/// Missions 14, 15 & Cockpit UX Overhaul — Full-screen lyrics, collapsible tools,
+/// clickable title/artist navigation, and slide-down dismissal.
 void main() {
   const lyrics =
       '[Intro]\nYebo!\n\n[Verse 1]\nWalking through the morning mist\n\n[Chorus]\nThis is our song';
@@ -40,7 +41,9 @@ void main() {
           LibraryTrack(
             id: 'trk_1',
             title: 'Track trk_1',
+            creatorId: 'creator_sigwa_inaf',
             creatorName: 'Sigwa & Inaf',
+            creatorHandle: '@sigwa_inaf',
             genre: 'Amapiano',
             language: 'English',
             durationSeconds: 200,
@@ -55,38 +58,65 @@ void main() {
 
   Future<void> pumpCockpit(
     WidgetTester tester,
-    ProviderContainer container,
-  ) async {
+    ProviderContainer container, {
+    ThemeData? theme,
+  }) async {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          theme: AppTheme.darkTheme,
+          theme: theme ?? AppTheme.darkTheme,
           home: const Scaffold(body: ExpandedCockpitModal()),
         ),
       ),
     );
   }
 
-  testWidgets('lyrics toggle swaps artwork for the lyrics surface',
+  testWidgets(
+      'full-screen lyrics toggle removes redundant tabs and hides playback controls',
       (tester) async {
     final container = await seed(tester);
     await pumpCockpit(tester, container);
 
-    // Artwork mode by default: the hero piano glyph is present, no lyrics yet.
+    // Redundant segmented tab selector and duplicate tray switcher are removed.
+    expect(find.byKey(const Key('player_hero_mode_selector')), findsNothing);
+    expect(find.byKey(const Key('player_lyrics_btn')), findsNothing);
+
+    // Artwork mode by default: playback controls visible, no lyrics yet.
+    expect(find.byKey(const Key('cockpit_hero_artwork')), findsOneWidget);
+    expect(find.byKey(const Key('cockpit_playback_section')), findsOneWidget);
+    expect(find.byKey(const Key('cockpit_waveform_scrubber')), findsOneWidget);
+    expect(find.byKey(const Key('cockpit_tools_toggle')), findsOneWidget);
     expect(find.text('[Chorus]'), findsNothing);
 
+    // Toggle to Full-Screen Lyrics mode via sole top-bar switcher.
     await tester.tap(find.byKey(const Key('player_lyrics_toggle')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    // Lyrics surface now shows a stanza header; artwork glyph is gone.
+    expect(find.byKey(const Key('cockpit_lyrics_surface')), findsOneWidget);
     expect(find.text('[Chorus]'), findsOneWidget);
     expect(find.text('This is our song'), findsOneWidget);
 
-    // Toggling back restores the artwork.
+    // Playback controls & artwork are hidden so lyrics own the viewport.
+    expect(find.byKey(const Key('cockpit_playback_section')), findsNothing);
+    expect(find.byKey(const Key('cockpit_hero_artwork')), findsNothing);
+    expect(find.byKey(const Key('cockpit_waveform_scrubber')), findsNothing);
+    expect(find.byKey(const Key('cockpit_tools_toggle')), findsNothing);
+
+    // Full screen height usage check (1000px viewport after 220ms morph)
+    final backdropHeight =
+        tester.getSize(find.byKey(const Key('cockpit_chromatic_backdrop'))).height;
+    expect(backdropHeight, equals(1000.0));
+
+    // Toggling back restores artwork & playback controls cleanly.
     await tester.tap(find.byKey(const Key('player_lyrics_toggle')));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('[Chorus]'), findsNothing);
+    expect(find.byKey(const Key('cockpit_playback_section')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('cockpit_chromatic_backdrop'))).height,
+      equals(880.0),
+    );
 
     container.dispose();
   });
@@ -114,6 +144,120 @@ void main() {
     await tester.pump();
 
     expect(find.text('No written lyrics for this track'), findsOneWidget);
+
+    container.dispose();
+  });
+
+  testWidgets('Track Tools tray is collapsed by default and expands cleanly',
+      (tester) async {
+    final container = await seed(tester);
+    await pumpCockpit(tester, container);
+
+    expect(find.byKey(const Key('cockpit_tools_toggle')), findsOneWidget);
+    expect(find.byKey(const Key('player_stems_btn')), findsNothing);
+    expect(find.byKey(const Key('player_track_info_btn')), findsNothing);
+    expect(find.byKey(const Key('player_export_btn')), findsNothing);
+    expect(find.byKey(const Key('player_mux_btn')), findsNothing);
+    expect(find.byKey(const Key('player_queue_btn')), findsNothing);
+    expect(find.byKey(const Key('cockpit_master_ab_btn')), findsNothing);
+    expect(find.byKey(const Key('cockpit_remix_in_studio_btn')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('cockpit_tools_toggle')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('player_stems_btn')), findsOneWidget);
+    expect(find.byKey(const Key('player_track_info_btn')), findsOneWidget);
+    expect(find.byKey(const Key('player_export_btn')), findsOneWidget);
+    expect(find.byKey(const Key('player_mux_btn')), findsOneWidget);
+    expect(find.byKey(const Key('player_queue_btn')), findsOneWidget);
+    expect(find.byKey(const Key('cockpit_master_ab_btn')), findsOneWidget);
+    expect(find.byKey(const Key('cockpit_remix_in_studio_btn')), findsOneWidget);
+
+    container.dispose();
+  });
+
+  testWidgets('tapping song title opens TrackDetailView', (tester) async {
+    final container = await seed(tester);
+    await pumpCockpit(tester, container);
+
+    await tester.tap(find.byKey(const Key('player_track_title_tap')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(TrackDetailView), findsOneWidget);
+
+    container.read(playerStateProvider.notifier).dismiss();
+    await tester.pump();
+    container.dispose();
+  });
+
+  testWidgets('tapping artist name opens ArtistProfileView', (tester) async {
+    final container = await seed(tester);
+    await pumpCockpit(tester, container);
+
+    await tester.tap(find.byKey(const Key('player_artist_name_tap')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(ArtistProfileView), findsOneWidget);
+
+    container.read(playerStateProvider.notifier).dismiss();
+    await tester.pump();
+    container.dispose();
+  });
+
+  testWidgets('slide down gesture on drag handle dismisses ExpandedCockpitModal',
+      (tester) async {
+    final container = await seed(tester);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                key: const Key('open_cockpit_test_btn'),
+                onPressed: () => ExpandedCockpitModal.show(context),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('open_cockpit_test_btn')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(ExpandedCockpitModal), findsOneWidget);
+
+    await tester.drag(
+      find.byKey(const Key('cockpit_drag_handle')),
+      const Offset(0, 240),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ExpandedCockpitModal), findsNothing);
+
+    container.dispose();
+  });
+
+  testWidgets('tapping waveform scrubber seeks using rendered scrubber width',
+      (tester) async {
+    final container = await seed(tester);
+    await pumpCockpit(tester, container);
+
+    final scrubber = find.byKey(const Key('cockpit_waveform_scrubber'));
+    final rect = tester.getRect(scrubber);
+    await tester.tapAt(Offset(rect.left + (rect.width * 0.5), rect.center.dy));
+    await tester.pump();
+
+    final positionMs = container.read(playerStateProvider).position.inMilliseconds;
+    // 50% of 200s = 100,000ms (with tolerance for tap location quantization)
+    expect(positionMs, closeTo(100000, 4000));
 
     container.dispose();
   });
@@ -157,28 +301,37 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('action row wraps on narrow 360dp viewport (VH-017)',
+  testWidgets('action row wraps on narrow 360dp viewport in Light & Dark modes (VH-017)',
       (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
-    final handler = TestVhunambiAudioHandler();
-    addTearDown(handler.dispose);
+    final container = await seed(tester);
+    await pumpCockpit(tester, container, theme: AppTheme.lightTheme);
 
-    final container = ProviderContainer(
-      overrides: <Override>[
-        audioHandlerProvider.overrideWithValue(handler),
-      ],
-    );
-    container.read(playerStateProvider.notifier).playTrack(_track('trk_1'));
-
-    await pumpCockpit(tester, container);
-
-    // Action row should render without overflow on narrow viewport
     expect(find.byKey(const Key('player_meta_share_btn')), findsOneWidget);
-    // Multiple Wrap widgets may exist (header bar + subtitle row); assert at least one.
     expect(find.byType(Wrap), findsWidgets);
+
+    // Expand tools tray in 360dp Light mode to verify zero RenderFlex overflow
+    await tester.tap(find.byKey(const Key('cockpit_tools_toggle')));
+    await tester.pump();
+    expect(find.byKey(const Key('player_stems_btn')), findsOneWidget);
+
+    // Verify StemMixerDeck renders cleanly in Light theme as well
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const Scaffold(
+            body: StemMixerDeck(title: 'Track trk_1'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('stem_master_only_banner')), findsOneWidget);
 
     container.dispose();
   });

@@ -6,6 +6,7 @@ import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../domain/models/generation_pipeline_state.dart';
 import '../../../library/domain/models/library_models.dart';
 import '../../../player/presentation/providers/player_provider.dart';
@@ -76,12 +77,8 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
     final state = ref.watch(generationProgressProvider);
     _syncEqualizer(state?.isGenerating ?? false);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
+    return VhunambiGlassSurface(
+      borderRadius: AppRadius.cardBorder,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,7 +91,7 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
                 'Result',
                 style: AppTypography.bodySmall.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryOf(context),
                 ),
               ),
               if (widget.onNewSong != null)
@@ -158,9 +155,11 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceSecondary,
+                      color: AppColors.surfaceSecondaryOf(context),
                       borderRadius: AppRadius.pillBorder,
-                      border: Border.all(color: AppColors.borderSubtle),
+                      border: Border.all(
+                        color: AppColors.borderSubtleOf(context),
+                      ),
                     ),
                     child: Text(
                       state.genre,
@@ -171,6 +170,28 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
                       ),
                     ),
                   ),
+                  if (state.attributionTag != null &&
+                      state.attributionTag!.isNotEmpty)
+                    Container(
+                      key: const Key('pipeline_minimax_attribution_badge'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.coinGold.withValues(alpha: 0.16),
+                        borderRadius: AppRadius.pillBorder,
+                        border: Border.all(
+                          color: AppColors.coinGold.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Text(
+                        'Engine: ${state.attributionTag}',
+                        style: AppTypography.badge.copyWith(
+                          color: AppColors.coinGold,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -220,9 +241,9 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
         Container(
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
           decoration: BoxDecoration(
-            color: AppColors.surfaceSecondary,
+            color: AppColors.surfaceSecondaryOf(context),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.borderSubtle),
+            border: Border.all(color: AppColors.borderSubtleOf(context)),
           ),
           child: Column(
             children: [
@@ -265,7 +286,47 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+
+              // 4-Stage Cinematic Telemetry Strip (Planning -> Composing -> Vocals/Stems -> Mastering)
+              _BakeStageStrip(bakeStage: state.bakeStage),
+              if (state.isGenerating) ...[
+                const SizedBox(height: 10),
+                Container(
+                  key: const Key('pipeline_safe_to_explore_banner'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandPrimary.withValues(alpha: 0.1),
+                    borderRadius: AppRadius.pillBorder,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const PhosphorIcon(
+                        PhosphorIconsRegular.bellRinging,
+                        size: 13,
+                        color: AppColors.brandPrimary,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'Safe to explore — we notify you when your bake completes',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondaryOf(context),
+                            fontSize: 10.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
 
               // 4-Step Synthesis Machine
               _buildStep(
@@ -307,9 +368,54 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
           ),
         ],
 
-        if (state.isReady && state.completedTrack != null) ...[
+        if (state.takes.length > 1) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < state.takes.length; i++)
+                InkWell(
+                  key: Key('pipeline_take_chip_$i'),
+                  onTap: () => ref
+                      .read(generationProgressProvider.notifier)
+                      .selectActiveTake(i),
+                  borderRadius: AppRadius.pillBorder,
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 40),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: state.activeTakeIndex == i
+                          ? AppColors.brandPrimary
+                          : AppColors.surfaceSecondaryOf(context),
+                      borderRadius: AppRadius.pillBorder,
+                      border: Border.all(
+                        color: state.activeTakeIndex == i
+                            ? AppColors.brandPrimary
+                            : AppColors.borderSubtleOf(context),
+                      ),
+                    ),
+                    child: Text(
+                      'Take ${i + 1}',
+                      style: AppTypography.caption.copyWith(
+                        color: state.activeTakeIndex == i
+                            ? AppColors.brandContrast
+                            : AppColors.textPrimaryOf(context),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+
+        if (state.isReady && state.activeCompletedTrack != null) ...[
           const SizedBox(height: 14),
-          _ReadyTrackCard(track: state.completedTrack!),
+          _ReadyTrackCard(track: state.activeCompletedTrack!),
         ],
         if (state.generatedLyrics != null) ...[
           const SizedBox(height: 14),
@@ -432,6 +538,74 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Compact 4-pill backend stage strip (`Queued/Lyrics`, `Composing`, `Vocals/Stems`, `Mastering`).
+class _BakeStageStrip extends StatelessWidget {
+  final BakeStage bakeStage;
+
+  const _BakeStageStrip({required this.bakeStage});
+
+  static const List<String> _labels = <String>[
+    'Plan Lyrics',
+    'Compose Audio',
+    'Vocals & Stems',
+    'Master',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final activeIdx = bakeStage.stripIndex;
+    return Wrap(
+      key: const Key('pipeline_bake_stage_strip'),
+      spacing: 6,
+      runSpacing: 6,
+      alignment: WrapAlignment.center,
+      children: [
+        for (var i = 0; i < _labels.length; i++)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: activeIdx >= i
+                  ? AppColors.brandPrimary.withValues(alpha: 0.16)
+                  : AppColors.surfaceElevatedOf(context),
+              borderRadius: AppRadius.pillBorder,
+              border: Border.all(
+                color: activeIdx == i
+                    ? AppColors.brandPrimary
+                    : AppColors.borderSubtleOf(context),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (activeIdx > i || bakeStage == BakeStage.ready)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 4),
+                    child: PhosphorIcon(
+                      PhosphorIconsFill.checkCircle,
+                      size: 11,
+                      color: AppColors.brandPrimary,
+                    ),
+                  ),
+                Text(
+                  _labels[i],
+                  style: AppTypography.caption.copyWith(
+                    color: activeIdx >= i
+                        ? AppColors.brandPrimary
+                        : AppColors.textSecondaryOf(context),
+                    fontWeight: activeIdx == i
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

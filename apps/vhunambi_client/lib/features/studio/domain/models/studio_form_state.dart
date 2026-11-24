@@ -47,6 +47,65 @@ enum ProductionEra {
   };
 }
 
+/// User-facing quality/routing engine tier (`StudioGenerationContractV6`).
+/// Note: `YuE2` (`CC BY-NC 4.0`) is strictly excluded.
+enum StudioEngineTier {
+  fastDraft,
+  studioBake,
+  sovereignCustom;
+
+  String get wireValue => switch (this) {
+    StudioEngineTier.fastDraft => 'fast_draft',
+    StudioEngineTier.studioBake => 'studio_bake',
+    StudioEngineTier.sovereignCustom => 'sovereign_custom',
+  };
+
+  String get label => switch (this) {
+    StudioEngineTier.fastDraft => 'Fast Draft',
+    StudioEngineTier.studioBake => 'Studio Bake',
+    StudioEngineTier.sovereignCustom => 'Sovereign Custom',
+  };
+
+  String get subtitle => switch (this) {
+    StudioEngineTier.fastDraft => '20-45s rapid sketch',
+    StudioEngineTier.studioBake => 'Flagship full-song polish',
+    StudioEngineTier.sovereignCustom => 'LoRA, Remix & Voice Clone',
+  };
+}
+
+/// Conditioned reference-audio intent (`StudioGenerationContractV6`).
+enum ReferenceAudioMode {
+  none,
+  remix,
+  cover,
+  reference,
+  inspiration;
+
+  String get wireValue => switch (this) {
+    ReferenceAudioMode.none => 'none',
+    ReferenceAudioMode.remix => 'remix',
+    ReferenceAudioMode.cover => 'cover',
+    ReferenceAudioMode.reference => 'reference',
+    ReferenceAudioMode.inspiration => 'inspiration',
+  };
+
+  String get label => switch (this) {
+    ReferenceAudioMode.none => 'None',
+    ReferenceAudioMode.remix => 'Remix',
+    ReferenceAudioMode.cover => 'Cover',
+    ReferenceAudioMode.reference => 'Reference',
+    ReferenceAudioMode.inspiration => 'Inspiration',
+  };
+
+  String get description => switch (this) {
+    ReferenceAudioMode.none => 'Pure prompt & lyrics',
+    ReferenceAudioMode.remix => 'Rework beat & groove',
+    ReferenceAudioMode.cover => 'New vocal over melody',
+    ReferenceAudioMode.reference => 'Match mix & timbre',
+    ReferenceAudioMode.inspiration => 'Capture vibe & mood',
+  };
+}
+
 typedef VocalConfiguration = VocalVoices;
 typedef VocalIntensity = VocalEnergy;
 typedef SongStructureType = SongStructure;
@@ -156,6 +215,27 @@ class StudioFormState {
   /// Authority and processing modes for individual stem branches (REQ-P52-STEM-01..02).
   final Map<String, StemLockMode> branchStemLockModes;
 
+  /// Studio Cockpit V6 production routing tier (`fast_draft`, `studio_bake`, `sovereign_custom`).
+  final StudioEngineTier engineTier;
+
+  /// How attached reference audio shapes synthesis (`remix`, `cover`, `reference`, `inspiration`).
+  final ReferenceAudioMode audioMode;
+
+  /// Number of unique-seed takes to generate in one batch (`1..4`).
+  final int batchCount;
+
+  /// Multi-select voice archetype IDs for duet / ensemble casting (`<= 6`).
+  final List<String> selectedVoiceIds;
+
+  /// Local image path when `lyricsMode == LyricsMode.fromPhoto`.
+  final String? sourcePhotoPath;
+
+  /// Uploaded R2 image URL when `lyricsMode == LyricsMode.fromPhoto`.
+  final String? sourcePhotoUrl;
+
+  /// Original song ID when seeded via 1-tap Remix (`StudioPastSongsRemixShelf`).
+  final String? sourceTrackId;
+
   const StudioFormState({
     this.prompt = '',
     this.referenceAudioPath,
@@ -198,7 +278,15 @@ class StudioFormState {
     ),
     this.dialectInflection = const DialectInflectionConfig(),
     Map<String, StemLockMode>? branchStemLockModes,
-  }) : branchStemLockModes =
+    this.engineTier = StudioEngineTier.studioBake,
+    this.audioMode = ReferenceAudioMode.none,
+    int batchCount = 1,
+    this.selectedVoiceIds = const <String>[],
+    this.sourcePhotoPath,
+    this.sourcePhotoUrl,
+    this.sourceTrackId,
+  }) : batchCount = batchCount < 1 ? 1 : (batchCount > 4 ? 4 : batchCount),
+       branchStemLockModes =
            branchStemLockModes ??
            const {
              'node_beat_tempo': StemLockMode.lockedPure44k,
@@ -216,6 +304,27 @@ class StudioFormState {
 
   /// Backward-compatible getter during VH-002 migration.
   bool get isPublic => visibility == 'public';
+
+  /// Live preview of the backend engine resolved by `compileSongSpec` (`REQ-P80-CONTRACT-02`).
+  String get resolvedEnginePreview {
+    if (engineTier == StudioEngineTier.fastDraft) {
+      return 'ACE-Step 1.5 XL-Turbo';
+    }
+    final hasRefAudio =
+        (referenceAudioPath != null && referenceAudioPath!.trim().isNotEmpty) ||
+        audioMode != ReferenceAudioMode.none;
+    if (engineTier == StudioEngineTier.sovereignCustom || hasRefAudio) {
+      return 'ACE-Step 1.5 XL-Base';
+    }
+    if (isInstrumental || lyricsMode == LyricsMode.instrumental) {
+      return 'ACE-Step 1.5 XL-SFT';
+    }
+    return 'MiniMax Music 3.0';
+  }
+
+  /// Attribution pill required whenever `MiniMax Music 3.0` handles flagship vocal baking.
+  String? get resolvedAttributionTag =>
+      resolvedEnginePreview == 'MiniMax Music 3.0' ? 'MiniMax-Music3' : null;
 
   VocalConfiguration get vocalConfiguration => vocalVoices;
   VocalIntensity get vocalIntensity => vocalEnergy;
@@ -340,6 +449,15 @@ class StudioFormState {
     BantuVoiceProfile? selectedVoiceProfile,
     DialectInflectionConfig? dialectInflection,
     Map<String, StemLockMode>? branchStemLockModes,
+    StudioEngineTier? engineTier,
+    ReferenceAudioMode? audioMode,
+    int? batchCount,
+    List<String>? selectedVoiceIds,
+    String? sourcePhotoPath,
+    String? sourcePhotoUrl,
+    bool clearSourcePhoto = false,
+    String? sourceTrackId,
+    bool clearSourceTrackId = false,
   }) {
     return StudioFormState(
       prompt: prompt ?? this.prompt,
@@ -374,6 +492,19 @@ class StudioFormState {
       selectedVoiceProfile: selectedVoiceProfile ?? this.selectedVoiceProfile,
       dialectInflection: dialectInflection ?? this.dialectInflection,
       branchStemLockModes: branchStemLockModes ?? this.branchStemLockModes,
+      engineTier: engineTier ?? this.engineTier,
+      audioMode: audioMode ?? this.audioMode,
+      batchCount: batchCount ?? this.batchCount,
+      selectedVoiceIds: selectedVoiceIds ?? this.selectedVoiceIds,
+      sourcePhotoPath: clearSourcePhoto
+          ? null
+          : (sourcePhotoPath ?? this.sourcePhotoPath),
+      sourcePhotoUrl: clearSourcePhoto
+          ? null
+          : (sourcePhotoUrl ?? this.sourcePhotoUrl),
+      sourceTrackId: clearSourceTrackId
+          ? null
+          : (sourceTrackId ?? this.sourceTrackId),
     );
   }
 
@@ -403,7 +534,14 @@ class StudioFormState {
           visibility == other.visibility &&
           phase == other.phase &&
           generationProgress == other.generationProgress &&
-          errorMessage == other.errorMessage;
+          errorMessage == other.errorMessage &&
+          engineTier == other.engineTier &&
+          audioMode == other.audioMode &&
+          batchCount == other.batchCount &&
+          listEquals(selectedVoiceIds, other.selectedVoiceIds) &&
+          sourcePhotoPath == other.sourcePhotoPath &&
+          sourcePhotoUrl == other.sourcePhotoUrl &&
+          sourceTrackId == other.sourceTrackId;
 
   @override
   int get hashCode => Object.hashAll([
@@ -429,5 +567,12 @@ class StudioFormState {
     phase,
     generationProgress,
     errorMessage,
+    engineTier,
+    audioMode,
+    batchCount,
+    Object.hashAll(selectedVoiceIds),
+    sourcePhotoPath,
+    sourcePhotoUrl,
+    sourceTrackId,
   ]);
 }

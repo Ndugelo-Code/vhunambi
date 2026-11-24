@@ -247,10 +247,10 @@ void main() {
         );
         await tester.pump();
 
-        // 1. Selector should be present (2-way Artwork / Lyrics; 3D Biome removed from cockpit)
+        // 1. Redundant segmented tab selector and 3D Biome are removed; top icon toggle is sole switcher
         expect(
           find.byKey(const Key('player_hero_mode_selector')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(
           find.byKey(const Key('player_hero_segment_biome3d')),
@@ -261,15 +261,16 @@ void main() {
           findsNothing,
         );
 
-        // 2. Switch to Lyrics deck
-        await tester.tap(find.byKey(const Key('player_hero_segment_lyrics')));
-        await tester.pump();
-        expect(find.text('Quantum Entanglement'), findsOneWidget);
-
-        // 3. Test backward-compatible lyrics toggle button
+        // 2. Switch to Full-Screen Lyrics deck via top header toggle
         await tester.tap(find.byKey(const Key('player_lyrics_toggle')));
         await tester.pump();
-        // Back to artwork: lyrics stanza gone
+        expect(find.byKey(const Key('cockpit_lyrics_surface')), findsOneWidget);
+        expect(find.text('Quantum Entanglement'), findsOneWidget);
+
+        // 3. Toggling back restores artwork surface
+        await tester.tap(find.byKey(const Key('player_lyrics_toggle')));
+        await tester.pump();
+        expect(find.byKey(const Key('cockpit_lyrics_surface')), findsNothing);
         expect(find.text('Quantum Entanglement'), findsNothing);
 
         // 4. Verify Track Utility Tray no longer renders the laggy 3D DNA button

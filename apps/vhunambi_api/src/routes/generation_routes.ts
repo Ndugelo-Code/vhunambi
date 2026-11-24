@@ -32,6 +32,7 @@ import {
   updateJobProgress,
   completeJob,
   failJob,
+  notifyGenerationCompletedOnce,
 } from '../modules/jobs/job_store.js';
 
 export const generationRoutes = new Hono<{ Bindings: VhunambiWorkerEnv }>();
@@ -46,18 +47,49 @@ function resolveGenerationWsUrl(reqUrlRaw: string, forwardedProto: string | unde
   return `${wsProto}//${host}/ws/generation?id=${generationId}`;
 }
 
+const VoiceCastPayloadSchema = z.object({
+  ensemble: z.enum(['solo', 'duet', 'choir']).default('solo'),
+  gender: z.enum(['male', 'female', 'mixed']).default('male'),
+  deliveryMode: z.enum(['auto', 'melodic', 'rap', 'spokenWord', 'choir']).default('auto'),
+  energy: z.enum(['soft', 'mid', 'intense']).default('mid'),
+  selectedVoiceIds: z.array(z.string()).max(6).default([]),
+  clonedVoiceProfileId: z.string().optional(),
+  clonedVoiceReferenceUrl: z.string().optional(),
+  dialectInflection: z
+    .object({
+      vowelElongation: z.number().min(0).max(1).default(0.5),
+      vibratoDepth: z.number().min(0).max(1).default(0.4),
+      callAndResponseIntensity: z.number().min(0).max(1).default(0.6),
+      adLibFrequency: z.number().min(0).max(1).default(0.5),
+    })
+    .optional(),
+});
+
 const SubmitGenerationSchema = z.object({
+  contractVersion: z.literal('v6').default('v6'),
   trackTitle: z.string().default('Untitled Track'),
-  prompt: z.string().optional(),
+  isAutoTitle: z.boolean().default(true),
+  prompt: z.string().max(4000).optional(),
   genre: z.string().default('Amapiano'),
+  region: z.string().default('South Africa'),
   language: z.string().default('ve'),
-  lyrics: z.string().optional(),
+  lyricsMode: z.enum(['ai_writes', 'my_own', 'from_photo', 'instrumental']).default('ai_writes'),
+  lyrics: z.string().max(12000).optional(),
+  sourcePhotoUrl: z.string().optional(),
   isInstrumental: z.boolean().default(false),
-  tempoBpm: z.number().optional(),
-  bpm: z.number().optional(),
+  tempoBpm: z.number().min(50).max(220).optional(),
+  bpm: z.number().min(50).max(220).optional(),
   musicalKey: z.string().optional(),
   mood: z.string().optional(),
-  durationSec: z.number().default(90),
+  era: z.string().optional(),
+  songStructure: z.enum(['standard', 'extended', 'freestyle', 'loop']).default('standard'),
+  durationSec: z.number().min(10).max(360).default(90),
+  visibility: z.enum(['public', 'private']).default('public'),
+  engineTier: z.enum(['fast_draft', 'studio_bake', 'sovereign_custom']).default('studio_bake'),
+  batchCount: z.number().int().min(1).max(4).default(1),
+  audioMode: z.enum(['none', 'remix', 'cover', 'reference', 'inspiration']).default('none'),
+  sourceTrackId: z.string().optional(),
+  voiceCast: VoiceCastPayloadSchema.optional(),
   /** Optional user identifier — forwarded to RunPod worker as user_id */
   userId: z.string().optional(),
   /** Phase 26: Optional Regional Voice Archetype ID */
@@ -92,62 +124,112 @@ generationRoutes.post('/', async (c) => {
 
     const input = parsed.data;
     const generationId = `gen_${Date.now()}_${nanoid(8)}`;
+    const batchId = `batch_${Date.now()}_${nanoid(6)}`;
+    const creatorId = canonicalizeCreatorId(
+      c.get('authUser')?.creatorId ?? input.userId ?? 'creator_cern',
+    );
 
-    const clonedProfile = input.clonedVoiceProfileId
-      ? getVoiceCloneProfile(input.clonedVoiceProfileId)
+    const effectiveCloneId =
+      input.voiceCast?.clonedVoiceProfileId ?? input.clonedVoiceProfileId;
+    const clonedProfile = effectiveCloneId
+      ? getVoiceCloneProfile(effectiveCloneId)
       : undefined;
+    const effectiveCloneRefUrl =
+      input.voiceCast?.clonedVoiceReferenceUrl ?? clonedProfile?.r2ReferenceUrl;
 
-    // 1. Compile prompt for AI synthesis model
+    // 1. Compile prompt & multi-model routing spec (MiniMax 3.0 vs ACE-Step 1.5 XL)
     const compiledPrompt = compileSongSpec({
       ...input,
       tempoBpm: input.tempoBpm ?? input.bpm,
-      ...(clonedProfile?.r2ReferenceUrl
-        ? { clonedVoiceReferenceUrl: clonedProfile.r2ReferenceUrl }
-        : {}),
+      selectedVoiceId: input.selectedVoiceId ?? input.voiceCast?.selectedVoiceIds?.[0],
+      clonedVoiceProfileId: effectiveCloneId,
+      ...(effectiveCloneRefUrl ? { clonedVoiceReferenceUrl: effectiveCloneRefUrl } : {}),
     });
 
-    // 2. Record job (including auto-composed lyrics if available)
-    createJob({
-      generationId,
-      trackTitle: input.trackTitle,
-      genre: input.genre,
-      language: input.language,
-      durationSec: input.durationSec,
-      ...(compiledPrompt.lyrics ? { lyrics: sanitizeLyricsForClient(compiledPrompt.lyrics) } : {}),
-    });
+    const sanitizedLyrics = compiledPrompt.lyrics
+      ? sanitizeLyricsForClient(compiledPrompt.lyrics)
+      : undefined;
+
+    // 2. Record job with real owner & full V6 spec (persisted asynchronously in Edge Workers)
+    const createdJob = createJob(
+      {
+        generationId,
+        creatorId,
+        batchId,
+        batchCount: compiledPrompt.batchCount,
+        engineTier: compiledPrompt.engineTier,
+        resolvedEngine: compiledPrompt.resolvedEngine,
+        audioMode: compiledPrompt.audioMode,
+        referenceAudioUrl: input.referenceAudioUrl,
+        visibility: input.visibility,
+        attributionTag: compiledPrompt.attributionTag,
+        voiceCast: (input.voiceCast ?? undefined) as Record<string, unknown> | undefined,
+        generationSpec: {
+          contractVersion: input.contractVersion,
+          prompt: input.prompt ?? '',
+          region: input.region,
+          lyricsMode: input.lyricsMode,
+          mood: input.mood ?? compiledPrompt.metadata.mood,
+          era: input.era,
+          songStructure: input.songStructure,
+          takeSeeds: compiledPrompt.takeSeeds,
+          sourcePhotoUrl: input.sourcePhotoUrl,
+          sourceTrackId: input.sourceTrackId,
+        },
+        takes: [],
+        trackTitle: input.trackTitle,
+        genre: input.genre,
+        language: input.language,
+        durationSec: compiledPrompt.metadata.durationSec,
+        ...(sanitizedLyrics ? { lyrics: sanitizedLyrics } : {}),
+      },
+      creatorId,
+    );
+    await vhunambiDb.upsertGenerationJobAsync(
+      createdJob,
+      creatorId,
+      'audio_synthesis',
+      c,
+    );
 
     // 3. Dispatch to RunPod Serverless GPU (or Queue-Zero 4-stem R2 synthesis fallback)
     const dispatchResult = await dispatchSynthesisJob(
       generationId,
       compiledPrompt,
-      input.userId ?? 'vhunambi_user',
+      creatorId,
       c,
     );
 
     // Record providerTaskId for fallback active polling
     setJobProviderTaskId(generationId, dispatchResult.jobId);
-
-    // Phase 67 + Phase 71: Atomic monthly free song quota decrement & durable alerts
-    const creatorId = canonicalizeCreatorId(
-      c.get('authUser')?.creatorId ?? input.userId ?? 'creator_cern',
+    await vhunambiDb.updateGenerationJobAsync(
+      generationId,
+      { providerTaskId: dispatchResult.jobId },
+      c,
     );
+
+    // Phase 67 + Phase 71 + Phase 80: Atomic monthly free song quota decrement & honest queued alert
     const quota = await vhunambiDb.consumeFreeMonthlySongQuotaAsync(creatorId, c);
     await vhunambiDb.upsertNotificationAsync(
       {
         id: `notif_gen_${generationId}`,
         userId: creatorId,
-        title: `Studio Track Ready: "${input.trackTitle}"`,
-        message: `Synthesized ${input.genre} track (${quota.freeMonthlySongsRemaining} / ${quota.freeMonthlySongsLimit} monthly free songs left).`,
+        title: `Studio Bake Queued: "${input.trackTitle}"`,
+        message: `Baking ${input.genre} track (${compiledPrompt.batchCount} take${compiledPrompt.batchCount === 1 ? '' : 's'}). We'll notify you as soon as it finishes (${quota.freeMonthlySongsRemaining} / ${quota.freeMonthlySongsLimit} monthly free songs left).`,
         category: 'creatorActivity',
         subtype: 'studio_render',
         priority: 'normal',
-        targetRoute: `/track/${generationId}`,
+        targetRoute: '/studio',
         targetEntityId: generationId,
-        ctaLabel: 'Open Track Cockpit',
+        ctaLabel: 'View Bake Progress',
         metadata: {
           trackId: generationId,
           trackTitle: input.trackTitle,
           genre: input.genre,
+          batchId,
+          batchCount: compiledPrompt.batchCount,
+          resolvedEngine: compiledPrompt.resolvedEngine,
+          attributionTag: compiledPrompt.attributionTag,
           freeSongsRemaining: quota.freeMonthlySongsRemaining,
           freeSongsTotal: quota.freeMonthlySongsLimit,
         },
@@ -199,6 +281,16 @@ generationRoutes.post('/', async (c) => {
       {
         success: true,
         generationId,
+        batchId,
+        batchCount: compiledPrompt.batchCount,
+        engineTier: compiledPrompt.engineTier,
+        resolvedEngine: compiledPrompt.resolvedEngine,
+        attributionTag: compiledPrompt.attributionTag,
+        audioMode: compiledPrompt.audioMode,
+        durationSec: compiledPrompt.metadata.durationSec,
+        visibility: compiledPrompt.visibility,
+        takeSeeds: compiledPrompt.takeSeeds,
+        takes: [],
         status: 'queued',
         step: 'queued',
         progressPct: 10,
@@ -206,15 +298,18 @@ generationRoutes.post('/', async (c) => {
         pollUrl: `/v1/generations/${generationId}`,
         websocketUrl,
         quota,
-        ...(compiledPrompt.lyrics ? { lyrics: sanitizeLyricsForClient(compiledPrompt.lyrics) } : {}),
+        ...(sanitizedLyrics ? { lyrics: sanitizedLyrics } : {}),
         sonicTags: compiledPrompt.sonicTags ?? [],
         loras: compiledPrompt.loras ?? [],
         vocalIdentity: {
-          selectedVoiceId: input.selectedVoiceId ?? null,
-          clonedVoiceProfileId: input.clonedVoiceProfileId ?? null,
-          svcMode: input.clonedVoiceProfileId
+          selectedVoiceId:
+            input.selectedVoiceId ?? input.voiceCast?.selectedVoiceIds?.[0] ?? null,
+          clonedVoiceProfileId: effectiveCloneId ?? null,
+          ensemble: input.voiceCast?.ensemble ?? 'solo',
+          selectedVoiceIds: input.voiceCast?.selectedVoiceIds ?? [],
+          svcMode: effectiveCloneId
             ? 'zero_shot_clone'
-            : input.selectedVoiceId
+            : (input.selectedVoiceId ?? input.voiceCast?.selectedVoiceIds?.[0])
               ? 'catalog_archetype'
               : 'default',
         },
@@ -265,12 +360,35 @@ generationRoutes.get('/:id', async (c) => {
   ) {
     const liveStatus = await checkRunPodJobStatus(job.providerTaskId, c);
     if (liveStatus.status === 'COMPLETED' && liveStatus.audioUrl) {
+      const completedTakes =
+        job.takes && job.takes.length > 0
+          ? job.takes
+          : [
+              {
+                takeIndex: 0,
+                seed: 1,
+                engineUsed: job.resolvedEngine ?? 'minimax_music_3',
+                audioUrl: liveStatus.audioUrl,
+                durationSec: job.durationSec ?? 180,
+                score: 1.0,
+                attribution: job.attributionTag ?? null,
+              },
+            ];
       completeJob(id, {
         masterMp3Url: liveStatus.audioUrl,
         stemsZipUrl: liveStatus.stemsZipUrl,
         stemUrls: liveStatus.stemUrls,
         manifestUrl: liveStatus.manifestUrl,
+        takes: completedTakes,
       });
+      const updated = getJob(id) ?? job;
+      await vhunambiDb.upsertGenerationJobAsync(
+        updated,
+        updated.creatorId ?? 'creator_cern',
+        'audio_synthesis',
+        c,
+      );
+      await notifyGenerationCompletedOnce(updated, c);
     } else if (liveStatus.status === 'FAILED') {
       failJob(id, liveStatus.error || 'RunPod GPU job failed');
     } else if (liveStatus.status === 'IN_PROGRESS') {
@@ -281,11 +399,13 @@ generationRoutes.get('/:id', async (c) => {
       });
     } else if (liveStatus.status === 'IN_QUEUE') {
       const ageMs = Date.now() - job.createdAt.getTime();
+      const maxQueueGraceMs =
+        job.engineTier === 'fast_draft' ? 240000 : 900000; // 15 min grace for long bakes
       if (ageMs > 45000) {
         const health = await checkRunPodEndpointHealth(c);
         const endpointDisabled = health.workersMax === 0;
         const staleUnscheduled =
-          ageMs > 240000 &&
+          ageMs > maxQueueGraceMs &&
           health.workersRunning === 0 &&
           health.workersInitializing === 0 &&
           health.workersIdle === 0 &&
@@ -311,6 +431,15 @@ generationRoutes.get('/:id', async (c) => {
 
   return c.json({
     generationId: currentJob.generationId,
+    creatorId: currentJob.creatorId ?? 'creator_cern',
+    batchId: currentJob.batchId,
+    batchCount: currentJob.batchCount ?? 1,
+    engineTier: currentJob.engineTier ?? 'studio_bake',
+    resolvedEngine: currentJob.resolvedEngine ?? 'minimax_music_3',
+    attributionTag: currentJob.attributionTag ?? null,
+    audioMode: currentJob.audioMode ?? 'none',
+    visibility: currentJob.visibility ?? 'public',
+    takes: currentJob.takes ?? [],
     trackTitle: currentJob.trackTitle,
     genre: currentJob.genre,
     language: currentJob.language,
@@ -447,6 +576,3 @@ generationRoutes.post('/:id/master', async (c) => {
     200,
   );
 });
-
-
-

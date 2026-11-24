@@ -570,12 +570,47 @@ export class VhunambiDatabase {
       } catch (_) { }
     }
 
+    for (const alterSql of [
+      "ALTER TABLE generation_jobs ADD COLUMN batch_id TEXT;",
+      "ALTER TABLE generation_jobs ADD COLUMN batch_count INTEGER NOT NULL DEFAULT 1;",
+      "ALTER TABLE generation_jobs ADD COLUMN engine_tier TEXT NOT NULL DEFAULT 'studio_bake';",
+      "ALTER TABLE generation_jobs ADD COLUMN resolved_engine TEXT NOT NULL DEFAULT 'minimax_music_3';",
+      "ALTER TABLE generation_jobs ADD COLUMN audio_mode TEXT NOT NULL DEFAULT 'none';",
+      "ALTER TABLE generation_jobs ADD COLUMN reference_audio_url TEXT;",
+      "ALTER TABLE generation_jobs ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public';",
+      "ALTER TABLE generation_jobs ADD COLUMN attribution_tag TEXT;",
+      "ALTER TABLE generation_jobs ADD COLUMN lyrics_text TEXT;",
+      "ALTER TABLE generation_jobs ADD COLUMN cover_url TEXT;",
+      "ALTER TABLE generation_jobs ADD COLUMN voice_cast_json TEXT NOT NULL DEFAULT '{}';",
+      "ALTER TABLE generation_jobs ADD COLUMN generation_spec_json TEXT NOT NULL DEFAULT '{}';",
+      "ALTER TABLE generation_jobs ADD COLUMN takes_json TEXT NOT NULL DEFAULT '[]';",
+    ]) {
+      try {
+        this.db.exec(alterSql);
+      } catch (_) {
+        // Column already exists in upgraded local DB
+      }
+    }
+
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS generation_jobs (
         generation_id TEXT PRIMARY KEY,
         creator_id TEXT NOT NULL DEFAULT 'creator_cern',
         job_kind TEXT NOT NULL DEFAULT 'audio_synthesis',
         provider_task_id TEXT,
+        batch_id TEXT,
+        batch_count INTEGER NOT NULL DEFAULT 1,
+        engine_tier TEXT NOT NULL DEFAULT 'studio_bake',
+        resolved_engine TEXT NOT NULL DEFAULT 'minimax_music_3',
+        audio_mode TEXT NOT NULL DEFAULT 'none',
+        reference_audio_url TEXT,
+        visibility TEXT NOT NULL DEFAULT 'public',
+        attribution_tag TEXT,
+        lyrics_text TEXT,
+        cover_url TEXT,
+        voice_cast_json TEXT NOT NULL DEFAULT '{}',
+        generation_spec_json TEXT NOT NULL DEFAULT '{}',
+        takes_json TEXT NOT NULL DEFAULT '[]',
         status TEXT NOT NULL DEFAULT 'queued',
         step TEXT NOT NULL DEFAULT 'queued',
         progress_pct INTEGER NOT NULL DEFAULT 0,
@@ -4894,8 +4929,56 @@ export class VhunambiDatabase {
       }
     }
 
+    let voiceCast: Record<string, unknown> | undefined;
+    if (r.voice_cast_json) {
+      try {
+        const parsed = JSON.parse(String(r.voice_cast_json)) as Record<string, unknown>;
+        if (parsed && Object.keys(parsed).length > 0) voiceCast = parsed;
+      } catch {
+        voiceCast = undefined;
+      }
+    }
+
+    let generationSpec: Record<string, unknown> | undefined;
+    if (r.generation_spec_json) {
+      try {
+        const parsed = JSON.parse(String(r.generation_spec_json)) as Record<string, unknown>;
+        if (parsed && Object.keys(parsed).length > 0) generationSpec = parsed;
+      } catch {
+        generationSpec = undefined;
+      }
+    }
+
+    let takes: GenerationJob['takes'];
+    if (r.takes_json) {
+      try {
+        const parsed = JSON.parse(String(r.takes_json));
+        if (Array.isArray(parsed) && parsed.length > 0) takes = parsed;
+      } catch {
+        takes = undefined;
+      }
+    }
+
     return {
       generationId: String(r.generation_id),
+      creatorId: r.creator_id ? canonicalizeCreatorId(String(r.creator_id)) : 'creator_cern',
+      batchId: r.batch_id ? String(r.batch_id) : undefined,
+      batchCount:
+        r.batch_count !== null && r.batch_count !== undefined ? Number(r.batch_count) : undefined,
+      engineTier: r.engine_tier ? (String(r.engine_tier) as GenerationJob['engineTier']) : undefined,
+      resolvedEngine: r.resolved_engine
+        ? (String(r.resolved_engine) as GenerationJob['resolvedEngine'])
+        : undefined,
+      audioMode: r.audio_mode ? (String(r.audio_mode) as GenerationJob['audioMode']) : undefined,
+      referenceAudioUrl: r.reference_audio_url ? String(r.reference_audio_url) : undefined,
+      visibility: r.visibility ? (String(r.visibility) as 'public' | 'private') : undefined,
+      attributionTag:
+        r.attribution_tag !== undefined && r.attribution_tag !== null
+          ? String(r.attribution_tag)
+          : undefined,
+      voiceCast,
+      generationSpec,
+      takes,
       trackTitle: String(r.track_title ?? 'Untitled Track'),
       genre: String(r.genre ?? 'Amapiano'),
       language: String(r.language ?? 'Instrumental'),
@@ -4908,6 +4991,8 @@ export class VhunambiDatabase {
       manifestUrl: r.manifest_url ? String(r.manifest_url) : undefined,
       manifest,
       visionMeta,
+      coverUrl: r.cover_url ? String(r.cover_url) : undefined,
+      lyrics: r.lyrics_text ? String(r.lyrics_text) : undefined,
       durationSec: r.duration_sec !== null && r.duration_sec !== undefined ? Number(r.duration_sec) : undefined,
       errorMessage: r.error_message ? String(r.error_message) : undefined,
       providerTaskId: r.provider_task_id ? String(r.provider_task_id) : undefined,
@@ -4923,16 +5008,35 @@ export class VhunambiDatabase {
   ): void {
     const createdMs = job.createdAt instanceof Date ? job.createdAt.getTime() : Date.now();
     const updatedMs = job.updatedAt instanceof Date ? job.updatedAt.getTime() : Date.now();
+    const resolvedCreator = canonicalizeCreatorId(
+      creatorId !== 'creator_cern' ? creatorId : (job.creatorId ?? creatorId),
+    );
     this.db
       .prepare(
         `INSERT INTO generation_jobs (
-          generation_id, creator_id, job_kind, provider_task_id, status, step,
-          progress_pct, track_title, genre, language, duration_sec,
+          generation_id, creator_id, job_kind, provider_task_id,
+          batch_id, batch_count, engine_tier, resolved_engine, audio_mode,
+          reference_audio_url, visibility, attribution_tag, lyrics_text, cover_url,
+          voice_cast_json, generation_spec_json, takes_json,
+          status, step, progress_pct, track_title, genre, language, duration_sec,
           master_mp3_url, stems_zip_url, stem_urls_json, manifest_url,
           manifest_json, error_message, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(generation_id) DO UPDATE SET
           provider_task_id = COALESCE(excluded.provider_task_id, generation_jobs.provider_task_id),
+          batch_id = COALESCE(excluded.batch_id, generation_jobs.batch_id),
+          batch_count = COALESCE(excluded.batch_count, generation_jobs.batch_count),
+          engine_tier = COALESCE(excluded.engine_tier, generation_jobs.engine_tier),
+          resolved_engine = COALESCE(excluded.resolved_engine, generation_jobs.resolved_engine),
+          audio_mode = COALESCE(excluded.audio_mode, generation_jobs.audio_mode),
+          reference_audio_url = COALESCE(excluded.reference_audio_url, generation_jobs.reference_audio_url),
+          visibility = COALESCE(excluded.visibility, generation_jobs.visibility),
+          attribution_tag = COALESCE(excluded.attribution_tag, generation_jobs.attribution_tag),
+          lyrics_text = COALESCE(excluded.lyrics_text, generation_jobs.lyrics_text),
+          cover_url = COALESCE(excluded.cover_url, generation_jobs.cover_url),
+          voice_cast_json = CASE WHEN excluded.voice_cast_json != '{}' THEN excluded.voice_cast_json ELSE generation_jobs.voice_cast_json END,
+          generation_spec_json = CASE WHEN excluded.generation_spec_json != '{}' THEN excluded.generation_spec_json ELSE generation_jobs.generation_spec_json END,
+          takes_json = CASE WHEN excluded.takes_json != '[]' THEN excluded.takes_json ELSE generation_jobs.takes_json END,
           status = excluded.status,
           step = excluded.step,
           progress_pct = excluded.progress_pct,
@@ -4950,9 +5054,22 @@ export class VhunambiDatabase {
       )
       .run(
         job.generationId,
-        canonicalizeCreatorId(creatorId),
+        resolvedCreator,
         jobKind,
         job.providerTaskId ?? null,
+        job.batchId ?? null,
+        Math.max(1, Math.min(4, Math.round(job.batchCount ?? 1))),
+        job.engineTier ?? 'studio_bake',
+        job.resolvedEngine ?? 'minimax_music_3',
+        job.audioMode ?? 'none',
+        job.referenceAudioUrl ?? null,
+        job.visibility ?? 'public',
+        job.attributionTag ?? null,
+        job.lyrics ?? null,
+        job.coverUrl ?? null,
+        JSON.stringify(job.voiceCast ?? {}),
+        JSON.stringify(job.generationSpec ?? {}),
+        JSON.stringify(job.takes ?? []),
         job.status,
         job.step,
         Math.round(job.progressPct ?? 0),
@@ -4999,9 +5116,10 @@ export class VhunambiDatabase {
     const merged: GenerationJob = {
       ...existing,
       ...updates,
+      creatorId: updates.creatorId ?? existing.creatorId ?? 'creator_cern',
       updatedAt: new Date(),
     };
-    this.upsertGenerationJob(merged);
+    this.upsertGenerationJob(merged, merged.creatorId ?? 'creator_cern');
     return this.getGenerationJob(generationId);
   }
 
@@ -6116,19 +6234,19 @@ export class VhunambiDatabase {
     const rows = (
       kind
         ? this.db
-            .prepare(
-              `SELECT * FROM user_media_uploads
+          .prepare(
+            `SELECT * FROM user_media_uploads
                WHERE creator_id = ? AND media_kind = ? AND deleted_at IS NULL
                ORDER BY created_at DESC`,
-            )
-            .all(cid, kind)
+          )
+          .all(cid, kind)
         : this.db
-            .prepare(
-              `SELECT * FROM user_media_uploads
+          .prepare(
+            `SELECT * FROM user_media_uploads
                WHERE creator_id = ? AND deleted_at IS NULL
                ORDER BY created_at DESC`,
-            )
-            .all(cid)
+          )
+          .all(cid)
     ) as Array<Record<string, unknown>>;
     return rows.map((r) => normalizeUserMediaUploadRow(r));
   }
@@ -6151,7 +6269,7 @@ export class VhunambiDatabase {
     if (
       creatorId &&
       canonicalizeCreatorId(existing.creatorId) !==
-        canonicalizeCreatorId(creatorId)
+      canonicalizeCreatorId(creatorId)
     ) {
       return false;
     }

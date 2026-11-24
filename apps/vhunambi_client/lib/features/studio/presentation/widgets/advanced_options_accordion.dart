@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../domain/models/mycelium_biome_models.dart';
 import '../../domain/models/studio_form_state.dart';
 import '../providers/studio_form_provider.dart';
@@ -39,16 +41,8 @@ class _AdvancedOptionsAccordionState
     final notifier = ref.read(studioFormProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.darkSurfaceElevated.withValues(alpha: 0.4)
-            : AppColors.lightSurfaceElevated,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-        ),
-      ),
+    return VhunambiGlassSurface(
+      borderRadius: AppRadius.cardBorder,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -57,65 +51,53 @@ class _AdvancedOptionsAccordionState
               HapticFeedback.selectionClick();
               setState(() => _isExpanded = !_isExpanded);
             },
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: AppRadius.cardBorder,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Flexible(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const PhosphorIcon(
-                          PhosphorIconsRegular.faders,
-                          color: AppColors.brandPrimary,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            'Advanced Options',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.bodyMedium.copyWith(
-                              color: isDark
-                                  ? AppColors.darkTextPrimary
-                                  : AppColors.lightTextPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
+                  const PhosphorIcon(
+                    PhosphorIconsRegular.faders,
+                    color: AppColors.brandPrimary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Advanced Options',
+                    maxLines: 1,
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: AppColors.textPrimaryOf(context),
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Flexible(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            '${state.mood.isEmpty ? "Mood" : state.mood} • ${state.tempo.label.split(" ").first}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.caption.copyWith(
-                              color: AppColors.brandPrimary,
-                              fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '${state.mood.isEmpty ? "Mood" : state.mood} • ${state.tempo.label.split(" ").first}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.brandPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        PhosphorIcon(
-                          _isExpanded
-                              ? PhosphorIconsRegular.caretUp
-                              : PhosphorIconsRegular.caretDown,
-                          color: isDark
-                              ? AppColors.darkTextSecondary
-                              : AppColors.lightTextSecondary,
-                          size: 16,
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          PhosphorIcon(
+                            _isExpanded
+                                ? PhosphorIconsRegular.caretUp
+                                : PhosphorIconsRegular.caretDown,
+                            color: AppColors.textSecondaryOf(context),
+                            size: 16,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -277,29 +259,27 @@ class _AdvancedOptionsAccordionState
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 32),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        constraints: const BoxConstraints(minHeight: 44),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.brandPrimary
-              : (isDark ? AppColors.darkBackground : AppColors.lightBackground),
+              : AppColors.surfaceSecondaryOf(context),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? AppColors.brandPrimary
-                : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                : AppColors.borderSubtleOf(context),
           ),
         ),
         child: Text(
           label,
           style: AppTypography.caption.copyWith(
             color: isSelected
-                ? Colors.white
-                : (isDark
-                      ? AppColors.darkTextPrimary
-                      : AppColors.lightTextPrimary),
+                ? AppColors.brandContrast
+                : AppColors.textPrimaryOf(context),
             fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-            fontSize: 11,
+            fontSize: 11.5,
           ),
         ),
       ),

@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/vocal_identity_models.dart';
+import '../providers/studio_form_provider.dart';
 import '../providers/vocal_identity_provider.dart';
 import 'voice_clone_recorder_sheet.dart';
 
@@ -52,6 +53,9 @@ class _VocalIdentityPickerSheetState
   Widget build(BuildContext context) {
     final state = ref.watch(vocalIdentityProvider);
     final notifier = ref.read(vocalIdentityProvider.notifier);
+    final selectedVoiceIds = ref.watch(
+      studioFormProvider.select((s) => s.selectedVoiceIds),
+    );
 
     return SafeArea(
       key: const Key('vocal_identity_picker_sheet'),
@@ -79,7 +83,8 @@ class _VocalIdentityPickerSheetState
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        'Active: ${state.activeVoiceDisplayLabel}',
+                        'Active: ${state.activeVoiceDisplayLabel}'
+                        '${selectedVoiceIds.isNotEmpty ? ' • Duet/Cast (${selectedVoiceIds.length}/6)' : ''}',
                         style: AppTypography.caption.copyWith(
                           color: AppColors.coinGold,
                           fontWeight: FontWeight.w600,
@@ -353,6 +358,27 @@ class _VocalIdentityPickerSheetState
                                   ),
                                 ),
                                 const SizedBox(width: AppSpacing.xs),
+                                IconButton(
+                                  key: Key('vocal_cast_toggle_${arch.id}'),
+                                  tooltip: selectedVoiceIds.contains(arch.id)
+                                      ? 'Remove from Duet/Ensemble Cast'
+                                      : 'Add to Duet/Ensemble Cast (max 6)',
+                                  constraints: const BoxConstraints(
+                                    minWidth: 44,
+                                    minHeight: 44,
+                                  ),
+                                  onPressed: () => ref
+                                      .read(studioFormProvider.notifier)
+                                      .toggleSelectedVoiceId(arch.id),
+                                  icon: PhosphorIcon(
+                                    selectedVoiceIds.contains(arch.id)
+                                        ? PhosphorIconsFill.usersThree
+                                        : PhosphorIconsRegular.userPlus,
+                                    color: selectedVoiceIds.contains(arch.id)
+                                        ? AppColors.brandPrimary
+                                        : AppColors.textSecondary,
+                                  ),
+                                ),
                                 IconButton(
                                   key: Key('preview_voice_btn_${arch.id}'),
                                   constraints: const BoxConstraints(

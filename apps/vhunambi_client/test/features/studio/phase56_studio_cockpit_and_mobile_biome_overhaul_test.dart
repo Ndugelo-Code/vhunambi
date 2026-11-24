@@ -18,7 +18,7 @@ void main() {
     'Phase 56: Studio Cockpit Compaction, Ergonomic Unification & Mobile 3D Biome Overhaul',
     () {
       testWidgets(
-        '1. Prompt-First Compose: PromptInputBox is above CockpitQuantumEntanglementRack and 2x3 rack collapses cleanly',
+        '1. Prompt-First Compose: PromptInputBox is above ReferenceAudioDropzone and pre-gen Quantum Rack is deferred (STU-02)',
         (tester) async {
           tester.view.physicalSize = const Size(360, 780);
           tester.view.devicePixelRatio = 1.0;
@@ -37,31 +37,22 @@ void main() {
           final promptTop = tester
               .getTopLeft(find.text('Describe your song'))
               .dy;
-          final rackTop = tester
-              .getTopLeft(
-                find.byKey(const Key('cockpit_quantum_entanglement_rack')),
-              )
+          final refTop = tester
+              .getTopLeft(find.text('Reference Audio (optional)'))
               .dy;
 
-          expect(promptTop, lessThan(rackTop));
-          expect(find.text('Reference Audio (optional)'), findsOneWidget);
+          expect(promptTop, lessThan(refTop));
+          expect(
+            find.byKey(const Key('cockpit_quantum_entanglement_rack')),
+            findsNothing,
+          );
           expect(
             find.byKey(const Key('dropzone_upload_audio_btn')),
             findsOneWidget,
           );
-
-          // Toggle rack collapse
-          await tester.ensureVisible(
-            find.byKey(const Key('cockpit_rack_collapse_toggle_btn')),
-          );
-          await tester.pumpAndSettle();
-          await tester.tap(
-            find.byKey(const Key('cockpit_rack_collapse_toggle_btn')),
-          );
-          await tester.pumpAndSettle();
           expect(
-            find.byKey(const Key('cockpit_domain_card_melodyCore')),
-            findsNothing,
+            find.byKey(const Key('studio_improve_prompt_btn')),
+            findsOneWidget,
           );
         },
       );
