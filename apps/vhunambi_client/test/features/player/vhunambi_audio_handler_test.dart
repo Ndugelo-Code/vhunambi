@@ -1,6 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/material.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart' show LoopMode, ProcessingState;
+import 'package:vhunambi_client/core/constants/app_constants.dart';
 import 'package:vhunambi_client/features/player/data/services/audio_session_manager.dart';
 import 'package:vhunambi_client/features/player/data/services/audio_source_resolver.dart';
 import 'package:vhunambi_client/features/player/data/services/vhunambi_audio_handler.dart';
@@ -26,11 +31,19 @@ void main() {
       expect(item.duration, const Duration(minutes: 3, seconds: 29));
       expect(
         item.artUri,
-        Uri.parse('https://vhunambi.com/covers/trk_handler_001.jpg'),
+        Uri.parse(
+          AppConstants.normalizeCloudMediaUrl(
+            'https://vhunambi.com/covers/trk_handler_001.jpg',
+          ),
+        ),
+      );
+      expect(
+        buildMediaItemForTrack(_track(coverUrl: '/r2/covers/rel_01.jpg')).artUri,
+        Uri.parse(AppConstants.normalizeCloudMediaUrl('/r2/covers/rel_01.jpg')),
       );
       expect(item.displayTitle, 'Lockscreen Master');
-      expect(item.displaySubtitle, 'Amapiano • Tshivenḓa');
-      expect(item.displayDescription, '@vhusi_test • Vhunambi stream');
+      expect(item.displaySubtitle, 'Vhusi Test');
+      expect(item.displayDescription, 'Vhusi Test • Amapiano • Tshivenḓa');
       expect(item.extras?['language'], 'Tshivenḓa');
       expect(item.extras?['mood'], 'Energetic');
       expect(item.extras?['isOffline'], isFalse);
@@ -42,27 +55,64 @@ void main() {
       expect(item.extras?['localFilePath'], isNull);
     });
 
-    test('flags offline vault playback and carries the local path', () {
+    test('flags offline vault playback and cleans @handle prefixes', () {
       final item = buildMediaItemForTrack(
-        _track(),
+        _track(creatorName: '@my_uploads'),
         isOffline: true,
         localFilePath: '/vault/audio/trk_handler_001.mp3',
       );
 
+      expect(item.artist, 'my_uploads');
+      expect(item.album, 'Amapiano • Offline');
       expect(item.extras?['isOffline'], isTrue);
       expect(item.extras?['source'], 'vault');
       expect(
         item.extras?['localFilePath'],
         '/vault/audio/trk_handler_001.mp3',
       );
-      expect(item.displayDescription, contains('Offline vault'));
-      expect(item.displayDescription, startsWith('@vhusi_test'));
+      expect(item.displayDescription, 'my_uploads • Offline Vault');
     });
 
-    test('omits artwork when the track has no cover url', () {
-      final item = buildMediaItemForTrack(_track(coverUrl: null));
+    test('caches bundled asset art into native-readable file:// artUri', () async {
+      final tempDir = Directory.systemTemp.createTempSync('vh_art_test_');
+      addTearDown(() {
+        if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      });
 
-      expect(item.artUri, isNull);
+      var loads = 0;
+      final trackNoUrl = _track(coverUrl: null);
+      expect(buildMediaItemForTrack(trackNoUrl).artUri, isNull);
+
+      final uri1 = await resolveNativeNotificationArtUri(
+        trackNoUrl,
+        allowUnderTest: true,
+        tempDirProvider: () async => tempDir,
+        assetLoader: (assetKey) async {
+          loads++;
+          return ByteData.sublistView(Uint8List.fromList(<int>[137, 80, 78, 71]));
+        },
+      );
+      final uri2 = await resolveNativeNotificationArtUri(
+        trackNoUrl,
+        allowUnderTest: true,
+        tempDirProvider: () async => tempDir,
+        assetLoader: (_) async {
+          loads++;
+          return ByteData(0);
+        },
+      );
+
+      expect(uri1, isNotNull);
+      expect(uri1!.scheme, 'file');
+      expect(File(uri1.toFilePath()).existsSync(), isTrue);
+      expect(uri2, uri1);
+      expect(loads, 1);
+
+      final itemWithCachedArt = buildMediaItemForTrack(
+        trackNoUrl,
+        resolvedArtUri: uri1,
+      );
+      expect(itemWithCachedArt.artUri, uri1);
     });
   });
 
@@ -206,26 +256,47 @@ void main() {
       );
     });
 
-    test('builds compact OS controls with system actions', () {
+    test('builds Nyx-grade 5-button vector controls and custom actions', () {
       final playing = buildOsPlaybackState(
         status: PlaybackStatus.playing,
         position: const Duration(seconds: 42),
         bufferedPosition: const Duration(seconds: 90),
         speed: 1.25,
         queueIndex: 2,
+        isFavorite: true,
       );
 
       expect(
         playing.controls.map((control) => control.action).toList(),
         <MediaAction>[
+          MediaAction.custom,
           MediaAction.skipToPrevious,
           MediaAction.pause,
           MediaAction.skipToNext,
-          MediaAction.stop,
+          MediaAction.custom,
         ],
       );
-      expect(playing.androidCompactActionIndices, <int>[0, 1, 2]);
+      expect(
+        playing.controls.map((c) => c.androidIcon).toList(),
+        <String>[
+          'drawable/ic_vh_heart_filled',
+          'drawable/ic_vh_prev',
+          'drawable/ic_vh_pause',
+          'drawable/ic_vh_next',
+          'drawable/ic_vh_close',
+        ],
+      );
+      expect(
+        playing.controls.first.customAction?.name,
+        kAudioCustomActionToggleFavorite,
+      );
+      expect(
+        playing.controls.last.customAction?.name,
+        kAudioCustomActionCloseDismiss,
+      );
+      expect(playing.androidCompactActionIndices, <int>[1, 2, 3]);
       expect(playing.systemActions, contains(MediaAction.seek));
+      expect(playing.systemActions, contains(MediaAction.stop));
       expect(playing.processingState, AudioProcessingState.ready);
       expect(playing.playing, isTrue);
       expect(playing.updatePosition, const Duration(seconds: 42));
@@ -237,8 +308,10 @@ void main() {
         status: PlaybackStatus.paused,
         position: Duration.zero,
       );
-      expect(paused.controls.first.action, MediaAction.skipToPrevious);
-      expect(paused.controls[1].action, MediaAction.play);
+      expect(paused.controls.first.androidIcon, 'drawable/ic_vh_heart_outline');
+      expect(paused.controls[1].action, MediaAction.skipToPrevious);
+      expect(paused.controls[2].action, MediaAction.play);
+      expect(paused.controls[2].androidIcon, 'drawable/ic_vh_play');
       expect(paused.playing, isFalse);
       expect(paused.repeatMode, AudioServiceRepeatMode.none);
 
@@ -251,15 +324,19 @@ void main() {
       expect(failed.errorMessage, 'boom');
     });
 
-    test('declares the notification channel identity', () {
+    test('declares Vhunambi Playback config, bitmap downscale and brand tint', () {
       expect(kAudioNotificationChannelId, 'com.vhunambi.app.audio');
-      expect(kAudioNotificationChannelName, 'Vhunambi Music Playback');
+      expect(kAudioNotificationChannelName, 'Vhunambi Playback');
       expect(
         kAudioNotificationChannelDescription,
         'African AI Music Synthesis & Creator Playback',
       );
-      expect(kAudioNotificationIcon, 'drawable/ic_stat_music');
-      expect(kAndroidCompactActionIndices, <int>[0, 1, 2]);
+      expect(kAudioNotificationIcon, 'drawable/ic_stat_vhunambi');
+      expect(kAndroidCompactActionIndices, <int>[1, 2, 3]);
+      expect(vhunambiAudioServiceConfig.artDownscaleWidth, 512);
+      expect(vhunambiAudioServiceConfig.artDownscaleHeight, 512);
+      expect(vhunambiAudioServiceConfig.preloadArtwork, isTrue);
+      expect(vhunambiAudioServiceConfig.notificationColor, const Color(0xFFF97316));
     });
   });
 
@@ -486,6 +563,30 @@ void main() {
 
       expect(handler.currentTrack?.id, 'trk_handler_001');
     });
+
+    test('customAction toggles heart and dismisses via close_dismiss', () async {
+      final handler = TestVhunambiAudioHandler();
+      addTearDown(handler.dispose);
+      final favoriteEvents = <String>[];
+      handler.favoriteToggleRequests.listen(favoriteEvents.add);
+
+      await handler.playTrack(_track());
+      expect(
+        handler.currentPlaybackState.controls.first.androidIcon,
+        'drawable/ic_vh_heart_outline',
+      );
+
+      await handler.customAction(kAudioCustomActionToggleFavorite);
+      expect(
+        handler.currentPlaybackState.controls.first.androidIcon,
+        'drawable/ic_vh_heart_filled',
+      );
+      expect(favoriteEvents, <String>['trk_handler_001']);
+
+      await handler.customAction(kAudioCustomActionCloseDismiss);
+      expect(handler.playbackStatus, PlaybackStatus.idle);
+      expect(handler.currentTrack, isNull);
+    });
   });
 }
 
@@ -509,12 +610,13 @@ class _FailingSourceResolver implements IAudioSourceResolver {
 
 Track _track({
   String id = 'trk_handler_001',
+  String creatorName = 'Vhusi Test',
   String? coverUrl = 'https://vhunambi.com/covers/trk_handler_001.jpg',
 }) {
   return Track(
     id: id,
     title: 'Lockscreen Master',
-    creatorName: 'Vhusi Test',
+    creatorName: creatorName,
     genre: 'Amapiano',
     language: 'Tshivenḓa',
     duration: const Duration(minutes: 3, seconds: 29),

@@ -1,6 +1,8 @@
-# Fast delta image: upgrades vhunambi-v3 to Multi-Model Audio Engine vhunambi-v4
-# Build:  docker buildx build --provenance=false -f Dockerfile.delta -t ndugelo/zr-studio-gpu:vhunambi-v4 --push .
-FROM ndugelo/zr-studio-gpu:vhunambi-v3
+# Fast delta image: layers Python worker + training updates onto the latest live base tag
+# Build from repo root via Docker Build Cloud:
+#   docker buildx build --builder cloud-ndugelo-vhunambi --platform=linux/amd64 --provenance=false -f tools/zr-studio-gpu/Dockerfile.delta -t ndugelo/zr-studio-gpu:vhunambi-v6 --push ./tools
+ARG BASE_IMAGE=ndugelo/zr-studio-gpu:vhunambi-v5
+FROM ${BASE_IMAGE}
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
@@ -11,9 +13,17 @@ ENV PYTHONUNBUFFERED=1 \
     ZR_SEED_VC_CACHE_DIR=/runpod-volume/seed_vc_cache \
     ZR_REF_MASTERS_DIR=/runpod-volume/ref_masters
 
-RUN pip install --no-cache-dir "soxr>=0.4.0" "matchering>=2.0.6" "audio-separator>=0.24.0"
+RUN pip install --no-cache-dir \
+    "soxr>=0.4.0" \
+    "matchering>=2.0.6" \
+    "audio-separator>=0.24.0" \
+    "onnxruntime>=1.18.0" \
+    "peft>=0.13.0" \
+    "safetensors>=0.4.5" \
+    "pyyaml>=6.0.1"
 
-COPY model_router.py model_utils.py mmo_extractor.py stem_mastering_worker.py seed_vc_worker.py handler.py /app/
+COPY zr-studio-gpu/model_router.py zr-studio-gpu/model_utils.py zr-studio-gpu/mmo_extractor.py zr-studio-gpu/stem_mastering_worker.py zr-studio-gpu/seed_vc_worker.py zr-studio-gpu/handler.py /app/
+COPY zr-studio-training/ /app/training/
 
 RUN python -m py_compile \
     /app/model_router.py \
@@ -21,7 +31,11 @@ RUN python -m py_compile \
     /app/mmo_extractor.py \
     /app/stem_mastering_worker.py \
     /app/seed_vc_worker.py \
-    /app/handler.py
+    /app/handler.py \
+    /app/training/__init__.py \
+    /app/training/validate_dataset.py \
+    /app/training/dataset_prep_worker.py \
+    /app/training/train_lora.py
 
 CMD [ "python", "-u", "/app/handler.py" ]
 

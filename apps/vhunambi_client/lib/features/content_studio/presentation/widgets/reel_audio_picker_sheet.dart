@@ -18,6 +18,7 @@ import 'package:vhunambi_client/features/explore/presentation/providers/explore_
 import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
 import 'package:vhunambi_client/features/library/presentation/providers/library_providers.dart';
 import 'package:vhunambi_client/features/media/domain/models/uploaded_media_asset.dart';
+import 'package:vhunambi_client/features/media/domain/utils/media_mime_utils.dart';
 import 'package:vhunambi_client/features/media/presentation/providers/media_upload_queue_provider.dart';
 import 'package:vhunambi_client/features/profile/presentation/providers/profile_providers.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
@@ -38,6 +39,7 @@ class ReelStudioAudioSelection {
   final SongMetadataDna dna;
   final Uint8List? importedAudioBytes;
   final String? importedAudioMime;
+  final String? stagedAudioAssetId;
 
   const ReelStudioAudioSelection({
     required this.trackId,
@@ -53,6 +55,7 @@ class ReelStudioAudioSelection {
     required this.dna,
     this.importedAudioBytes,
     this.importedAudioMime,
+    this.stagedAudioAssetId,
   });
 
   String get bestAudioSource =>
@@ -82,8 +85,9 @@ class ReelStudioAudioSelection {
       audioUrl: track.remoteAudioUrl,
       localFilePath: track.localAudioFilePath,
       coverUrl: track.coverImageUrl ?? '',
-      durationSeconds:
-          track.durationSeconds > 5 ? track.durationSeconds.toDouble() : 120.0,
+      durationSeconds: track.durationSeconds > 5
+          ? track.durationSeconds.toDouble()
+          : 120.0,
       isInitiallySaved: track.isFavorite,
       dna: track.toSongMetadataDna(),
     );
@@ -100,18 +104,20 @@ class ReelStudioAudioSelection {
       trackId: asset.id,
       title: asset.title,
       creatorHandle: creatorHandle,
-      genre: 'Amapiano',
+      genre: asset.genre ?? 'Amapiano',
       mood: 'uplifting',
       audioUrl: asset.remoteUrl ?? asset.localFilePath ?? '',
       localFilePath: asset.localFilePath,
-      coverUrl: asset.thumbnailLocalPath ?? '',
+      coverUrl: asset.bestCoverSource ?? '',
       durationSeconds: sec,
+      stagedAudioAssetId: asset.id,
       dna: SongMetadataDna.fromTrackInfo(
         id: asset.id,
         title: asset.title,
-        genre: 'Amapiano',
+        genre: asset.genre ?? 'Amapiano',
         language: 'English',
         durationSec: sec.round(),
+        coverUrl: asset.bestCoverSource,
       ),
     );
   }
@@ -197,19 +203,22 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
     try {
       final picked = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: const <String>['mp3', 'm4a', 'wav', 'aac', 'ogg'],
+        allowedExtensions: const <String>[
+          'mp3',
+          'm4a',
+          'wav',
+          'aac',
+          'ogg',
+          'flac',
+        ],
         withData: true,
       );
       if (picked == null || picked.files.isEmpty) return;
       final file = picked.files.first;
-      final ext = (file.extension ?? 'mp3').toLowerCase();
-      final mime = switch (ext) {
-        'm4a' => 'audio/mp4',
-        'wav' => 'audio/wav',
-        'aac' => 'audio/aac',
-        'ogg' => 'audio/ogg',
-        _ => 'audio/mpeg',
-      };
+      final mime = inferMimeTypeFromMedia(
+        filename: file.name,
+        fallbackKind: MediaAssetKind.audio,
+      );
       var bytes = file.bytes;
       if ((bytes == null || bytes.isEmpty) &&
           !kIsWeb &&
@@ -233,12 +242,14 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
       final rawHandle = owner.handle.isNotEmpty
           ? owner.handle
           : (session.rawUsername.isNotEmpty ? session.rawUsername : 'creator');
-      final creatorHandle =
-          rawHandle.startsWith('@') ? rawHandle : '@$rawHandle';
+      final creatorHandle = rawHandle.startsWith('@')
+          ? rawHandle
+          : '@$rawHandle';
 
       String? stagedLocalPath = file.path;
       String trackId = 'local_audio_${DateTime.now().millisecondsSinceEpoch}';
       String? remoteUrl;
+      String? stagedAssetId;
 
       if (bytes != null && bytes.isNotEmpty) {
         final staged = await ref
@@ -252,12 +263,15 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
               sourceSurface: 'reel_picker',
             );
         trackId = staged.id;
+        stagedAssetId = staged.id;
         stagedLocalPath = staged.localFilePath ?? stagedLocalPath;
         remoteUrl = staged.remoteUrl;
       }
 
       // Immediately persist imported audio into My Vault so it is reusable offline & across surfaces (`REQ-P79-AUD-02`)
-      ref.read(libraryTracksProvider.notifier).addTrack(
+      ref
+          .read(libraryTracksProvider.notifier)
+          .addTrack(
             LibraryTrack(
               id: trackId,
               title: resolvedTitle,
@@ -298,8 +312,9 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
             language: 'English',
             durationSec: 90,
           ),
-          importedAudioBytes: bytes,
+          importedAudioBytes: stagedAssetId != null ? null : bytes,
           importedAudioMime: mime,
+          stagedAudioAssetId: stagedAssetId,
         ),
       );
     } catch (_) {
@@ -359,9 +374,7 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
       ...exploreTracks,
     ];
     final savedTracks = combined
-        .where(
-          (t) => t.isInitiallySaved || _savedTrackIds.contains(t.trackId),
-        )
+        .where((t) => t.isInitiallySaved || _savedTrackIds.contains(t.trackId))
         .toList(growable: false);
 
     return Container(
@@ -551,7 +564,9 @@ class _ReelAudioPickerSheetState extends ConsumerState<ReelAudioPickerSheet>
             item.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w700),
+            style: AppTypography.bodyMedium.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           subtitle: Text(
             '${item.genre} • ${item.creatorHandle}',

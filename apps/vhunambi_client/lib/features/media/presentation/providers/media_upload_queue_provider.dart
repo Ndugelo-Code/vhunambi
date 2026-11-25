@@ -48,6 +48,8 @@ class MediaUploadQueueNotifier extends StateNotifier<List<UploadedMediaAsset>> {
   final ISocialRepository fallbackSocialRepository;
   final bool useTestSocialFallback;
   final Map<String, Uint8List> _inMemoryBytes = <String, Uint8List>{};
+  final Map<String, Future<UploadedMediaAsset>> _inFlightUploads =
+      <String, Future<UploadedMediaAsset>>{};
 
   MediaUploadQueueNotifier({
     required this.creatorId,
@@ -107,10 +109,7 @@ class MediaUploadQueueNotifier extends StateNotifier<List<UploadedMediaAsset>> {
     );
 
     _inMemoryBytes[id] = bytes;
-    state = <UploadedMediaAsset>[
-      initial,
-      ...state.where((e) => e.id != id),
-    ];
+    state = <UploadedMediaAsset>[initial, ...state.where((e) => e.id != id)];
     await SovereignMediaStorageService.saveAsset(initial);
 
     if (awaitUpload) {
@@ -120,7 +119,35 @@ class MediaUploadQueueNotifier extends StateNotifier<List<UploadedMediaAsset>> {
     return initial;
   }
 
-  Future<UploadedMediaAsset> _performUpload(String assetId) async {
+  /// Awaits an already-running upload for [assetId], returns an already-synced
+  /// asset without re-uploading, or retries if it previously failed.
+  Future<UploadedMediaAsset?> awaitOrRetryAsset(String assetId) async {
+    final existing = state.where((a) => a.id == assetId).firstOrNull;
+    if (existing == null) return null;
+    if (existing.status == MediaUploadStatus.synced &&
+        existing.remoteUrl != null &&
+        existing.remoteUrl!.isNotEmpty) {
+      return existing;
+    }
+    final inFlight = _inFlightUploads[assetId];
+    if (inFlight != null) {
+      return inFlight;
+    }
+    return _performUpload(assetId);
+  }
+
+  Future<UploadedMediaAsset> _performUpload(String assetId) {
+    final active = _inFlightUploads[assetId];
+    if (active != null) return active;
+
+    final task = _executePerformUpload(assetId).whenComplete(() {
+      _inFlightUploads.remove(assetId);
+    });
+    _inFlightUploads[assetId] = task;
+    return task;
+  }
+
+  Future<UploadedMediaAsset> _executePerformUpload(String assetId) async {
     final idx = state.indexWhere((a) => a.id == assetId);
     if (idx == -1) {
       throw StateError('Upload asset $assetId not found');
@@ -175,7 +202,7 @@ class MediaUploadQueueNotifier extends StateNotifier<List<UploadedMediaAsset>> {
         bytes: bytes,
         onProgress: (sent, total) {
           if (!mounted || total <= 0) return;
-          final pct = (sent / total).clamp(0.05, 0.98);
+          final pct = (sent / total).clamp(0.05, 1.0);
           _updateProgressInMemory(assetId, pct);
         },
       );

@@ -599,20 +599,93 @@ class StudioFormState {
   ]);
 }
 
-/// Curated African Style LoRA Pack metadata mirrored 1:1 with Worker `lora_catalog.ts`.
+/// Curated African Style LoRA Pack metadata mirrored 1:1 with Worker `lora_catalog.ts` & `lora_registry`.
 @immutable
 class AfricanLoraPackOption {
   final String loraId;
   final String label;
   final String region;
   final double defaultWeight;
+  final String packType;
+  final String registryStatus;
+  final int readyTrackCount;
+  final int curatedTrackCount;
+  final int minTracks;
+  final int recommendedTracks;
+  final String? artifactSha256;
+  final double? finalLoss;
 
   const AfricanLoraPackOption({
     required this.loraId,
     required this.label,
     required this.region,
     this.defaultWeight = 0.85,
+    this.packType = 'genre',
+    this.registryStatus = 'untrained',
+    this.readyTrackCount = 0,
+    this.curatedTrackCount = 0,
+    this.minTracks = 8,
+    this.recommendedTracks = 15,
+    this.artifactSha256,
+    this.finalLoss,
   });
+
+  bool get isActive => registryStatus == 'active';
+
+  bool get isTraining =>
+      registryStatus == 'preparing' ||
+      registryStatus == 'queued' ||
+      registryStatus == 'downloading' ||
+      registryStatus == 'training' ||
+      registryStatus == 'validating' ||
+      registryStatus == 'uploading';
+
+  bool get hasEnoughSourceTracks => readyTrackCount >= minTracks;
+
+  AfricanLoraPackOption copyWith({
+    String? registryStatus,
+    int? readyTrackCount,
+    int? curatedTrackCount,
+    int? minTracks,
+    int? recommendedTracks,
+    String? artifactSha256,
+    double? finalLoss,
+  }) {
+    return AfricanLoraPackOption(
+      loraId: loraId,
+      label: label,
+      region: region,
+      defaultWeight: defaultWeight,
+      packType: packType,
+      registryStatus: registryStatus ?? this.registryStatus,
+      readyTrackCount: readyTrackCount ?? this.readyTrackCount,
+      curatedTrackCount: curatedTrackCount ?? this.curatedTrackCount,
+      minTracks: minTracks ?? this.minTracks,
+      recommendedTracks: recommendedTracks ?? this.recommendedTracks,
+      artifactSha256: artifactSha256 ?? this.artifactSha256,
+      finalLoss: finalLoss ?? this.finalLoss,
+    );
+  }
+
+  factory AfricanLoraPackOption.fromJson(Map<String, dynamic> json) {
+    final weightRaw = json['defaultWeight'];
+    final lossRaw = json['finalLoss'];
+    return AfricanLoraPackOption(
+      loraId: (json['loraId'] ?? '').toString(),
+      label: (json['label'] ?? json['displayName'] ?? json['loraId'] ?? '')
+          .toString(),
+      region: (json['region'] ?? 'South Africa').toString(),
+      defaultWeight: weightRaw is num ? weightRaw.toDouble() : 0.85,
+      packType: (json['packType'] ?? 'genre').toString(),
+      registryStatus: (json['registryStatus'] ?? 'untrained').toString(),
+      readyTrackCount: (json['readyTrackCount'] as num?)?.toInt() ?? 0,
+      curatedTrackCount: (json['curatedTrackCount'] as num?)?.toInt() ?? 0,
+      minTracks: (json['minTracks'] as num?)?.toInt() ?? 8,
+      recommendedTracks: (json['recommendedTracks'] as num?)?.toInt() ?? 15,
+      artifactSha256: json['artifactSha256']?.toString(),
+      finalLoss: lossRaw is num ? lossRaw.toDouble() : null,
+    );
+  }
 }
 
 const List<AfricanLoraPackOption> kAfricanLoraPacks = <AfricanLoraPackOption>[
@@ -677,3 +750,14 @@ const List<AfricanLoraPackOption> kAfricanLoraPacks = <AfricanLoraPackOption>[
     defaultWeight: 0.85,
   ),
 ];
+
+const AfricanLoraPackOption kBantuVocalsLoraPack = AfricanLoraPackOption(
+  loraId: 'bantu_vocals_v1',
+  label: 'Bantu Vocals',
+  region: '11 SA Languages',
+  defaultWeight: 0.88,
+  packType: 'language',
+);
+
+const List<AfricanLoraPackOption> kAllSovereignLoraPacks =
+    <AfricanLoraPackOption>[...kAfricanLoraPacks, kBantuVocalsLoraPack];

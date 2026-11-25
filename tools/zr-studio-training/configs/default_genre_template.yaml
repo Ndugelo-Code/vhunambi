@@ -1,0 +1,13 @@
+# VHUNAMBI Phase 85 — Default Regional Genre LoRA Template
+dataset:
+  s3_prefix: "training-data/curated/"
+
+training:
+  lora_rank: 16
+  lora_alpha: 32
+  epochs: 10
+  batch_size: 2
+  grad_accum_steps: 2
+  learning_rate: 1.2e-4
+  warmup_steps: 40
+  precision: "bf16"

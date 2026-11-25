@@ -1,0 +1,18 @@
+# VHUNAMBI Phase 85 — Lagos Afrobeats Groove LoRA
+dataset:
+  s3_prefix: "training-data/curated/"
+  lora_id: "afrobeats_lagos_v1"
+
+training:
+  lora_name: "afrobeats_lagos_v1"
+  lora_rank: 16
+  lora_alpha: 32
+  epochs: 10
+  batch_size: 2
+  grad_accum_steps: 2
+  learning_rate: 1.2e-4
+  warmup_steps: 40
+  precision: "bf16"
+
+output:
+  r2_key: "loras/afrobeats_lagos_v1.safetensors"

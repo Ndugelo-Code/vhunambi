@@ -1,12 +1,17 @@
 import 'dart:async';
+import 'dart:io' show Directory, File, Platform;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show MissingPluginException;
+import 'package:flutter/services.dart' show MissingPluginException, rootBundle;
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/resilience/safe_audio_orchestrator.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/models/track.dart';
 import '../../domain/models/player_state.dart';
 import 'audio_session_manager.dart';
@@ -51,18 +56,30 @@ abstract class IVhunambiAudioHandler {
   Future<void> setRepeatMode(AudioServiceRepeatMode repeatMode);
 
   Future<void> setVolume(double volume);
+
+  /// Broadcasts active track IDs when the user taps the notification heart.
+  Stream<String> get favoriteToggleRequests;
+
+  /// Updates the notification heart button state to mirror in-app likes.
+  Future<void> setFavoriteState(bool isFavorite);
+
   Future<void> dispose();
 }
 
 /// Android notification channel identity (REQ-AUD-01).
 const String kAudioNotificationChannelId = 'com.vhunambi.app.audio';
-const String kAudioNotificationChannelName = 'Vhunambi Music Playback';
+const String kAudioNotificationChannelName = 'Vhunambi Playback';
 const String kAudioNotificationChannelDescription =
     'African AI Music Synthesis & Creator Playback';
-const String kAudioNotificationIcon = 'drawable/ic_stat_music';
+const String kAudioNotificationIcon = 'drawable/ic_stat_vhunambi';
 
-/// Compact notification action slots: previous, play/pause, next (blueprint §2.1).
-const List<int> kAndroidCompactActionIndices = <int>[0, 1, 2];
+/// Custom notification transport actions wired through `MediaControl.custom`.
+const String kAudioCustomActionToggleFavorite = 'toggle_favorite';
+const String kAudioCustomActionCloseDismiss = 'close_dismiss';
+
+/// Compact notification action slots: previous, play/pause, next inside
+/// the 5-button strip `[ heart, prev, play/pause, next, close ]`.
+const List<int> kAndroidCompactActionIndices = <int>[1, 2, 3];
 
 /// System actions advertised to the OS transport (REQ-AUD-04).
 const Set<MediaAction> kAudioSystemActions = <MediaAction>{
@@ -76,27 +93,137 @@ const Set<MediaAction> kAudioSystemActions = <MediaAction>{
 bool isPlayingStatus(PlaybackStatus status) =>
     status == PlaybackStatus.playing || status == PlaybackStatus.buffering;
 
+bool _isFlutterTestEnvironment() {
+  if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
+  if (!kIsWeb) {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) return true;
+    } catch (_) {}
+  }
+  try {
+    return WidgetsBinding.instance.runtimeType.toString().contains('Test');
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Resolves a cover art source into a synchronous OS-readable `Uri` when it is
+/// already an HTTPS URL or `file://` path (returns `null` when only a Flutter
+/// asset path is available synchronously so callers can cache it to disk first).
+Uri? resolveNotificationArtUri(Track track, {Uri? cachedAssetArtUri}) {
+  if (cachedAssetArtUri != null) return cachedAssetArtUri;
+
+  final resolved = AppAssets.resolveTrackCoverSource(
+    coverUrl: track.coverUrl,
+    genre: track.genre,
+    seedId: track.id,
+  );
+  if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
+    return Uri.tryParse(resolved);
+  }
+  if (resolved.startsWith('file://')) {
+    return Uri.tryParse(resolved);
+  }
+  if (!kIsWeb &&
+      !resolved.startsWith('assets/') &&
+      !resolved.startsWith('asset:') &&
+      resolved.isNotEmpty) {
+    try {
+      if (File(resolved).existsSync()) return Uri.file(resolved);
+    } catch (_) {}
+  }
+  return null;
+}
+
+String _stableArtHash(String input) {
+  var hash = 0x811c9dc5;
+  for (final unit in input.codeUnits) {
+    hash ^= unit;
+    hash = (hash * 0x01000193) & 0xffffffff;
+  }
+  return hash.toRadixString(16).padLeft(8, '0');
+}
+
+/// Resolves and caches Flutter `asset:` / bundled cover artwork into a
+/// temporary file so Android `NotificationManager` renders artwork and auto-tints
+/// the chromatic `MediaStyle` card even when a track relies on genre art.
+Future<Uri?> resolveNativeNotificationArtUri(
+  Track track, {
+  Future<ByteData> Function(String assetKey)? assetLoader,
+  Future<Directory> Function()? tempDirProvider,
+  bool allowUnderTest = false,
+}) async {
+  final direct = resolveNotificationArtUri(track);
+  if (direct != null) return direct;
+
+  if (kIsWeb || (!allowUnderTest && _isFlutterTestEnvironment())) {
+    return null;
+  }
+
+  final assetPath = AppAssets.resolveTrackCoverSource(
+    coverUrl: track.coverUrl,
+    genre: track.genre,
+    seedId: track.id,
+  );
+  if (assetPath.isEmpty) return null;
+
+  try {
+    final baseDir = await (tempDirProvider ?? getTemporaryDirectory)();
+    final cacheDir = Directory('${baseDir.path}/vhunambi_notif_art');
+    if (!cacheDir.existsSync()) {
+      cacheDir.createSync(recursive: true);
+    }
+    final dotIdx = assetPath.lastIndexOf('.');
+    final ext = (dotIdx != -1 && assetPath.length - dotIdx <= 5)
+        ? assetPath.substring(dotIdx).toLowerCase()
+        : '.png';
+    final outFile = File(
+      '${cacheDir.path}/cover_${_stableArtHash(assetPath)}$ext',
+    );
+    if (!outFile.existsSync() || outFile.lengthSync() == 0) {
+      final data = await (assetLoader ?? rootBundle.load)(assetPath);
+      final bytes = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+      await outFile.writeAsBytes(bytes, flush: true);
+    }
+    return Uri.file(outFile.path);
+  } catch (error) {
+    debugPrint('Notification artwork cache failed ($assetPath): $error');
+    return null;
+  }
+}
+
 /// `Track` → `MediaItem` metadata mapping (REQ-AUD-03).
 MediaItem buildMediaItemForTrack(
   Track track, {
   bool isOffline = false,
   String? localFilePath,
+  Uri? resolvedArtUri,
 }) {
-  final coverUrl = track.coverUrl;
+  final rawCreator = track.creatorName.trim();
+  final cleanCreator = rawCreator.isEmpty
+      ? 'Vhunambi'
+      : rawCreator.replaceFirst(RegExp(r'^@+'), '');
+  final cleanGenre = track.genre.trim().isEmpty ? 'Studio' : track.genre.trim();
+  final cleanLanguage = track.language.trim();
+  final subtitle = cleanLanguage.isNotEmpty
+      ? '$cleanGenre • $cleanLanguage'
+      : cleanGenre;
+
   return MediaItem(
     id: track.id,
-    album: track.genre,
+    album: isOffline ? '$cleanGenre • Offline' : cleanGenre,
     title: track.title,
-    artist: track.creatorName,
+    artist: cleanCreator,
     duration: track.duration,
-    artUri: (coverUrl != null && coverUrl.isNotEmpty)
-        ? Uri.tryParse(coverUrl)
-        : null,
+    artUri: resolveNotificationArtUri(track, cachedAssetArtUri: resolvedArtUri),
     displayTitle: track.title,
-    displaySubtitle: '${track.genre} • ${track.language}',
+    displaySubtitle: cleanCreator,
     displayDescription: isOffline
-        ? '${track.handleLabel} • Offline vault'
-        : '${track.handleLabel} • Vhunambi stream',
+        ? '$cleanCreator • Offline Vault'
+        : '$cleanCreator • $subtitle',
     extras: <String, dynamic>{
       'language': track.language,
       'mood': track.mood,
@@ -168,14 +295,48 @@ AudioProcessingState mapJustAudioProcessingState(ProcessingState state) =>
       ProcessingState.completed => AudioProcessingState.completed,
     };
 
-/// Transport controls published to the OS, ordered so that
-/// [kAndroidCompactActionIndices] surfaces previous / play-pause / next.
-List<MediaControl> buildMediaControls({required bool playing}) {
+/// Transport controls published to the OS in a 5-button strip:
+/// `[ ♡, ⏮, ⏸/▶, ⏭, ✕ ]`, where [kAndroidCompactActionIndices] keeps
+/// previous / play-pause / next centered in compact mode.
+List<MediaControl> buildMediaControls({
+  required bool playing,
+  bool isFavorite = false,
+}) {
   return <MediaControl>[
-    MediaControl.skipToPrevious,
-    if (playing) MediaControl.pause else MediaControl.play,
-    MediaControl.skipToNext,
-    MediaControl.stop,
+    MediaControl.custom(
+      androidIcon: isFavorite
+          ? 'drawable/ic_vh_heart_filled'
+          : 'drawable/ic_vh_heart_outline',
+      label: isFavorite ? 'Unlike' : 'Like',
+      name: kAudioCustomActionToggleFavorite,
+    ),
+    const MediaControl(
+      androidIcon: 'drawable/ic_vh_prev',
+      label: 'Previous',
+      action: MediaAction.skipToPrevious,
+    ),
+    if (playing)
+      const MediaControl(
+        androidIcon: 'drawable/ic_vh_pause',
+        label: 'Pause',
+        action: MediaAction.pause,
+      )
+    else
+      const MediaControl(
+        androidIcon: 'drawable/ic_vh_play',
+        label: 'Play',
+        action: MediaAction.play,
+      ),
+    const MediaControl(
+      androidIcon: 'drawable/ic_vh_next',
+      label: 'Next',
+      action: MediaAction.skipToNext,
+    ),
+    MediaControl.custom(
+      androidIcon: 'drawable/ic_vh_close',
+      label: 'Close',
+      name: kAudioCustomActionCloseDismiss,
+    ),
   ];
 }
 
@@ -188,11 +349,12 @@ PlaybackState buildOsPlaybackState({
   double speed = 1.0,
   int? queueIndex,
   AudioRepeatMode repeatMode = AudioRepeatMode.off,
+  bool isFavorite = false,
   String? errorMessage,
 }) {
   final playing = isPlayingStatus(status);
   return PlaybackState(
-    controls: buildMediaControls(playing: playing),
+    controls: buildMediaControls(playing: playing, isFavorite: isFavorite),
     systemActions: kAudioSystemActions,
     androidCompactActionIndices: kAndroidCompactActionIndices,
     processingState: mapPlaybackStatusToProcessingState(status),
@@ -226,6 +388,8 @@ class TestVhunambiAudioHandler implements IVhunambiAudioHandler {
       StreamController<MediaItem?>.broadcast(sync: true);
   final StreamController<List<MediaItem>> _queueController =
       StreamController<List<MediaItem>>.broadcast(sync: true);
+  final StreamController<String> _favoriteToggleController =
+      StreamController<String>.broadcast(sync: true);
 
   final List<StreamSubscription<dynamic>> _subscriptions =
       <StreamSubscription<dynamic>>[];
@@ -244,6 +408,7 @@ class TestVhunambiAudioHandler implements IVhunambiAudioHandler {
   double _speed = 1.0;
   double _volume = 1.0;
   AudioRepeatMode _repeatMode = AudioRepeatMode.off;
+  bool _isFavorite = false;
   bool _disposed = false;
 
   @override
@@ -254,6 +419,9 @@ class TestVhunambiAudioHandler implements IVhunambiAudioHandler {
 
   @override
   Stream<List<MediaItem>> get queue => _queueController.stream;
+
+  @override
+  Stream<String> get favoriteToggleRequests => _favoriteToggleController.stream;
 
   @override
   PlaybackState get currentPlaybackState => _playbackState;
@@ -444,6 +612,44 @@ class TestVhunambiAudioHandler implements IVhunambiAudioHandler {
     _volume = volume.clamp(0.0, 1.0);
   }
 
+  @override
+  Future<void> setFavoriteState(bool isFavorite) async {
+    if (_disposed || _isFavorite == isFavorite) return;
+    _isFavorite = isFavorite;
+    _publish(playbackStatus);
+  }
+
+  Future<dynamic> customAction(
+    String name, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    if (_disposed) return null;
+    if (name == kAudioCustomActionToggleFavorite) {
+      _isFavorite = !_isFavorite;
+      _publish(playbackStatus);
+      final activeId = _track?.id;
+      if (activeId != null && !_favoriteToggleController.isClosed) {
+        _favoriteToggleController.add(activeId);
+      }
+      return _isFavorite;
+    }
+    if (name == kAudioCustomActionCloseDismiss) {
+      await stop();
+      return true;
+    }
+    return null;
+  }
+
+  /// Emits an updated track duration as `just_audio.durationStream` would.
+  void updateDurationForTesting(Duration duration) {
+    if (_disposed || duration <= Duration.zero) return;
+    final current = _mediaItem;
+    if (current != null && current.duration != duration) {
+      _mediaItem = current.copyWith(duration: duration);
+      _emitMediaItem(_mediaItem);
+    }
+  }
+
   /// Bridges OS audio focus events into transport commands (REQ-AUD-07/08).
   void _wireSessionEvents() {
     final session = sessionManager;
@@ -485,6 +691,7 @@ class TestVhunambiAudioHandler implements IVhunambiAudioHandler {
       speed: _speed,
       queueIndex: _queueIndex >= 0 ? _queueIndex : null,
       repeatMode: _repeatMode,
+      isFavorite: _isFavorite,
       errorMessage: errorMessage,
     );
 
@@ -523,6 +730,7 @@ class TestVhunambiAudioHandler implements IVhunambiAudioHandler {
     await _playbackStateController.close();
     await _mediaItemController.close();
     await _queueController.close();
+    await _favoriteToggleController.close();
   }
 }
 
@@ -544,6 +752,9 @@ class VhunambiAudioHandler extends BaseAudioHandler
 
   final List<StreamSubscription<dynamic>> _subscriptions =
       <StreamSubscription<dynamic>>[];
+  final StreamController<String> _favoriteToggleController =
+      StreamController<String>.broadcast(sync: true);
+  final Map<String, Uri> _cachedArtUris = <String, Uri>{};
 
   List<Track> _tracks = <Track>[];
   int _index = -1;
@@ -551,6 +762,7 @@ class VhunambiAudioHandler extends BaseAudioHandler
   double _speed = 1.0;
   double _volume = 1.0;
   AudioRepeatMode _repeatMode = AudioRepeatMode.off;
+  bool _isFavorite = false;
   bool _disposed = false;
 
   VhunambiAudioHandler({
@@ -570,6 +782,9 @@ class VhunambiAudioHandler extends BaseAudioHandler
 
   @override
   Track? get currentTrack => _track;
+
+  @override
+  Stream<String> get favoriteToggleRequests => _favoriteToggleController.stream;
 
   /// Loaded playlist queue as Vhunambi domain objects.
   List<Track> get trackQueue => List<Track>.unmodifiable(_tracks);
@@ -607,23 +822,30 @@ class VhunambiAudioHandler extends BaseAudioHandler
         : Uri.parse(
             AppConstants.normalizeCloudMediaUrl(resolved.uri.toString()),
           );
+    final nativeArtUri = await _resolveAndCacheArtUri(track);
     final item = buildMediaItemForTrack(
       track,
       isOffline: resolved.isLocalFile,
       localFilePath: resolved.localFilePath,
+      resolvedArtUri: nativeArtUri,
     );
 
     mediaItem.add(item);
     super.queue.add(
       effectiveQueue
-          .map((candidate) => buildMediaItemForTrack(candidate))
+          .map(
+            (candidate) => buildMediaItemForTrack(
+              candidate,
+              resolvedArtUri: _cachedArtUris[candidate.id],
+            ),
+          )
           .toList(growable: false),
     );
 
     final audioSource =
         resolved.streamSource ?? AudioSource.uri(normalizedUri, tag: item);
 
-    await SafeAudioOrchestrator.guardAudioOp<void>(
+    final loadedDuration = await SafeAudioOrchestrator.guardAudioOp<Duration?>(
       source: 'vhunambi_audio_handler:setAudioSource',
       action: () => player.setAudioSource(
         audioSource,
@@ -631,10 +853,25 @@ class VhunambiAudioHandler extends BaseAudioHandler
         initialPosition: Duration.zero,
       ),
     );
+    if (loadedDuration != null &&
+        loadedDuration > Duration.zero &&
+        item.duration != loadedDuration) {
+      mediaItem.add(item.copyWith(duration: loadedDuration));
+    }
     await SafeAudioOrchestrator.guardAudioOp<void>(
       source: 'vhunambi_audio_handler:play',
       action: () => player.play(),
     );
+  }
+
+  Future<Uri?> _resolveAndCacheArtUri(Track track) async {
+    final cached = _cachedArtUris[track.id];
+    if (cached != null) return cached;
+    final resolved = await resolveNativeNotificationArtUri(track);
+    if (resolved != null) {
+      _cachedArtUris[track.id] = resolved;
+    }
+    return resolved;
   }
 
   void _wirePlayerStreams() {
@@ -653,6 +890,7 @@ class VhunambiAudioHandler extends BaseAudioHandler
               status: PlaybackStatus.error,
               position: player.position,
               speed: player.speed,
+              isFavorite: _isFavorite,
               errorMessage: error.toString(),
             ),
           );
@@ -680,7 +918,21 @@ class VhunambiAudioHandler extends BaseAudioHandler
     _subscriptions.add(
       player.currentIndexStream.listen(
         (index) {
-          if (index != null) _index = index;
+          if (index == null || index < 0 || index >= _tracks.length) return;
+          final changed = index != _index;
+          _index = index;
+          if (changed) {
+            final nextTrack = _tracks[index];
+            _track = nextTrack;
+            unawaited(
+              _resolveAndCacheArtUri(nextTrack).then((art) {
+                if (_disposed || _track?.id != nextTrack.id) return;
+                mediaItem.add(
+                  buildMediaItemForTrack(nextTrack, resolvedArtUri: art),
+                );
+              }),
+            );
+          }
         },
         onError: (Object error, StackTrace stackTrace) {
           debugPrint('VhunambiAudioHandler currentIndexStream error: $error');
@@ -698,6 +950,7 @@ class VhunambiAudioHandler extends BaseAudioHandler
         speed: player.speed,
         queueIndex: _index >= 0 ? _index : null,
         repeatMode: _repeatMode,
+        isFavorite: _isFavorite,
       ),
     );
   }
@@ -751,6 +1004,7 @@ class VhunambiAudioHandler extends BaseAudioHandler
       buildOsPlaybackState(
         status: PlaybackStatus.idle,
         position: Duration.zero,
+        isFavorite: _isFavorite,
       ),
     );
   }
@@ -770,6 +1024,7 @@ class VhunambiAudioHandler extends BaseAudioHandler
         speed: player.speed,
         queueIndex: _index >= 0 ? _index : null,
         repeatMode: _repeatMode,
+        isFavorite: _isFavorite,
       ),
     );
   }
@@ -812,6 +1067,44 @@ class VhunambiAudioHandler extends BaseAudioHandler
   Future<void> setVolume(double volume) async {
     _volume = volume.clamp(0.0, 1.0);
     await player.setVolume(_volume);
+  }
+
+  @override
+  Future<void> setFavoriteState(bool isFavorite) async {
+    if (_disposed || _isFavorite == isFavorite) return;
+    _isFavorite = isFavorite;
+    playbackState.add(
+      buildOsPlaybackState(
+        status: _statusFor(player.processingState),
+        position: player.position,
+        bufferedPosition: player.bufferedPosition,
+        speed: player.speed,
+        queueIndex: _index >= 0 ? _index : null,
+        repeatMode: _repeatMode,
+        isFavorite: _isFavorite,
+      ),
+    );
+  }
+
+  @override
+  Future<dynamic> customAction(
+    String name, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    if (_disposed) return null;
+    if (name == kAudioCustomActionToggleFavorite) {
+      await setFavoriteState(!_isFavorite);
+      final activeId = _track?.id;
+      if (activeId != null && !_favoriteToggleController.isClosed) {
+        _favoriteToggleController.add(activeId);
+      }
+      return _isFavorite;
+    }
+    if (name == kAudioCustomActionCloseDismiss) {
+      await stop();
+      return true;
+    }
+    return super.customAction(name, extras);
   }
 
   /// Bridges OS audio focus events into the `just_audio` transport
@@ -859,6 +1152,7 @@ class VhunambiAudioHandler extends BaseAudioHandler
     _subscriptions.clear();
 
     sessionManager.dispose();
+    await _favoriteToggleController.close();
     await player.dispose();
   }
 }
@@ -868,6 +1162,10 @@ const AudioServiceConfig vhunambiAudioServiceConfig = AudioServiceConfig(
   androidNotificationChannelName: kAudioNotificationChannelName,
   androidNotificationChannelDescription: kAudioNotificationChannelDescription,
   androidNotificationIcon: kAudioNotificationIcon,
+  notificationColor: AppColors.brandPrimary,
+  artDownscaleWidth: 512,
+  artDownscaleHeight: 512,
+  preloadArtwork: true,
   androidNotificationOngoing: true,
   androidStopForegroundOnPause: true,
 );

@@ -14,6 +14,8 @@ import '../../domain/models/player_state.dart';
 import 'audio_bridge_providers.dart';
 import '../../../creator_dna/domain/models/behavior_event.dart';
 import '../../../creator_dna/presentation/providers/creator_dna_provider.dart';
+import '../../../library/domain/models/library_models.dart';
+import '../../../library/presentation/providers/library_providers.dart';
 
 final playerStateProvider = StateNotifierProvider<PlayerNotifier, PlayerState>((
   ref,
@@ -29,7 +31,27 @@ final playerStateProvider = StateNotifierProvider<PlayerNotifier, PlayerState>((
         // Telemetry is best-effort; never block playback on provider failure.
       }
     },
+    isTrackFavoriteResolver: (trackId) {
+      try {
+        return ref
+            .read(libraryTracksProvider)
+            .any((t) => t.id == trackId && t.isFavorite);
+      } catch (_) {
+        return false;
+      }
+    },
+    onHardwareFavoriteToggle: (trackId) {
+      try {
+        ref.read(libraryTracksProvider.notifier).toggleFavorite(trackId);
+      } catch (_) {}
+    },
   );
+  ref.listen<List<LibraryTrack>>(libraryTracksProvider, (_, next) {
+    final activeId = notifier.activeTrackId;
+    if (activeId == null) return;
+    final fav = next.any((t) => t.id == activeId && t.isFavorite);
+    unawaited(notifier.audioHandler.setFavoriteState(fav));
+  });
   return notifier;
 });
 
@@ -50,15 +72,23 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
   StreamSubscription<PlaybackState>? _playbackStateSubscription;
   StreamSubscription<MediaItem?>? _mediaItemSubscription;
+  StreamSubscription<String>? _favoriteToggleSubscription;
 
   /// Optional callback fired on playback telemetry events (T6.7).
   /// Injected by the provider factory; null in headless tests — no-op.
   final void Function(BehaviorEvent)? trackPlayTelemetry;
 
+  /// Optional resolver/callback keeping the OS notification heart icon
+  /// synchronized with Vhunambi's vault favorite state.
+  final bool Function(String trackId)? isTrackFavoriteResolver;
+  final void Function(String trackId)? onHardwareFavoriteToggle;
+
   PlayerNotifier({
     IVhunambiAudioHandler? audioHandler,
     int Function(int)? randomInt,
     this.trackPlayTelemetry,
+    this.isTrackFavoriteResolver,
+    this.onHardwareFavoriteToggle,
   }) : _ownsHandler = audioHandler == null,
        _randomInt = randomInt ?? Random().nextInt,
        _audioHandler = audioHandler ?? TestVhunambiAudioHandler(),
@@ -175,6 +205,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   /// The OS transport handler this notifier is synchronized with.
   IVhunambiAudioHandler get audioHandler => _audioHandler;
 
+  /// Active track ID exposed without accessing protected `state` externally.
+  String? get activeTrackId => state.currentTrack?.id;
+
   /// Subscribes to OS transport events so lockscreen / bluetooth / SMTC
   /// commands update the Riverpod player state (REQ-AUD-10).
   void _initHardwareSubscriptions() {
@@ -188,6 +221,14 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       _onHardwareMediaItem,
       onError: (Object error, StackTrace stackTrace) {
         debugPrint('PlayerNotifier mediaItem stream error: $error');
+      },
+    );
+    _favoriteToggleSubscription = _audioHandler.favoriteToggleRequests.listen(
+      (trackId) {
+        onHardwareFavoriteToggle?.call(trackId);
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('PlayerNotifier favoriteToggleRequests error: $error');
       },
     );
   }
@@ -239,9 +280,30 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     if (!mounted || mediaItem == null) return;
 
     final duration = mediaItem.duration;
-    if (duration == null || duration == state.duration) return;
+    if (duration == null || duration <= Duration.zero) return;
 
-    state = state.copyWith(duration: duration);
+    final trackMatches =
+        state.currentTrack != null && state.currentTrack!.id == mediaItem.id;
+    final trackDurationChanged =
+        trackMatches && state.currentTrack!.duration != duration;
+    if (duration == state.duration && !trackDurationChanged) return;
+
+    final updatedTrack = trackMatches
+        ? state.currentTrack!.copyWith(duration: duration)
+        : state.currentTrack;
+    final updatedQueue = [
+      for (final item in state.queue)
+        if (item.id == mediaItem.id && item.duration != duration)
+          item.copyWith(duration: duration)
+        else
+          item,
+    ];
+
+    state = state.copyWith(
+      duration: duration,
+      currentTrack: updatedTrack,
+      queue: updatedQueue,
+    );
   }
 
   /// Mirrors a UI command into the platform transport without ever letting a
@@ -365,9 +427,12 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     }
 
     unawaited(
-      _dispatchSafely(
-        () => _audioHandler.playTrack(track, queue: effectiveQueue),
-      ),
+      _dispatchSafely(() async {
+        await _audioHandler.setFavoriteState(
+          isTrackFavoriteResolver?.call(track.id) ?? false,
+        );
+        await _audioHandler.playTrack(track, queue: effectiveQueue);
+      }),
     );
   }
 
@@ -618,6 +683,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     _positionTimer?.cancel();
     _playbackStateSubscription?.cancel();
     _mediaItemSubscription?.cancel();
+    _favoriteToggleSubscription?.cancel();
     if (_ownsHandler) unawaited(_audioHandler.dispose());
     super.dispose();
   }

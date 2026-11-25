@@ -8,6 +8,7 @@ on:
       - 'fix/**'
     paths:
       - 'tools/zr-studio-gpu/**'
+      - 'tools/zr-studio-training/**'
       - '.github/workflows/push_gpu_worker.yml'
 
 jobs:
@@ -31,7 +32,7 @@ jobs:
       - name: Build and push RunPod GPU worker image
         uses: docker/build-push-action@v6
         with:
-          context: ./tools/zr-studio-gpu
+          context: ./tools
           file: ./tools/zr-studio-gpu/Dockerfile.delta
           platforms: linux/amd64
           push: true

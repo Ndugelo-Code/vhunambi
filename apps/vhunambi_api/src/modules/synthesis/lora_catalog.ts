@@ -14,6 +14,7 @@ export interface AfricanLoraPackDescriptor {
   compatibleGenres: string[];
   description: string;
   tier: 'sovereign_custom';
+  packType?: 'genre' | 'language';
 }
 
 export const AFRICAN_LORA_PACKS: readonly AfricanLoraPackDescriptor[] = [
@@ -155,14 +156,50 @@ export const AFRICAN_LORA_PACKS: readonly AfricanLoraPackDescriptor[] = [
     description:
       'Rolling tribal congas, progressive spiritual pads & deep four-on-the-floor pulse.',
     tier: 'sovereign_custom',
+    packType: 'genre',
   },
+];
+
+/**
+ * Language Specialist LoRA Pack (Phase 85).
+ * Kept separate from AFRICAN_LORA_PACKS so GET /v1/studio/loras preserves totalCount === 10
+ * backward compatibility while exposing bilingual/Bantu vocal conditioning packs.
+ */
+export const LANGUAGE_LORA_PACKS: readonly AfricanLoraPackDescriptor[] = [
+  {
+    loraId: 'bantu_vocals_v1',
+    label: 'Bantu Vocals & Phonetics',
+    genre: 'Bantu Vocals',
+    region: '11 South African Languages',
+    r2Key: 'loras/bantu_vocals_v1.safetensors',
+    defaultWeight: 0.88,
+    compatibleGenres: [
+      'bantuvocals',
+      'venda',
+      'zulu',
+      'xhosa',
+      'sepedi',
+      'sesotho',
+      'setswana',
+      'xitsonga',
+    ],
+    description:
+      'BS-RoFormer vocal-isolated South African Bantu tonal phrasing, click onsets & diacritic clarity.',
+    tier: 'sovereign_custom',
+    packType: 'language',
+  },
+];
+
+export const ALL_SOVEREIGN_LORA_PACKS: readonly AfricanLoraPackDescriptor[] = [
+  ...AFRICAN_LORA_PACKS,
+  ...LANGUAGE_LORA_PACKS,
 ];
 
 export function findLoraPackById(
   loraIdOrPath: string,
 ): AfricanLoraPackDescriptor | undefined {
   const clean = loraIdOrPath.trim().toLowerCase();
-  return AFRICAN_LORA_PACKS.find(
+  return ALL_SOVEREIGN_LORA_PACKS.find(
     (p) =>
       p.loraId.toLowerCase() === clean ||
       p.r2Key.toLowerCase() === clean ||

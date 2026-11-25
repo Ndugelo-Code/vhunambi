@@ -203,34 +203,43 @@ class _KineticReelPublishViewState
         if (mounted) setState(() => _uploadProgress = 0.72);
       }
 
-      if (widget.audio.importedAudioBytes != null &&
+      // Reuse pre-staged audio upload when available (eliminates duplicate upload REEL98-04)
+      final preStagedAudioId =
+          _stagedAudioAssetId ?? widget.audio.stagedAudioAssetId;
+      if (preStagedAudioId != null && preStagedAudioId.isNotEmpty) {
+        final existingAudio = await queueNotifier.awaitOrRetryAsset(
+          preStagedAudioId,
+        );
+        if (existingAudio != null) {
+          _stagedAudioAssetId = existingAudio.id;
+          if (existingAudio.status == MediaUploadStatus.failed ||
+              existingAudio.remoteUrl == null ||
+              existingAudio.remoteUrl!.isEmpty) {
+            throw StateError(
+              existingAudio.errorMessage ??
+                  'Audio upload failed. Saved in My Uploads — tap Retry Publish.',
+            );
+          }
+          resolvedAudioUrl = existingAudio.remoteUrl!;
+          if ((existingAudio.bestCoverSource ?? '').isNotEmpty &&
+              resolvedCoverUrl.isEmpty) {
+            resolvedCoverUrl = existingAudio.bestCoverSource!;
+          }
+          if (mounted) setState(() => _uploadProgress = 0.88);
+        }
+      } else if (widget.audio.importedAudioBytes != null &&
           widget.audio.importedAudioBytes!.isNotEmpty &&
           widget.audio.importedAudioMime != null) {
-        UploadedMediaAsset audioResult;
-        if (_stagedAudioAssetId != null) {
-          audioResult =
-              await queueNotifier.retryUpload(_stagedAudioAssetId!) ??
-              await queueNotifier.stageAndEnqueue(
-                bytes: widget.audio.importedAudioBytes!,
-                filename: '${widget.audio.trackId}.mp3',
-                mimeType: widget.audio.importedAudioMime!,
-                kind: MediaAssetKind.audio,
-                title: widget.audio.title,
-                sourceSurface: 'reel_publish',
-                awaitUpload: true,
-              );
-        } else {
-          audioResult = await queueNotifier.stageAndEnqueue(
-            bytes: widget.audio.importedAudioBytes!,
-            filename: '${widget.audio.trackId}.mp3',
-            mimeType: widget.audio.importedAudioMime!,
-            kind: MediaAssetKind.audio,
-            title: widget.audio.title,
-            sourceSurface: 'reel_publish',
-            awaitUpload: true,
-          );
-          _stagedAudioAssetId = audioResult.id;
-        }
+        final audioResult = await queueNotifier.stageAndEnqueue(
+          bytes: widget.audio.importedAudioBytes!,
+          filename: '${widget.audio.trackId}.mp3',
+          mimeType: widget.audio.importedAudioMime!,
+          kind: MediaAssetKind.audio,
+          title: widget.audio.title,
+          sourceSurface: 'reel_publish',
+          awaitUpload: true,
+        );
+        _stagedAudioAssetId = audioResult.id;
         if (audioResult.status == MediaUploadStatus.failed ||
             audioResult.remoteUrl == null ||
             audioResult.remoteUrl!.isEmpty) {

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show File, Platform;
 
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,7 +11,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../../../core/auth/auth_providers.dart';
-import '../../../../core/constants/app_assets.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/design_system/tokens/app_icons.dart';
 import '../../../../core/media/vhunambi_media_upload_service.dart';
@@ -24,6 +24,7 @@ import '../../../../core/widgets/vhunambi_glass_tab_bar.dart';
 import '../../../../core/widgets/vhunambi_track_artwork.dart';
 import '../../../library/presentation/providers/library_providers.dart';
 import '../../../media/domain/models/uploaded_media_asset.dart';
+import '../../../media/domain/utils/media_mime_utils.dart';
 import '../../../media/presentation/providers/media_upload_queue_provider.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
@@ -63,9 +64,11 @@ class _CreateKineticPostSheetState
       KineticPostAspectRatio.square1x1;
   bool _isGeneratingVision = false;
   bool _isUploadingPhoto = false;
+  bool _isUploadingAudio = false;
+  String? _visionUnavailableNotice;
 
-  // Audio Attachment State (0: My Uploads, 1: My Vault, 2: Trending, 3: Grooves)
-  int _audioSourceTabIndex = 2;
+  // Audio Attachment State (0: My Uploads, 1: My Vault, 2: Trending)
+  int _audioSourceTabIndex = 0;
   KineticAudioSourceType _selectedAudioCategory =
       KineticAudioSourceType.librarySong;
   Track? _selectedTrack;
@@ -77,33 +80,6 @@ class _CreateKineticPostSheetState
   StateController<int>? _modalSheetCounter;
   bool _didIncrementModalCount = false;
 
-  static const List<Track> _grooveSeeds = <Track>[
-    Track(
-      id: 'sk_01',
-      title: 'Midnight Log Drum Pattern A',
-      creatorName: 'Pocket DAW',
-      creatorHandle: '@cern',
-      genre: 'Amapiano',
-      duration: Duration(seconds: 30),
-    ),
-    Track(
-      id: 'sk_02',
-      title: 'Private School Rhodes Chords',
-      creatorName: 'Sketchpad 3-Step',
-      creatorHandle: '@cern',
-      genre: 'Afro House',
-      duration: Duration(seconds: 30),
-    ),
-    Track(
-      id: 'sk_03',
-      title: 'Euclidean African Percussion',
-      creatorName: 'Groove Sequencer',
-      creatorHandle: '@cern',
-      genre: 'Afro-fusion',
-      duration: Duration(seconds: 30),
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -114,10 +90,6 @@ class _CreateKineticPostSheetState
       _didIncrementModalCount = true;
       counter.state++;
     });
-    final initialTracks = ref.read(exploreTracksProvider);
-    if (initialTracks.isNotEmpty) {
-      _selectedTrack = initialTracks.first;
-    }
     if (widget.initialTab == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _pickAndUploadPhoto();
@@ -250,14 +222,27 @@ class _CreateKineticPostSheetState
             mimeType: mimeType,
             kind: MediaAssetKind.image,
             sourceSurface: 'kinetic_post',
-            awaitUpload: _detectTestMode(),
+            awaitUpload: true,
           );
       if (!mounted || _attachedImages.length >= 4) return;
+      if (staged.status != MediaUploadStatus.synced ||
+          staged.remoteUrl == null ||
+          staged.remoteUrl!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              staged.errorMessage ??
+                  'Photo upload failed. Saved in My Uploads — tap Retry.',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
 
-      final resolvedUrl =
-          (staged.remoteUrl != null && staged.remoteUrl!.isNotEmpty)
-          ? AppConstants.normalizeCloudMediaUrl(staged.remoteUrl!)
-          : (staged.localFilePath ?? '');
+      final resolvedUrl = AppConstants.normalizeCloudMediaUrl(
+        staged.remoteUrl!,
+      );
 
       setState(() {
         _attachedImages.add(
@@ -394,60 +379,193 @@ class _CreateKineticPostSheetState
     );
   }
 
-  void _generateVisionAiArtwork() async {
+  Future<void> _pickAndUploadAudio() async {
+    if (_isUploadingAudio) return;
+    HapticFeedback.lightImpact();
+    setState(() => _isUploadingAudio = true);
+
+    try {
+      Uint8List bytes;
+      String filename;
+      String mimeType;
+
+      if (_detectTestMode()) {
+        bytes = Uint8List.fromList(<int>[0x49, 0x44, 0x33, 0x04, 0x00, 0x00]);
+        filename = 'zania_track_${DateTime.now().millisecondsSinceEpoch}.mp3';
+        mimeType = 'audio/mpeg';
+      } else {
+        final picked = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: const <String>[
+            'mp3',
+            'wav',
+            'm4a',
+            'aac',
+            'ogg',
+            'flac',
+          ],
+          withData: true,
+        );
+        if (picked == null || picked.files.isEmpty) return;
+        final file = picked.files.first;
+        var resolvedBytes = file.bytes;
+        if ((resolvedBytes == null || resolvedBytes.isEmpty) &&
+            !kIsWeb &&
+            file.path != null &&
+            file.path!.isNotEmpty) {
+          final f = File(file.path!);
+          if (await f.exists()) {
+            resolvedBytes = await f.readAsBytes();
+          }
+        }
+        if (resolvedBytes == null || resolvedBytes.isEmpty) return;
+        bytes = resolvedBytes;
+        filename = file.name.isNotEmpty
+            ? file.name
+            : 'audio_${DateTime.now().millisecondsSinceEpoch}.mp3';
+        mimeType = inferMimeTypeFromMedia(
+          filename: filename,
+          fallbackKind: MediaAssetKind.audio,
+        );
+      }
+
+      final synced = await ref
+          .read(mediaUploadQueueProvider.notifier)
+          .stageAndEnqueue(
+            bytes: bytes,
+            filename: filename,
+            mimeType: mimeType,
+            kind: MediaAssetKind.audio,
+            title: filename.replaceAll(RegExp(r'\.[^.]+$'), ''),
+            sourceSurface: 'kinetic_post',
+            awaitUpload: true,
+          );
+      if (!mounted) return;
+      if (synced.status != MediaUploadStatus.synced ||
+          synced.remoteUrl == null ||
+          synced.remoteUrl!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              synced.errorMessage ??
+                  'Audio upload failed. Saved in My Uploads — tap Retry.',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+
+      final owner = ref.read(ownerProfileProvider);
+      final creatorName = synced.artist?.trim().isNotEmpty == true
+          ? synced.artist!.trim()
+          : (owner.displayName.isNotEmpty ? owner.displayName : 'Creator');
+      final creatorHandle = owner.handle.isNotEmpty ? owner.handle : '@creator';
+
+      setState(() {
+        _audioSourceTabIndex = 0;
+        _selectedAudioCategory = KineticAudioSourceType.librarySong;
+        _selectedTrack = Track(
+          id: synced.id,
+          title: synced.title,
+          creatorName: creatorName,
+          creatorHandle: creatorHandle,
+          genre: synced.genre ?? 'Amapiano',
+          duration: Duration(milliseconds: synced.durationMs ?? 180000),
+          audioUrl: AppConstants.normalizeCloudMediaUrl(synced.remoteUrl!),
+          coverUrl: synced.bestCoverSource != null
+              ? AppConstants.normalizeCloudMediaUrl(synced.bestCoverSource!)
+              : null,
+        );
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Audio upload failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingAudio = false);
+      }
+    }
+  }
+
+  Future<void> _generateVisionAiArtwork() async {
     HapticFeedback.mediumImpact();
     final prompt = _visionPromptController.text.trim();
     if (prompt.isEmpty) return;
 
-    setState(() => _isGeneratingVision = true);
+    setState(() {
+      _isGeneratingVision = true;
+      _visionUnavailableNotice = null;
+    });
 
-    final fallbackIndex =
-        (prompt.hashCode.abs() + _attachedImages.length) %
-        AppAssets.allBundledArtworkAssets.length;
-    String resolvedImageUrl =
-        'asset:${AppAssets.allBundledArtworkAssets[fallbackIndex]}';
-
-    if (!_detectTestMode()) {
-      try {
-        final dio = Dio(
-          BaseOptions(
-            connectTimeout: const Duration(seconds: 5),
-            receiveTimeout: const Duration(seconds: 12),
-          ),
-        );
-        dio.interceptors.add(ref.read(authDioInterceptorProvider));
-        final res = await dio.post<Map<String, dynamic>>(
-          '${AppConstants.apiBaseUrl}/vision/generate',
-          data: <String, dynamic>{
-            'prompt': prompt,
-            'genre': _selectedTrack?.genre ?? 'Amapiano',
-            'language': _selectedTrack?.language ?? 've',
-            'width': 768,
-            'height': 1344,
-          },
-        );
-        final remoteUrl = res.data?['outputImageUrl'] as String?;
-        if (remoteUrl != null && remoteUrl.trim().isNotEmpty) {
-          resolvedImageUrl = AppConstants.normalizeCloudMediaUrl(remoteUrl);
-        }
-      } catch (_) {}
-    } else {
-      await Future.delayed(const Duration(milliseconds: 600));
+    if (_detectTestMode()) {
+      await Future.delayed(const Duration(milliseconds: 50));
+      if (!mounted) return;
+      setState(() {
+        _isGeneratingVision = false;
+        _visionUnavailableNotice =
+            'Vision AI unavailable offline. Upload a real photo from your gallery.';
+      });
+      return;
     }
 
-    if (!mounted) return;
-
-    setState(() {
-      _isGeneratingVision = false;
-      _attachedImages.add(
-        KineticPostImageAttachment(
-          imageUrl: resolvedImageUrl,
-          isAiGeneratedVision: true,
-          visionPrompt: prompt,
-          aspectRatio: _selectedAspectRatio,
+    try {
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 12),
         ),
       );
-    });
+      dio.interceptors.add(ref.read(authDioInterceptorProvider));
+      final res = await dio.post<Map<String, dynamic>>(
+        '${AppConstants.apiBaseUrl}/vision/generate',
+        data: <String, dynamic>{
+          'prompt': prompt,
+          'genre': _selectedTrack?.genre ?? 'Amapiano',
+          'language': _selectedTrack?.language ?? 've',
+          'width': 768,
+          'height': 1344,
+        },
+      );
+      final data = res.data ?? const <String, dynamic>{};
+      final isMock = data['isMock'] == true;
+      final remoteUrl = (data['outputImageUrl'] ?? '').toString().trim();
+      if (isMock || remoteUrl.isEmpty || remoteUrl.startsWith('asset:')) {
+        if (!mounted) return;
+        setState(() {
+          _isGeneratingVision = false;
+          _visionUnavailableNotice =
+              'Vision AI renderer is currently offline — please upload a real photo instead.';
+        });
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _isGeneratingVision = false;
+        _visionUnavailableNotice = null;
+        _attachedImages.add(
+          KineticPostImageAttachment(
+            imageUrl: AppConstants.normalizeCloudMediaUrl(remoteUrl),
+            isAiGeneratedVision: true,
+            visionPrompt: prompt,
+            aspectRatio: _selectedAspectRatio,
+          ),
+        );
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isGeneratingVision = false;
+        _visionUnavailableNotice =
+            'Vision AI could not reach GPU renderer — upload a photo from your device.';
+      });
+    }
   }
 
   void _showVideoFormatRejectionDialog() {
@@ -489,6 +607,15 @@ class _CreateKineticPostSheetState
   }
 
   void _publishKineticPost() {
+    if (_isUploadingPhoto || _isUploadingAudio) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please wait for your media upload to finish syncing.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
     final caption = _captionController.text.trim();
     if (caption.isEmpty && _attachedImages.isEmpty && _selectedTrack == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -534,16 +661,20 @@ class _CreateKineticPostSheetState
         })
         .toList(growable: false);
 
-    final trackToAttach =
-        _selectedTrack ??
+    final resolvedTrack = _selectedTrack;
+    final carrierTrack =
+        resolvedTrack ??
         Track(
-          id: 'kpost_track_default',
-          title: 'Vhunambi Sonic Groove',
+          id: 'kpost_visual_${now.millisecondsSinceEpoch}',
+          title: caption.isNotEmpty ? caption : 'Visual Post',
           creatorName: creatorName,
           creatorHandle: creatorHandle,
-          genre: 'Amapiano',
-          language: 'Tshivenḓa',
-          duration: const Duration(minutes: 3, seconds: 0),
+          genre: 'Visual',
+          language: 'English',
+          duration: Duration.zero,
+          coverUrl: finalizedImages.isNotEmpty
+              ? finalizedImages.first.imageUrl
+              : null,
         );
 
     final post = SocialMusicPost(
@@ -555,18 +686,20 @@ class _CreateKineticPostSheetState
       publishedAt: now,
       location: 'South Africa',
       caption: caption,
-      track: trackToAttach,
+      track: carrierTrack,
       imageAttachment: finalizedImages.isNotEmpty
           ? finalizedImages.first
           : null,
       imageAttachments: finalizedImages,
-      audioAttachment: KineticPostAudioAttachment(
-        sourceType: _selectedAudioCategory,
-        clipStartSec: _clipStartSec,
-        clipDurationSec: _clipDurationSec,
-        originalCreatorId: creatorId,
-        originalCreatorHandle: creatorHandle,
-      ),
+      audioAttachment: resolvedTrack != null
+          ? KineticPostAudioAttachment(
+              sourceType: _selectedAudioCategory,
+              clipStartSec: _clipStartSec,
+              clipDurationSec: _clipDurationSec,
+              originalCreatorId: creatorId,
+              originalCreatorHandle: creatorHandle,
+            )
+          : null,
     );
 
     ref.read(socialFeedPostsProvider.notifier).addPost(post);
@@ -595,18 +728,19 @@ class _CreateKineticPostSheetState
               (u) => Track(
                 id: u.id,
                 title: u.title,
-                creatorName: creatorHandle.replaceFirst(RegExp(r'^@+'), ''),
+                creatorName: u.artist?.trim().isNotEmpty == true
+                    ? u.artist!.trim()
+                    : creatorHandle.replaceFirst(RegExp(r'^@+'), ''),
                 creatorHandle: creatorHandle,
-                genre: 'Amapiano',
+                genre: u.genre ?? 'Amapiano',
                 duration: Duration(milliseconds: u.durationMs ?? 90000),
                 audioUrl: u.bestPlayableOrRenderableSource,
-                coverUrl: u.thumbnailLocalPath,
+                coverUrl: u.bestCoverSource,
               ),
             )
             .toList(growable: false),
       1 => vaultTracks,
-      2 => trendingTracks.take(10).toList(growable: false),
-      _ => _grooveSeeds,
+      _ => trendingTracks.take(10).toList(growable: false),
     };
   }
 
@@ -1093,6 +1227,25 @@ class _CreateKineticPostSheetState
                 ],
 
                 const SizedBox(height: AppSpacing.xs),
+                if (_visionUnavailableNotice != null) ...[
+                  Container(
+                    key: const Key('kpost_vision_unavailable_notice'),
+                    margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: surfaceSecondary,
+                      borderRadius: AppRadius.cardBorder,
+                      border: Border.all(color: AppColors.error),
+                    ),
+                    child: Text(
+                      _visionUnavailableNotice!,
+                      style: AppTypography.caption.copyWith(color: textPrimary),
+                    ),
+                  ),
+                ],
                 TextField(
                   key: const Key('kpost_vision_prompt_input'),
                   controller: _visionPromptController,
@@ -1129,7 +1282,7 @@ class _CreateKineticPostSheetState
                 Divider(color: borderSubtle),
                 const SizedBox(height: AppSpacing.xs),
 
-                // 5. Interactive Sound Attachment Deck (`REQ-P79-KPOST-02`)
+                // 5. Interactive Sound Attachment Deck (`REQ-P84-KPOST-01`)
                 Row(
                   children: [
                     const PhosphorIcon(
@@ -1138,11 +1291,49 @@ class _CreateKineticPostSheetState
                       size: 18,
                     ),
                     const SizedBox(width: AppSpacing.xs),
-                    Text(
-                      'Attach Sound / Snippet',
-                      style: AppTypography.titleSmall.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: textPrimary,
+                    Expanded(
+                      child: Text(
+                        'Attach Sound / Snippet',
+                        style: AppTypography.titleSmall.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      child: OutlinedButton.icon(
+                        key: const Key('kpost_upload_audio_btn'),
+                        onPressed: _isUploadingAudio
+                            ? null
+                            : _pickAndUploadAudio,
+                        icon: _isUploadingAudio
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const PhosphorIcon(
+                                PhosphorIconsBold.uploadSimple,
+                                size: 15,
+                                color: AppColors.brandPrimary,
+                              ),
+                        label: Text(
+                          _isUploadingAudio ? 'Uploading...' : 'Upload Audio',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.brandPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.brandPrimary),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.pillBorder,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
                       ),
                     ),
                   ],
@@ -1155,10 +1346,8 @@ class _CreateKineticPostSheetState
                   onSelected: (idx) {
                     setState(() {
                       _audioSourceTabIndex = idx;
-                      _selectedAudioCategory = switch (idx) {
-                        0 || 1 || 2 => KineticAudioSourceType.librarySong,
-                        _ => KineticAudioSourceType.sketchpadGroove,
-                      };
+                      _selectedAudioCategory =
+                          KineticAudioSourceType.librarySong;
                     });
                   },
                   items: const <VhunambiGlassTabItem>[
@@ -1173,10 +1362,6 @@ class _CreateKineticPostSheetState
                     VhunambiGlassTabItem(
                       label: 'Trending',
                       icon: AppIcons.flame,
-                    ),
-                    VhunambiGlassTabItem(
-                      label: 'Grooves',
-                      icon: AppIcons.waveform,
                     ),
                   ],
                 ),

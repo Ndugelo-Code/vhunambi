@@ -35,6 +35,7 @@ except ImportError:
 
 SAMPLE_RATE_HZ = 60
 STEM_ROLES = ("vocals", "drums", "bass", "melodic")
+_ROFORMER_SEP_CACHE: dict[tuple[str, str], object] = {}
 
 
 def resolve_roformer_cache_dir() -> str:
@@ -70,12 +71,18 @@ def separate_lead_vocal_bs_roformer(
 
             cache_dir = resolve_roformer_cache_dir()
             os.makedirs(cache_dir, exist_ok=True)
-            sep = Separator(
-                output_dir=output_dir,
-                model_file_dir=cache_dir,
-                output_format="WAV",
-            )
-            sep.load_model(model_filename=model_name)
+            cache_key = (cache_dir, model_name)
+            sep = _ROFORMER_SEP_CACHE.get(cache_key)
+            if sep is None:
+                sep = Separator(
+                    output_dir=output_dir,
+                    model_file_dir=cache_dir,
+                    output_format="WAV",
+                )
+                sep.load_model(model_filename=model_name)
+                _ROFORMER_SEP_CACHE[cache_key] = sep
+            else:
+                sep.output_dir = output_dir
             outputs = sep.separate(input_wav_path)
             voc_candidate = None
             inst_candidate = None

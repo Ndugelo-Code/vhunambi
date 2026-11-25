@@ -5,6 +5,11 @@ import {
   resolveEffectiveCreatorId,
   sovereignAuthMiddleware,
 } from '../middleware/auth_middleware.js';
+import {
+  decodeExploreCursor,
+  encodeExploreCursor,
+} from '../modules/media/cursor.js';
+import { computeEdgeEtag, isIfNoneMatchHit } from '../modules/media/etag.js';
 import { normalizeVhunambiMoodId } from '../utils/mood_taxonomy.js';
 
 export const exploreRoutes = new Hono();
@@ -23,44 +28,108 @@ exploreRoutes.get('/', async (c) => {
   return c.json({ success: true, ...bundle });
 });
 
-// GET /api/explore/tracks — Dynamic African track catalog with stage & trending ranking
+// GET /api/explore/tracks — Dynamic African track catalog with keyset cursor & ETag caching
 exploreRoutes.get('/tracks', async (c) => {
   await vhunambiDb.syncExploreFromCloud(false, c);
   const genre = c.req.query('genre');
   const stage = c.req.query('stage');
-  const sort = (c.req.query('sort') as any) || 'trending';
+  const sort = ((c.req.query('sort') as string) || 'trending') as
+    | 'trending'
+    | 'newest'
+    | 'likes'
+    | 'plays';
   const search = c.req.query('search');
   const rawMood = c.req.query('moodId') || c.req.query('mood');
   const moodId =
     rawMood && rawMood.trim() !== '' && rawMood.trim().toLowerCase() !== 'all'
       ? normalizeVhunambiMoodId(rawMood)
       : undefined;
-  const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : 50;
+  const rawLimit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : 50;
+  const pageLimit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 50, 1), 100);
+  const decodedCursor = decodeExploreCursor(c.req.query('cursor'));
 
+  // Pull bounded superset when cursor pagination is active so we can slice deterministically
   const result = vhunambiDb.getExploreTracks({
     genre,
     stage,
     sort,
     search,
     moodId,
-    limit,
+    limit: decodedCursor ? 100 : pageLimit + 1,
   });
-  const normalizedItems = result.items.map((t) => ({
+
+  const getSortKey = (t: (typeof result.items)[number]): string | number => {
+    if (sort === 'newest') return t.createdAt;
+    if (sort === 'likes') return t.likesCount;
+    if (sort === 'plays') return t.playsCount;
+    return t.trendingScore;
+  };
+
+  let ordered = [...result.items].sort((a, b) => {
+    const ka = getSortKey(a);
+    const kb = getSortKey(b);
+    if (typeof kb === 'number' && typeof ka === 'number' && kb !== ka) {
+      return kb - ka;
+    }
+    if (String(kb) !== String(ka)) {
+      return String(kb).localeCompare(String(ka));
+    }
+    return b.id.localeCompare(a.id);
+  });
+
+  if (decodedCursor) {
+    ordered = ordered.filter((t) => {
+      const k = getSortKey(t);
+      const ck = decodedCursor.sortKey;
+      if (typeof k === 'number' && typeof ck === 'number') {
+        if (k !== ck) return k < ck;
+        return t.id.localeCompare(decodedCursor.id) < 0;
+      }
+      const cmp = String(k).localeCompare(String(ck));
+      if (cmp !== 0) return cmp < 0;
+      return t.id.localeCompare(decodedCursor.id) < 0;
+    });
+  }
+
+  const hasMore = ordered.length > pageLimit;
+  const pageItems = ordered.slice(0, pageLimit);
+  const lastItem = pageItems[pageItems.length - 1];
+  const nextCursor =
+    hasMore && lastItem
+      ? encodeExploreCursor({ sortKey: getSortKey(lastItem), id: lastItem.id })
+      : null;
+
+  const normalizedItems = pageItems.map((t) => ({
     ...t,
     moodId: normalizeVhunambiMoodId(t.moodId ?? t.mood),
     description: t.description ?? '',
     allowOpenStemsRemix: Boolean(t.allowOpenStemsRemix),
   }));
-  return c.json({
+
+  const payload = {
     success: true,
     items: normalizedItems,
     tracks: normalizedItems,
     total: result.total,
+    nextCursor,
     serverSeq: result.serverSeq,
-  });
+  };
+  const bodyJson = JSON.stringify(payload);
+  const etag = computeEdgeEtag(bodyJson);
+
+  if (isIfNoneMatchHit(c.req.header('if-none-match'), etag)) {
+    return c.body(null, 304, {
+      ETag: etag,
+      'Cache-Control': 'private, max-age=15, must-revalidate',
+    });
+  }
+
+  c.header('ETag', etag);
+  c.header('Cache-Control', 'private, max-age=15, must-revalidate');
+  return c.json(payload);
 });
 
-// POST /api/explore/tracks — Publish or update a track in the Explore catalog
+// POST /api/explore/tracks — Publish or update a track in the Explore catalog (Durable Write-Through)
 exploreRoutes.post('/tracks', async (c) => {
   try {
     const body = await c.req.json();
@@ -71,12 +140,15 @@ exploreRoutes.post('/tracks', async (c) => {
     if (forbidden) return forbidden;
 
     const authUser = c.get('authUser');
-    const track = vhunambiDb.upsertExploreTrack({
-      ...body,
-      creatorId: authUser
-        ? resolveEffectiveCreatorId(c, body.creatorId, authUser.creatorId)
-        : body.creatorId,
-    });
+    const track = await vhunambiDb.upsertExploreTrackAsync(
+      {
+        ...body,
+        creatorId: authUser
+          ? resolveEffectiveCreatorId(c, body.creatorId, authUser.creatorId)
+          : body.creatorId,
+      },
+      c,
+    );
     return c.json({ success: true, track }, 201);
   } catch (err: any) {
     return c.json({ success: false, error: err?.message || 'Invalid JSON body' }, 400);
@@ -161,21 +233,24 @@ exploreRoutes.get('/posts/:id', async (c) => {
   return c.json({ success: true, post });
 });
 
-// POST /api/explore/posts — Publish or upsert a Kinetic Post (Phase 69 REQ-P69-API-01)
+// POST /api/explore/posts — Publish or upsert a Kinetic Post (Durable Write-Through)
 exploreRoutes.post('/posts', async (c) => {
   try {
     const body = await c.req.json();
     const forbidden = assertTenantCreatorAccess(c, body?.creatorId);
     if (forbidden) return forbidden;
     const authUser = c.get('authUser');
-    const post = vhunambiDb.upsertKineticPost({
-      ...body,
-      creatorId: authUser
-        ? resolveEffectiveCreatorId(c, body?.creatorId, authUser.creatorId)
-        : body?.creatorId,
-      creatorHandle:
-        body?.creatorHandle || (authUser ? authUser.handle : '@cern'),
-    });
+    const post = await vhunambiDb.upsertKineticPostAsync(
+      {
+        ...body,
+        creatorId: authUser
+          ? resolveEffectiveCreatorId(c, body?.creatorId, authUser.creatorId)
+          : body?.creatorId,
+        creatorHandle:
+          body?.creatorHandle || (authUser ? authUser.handle : '@cern'),
+      },
+      c,
+    );
     return c.json({ success: true, post }, 201);
   } catch (err: any) {
     return c.json({ success: false, error: err?.message || 'Invalid JSON' }, 400);
@@ -188,7 +263,7 @@ exploreRoutes.post('/posts/:id/react', async (c) => {
   let body: Record<string, unknown> = {};
   try {
     body = (await c.req.json()) as Record<string, unknown>;
-  } catch (_) {}
+  } catch (_) { }
   const effectiveCreatorId = resolveEffectiveCreatorId(
     c,
     typeof body.creatorId === 'string' ? body.creatorId : undefined,
@@ -251,7 +326,7 @@ exploreRoutes.post('/posts/:id/comments', async (c) => {
     typeof body?.stickerId === 'string' ? body.stickerId.trim() : '';
   const mediaAspectRatio =
     typeof body?.mediaAspectRatio === 'number' &&
-    Number.isFinite(body.mediaAspectRatio)
+      Number.isFinite(body.mediaAspectRatio)
       ? body.mediaAspectRatio
       : undefined;
 
@@ -292,7 +367,7 @@ exploreRoutes.post('/comments/:id/react', async (c) => {
   let body: Record<string, unknown> = {};
   try {
     body = (await c.req.json()) as Record<string, unknown>;
-  } catch (_) {}
+  } catch (_) { }
   const actorId = c.get('authUser')?.creatorId ?? 'creator_cern';
   const rawReaction = body.reactionType ?? body.reaction ?? null;
   const result = await vhunambiDb.reactToCommentAsync(

@@ -217,6 +217,45 @@ void main() {
       container.read(offlinePreferencesProvider.notifier).toggleOfflineMode();
       expect(resolver.isOfflineModeForced, isTrue);
     });
+
+    test(
+      'syncs decoded MediaItem duration into PlayerState and formattedDuration',
+      () async {
+        final handler = _handler();
+        addTearDown(handler.dispose);
+        final container = _container(handler);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(playerStateProvider.notifier);
+        final uploadedFallbackTrack = Track(
+          id: 'trk_upload_030',
+          title: 'Rediant Demo',
+          creatorName: 'My Uploads',
+          genre: 'Amapiano',
+          duration: const Duration(seconds: 30),
+          audioUrl: 'https://vhunambi.com/audio/trk_upload_030.mp3',
+        );
+
+        notifier.playTrack(uploadedFallbackTrack, queue: [uploadedFallbackTrack]);
+        await _settle();
+        expect(container.read(playerStateProvider).formattedDuration, '0:30');
+
+        handler.updateDurationForTesting(const Duration(minutes: 2, seconds: 41));
+        await _settle();
+
+        final updated = container.read(playerStateProvider);
+        expect(updated.duration, const Duration(minutes: 2, seconds: 41));
+        expect(updated.formattedDuration, '2:41');
+        expect(
+          updated.currentTrack?.duration,
+          const Duration(minutes: 2, seconds: 41),
+        );
+        expect(
+          updated.queue.first.duration,
+          const Duration(minutes: 2, seconds: 41),
+        );
+      },
+    );
   });
 }
 

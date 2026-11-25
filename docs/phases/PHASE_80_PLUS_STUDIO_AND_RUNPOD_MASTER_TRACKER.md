@@ -15,9 +15,11 @@ Every phase below follows the strict Vhunambi lifecycle (`Audit` ➔ `5-Doc Spec
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | **`P79`** | **Sovereign Media Upload & Reuse Engine (`VhunambiMediaVault`) & Post Cockpit v2** *(Foundation Dependency)* | [x] | [x] | [x] | [x] | [x] | ✅ **DONE** |
 | **`P80`** | **Studio Cockpit V6 Glass Overhaul, `vhunambi.com` Parity & `StudioGenerationContractV6` Payload** *(Flutter + Worker + Supabase)* | [x] | [x] | [x] | [x] | [x] | ✅ **DONE** |
-| **`P81`** | **RunPod Multi-Model Synthesis Router (`MiniMax Music 3.0` + `ACE-Step 1.5 XL`) & Multi-Take A&R Baking** *(RunPod L40S 48GB GPU + Worker Webhooks)* | [x] | [x] | [x] | [ ] | [x] | 🚀 **CODE + WORKER LIVE** *(Push `:vhunambi-v4`)* |
-| **`P82`** | **Studio Baking Post-Processing Chain (`BS-RoFormer` + Neural `Seed-VC` + `Matchering 2.0` Mastering)** *(RunPod GPU DSP + MMO v2)* | [x] | [x] | [x] | [ ] | [x] | 🚀 **CODE + WORKER LIVE** *(Push `:vhunambi-v4`)* |
-| **`P83`** | **Post-Generation Stem Repaint, Section Inpainting & Sovereign African LoRA Pack Activation** *(Track/Remix UI + `ACE-Step XL-Base`)* | [x] | [x] | [x] | [ ] | [x] | 🚀 **CODE + WORKER LIVE** *(Push `:vhunambi-v4`)* |
+| **`P81`** | **RunPod Multi-Model Synthesis Router (`MiniMax Music 3.0` + `ACE-Step 1.5 XL`) & Multi-Take A&R Baking** *(RunPod L40S 48GB GPU + Worker Webhooks)* | [x] | [x] | [x] | [x] | [x] | ✅ **DONE** *(`:vhunambi-v5` Live)* |
+| **`P82`** | **Studio Baking Post-Processing Chain (`BS-RoFormer` + Neural `Seed-VC` + `Matchering 2.0` Mastering)** *(RunPod GPU DSP + MMO v2)* | [x] | [x] | [x] | [x] | [x] | ✅ **DONE** *(`:vhunambi-v5` Live + `onnxruntime`)* |
+| **`P83`** | **Post-Generation Stem Repaint, Section Inpainting & Sovereign African LoRA Pack Activation** *(Track/Remix UI + `ACE-Step XL-Base`)* | [x] | [x] | [x] | [x] | [x] | ✅ **DONE** *(`:vhunambi-v5` Live; 6/6 Ready LoRA Packs Active in R2)* |
+| **`P84`** | **Media Pipeline Overhaul, Edge ID3v2 Cover/Metadata Extraction, Kinetic Reels 98% Fix, Kinetic Post Uploads & Zania Music Flywheel** *(Worker + R2 + Flutter + CLI)* | [x] | [x] | [x] | [x] | [x] | ✅ **DONE** *(`vhunambi-api` Worker Live + Supabase Applied)* |
+| **`P85`** | **Cloud-Only Zero-Local-RAM LoRA Factory (`ZANIA MUSIC` -> RunPod Prep & Real PEFT Trainer -> R2 `loras/*.safetensors`)** *(Worker + Docker Build Cloud + RunPod + Flutter)* | [x] | [x] | [x] | [x] | [x] | ✅ **DONE** *(`:vhunambi-v5` Live on `e7wt9pgo7djv55` v10 + 6/6 LoRAs Active)* |
 
 ---
 
@@ -129,7 +131,7 @@ Before running individual Stage 1 audits, the following **9 exact codebase traps
 #### Master Checklist
 - [x] **Cost-Optimal Container & Network Volume Architecture (`tools/zr-studio-gpu/` on `L40S 48GB`):**
   - [x] Upgrade `Dockerfile`, `Dockerfile.delta`, `requirements.txt`, and `push_gpu_worker.yml` for `:vhunambi-v4` (`HF_HOME=/runpod-volume/hf_cache`, `ZR_LORA_CACHE_DIR=/runpod-volume/lora_cache`, `soxr>=0.4.0`, zero `YuE2`) + upgrade `e7wt9pgo7djv55` v8 to `40 GB` disk, `1200s` timeout, and `48 GB+` pools (`ADA_48_PRO`, `AMPERE_48`, `AMPERE_80`).
-  - [ ] Push `:vhunambi-v4` via GitHub Actions & provision/attach `100 GB` `/runpod-volume` (`$7/mo` out of `$13.57` balance) with pre-populated `MiniMaxAI/MiniMax-Music3` + `ACE-Step 1.5 XL` weights.
+  - [x] Push `:vhunambi-v5` via **Docker Build Cloud (`cloud-ndugelo-vhunambi`)** (`sha256:e80ff29e2295ed8388e0bcd51bb9fc8430be64d75a1b384054ed72c8b62309e7`) and roll out `e7wt9pgo7djv55` release `v10` (bypassing GitHub Actions billing). *(Optional later: attach `100 GB` `/runpod-volume` for pre-cached `MiniMaxAI/MiniMax-Music3` weights).*
 - [x] **Intelligent Multi-Model Router (`model_router.py` / `ZRModelManager`) & MiniMax Guardrails:**
   - [x] Route `engineTier == 'studio_bake'` **when `isInstrumental == false` and `referenceAudioUrl == null`** ➔ **MiniMax Music 3.0** (`<= 300s` sweet spot, `360s` hard cap) + stamp `attribution: 'MiniMax-Music3'` in `takes_json` & MMO manifest (with truthful attribution clearing on fallback).
   - [x] **Instrumental & Reference Audio Guard:** Route `isInstrumental == true` OR `referenceAudioUrl != null` (`remix` / `cover` / `reference` / `inspiration`) OR `engineTier == 'sovereign_custom'` ➔ **ACE-Step 1.5 XL-SFT / XL-Base** so `sglang-omni` `/v1/audio/speech` never rejects empty lyrics or reference-audio fields with HTTP `400`.
@@ -172,9 +174,10 @@ Before running individual Stage 1 audits, the following **9 exact codebase traps
 - [x] **Post-Generation Section Repaint & Stem Authority (`STU-02` Destination):**
   - [x] Surface the relocated `Lock | Inpaint | Resynth` controls (`CockpitQuantumEntanglementRack` / `TrackSectionRepaintSheet`) inside Post-Generation Track / Remix Studio (where a real song waveform and 4 stems already exist).
   - [x] Wire bar/timestamp range selection (`startSec`..`endSec`) + lyric edits to `POST /v1/generations/:id/repaint` ➔ `ACE-Step 1.5 XL-Base` (`repaint` / `lego` / `complete` tasks).
-- [x] **Sovereign Regional LoRA Registry Verification (`Worker Live` `4d131620-95fc-443d-bd8b-0c964b72205c` + GPU Loader Hardened):**
+- [x] **Sovereign Regional LoRA Registry Verification (`Worker Live` `4d131620-95fc-443d-bd8b-0c964b72205c` + RunPod `:vhunambi-v4` Release `v9` Live):**
   - [x] Audit, validate, and harden canonical 10-pack African LoRA registry (`lora_catalog.ts`, `GET /v1/studio/loras`, SHA-256 verified `_hot_swap_loras`, multi-LoRA blend cap `<= 1.35`) covering all 42 genres.
-  - [ ] Upload trained `.safetensors` adapter weights to R2 `loras/*.safetensors` & push combined `P81+P82+P83` `:vhunambi-v4` container via `.github/workflows/push_gpu_worker.yml`.
+  - [x] Build & push combined `P81+P82+P83+P85` `ndugelo/zr-studio-gpu:vhunambi-v5` image (`sha256:e80ff29e2295ed8388e0bcd51bb9fc8430be64d75a1b384054ed72c8b62309e7`) via Docker Build Cloud (`cloud-ndugelo-vhunambi`) and roll out RunPod endpoint `e7wt9pgo7djv55` (`zr-studio-prod`, release `v10`).
+  - [x] Trained & reload-verified all **6/6** ready Sovereign LoRA packs on RunPod `NVIDIA A40` (`amapiano_logdrum_v1`, `amapiano_private_school_v1`, `venda_malende_v1`, `afrohouse_ancestral_v1`, `afrobeats_lagos_v1`, `bantu_vocals_v1`), uploaded `.safetensors` to R2 `zr-studio-audio/loras/`, promoted all 6 to `active` in Supabase `cbnruevwrqwjnnoscgsz`, and terminated the Pod (`$0/hr` idle). *(Remaining 5 packs stay ready for training once curated datasets pass the 8-track threshold.)*
 
 ---
 

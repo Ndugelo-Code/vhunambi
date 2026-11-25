@@ -12,7 +12,9 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/vhunambi_glass_surface.dart';
 import '../../../studio/domain/models/studio_form_state.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
+import '../../../studio/presentation/providers/studio_lora_registry_provider.dart';
 import '../../../studio/presentation/widgets/cockpit_quantum_entanglement_rack.dart';
+import '../../../studio/presentation/widgets/lora_factory_status_sheet.dart';
 import '../../domain/models/track_detail_models.dart';
 import '../providers/track_providers.dart';
 
@@ -340,9 +342,32 @@ class _TrackSectionRepaintSheetState
                   Expanded(
                     child: Text(
                       'Sovereign African LoRA Pack',
-                      style: AppTypography.titleSmall.copyWith(color: textPrimary),
+                      style: AppTypography.titleSmall.copyWith(
+                        color: textPrimary,
+                      ),
                     ),
                   ),
+                  TextButton.icon(
+                    key: const Key('repaint_open_lora_factory_btn'),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(44, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    onPressed: () => LoraFactoryStatusSheet.show(context),
+                    icon: const PhosphorIcon(
+                      PhosphorIconsBold.cpu,
+                      size: 14,
+                      color: AppColors.brandPrimary,
+                    ),
+                    label: Text(
+                      'Factory',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.brandPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
                   Text(
                     _selectedLoraId == null
                         ? 'Auto'
@@ -358,49 +383,80 @@ class _TrackSectionRepaintSheetState
               SizedBox(
                 key: const Key('repaint_lora_picker'),
                 height: 44,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: kAfricanLoraPacks.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 6),
-                  itemBuilder: (context, idx) {
-                    final pack = kAfricanLoraPacks[idx];
-                    final selected = _selectedLoraId == pack.loraId;
-                    return InkWell(
-                      key: Key('repaint_lora_chip_${pack.loraId}'),
-                      borderRadius: AppRadius.pillBorder,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          _selectedLoraId = selected ? null : pack.loraId;
-                          _loraWeight = pack.defaultWeight;
-                        });
-                      },
-                      child: Container(
-                        constraints: const BoxConstraints(minHeight: 44),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? AppColors.brandPrimary.withValues(alpha: 0.18)
-                              : AppColors.surfaceSecondaryOf(context),
+                child: Builder(
+                  builder: (context) {
+                    final factoryPacks = ref
+                        .watch(studioLoraRegistryProvider)
+                        .packs;
+                    return ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: factoryPacks.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 6),
+                      itemBuilder: (context, idx) {
+                        final pack = factoryPacks[idx];
+                        final selected = _selectedLoraId == pack.loraId;
+                        final statusDot = pack.isActive
+                            ? AppColors.success
+                            : (pack.hasEnoughSourceTracks
+                                  ? AppColors.coinGold
+                                  : AppColors.borderSubtleOf(context));
+                        return InkWell(
+                          key: Key('repaint_lora_chip_${pack.loraId}'),
                           borderRadius: AppRadius.pillBorder,
-                          border: Border.all(
-                            color: selected
-                                ? AppColors.brandPrimary
-                                : AppColors.borderSubtleOf(context),
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() {
+                              _selectedLoraId = selected ? null : pack.loraId;
+                              _loraWeight = pack.defaultWeight;
+                            });
+                          },
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 44),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? AppColors.brandPrimary.withValues(
+                                      alpha: 0.18,
+                                    )
+                                  : AppColors.surfaceSecondaryOf(context),
+                              borderRadius: AppRadius.pillBorder,
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.brandPrimary
+                                    : AppColors.borderSubtleOf(context),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: BoxDecoration(
+                                    color: statusDot,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  pack.label,
+                                  style: AppTypography.caption.copyWith(
+                                    color: selected
+                                        ? AppColors.brandPrimary
+                                        : textPrimary,
+                                    fontWeight: selected
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          pack.label,
-                          style: AppTypography.caption.copyWith(
-                            color: selected ? AppColors.brandPrimary : textPrimary,
-                            fontWeight:
-                                selected ? FontWeight.w800 : FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -423,8 +479,11 @@ class _TrackSectionRepaintSheetState
                 maxLines: 2,
                 style: AppTypography.bodySmall.copyWith(color: textPrimary),
                 decoration: InputDecoration(
-                  hintText: 'Optional section lyrics or instrumental drop cue...',
-                  hintStyle: AppTypography.caption.copyWith(color: textSecondary),
+                  hintText:
+                      'Optional section lyrics or instrumental drop cue...',
+                  hintStyle: AppTypography.caption.copyWith(
+                    color: textSecondary,
+                  ),
                   filled: true,
                   fillColor: AppColors.surfaceSecondaryOf(context),
                   border: OutlineInputBorder(
@@ -507,7 +566,10 @@ class _TrackSectionRepaintSheetState
                       color: textPrimary,
                       size: 20,
                     ),
-                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),

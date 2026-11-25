@@ -46,8 +46,17 @@ class _UploadsVaultViewState extends ConsumerState<UploadsVaultView> {
 
   Future<void> _pickAndEnqueueMedia() async {
     if (_isTestEnv) {
-      await ref.read(mediaUploadQueueProvider.notifier).stageAndEnqueue(
-            bytes: Uint8List.fromList(<int>[0x52, 0x49, 0x46, 0x46, 0x01, 0x02]),
+      await ref
+          .read(mediaUploadQueueProvider.notifier)
+          .stageAndEnqueue(
+            bytes: Uint8List.fromList(<int>[
+              0x52,
+              0x49,
+              0x46,
+              0x46,
+              0x01,
+              0x02,
+            ]),
             filename: 'abafana_master.wav',
             mimeType: 'audio/wav',
             kind: MediaAssetKind.audio,
@@ -102,7 +111,9 @@ class _UploadsVaultViewState extends ConsumerState<UploadsVaultView> {
       'webp' => (MediaAssetKind.image, 'image/webp'),
       _ => (MediaAssetKind.image, 'image/jpeg'),
     };
-    await ref.read(mediaUploadQueueProvider.notifier).stageAndEnqueue(
+    await ref
+        .read(mediaUploadQueueProvider.notifier)
+        .stageAndEnqueue(
           bytes: bytes,
           filename: file.name,
           mimeType: mime,
@@ -139,6 +150,10 @@ class _UploadsVaultViewState extends ConsumerState<UploadsVaultView> {
         onCreateRequested: _pickAndEnqueueMedia,
       );
     }
+
+    final hasFailedUploads = filtered.any(
+      (u) => u.status == MediaUploadStatus.failed,
+    );
 
     return Padding(
       key: const Key('library_uploads_vault_view'),
@@ -183,6 +198,24 @@ class _UploadsVaultViewState extends ConsumerState<UploadsVaultView> {
               ),
             ],
           ),
+          if (hasFailedUploads) ...<Widget>[
+            const SizedBox(height: AppSpacing.xs),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: OutlinedButton.icon(
+                key: const Key('uploads_vault_retry_all_btn'),
+                onPressed: () => ref
+                    .read(mediaUploadQueueProvider.notifier)
+                    .retryAllPending(),
+                icon: const PhosphorIcon(
+                  AppIcons.remix,
+                  size: 16,
+                  color: AppColors.brandPrimary,
+                ),
+                label: const Text('Retry All Failed Uploads'),
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           Expanded(
             child: ListView.separated(
@@ -202,7 +235,9 @@ class _UploadsVaultViewState extends ConsumerState<UploadsVaultView> {
                   MediaUploadStatus.synced => AppColors.success,
                   MediaUploadStatus.uploading => AppColors.brandPrimary,
                   MediaUploadStatus.failed => AppColors.error,
-                  MediaUploadStatus.queued => AppColors.textSecondaryOf(context),
+                  MediaUploadStatus.queued => AppColors.textSecondaryOf(
+                    context,
+                  ),
                 };
 
                 return VhunambiGlassSurface(
@@ -212,10 +247,10 @@ class _UploadsVaultViewState extends ConsumerState<UploadsVaultView> {
                     children: <Widget>[
                       VhunambiTrackArtwork(
                         trackId: asset.id,
-                        genre: 'Amapiano',
+                        genre: asset.genre ?? 'Amapiano',
                         coverUrl: asset.kind == MediaAssetKind.image
                             ? asset.bestPlayableOrRenderableSource
-                            : asset.thumbnailLocalPath,
+                            : asset.bestCoverSource,
                         width: 52,
                         height: 52,
                         borderRadius: BorderRadius.circular(10),
@@ -251,16 +286,23 @@ class _UploadsVaultViewState extends ConsumerState<UploadsVaultView> {
                           onPressed: () {
                             final src = asset.bestPlayableOrRenderableSource;
                             if (src == null) return;
-                            ref.read(playerStateProvider.notifier).playTrack(
+                            ref
+                                .read(playerStateProvider.notifier)
+                                .playTrack(
                                   Track(
                                     id: asset.id,
                                     title: asset.title,
                                     creatorName: 'My Uploads',
-                                    genre: 'Uploaded',
+                                    genre:
+                                        (asset.genre != null &&
+                                            asset.genre!.trim().isNotEmpty)
+                                        ? asset.genre!.trim()
+                                        : 'Uploaded',
                                     duration: Duration(
                                       milliseconds: asset.durationMs ?? 30000,
                                     ),
                                     audioUrl: src,
+                                    coverUrl: asset.bestCoverSource,
                                   ),
                                 );
                           },

@@ -502,3 +502,168 @@ export async function checkRunPodJobStatus(
     return { status: 'UNKNOWN' };
   }
 }
+
+export interface LoraCloudDispatchResult {
+  runpodJobId: string;
+  isSimulated: boolean;
+  podLaunchCommand?: string;
+}
+
+/**
+ * Dispatches `job_type: "lora_dataset_prep"` to RunPod GPU Serverless (Phase 85).
+ */
+export async function dispatchLoraDatasetPrepJob(
+  params: {
+    jobId: string;
+    loraId: string;
+    genre: string;
+    extractVocals: boolean;
+    forceReprep: boolean;
+    sourceTracks: Array<{
+      id: string;
+      title: string;
+      r2Key: string;
+      sha256?: string;
+      bpm?: number;
+      genre: string;
+      subGenre?: string;
+      language?: string;
+      lyricsText?: string;
+      license?: string;
+    }>;
+  },
+  cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,
+): Promise<LoraCloudDispatchResult> {
+  const runtimeEnv = resolveRuntimeEnv(cOrEnv);
+  const webhookUrl = `${runtimeEnv.WEBHOOK_BASE_URL.replace(/\/+$/, '')}/v1/webhooks/training`;
+
+  if (runtimeEnv.RUNPOD_API_KEY && runtimeEnv.RUNPOD_ENDPOINT_ID) {
+    const health = await checkRunPodEndpointHealth(cOrEnv);
+    if (!health.workersKnown || health.workersMax !== 0) {
+      const resp = await fetch(
+        `https://api.runpod.ai/v2/${runtimeEnv.RUNPOD_ENDPOINT_ID}/run`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${runtimeEnv.RUNPOD_API_KEY}`,
+          },
+          body: JSON.stringify({
+            input: {
+              job_type: 'lora_dataset_prep',
+              job_id: params.jobId,
+              lora_id: params.loraId,
+              genre: params.genre,
+              extract_vocals: params.extractVocals,
+              force_reprep: params.forceReprep,
+              source_tracks: params.sourceTracks,
+              webhook_url: webhookUrl,
+            },
+          }),
+        },
+      );
+      if (resp.ok) {
+        const data = (await resp.json()) as { id?: string };
+        return {
+          runpodJobId: data.id ?? `rp_prep_${params.jobId}`,
+          isSimulated: false,
+        };
+      }
+      const errText = await resp.text().catch(() => '');
+      throw new Error(`RunPod dataset prep dispatch failed (${resp.status}): ${errText}`);
+    }
+  }
+
+  return {
+    runpodJobId: `sim_prep_${params.jobId}`,
+    isSimulated: true,
+  };
+}
+
+/**
+ * Dispatches `job_type: "lora_train_peft"` to RunPod Serverless or emits a zero-secret Pod CLI command.
+ */
+export async function dispatchLoraPeftTrainingJob(
+  params: {
+    jobId: string;
+    loraId: string;
+    executionTarget: 'serverless' | 'pod';
+    config: {
+      loraRank: number;
+      loraAlpha: number;
+      epochs: number;
+      batchSize: number;
+      gradAccumSteps: number;
+      learningRate: number;
+      warmupSteps: number;
+      precision?: string;
+    };
+  },
+  cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,
+): Promise<LoraCloudDispatchResult> {
+  const runtimeEnv = resolveRuntimeEnv(cOrEnv);
+  const webhookUrl = `${runtimeEnv.WEBHOOK_BASE_URL.replace(/\/+$/, '')}/v1/webhooks/training`;
+  const podLaunchCommand =
+    `python -m training.train_lora --lora-id ${params.loraId} ` +
+    `--job-id ${params.jobId} --epochs ${params.config.epochs} ` +
+    `--rank ${params.config.loraRank} --alpha ${params.config.loraAlpha} ` +
+    `--lr ${params.config.learningRate} --resume-from-r2`;
+
+  if (
+    params.executionTarget === 'serverless' &&
+    runtimeEnv.RUNPOD_API_KEY &&
+    runtimeEnv.RUNPOD_ENDPOINT_ID
+  ) {
+    const health = await checkRunPodEndpointHealth(cOrEnv);
+    if (!health.workersKnown || health.workersMax !== 0) {
+      const resp = await fetch(
+        `https://api.runpod.ai/v2/${runtimeEnv.RUNPOD_ENDPOINT_ID}/run`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${runtimeEnv.RUNPOD_API_KEY}`,
+          },
+          body: JSON.stringify({
+            input: {
+              job_type: 'lora_train_peft',
+              job_id: params.jobId,
+              lora_id: params.loraId,
+              training_config: {
+                lora_name: params.loraId,
+                lora_rank: params.config.loraRank,
+                lora_alpha: params.config.loraAlpha,
+                epochs: params.config.epochs,
+                batch_size: params.config.batchSize,
+                grad_accum_steps: params.config.gradAccumSteps,
+                learning_rate: params.config.learningRate,
+                warmup_steps: params.config.warmupSteps,
+                precision: params.config.precision ?? 'bf16',
+              },
+              webhook_url: webhookUrl,
+            },
+          }),
+        },
+      );
+      if (resp.ok) {
+        const data = (await resp.json()) as { id?: string };
+        return {
+          runpodJobId: data.id ?? `rp_train_${params.jobId}`,
+          isSimulated: false,
+          podLaunchCommand,
+        };
+      }
+      const errText = await resp.text().catch(() => '');
+      throw new Error(`RunPod LoRA train dispatch failed (${resp.status}): ${errText}`);
+    }
+  }
+
+  return {
+    runpodJobId:
+      params.executionTarget === 'pod'
+        ? `pod_pending_${params.jobId}`
+        : `sim_train_${params.jobId}`,
+    isSimulated: true,
+    podLaunchCommand,
+  };
+}

@@ -13,6 +13,15 @@ import {
   type VhunambiMoodId,
 } from '../utils/mood_taxonomy.js';
 import {
+  ALL_SOVEREIGN_LORA_PACKS,
+} from '../modules/synthesis/lora_catalog.js';
+import {
+  getTrainingHyperparamDefaults,
+  type LoraRegistryStatus,
+  type SourceTrackCandidate,
+  type VhunambiLoraId,
+} from '../modules/synthesis/training_dataset_schema.js';
+import {
   canonicalizeCreatorId,
   compactReactionCounts,
   EdgeIsolateDatabaseEngine,
@@ -31,6 +40,10 @@ import {
   type ExploreTrackRecord,
   type KineticReactionMutationResult,
   type KineticReactionWire,
+  type LoraDatasetTrackRecord,
+  type LoraRegistryRecord,
+  type LoraTrainingJobRecord,
+  type LoraTrainingJobStatus,
   type MediaUploadKindWire,
   type NotificationRecord,
   type PaymentRailId,
@@ -58,6 +71,10 @@ export {
   type CreatorQuotaRecord,
   type ExploreFeedOptions,
   type ExploreTrackRecord,
+  type LoraDatasetTrackRecord,
+  type LoraRegistryRecord,
+  type LoraTrainingJobRecord,
+  type LoraTrainingJobStatus,
   type MediaUploadKindWire,
   type NotificationRecord,
   type PaymentRailId,
@@ -726,6 +743,117 @@ export class VhunambiDatabase {
     try {
       this.db.exec('ALTER TABLE social_interactions ADD COLUMN reaction_type TEXT;');
     } catch (_) { }
+    try {
+      this.db.exec("ALTER TABLE user_media_uploads ADD COLUMN id3_metadata_json TEXT NOT NULL DEFAULT '{}';");
+    } catch (_) { }
+    try {
+      this.db.exec('ALTER TABLE user_media_uploads ADD COLUMN content_sha256 TEXT;');
+    } catch (_) { }
+    try {
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_sqlite_user_media_uploads_sha256 ON user_media_uploads(creator_id, content_sha256);');
+    } catch (_) { }
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS lora_registry (
+        lora_id TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        pack_type TEXT NOT NULL DEFAULT 'genre',
+        genre TEXT NOT NULL,
+        region TEXT NOT NULL DEFAULT 'South Africa',
+        r2_key TEXT NOT NULL,
+        adapter_config_r2_key TEXT,
+        default_weight REAL NOT NULL DEFAULT 0.85,
+        lora_rank INTEGER NOT NULL DEFAULT 16,
+        lora_alpha INTEGER NOT NULL DEFAULT 32,
+        min_tracks INTEGER NOT NULL DEFAULT 8,
+        recommended_tracks INTEGER NOT NULL DEFAULT 15,
+        status TEXT NOT NULL DEFAULT 'untrained',
+        artifact_sha256 TEXT,
+        artifact_bytes INTEGER NOT NULL DEFAULT 0,
+        training_tracks INTEGER NOT NULL DEFAULT 0,
+        version TEXT NOT NULL DEFAULT 'v1',
+        final_loss REAL,
+        trained_at TEXT,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS lora_dataset_tracks (
+        id TEXT PRIMARY KEY,
+        lora_id TEXT NOT NULL,
+        source_track_id TEXT,
+        source_r2_key TEXT NOT NULL,
+        source_sha256 TEXT NOT NULL,
+        curated_wav_r2_key TEXT,
+        curated_json_r2_key TEXT,
+        title TEXT NOT NULL,
+        vocal_isolated INTEGER NOT NULL DEFAULT 0,
+        duration_sec REAL,
+        sample_rate INTEGER,
+        bit_depth INTEGER,
+        bpm INTEGER,
+        musical_key TEXT,
+        language TEXT NOT NULL DEFAULT 'en-ZA',
+        license TEXT NOT NULL DEFAULT 'owned',
+        training_weight REAL NOT NULL DEFAULT 1.0,
+        validation_status TEXT NOT NULL DEFAULT 'pending',
+        validation_errors_json TEXT NOT NULL DEFAULT '[]',
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(lora_id, source_sha256)
+      );
+      CREATE TABLE IF NOT EXISTS lora_training_jobs (
+        id TEXT PRIMARY KEY,
+        lora_id TEXT NOT NULL,
+        job_type TEXT NOT NULL,
+        runpod_job_id TEXT,
+        execution_target TEXT NOT NULL DEFAULT 'serverless',
+        status TEXT NOT NULL DEFAULT 'queued',
+        progress_pct INTEGER NOT NULL DEFAULT 0,
+        current_epoch INTEGER NOT NULL DEFAULT 0,
+        total_epochs INTEGER NOT NULL DEFAULT 0,
+        current_loss REAL,
+        best_loss REAL,
+        hyperparams_json TEXT NOT NULL DEFAULT '{}',
+        metrics_json TEXT NOT NULL DEFAULT '{}',
+        artifact_r2_key TEXT,
+        artifact_sha256 TEXT,
+        error_message TEXT,
+        triggered_by TEXT NOT NULL DEFAULT 'system',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        completed_at TEXT
+      );
+    `);
+
+    const seedNow = new Date().toISOString();
+    const seedStmt = this.db.prepare(`
+      INSERT OR IGNORE INTO lora_registry (
+        lora_id, display_name, pack_type, genre, region, r2_key, adapter_config_r2_key,
+        default_weight, lora_rank, lora_alpha, min_tracks, recommended_tracks, status,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'untrained', ?, ?)
+    `);
+    for (const p of ALL_SOVEREIGN_LORA_PACKS) {
+      const hp = getTrainingHyperparamDefaults(p.loraId as VhunambiLoraId);
+      seedStmt.run(
+        p.loraId,
+        p.label,
+        p.packType ?? 'genre',
+        p.genre,
+        p.region,
+        p.r2Key,
+        `loras/${p.loraId}/adapter_config.json`,
+        p.defaultWeight,
+        hp.loraRank,
+        hp.loraAlpha,
+        hp.minTracks,
+        hp.recommendedTracks,
+        seedNow,
+        seedNow,
+      );
+    }
   }
 
   private seedInitialDataIfEmpty(): void {
@@ -2302,6 +2430,13 @@ export class VhunambiDatabase {
     return this.mapExploreTrackRow(stored);
   }
 
+  public async upsertExploreTrackAsync(
+    input: Record<string, any>,
+    _cOrEnv?: unknown,
+  ): Promise<ExploreTrackRecord> {
+    return this.upsertExploreTrack(input, true);
+  }
+
   public getExploreDiscoveryBundle(options: ExploreFeedOptions = {}): {
     tracks: ExploreTrackRecord[];
     posts: any[];
@@ -2498,6 +2633,13 @@ export class VhunambiDatabase {
       );
 
     return this.getKineticPostById(id)!;
+  }
+
+  public async upsertKineticPostAsync(
+    input: Record<string, any>,
+    _cOrEnv?: unknown,
+  ): Promise<Record<string, any>> {
+    return this.upsertKineticPost(input);
   }
 
   public getSocialReaction(
@@ -6239,12 +6381,14 @@ export class VhunambiDatabase {
         `INSERT INTO user_media_uploads (
           id, creator_id, media_kind, title, filename, mime_type, size_bytes,
           duration_ms, width, height, r2_key, remote_url, thumbnail_url,
-          source_surface, created_at, deleted_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          source_surface, id3_metadata_json, content_sha256, created_at, deleted_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           title = excluded.title,
           remote_url = excluded.remote_url,
           thumbnail_url = excluded.thumbnail_url,
+          id3_metadata_json = excluded.id3_metadata_json,
+          content_sha256 = COALESCE(excluded.content_sha256, user_media_uploads.content_sha256),
           deleted_at = excluded.deleted_at`,
       )
       .run(
@@ -6262,6 +6406,8 @@ export class VhunambiDatabase {
         record.remoteUrl,
         record.thumbnailUrl,
         record.sourceSurface,
+        JSON.stringify(record.id3Metadata ?? {}),
+        record.contentSha256,
         record.createdAt,
         record.deletedAt,
       );
@@ -6285,6 +6431,21 @@ export class VhunambiDatabase {
         `SELECT * FROM user_media_uploads WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
       )
       .get(id) as Record<string, unknown> | undefined;
+    return row ? normalizeUserMediaUploadRow(row) : null;
+  }
+
+  public findUserMediaUploadBySha256(
+    creatorId: string,
+    sha256: string,
+  ): UserMediaUploadRecord | null {
+    const cid = canonicalizeCreatorId(creatorId);
+    const target = sha256.trim().toLowerCase();
+    if (!target) return null;
+    const row = this.db
+      .prepare(
+        `SELECT * FROM user_media_uploads WHERE creator_id = ? AND LOWER(content_sha256) = ? AND deleted_at IS NULL LIMIT 1`,
+      )
+      .get(cid, target) as Record<string, unknown> | undefined;
     return row ? normalizeUserMediaUploadRow(row) : null;
   }
 
@@ -6348,6 +6509,431 @@ export class VhunambiDatabase {
     _cOrEnv?: unknown,
   ): Promise<boolean> {
     return this.deleteUserMediaUpload(id, creatorId, true);
+  }
+
+  public async listAllExploreTrackCandidatesAsync(
+    _cOrEnv?: unknown,
+  ): Promise<SourceTrackCandidate[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM explore_tracks ORDER BY created_at DESC LIMIT 500')
+      .all() as Array<Record<string, unknown>>;
+    return rows.map((r) => {
+      let data: Record<string, unknown> = {};
+      try {
+        data = JSON.parse(String(r.data_json || '{}')) as Record<string, unknown>;
+      } catch {
+        data = {};
+      }
+      return {
+        id: String(r.id ?? ''),
+        title: String(r.title ?? 'Untitled Track'),
+        genre: String(r.genre ?? 'Amapiano'),
+        subGenre: typeof data.subGenre === 'string' ? data.subGenre : undefined,
+        audioUrl: String(r.audio_url ?? ''),
+        contentSha256:
+          typeof data.contentSha256 === 'string' ? data.contentSha256 : undefined,
+        bpm: Number(r.bpm ?? 114),
+        lyricsText: typeof data.lyricsText === 'string' ? data.lyricsText : '',
+        sourceOrigin:
+          typeof data.sourceOrigin === 'string' ? data.sourceOrigin : 'vhunambi_studio',
+      };
+    });
+  }
+
+  private mapSqliteLoraRegistryRow(r: Record<string, unknown>): LoraRegistryRecord {
+    let meta: Record<string, unknown> = {};
+    try {
+      meta = JSON.parse(String(r.metadata_json || '{}')) as Record<string, unknown>;
+    } catch {
+      meta = {};
+    }
+    return {
+      loraId: String(r.lora_id ?? ''),
+      displayName: String(r.display_name ?? ''),
+      packType: String(r.pack_type ?? 'genre') as 'genre' | 'language' | 'mixed',
+      genre: String(r.genre ?? 'Amapiano'),
+      region: String(r.region ?? 'South Africa'),
+      r2Key: String(r.r2_key ?? ''),
+      adapterConfigR2Key: r.adapter_config_r2_key
+        ? String(r.adapter_config_r2_key)
+        : null,
+      defaultWeight: Number(r.default_weight ?? 0.85),
+      loraRank: Number(r.lora_rank ?? 16),
+      loraAlpha: Number(r.lora_alpha ?? 32),
+      minTracks: Number(r.min_tracks ?? 8),
+      recommendedTracks: Number(r.recommended_tracks ?? 15),
+      status: String(r.status ?? 'untrained') as LoraRegistryStatus,
+      artifactSha256: r.artifact_sha256 ? String(r.artifact_sha256) : null,
+      artifactBytes: Number(r.artifact_bytes ?? 0),
+      trainingTracks: Number(r.training_tracks ?? 0),
+      version: String(r.version ?? 'v1'),
+      finalLoss: r.final_loss != null ? Number(r.final_loss) : null,
+      trainedAt: r.trained_at ? String(r.trained_at) : null,
+      metadataJson: meta,
+      createdAt: String(r.created_at ?? new Date().toISOString()),
+      updatedAt: String(r.updated_at ?? new Date().toISOString()),
+    };
+  }
+
+  public getLoraRegistryEntry(loraId: string): LoraRegistryRecord | null {
+    const row = this.db
+      .prepare('SELECT * FROM lora_registry WHERE lora_id = ? LIMIT 1')
+      .get(loraId) as Record<string, unknown> | undefined;
+    return row ? this.mapSqliteLoraRegistryRow(row) : null;
+  }
+
+  public async listLoraRegistryAsync(
+    _cOrEnv?: unknown,
+  ): Promise<LoraRegistryRecord[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM lora_registry')
+      .all() as Array<Record<string, unknown>>;
+    const byId = new Map<string, LoraRegistryRecord>();
+    for (const r of rows) {
+      const mapped = this.mapSqliteLoraRegistryRow(r);
+      byId.set(mapped.loraId, mapped);
+    }
+    return ALL_SOVEREIGN_LORA_PACKS.map((p) => byId.get(p.loraId)).filter(
+      (x): x is LoraRegistryRecord => Boolean(x),
+    );
+  }
+
+  public async upsertLoraRegistryAsync(
+    patch: Partial<LoraRegistryRecord> & { loraId: string },
+    _cOrEnv?: unknown,
+  ): Promise<LoraRegistryRecord> {
+    const prev = this.getLoraRegistryEntry(patch.loraId);
+    const now = new Date().toISOString();
+    const hp = getTrainingHyperparamDefaults(patch.loraId as VhunambiLoraId);
+    const merged: LoraRegistryRecord = {
+      loraId: patch.loraId,
+      displayName: patch.displayName ?? prev?.displayName ?? patch.loraId,
+      packType: patch.packType ?? prev?.packType ?? 'genre',
+      genre: patch.genre ?? prev?.genre ?? 'Amapiano',
+      region: patch.region ?? prev?.region ?? 'South Africa',
+      r2Key: patch.r2Key ?? prev?.r2Key ?? `loras/${patch.loraId}.safetensors`,
+      adapterConfigR2Key:
+        patch.adapterConfigR2Key !== undefined
+          ? patch.adapterConfigR2Key
+          : (prev?.adapterConfigR2Key ?? `loras/${patch.loraId}/adapter_config.json`),
+      defaultWeight: patch.defaultWeight ?? prev?.defaultWeight ?? 0.85,
+      loraRank: patch.loraRank ?? prev?.loraRank ?? hp.loraRank,
+      loraAlpha: patch.loraAlpha ?? prev?.loraAlpha ?? hp.loraAlpha,
+      minTracks: patch.minTracks ?? prev?.minTracks ?? hp.minTracks,
+      recommendedTracks:
+        patch.recommendedTracks ?? prev?.recommendedTracks ?? hp.recommendedTracks,
+      status: patch.status ?? prev?.status ?? 'untrained',
+      artifactSha256:
+        patch.artifactSha256 !== undefined
+          ? patch.artifactSha256
+          : (prev?.artifactSha256 ?? null),
+      artifactBytes: patch.artifactBytes ?? prev?.artifactBytes ?? 0,
+      trainingTracks: patch.trainingTracks ?? prev?.trainingTracks ?? 0,
+      version: patch.version ?? prev?.version ?? 'v1',
+      finalLoss:
+        patch.finalLoss !== undefined ? patch.finalLoss : (prev?.finalLoss ?? null),
+      trainedAt:
+        patch.trainedAt !== undefined ? patch.trainedAt : (prev?.trainedAt ?? null),
+      metadataJson: patch.metadataJson ?? prev?.metadataJson ?? {},
+      createdAt: prev?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    this.db
+      .prepare(
+        `INSERT INTO lora_registry (
+          lora_id, display_name, pack_type, genre, region, r2_key, adapter_config_r2_key,
+          default_weight, lora_rank, lora_alpha, min_tracks, recommended_tracks, status,
+          artifact_sha256, artifact_bytes, training_tracks, version, final_loss, trained_at,
+          metadata_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(lora_id) DO UPDATE SET
+          status = excluded.status,
+          artifact_sha256 = excluded.artifact_sha256,
+          artifact_bytes = excluded.artifact_bytes,
+          training_tracks = excluded.training_tracks,
+          version = excluded.version,
+          final_loss = excluded.final_loss,
+          trained_at = excluded.trained_at,
+          metadata_json = excluded.metadata_json,
+          updated_at = excluded.updated_at`,
+      )
+      .run(
+        merged.loraId,
+        merged.displayName,
+        merged.packType,
+        merged.genre,
+        merged.region,
+        merged.r2Key,
+        merged.adapterConfigR2Key,
+        merged.defaultWeight,
+        merged.loraRank,
+        merged.loraAlpha,
+        merged.minTracks,
+        merged.recommendedTracks,
+        merged.status,
+        merged.artifactSha256,
+        merged.artifactBytes,
+        merged.trainingTracks,
+        merged.version,
+        merged.finalLoss,
+        merged.trainedAt,
+        JSON.stringify(merged.metadataJson),
+        merged.createdAt,
+        merged.updatedAt,
+      );
+    return merged;
+  }
+
+  public async listLoraDatasetTracksAsync(
+    loraId: string,
+    _cOrEnv?: unknown,
+  ): Promise<LoraDatasetTrackRecord[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM lora_dataset_tracks WHERE lora_id = ? ORDER BY created_at DESC')
+      .all(loraId) as Array<Record<string, unknown>>;
+    return rows.map((r) => {
+      let errs: string[] = [];
+      let meta: Record<string, unknown> = {};
+      try {
+        errs = JSON.parse(String(r.validation_errors_json || '[]')) as string[];
+      } catch {
+        errs = [];
+      }
+      try {
+        meta = JSON.parse(String(r.metadata_json || '{}')) as Record<string, unknown>;
+      } catch {
+        meta = {};
+      }
+      return {
+        id: String(r.id ?? ''),
+        loraId: String(r.lora_id ?? loraId),
+        sourceTrackId: r.source_track_id ? String(r.source_track_id) : null,
+        sourceR2Key: String(r.source_r2_key ?? ''),
+        sourceSha256: String(r.source_sha256 ?? ''),
+        curatedWavR2Key: r.curated_wav_r2_key ? String(r.curated_wav_r2_key) : null,
+        curatedJsonR2Key: r.curated_json_r2_key ? String(r.curated_json_r2_key) : null,
+        title: String(r.title ?? 'Untitled'),
+        vocalIsolated: Boolean(r.vocal_isolated),
+        durationSec: r.duration_sec != null ? Number(r.duration_sec) : null,
+        sampleRate: r.sample_rate != null ? Number(r.sample_rate) : null,
+        bitDepth: r.bit_depth != null ? Number(r.bit_depth) : null,
+        bpm: r.bpm != null ? Number(r.bpm) : null,
+        musicalKey: r.musical_key ? String(r.musical_key) : null,
+        language: String(r.language ?? 'en-ZA'),
+        license: String(r.license ?? 'owned'),
+        trainingWeight: Number(r.training_weight ?? 1.0),
+        validationStatus: String(r.validation_status ?? 'pending') as
+          | 'pending'
+          | 'valid'
+          | 'invalid'
+          | 'excluded',
+        validationErrors: errs,
+        metadataJson: meta,
+        createdAt: String(r.created_at ?? new Date().toISOString()),
+        updatedAt: String(r.updated_at ?? new Date().toISOString()),
+      };
+    });
+  }
+
+  public async upsertLoraDatasetTracksAsync(
+    tracks: LoraDatasetTrackRecord[],
+    _cOrEnv?: unknown,
+  ): Promise<void> {
+    if (tracks.length === 0) return;
+    const stmt = this.db.prepare(`
+      INSERT INTO lora_dataset_tracks (
+        id, lora_id, source_track_id, source_r2_key, source_sha256, curated_wav_r2_key,
+        curated_json_r2_key, title, vocal_isolated, duration_sec, sample_rate, bit_depth,
+        bpm, musical_key, language, license, training_weight, validation_status,
+        validation_errors_json, metadata_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(lora_id, source_sha256) DO UPDATE SET
+        curated_wav_r2_key = excluded.curated_wav_r2_key,
+        curated_json_r2_key = excluded.curated_json_r2_key,
+        validation_status = excluded.validation_status,
+        validation_errors_json = excluded.validation_errors_json,
+        metadata_json = excluded.metadata_json,
+        updated_at = excluded.updated_at
+    `);
+    for (const t of tracks) {
+      stmt.run(
+        t.id,
+        t.loraId,
+        t.sourceTrackId,
+        t.sourceR2Key,
+        t.sourceSha256,
+        t.curatedWavR2Key,
+        t.curatedJsonR2Key,
+        t.title,
+        t.vocalIsolated ? 1 : 0,
+        t.durationSec,
+        t.sampleRate,
+        t.bitDepth,
+        t.bpm,
+        t.musicalKey,
+        t.language,
+        t.license,
+        t.trainingWeight,
+        t.validationStatus,
+        JSON.stringify(t.validationErrors),
+        JSON.stringify(t.metadataJson),
+        t.createdAt,
+        t.updatedAt,
+      );
+    }
+  }
+
+  private mapSqliteLoraTrainingJobRow(
+    r: Record<string, unknown>,
+  ): LoraTrainingJobRecord {
+    let hyper: Record<string, unknown> = {};
+    let metrics: Record<string, unknown> = {};
+    try {
+      hyper = JSON.parse(String(r.hyperparams_json || '{}')) as Record<string, unknown>;
+    } catch {
+      hyper = {};
+    }
+    try {
+      metrics = JSON.parse(String(r.metrics_json || '{}')) as Record<string, unknown>;
+    } catch {
+      metrics = {};
+    }
+    return {
+      id: String(r.id ?? ''),
+      loraId: String(r.lora_id ?? ''),
+      jobType: String(r.job_type ?? 'peft_train') as 'dataset_prep' | 'peft_train',
+      runpodJobId: r.runpod_job_id ? String(r.runpod_job_id) : null,
+      executionTarget: String(r.execution_target ?? 'serverless') as 'serverless' | 'pod',
+      status: String(r.status ?? 'queued') as LoraTrainingJobStatus,
+      progressPct: Number(r.progress_pct ?? 0),
+      currentEpoch: Number(r.current_epoch ?? 0),
+      totalEpochs: Number(r.total_epochs ?? 0),
+      currentLoss: r.current_loss != null ? Number(r.current_loss) : null,
+      bestLoss: r.best_loss != null ? Number(r.best_loss) : null,
+      hyperparamsJson: hyper,
+      metricsJson: metrics,
+      artifactR2Key: r.artifact_r2_key ? String(r.artifact_r2_key) : null,
+      artifactSha256: r.artifact_sha256 ? String(r.artifact_sha256) : null,
+      errorMessage: r.error_message ? String(r.error_message) : null,
+      triggeredBy: String(r.triggered_by ?? 'system'),
+      createdAt: String(r.created_at ?? new Date().toISOString()),
+      updatedAt: String(r.updated_at ?? new Date().toISOString()),
+      completedAt: r.completed_at ? String(r.completed_at) : null,
+    };
+  }
+
+  public async listLoraTrainingJobsAsync(
+    loraId?: string,
+    _cOrEnv?: unknown,
+  ): Promise<LoraTrainingJobRecord[]> {
+    const rows = (
+      loraId
+        ? this.db
+            .prepare('SELECT * FROM lora_training_jobs WHERE lora_id = ? ORDER BY created_at DESC LIMIT 50')
+            .all(loraId)
+        : this.db
+            .prepare('SELECT * FROM lora_training_jobs ORDER BY created_at DESC LIMIT 50')
+            .all()
+    ) as Array<Record<string, unknown>>;
+    return rows.map((r) => this.mapSqliteLoraTrainingJobRow(r));
+  }
+
+  public async getLoraTrainingJobAsync(
+    jobId: string,
+    _cOrEnv?: unknown,
+  ): Promise<LoraTrainingJobRecord | null> {
+    const row = this.db
+      .prepare('SELECT * FROM lora_training_jobs WHERE id = ? LIMIT 1')
+      .get(jobId) as Record<string, unknown> | undefined;
+    return row ? this.mapSqliteLoraTrainingJobRow(row) : null;
+  }
+
+  public async upsertLoraTrainingJobAsync(
+    job: Partial<LoraTrainingJobRecord> & { id: string; loraId: string },
+    _cOrEnv?: unknown,
+  ): Promise<LoraTrainingJobRecord> {
+    const prev = await this.getLoraTrainingJobAsync(job.id);
+    const now = new Date().toISOString();
+    const merged: LoraTrainingJobRecord = {
+      id: job.id,
+      loraId: job.loraId,
+      jobType: job.jobType ?? prev?.jobType ?? 'peft_train',
+      runpodJobId:
+        job.runpodJobId !== undefined ? job.runpodJobId : (prev?.runpodJobId ?? null),
+      executionTarget: job.executionTarget ?? prev?.executionTarget ?? 'serverless',
+      status: job.status ?? prev?.status ?? 'queued',
+      progressPct: job.progressPct ?? prev?.progressPct ?? 0,
+      currentEpoch: job.currentEpoch ?? prev?.currentEpoch ?? 0,
+      totalEpochs: job.totalEpochs ?? prev?.totalEpochs ?? 0,
+      currentLoss:
+        job.currentLoss !== undefined ? job.currentLoss : (prev?.currentLoss ?? null),
+      bestLoss: job.bestLoss !== undefined ? job.bestLoss : (prev?.bestLoss ?? null),
+      hyperparamsJson: job.hyperparamsJson ?? prev?.hyperparamsJson ?? {},
+      metricsJson: job.metricsJson ?? prev?.metricsJson ?? {},
+      artifactR2Key:
+        job.artifactR2Key !== undefined
+          ? job.artifactR2Key
+          : (prev?.artifactR2Key ?? null),
+      artifactSha256:
+        job.artifactSha256 !== undefined
+          ? job.artifactSha256
+          : (prev?.artifactSha256 ?? null),
+      errorMessage:
+        job.errorMessage !== undefined ? job.errorMessage : (prev?.errorMessage ?? null),
+      triggeredBy: job.triggeredBy ?? prev?.triggeredBy ?? 'system',
+      createdAt: prev?.createdAt ?? now,
+      updatedAt: now,
+      completedAt:
+        job.completedAt !== undefined ? job.completedAt : (prev?.completedAt ?? null),
+    };
+
+    this.db
+      .prepare(
+        `INSERT INTO lora_training_jobs (
+          id, lora_id, job_type, runpod_job_id, execution_target, status, progress_pct,
+          current_epoch, total_epochs, current_loss, best_loss, hyperparams_json, metrics_json,
+          artifact_r2_key, artifact_sha256, error_message, triggered_by, created_at, updated_at, completed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          runpod_job_id = excluded.runpod_job_id,
+          status = excluded.status,
+          progress_pct = excluded.progress_pct,
+          current_epoch = excluded.current_epoch,
+          total_epochs = excluded.total_epochs,
+          current_loss = excluded.current_loss,
+          best_loss = excluded.best_loss,
+          hyperparams_json = excluded.hyperparams_json,
+          metrics_json = excluded.metrics_json,
+          artifact_r2_key = excluded.artifact_r2_key,
+          artifact_sha256 = excluded.artifact_sha256,
+          error_message = excluded.error_message,
+          updated_at = excluded.updated_at,
+          completed_at = excluded.completed_at`,
+      )
+      .run(
+        merged.id,
+        merged.loraId,
+        merged.jobType,
+        merged.runpodJobId,
+        merged.executionTarget,
+        merged.status,
+        merged.progressPct,
+        merged.currentEpoch,
+        merged.totalEpochs,
+        merged.currentLoss,
+        merged.bestLoss,
+        JSON.stringify(merged.hyperparamsJson),
+        JSON.stringify(merged.metricsJson),
+        merged.artifactR2Key,
+        merged.artifactSha256,
+        merged.errorMessage,
+        merged.triggeredBy,
+        merged.createdAt,
+        merged.updatedAt,
+        merged.completedAt,
+      );
+    return merged;
   }
 }
 

@@ -28,11 +28,13 @@ import 'package:vhunambi_client/features/content_studio/presentation/widgets/ree
 import 'package:vhunambi_client/features/content_studio/presentation/widgets/typography_preset_picker.dart';
 import 'package:vhunambi_client/features/library/domain/models/library_models.dart';
 import 'package:vhunambi_client/features/library/presentation/providers/library_providers.dart';
+import 'package:vhunambi_client/features/media/domain/utils/media_mime_utils.dart';
 import 'package:vhunambi_client/features/player/presentation/providers/player_provider.dart';
 import 'package:vhunambi_client/features/social/domain/models/published_clip.dart';
 import 'package:vhunambi_client/features/social/domain/models/sovereign_sticker_pack.dart';
 
 enum _ReelStudioStage { capture, editor, publish }
+
 enum _BackdropMode { artwork, camera, vision }
 
 @immutable
@@ -86,8 +88,7 @@ class KineticReelStudioView extends ConsumerStatefulWidget {
       _KineticReelStudioViewState();
 }
 
-class _KineticReelStudioViewState
-    extends ConsumerState<KineticReelStudioView> {
+class _KineticReelStudioViewState extends ConsumerState<KineticReelStudioView> {
   static const List<_VisualPresetOrb> _presetOrbs = <_VisualPresetOrb>[
     _VisualPresetOrb(
       id: 'kinetic_gold',
@@ -218,8 +219,9 @@ class _KineticReelStudioViewState
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _overlayCountController =
-          ref.read(pushedFullScreenOverlayCountProvider.notifier);
+      _overlayCountController = ref.read(
+        pushedFullScreenOverlayCountProvider.notifier,
+      );
       _overlayCountController!.state++;
       _incrementedOverlayCount = true;
       unawaited(_syncStudioAudioTransport());
@@ -410,12 +412,14 @@ class _KineticReelStudioViewState
       final media = await picker.pickMedia();
       if (media == null) return;
       final bytes = await media.readAsBytes();
-      final lower = media.name.toLowerCase();
-      final isVideo = lower.endsWith('.mp4') ||
-          lower.endsWith('.mov') ||
-          lower.endsWith('.webm');
+      final resolvedMime = inferMimeTypeFromMedia(
+        filename: media.name,
+        declaredMime: media.mimeType,
+      );
+      final isVideo = resolvedMime.startsWith('video/');
       String? resolvedPath = media.path.isNotEmpty ? media.path : null;
-      if (isVideo && (resolvedPath == null || !File(resolvedPath).existsSync())) {
+      if (isVideo &&
+          (resolvedPath == null || !File(resolvedPath).existsSync())) {
         try {
           final tempDir = await getTemporaryDirectory();
           final out = File(
@@ -430,7 +434,7 @@ class _KineticReelStudioViewState
         _mediaKind = isVideo ? 'gallery_video' : 'gallery_photo';
         _customMediaBytes = bytes;
         _customMediaFilename = media.name;
-        _customMediaMime = isVideo ? 'video/mp4' : 'image/jpeg';
+        _customMediaMime = resolvedMime;
         _customMediaLocalPath = resolvedPath;
         _stage2VideoReady = false;
         _stage = _ReelStudioStage.editor;
@@ -572,7 +576,9 @@ class _KineticReelStudioViewState
     _recordingTicker?.cancel();
     _studioPosSub?.cancel();
     _studioAudioPlayer?.dispose();
-    SafeAudioOrchestrator.instance.unregisterSlot(AudioEngineSlot.studioPreview);
+    SafeAudioOrchestrator.instance.unregisterSlot(
+      AudioEngineSlot.studioPreview,
+    );
     _stage2VideoController?.dispose();
     _cameraController?.dispose();
     if (_incrementedOverlayCount && _overlayCountController != null) {
@@ -635,7 +641,8 @@ class _KineticReelStudioViewState
           children: <Widget>[
             // 1. 9:16 Backdrop / Camera / Stage 2 Video & Photo / Chromatic Canvas
             if (_stage == _ReelStudioStage.editor &&
-                (_mediaKind == 'camera_video' || _mediaKind == 'gallery_video') &&
+                (_mediaKind == 'camera_video' ||
+                    _mediaKind == 'gallery_video') &&
                 _stage2VideoReady &&
                 _stage2VideoController != null)
               Stack(
@@ -769,7 +776,9 @@ class _KineticReelStudioViewState
                     left: clampedLeft,
                     top: clampedTop,
                     child: GestureDetector(
-                      key: Key('reel_studio_canvas_sticker_${activeSticker.id}'),
+                      key: Key(
+                        'reel_studio_canvas_sticker_${activeSticker.id}',
+                      ),
                       onPanUpdate: (details) {
                         setState(() {
                           _stickerOffset = Offset(
@@ -856,7 +865,10 @@ class _KineticReelStudioViewState
                       minHeight: 44,
                     ),
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const PhosphorIcon(AppIcons.close, color: Colors.white),
+                    icon: const PhosphorIcon(
+                      AppIcons.close,
+                      color: Colors.white,
+                    ),
                   ),
                   Expanded(
                     child: Center(
@@ -946,116 +958,122 @@ class _KineticReelStudioViewState
                     key: const Key('reel_studio_tool_rail'),
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                    _RailToolButton(
-                      key: const Key('reel_rail_audio_btn'),
-                      icon: AppIcons.songsOutline,
-                      label: 'Audio',
-                      onTap: () async {
-                        await _pauseStudioAudio();
-                        if (!context.mounted) return;
-                        final picked = await ReelAudioPickerSheet.show(context);
-                        if (picked != null && mounted) {
-                          setState(() => _audio = picked);
-                        }
-                        if (mounted) {
-                          unawaited(_syncStudioAudioTransport());
-                        }
-                      },
-                    ),
-                    _RailToolButton(
-                      key: const Key('reel_rail_effects_btn'),
-                      icon: AppIcons.sparkle,
-                      label: 'FX',
-                      active: _showIntensitySlider,
-                      onTap: () => setState(
-                        () => _showIntensitySlider = !_showIntensitySlider,
+                      _RailToolButton(
+                        key: const Key('reel_rail_audio_btn'),
+                        icon: AppIcons.songsOutline,
+                        label: 'Audio',
+                        onTap: () async {
+                          await _pauseStudioAudio();
+                          if (!context.mounted) return;
+                          final picked = await ReelAudioPickerSheet.show(
+                            context,
+                          );
+                          if (picked != null && mounted) {
+                            setState(() => _audio = picked);
+                          }
+                          if (mounted) {
+                            unawaited(_syncStudioAudioTransport());
+                          }
+                        },
                       ),
-                    ),
-                    _RailToolButton(
-                      key: const Key('reel_rail_backdrop_btn'),
-                      icon: PhosphorIconsRegular.camera,
-                      label: _backdropMode.name,
-                      onTap: () {
-                        final nextIdx =
-                            (_backdropMode.index + 1) % _BackdropMode.values.length;
-                        final nextMode = _BackdropMode.values[nextIdx];
-                        setState(() {
-                          _backdropMode = nextMode;
-                          _mediaKind = nextMode == _BackdropMode.camera
-                              ? 'camera_video'
-                              : (nextMode == _BackdropMode.vision
-                                    ? 'vision'
-                                    : 'artwork');
-                        });
-                        if (nextMode == _BackdropMode.camera) {
-                          _initCameraIfAllowed();
-                        }
-                      },
-                    ),
-                    _RailToolButton(
-                      key: const Key('reel_studio_flash_btn'),
-                      icon: _flashOn ? AppIcons.lightning : AppIcons.sparkle,
-                      label: _flashOn ? 'Flash On' : 'Flash',
-                      active: _flashOn,
-                      onTap: _toggleFlash,
-                    ),
-                    _RailToolButton(
-                      key: const Key('reel_studio_speed_btn'),
-                      icon: PhosphorIconsRegular.gauge,
-                      label: '${_speedSteps[_speedIdx]}x',
-                      onTap: () => setState(
-                        () => _speedIdx = (_speedIdx + 1) % _speedSteps.length,
-                      ),
-                    ),
-                    _RailToolButton(
-                      key: const Key('reel_studio_timer_btn'),
-                      icon: PhosphorIconsRegular.clock,
-                      label: _timerSteps[_timerIdx] == 0
-                          ? '0s'
-                          : '${_timerSteps[_timerIdx]}s',
-                      active: _timerSteps[_timerIdx] > 0,
-                      onTap: () => setState(
-                        () => _timerIdx = (_timerIdx + 1) % _timerSteps.length,
-                      ),
-                    ),
-                    _RailToolButton(
-                      key: const Key('reel_rail_lyrics_btn'),
-                      icon: PhosphorIconsRegular.textAa,
-                      label: 'Lyrics',
-                      active: _showLyrics,
-                      onTap: () => setState(() => _showLyrics = !_showLyrics),
-                    ),
-                    _RailToolButton(
-                      key: const Key('reel_rail_length_btn'),
-                      icon: PhosphorIconsRegular.timer,
-                      label: '${_lengthSteps[_lengthIdx]}s',
-                      onTap: () {
-                        setState(() {
-                          _lengthIdx = (_lengthIdx + 1) % _lengthSteps.length;
-                          _audioEndMs =
-                              _audioStartMs + (_lengthSteps[_lengthIdx] * 1000);
-                        });
-                      },
-                    ),
-                    if (_showIntensitySlider)
-                      SizedBox(
-                        height: 120,
-                        child: RotatedBox(
-                          quarterTurns: 3,
-                          child: Slider(
-                            key: const Key('reel_studio_intensity_slider'),
-                            value: _effectIntensity * 100.0,
-                            min: 0,
-                            max: 100,
-                            activeColor: AppColors.brandPrimary,
-                            onChanged: (v) =>
-                                setState(() => _effectIntensity = v / 100.0),
-                          ),
+                      _RailToolButton(
+                        key: const Key('reel_rail_effects_btn'),
+                        icon: AppIcons.sparkle,
+                        label: 'FX',
+                        active: _showIntensitySlider,
+                        onTap: () => setState(
+                          () => _showIntensitySlider = !_showIntensitySlider,
                         ),
                       ),
-                  ],
+                      _RailToolButton(
+                        key: const Key('reel_rail_backdrop_btn'),
+                        icon: PhosphorIconsRegular.camera,
+                        label: _backdropMode.name,
+                        onTap: () {
+                          final nextIdx =
+                              (_backdropMode.index + 1) %
+                              _BackdropMode.values.length;
+                          final nextMode = _BackdropMode.values[nextIdx];
+                          setState(() {
+                            _backdropMode = nextMode;
+                            _mediaKind = nextMode == _BackdropMode.camera
+                                ? 'camera_video'
+                                : (nextMode == _BackdropMode.vision
+                                      ? 'vision'
+                                      : 'artwork');
+                          });
+                          if (nextMode == _BackdropMode.camera) {
+                            _initCameraIfAllowed();
+                          }
+                        },
+                      ),
+                      _RailToolButton(
+                        key: const Key('reel_studio_flash_btn'),
+                        icon: _flashOn ? AppIcons.lightning : AppIcons.sparkle,
+                        label: _flashOn ? 'Flash On' : 'Flash',
+                        active: _flashOn,
+                        onTap: _toggleFlash,
+                      ),
+                      _RailToolButton(
+                        key: const Key('reel_studio_speed_btn'),
+                        icon: PhosphorIconsRegular.gauge,
+                        label: '${_speedSteps[_speedIdx]}x',
+                        onTap: () => setState(
+                          () =>
+                              _speedIdx = (_speedIdx + 1) % _speedSteps.length,
+                        ),
+                      ),
+                      _RailToolButton(
+                        key: const Key('reel_studio_timer_btn'),
+                        icon: PhosphorIconsRegular.clock,
+                        label: _timerSteps[_timerIdx] == 0
+                            ? '0s'
+                            : '${_timerSteps[_timerIdx]}s',
+                        active: _timerSteps[_timerIdx] > 0,
+                        onTap: () => setState(
+                          () =>
+                              _timerIdx = (_timerIdx + 1) % _timerSteps.length,
+                        ),
+                      ),
+                      _RailToolButton(
+                        key: const Key('reel_rail_lyrics_btn'),
+                        icon: PhosphorIconsRegular.textAa,
+                        label: 'Lyrics',
+                        active: _showLyrics,
+                        onTap: () => setState(() => _showLyrics = !_showLyrics),
+                      ),
+                      _RailToolButton(
+                        key: const Key('reel_rail_length_btn'),
+                        icon: PhosphorIconsRegular.timer,
+                        label: '${_lengthSteps[_lengthIdx]}s',
+                        onTap: () {
+                          setState(() {
+                            _lengthIdx = (_lengthIdx + 1) % _lengthSteps.length;
+                            _audioEndMs =
+                                _audioStartMs +
+                                (_lengthSteps[_lengthIdx] * 1000);
+                          });
+                        },
+                      ),
+                      if (_showIntensitySlider)
+                        SizedBox(
+                          height: 120,
+                          child: RotatedBox(
+                            quarterTurns: 3,
+                            child: Slider(
+                              key: const Key('reel_studio_intensity_slider'),
+                              value: _effectIntensity * 100.0,
+                              min: 0,
+                              max: 100,
+                              activeColor: AppColors.brandPrimary,
+                              onChanged: (v) =>
+                                  setState(() => _effectIntensity = v / 100.0),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
               ),
 
             // 7. Bottom Capture Deck (Stage 1) OR Studio Editor Drawers (Stage 2)
@@ -1205,160 +1223,162 @@ class _KineticReelStudioViewState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      TextButton(
-                        style: tabStyle,
-                        onPressed: () =>
-                            setState(() => _activeEditorDrawer = 'lyrics'),
-                        child: Text(
-                          'Lyrics',
-                          style: TextStyle(
-                            color: _activeEditorDrawer == 'lyrics'
-                                ? AppColors.brandPrimary
-                                : Colors.white70,
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          TextButton(
+                            style: tabStyle,
+                            onPressed: () =>
+                                setState(() => _activeEditorDrawer = 'lyrics'),
+                            child: Text(
+                              'Lyrics',
+                              style: TextStyle(
+                                color: _activeEditorDrawer == 'lyrics'
+                                    ? AppColors.brandPrimary
+                                    : Colors.white70,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      TextButton(
-                        style: tabStyle,
-                        onPressed: () =>
-                            setState(() => _activeEditorDrawer = 'effects'),
-                        child: Text(
-                          'FX',
-                          style: TextStyle(
-                            color: _activeEditorDrawer == 'effects'
-                                ? AppColors.brandPrimary
-                                : Colors.white70,
+                          TextButton(
+                            style: tabStyle,
+                            onPressed: () =>
+                                setState(() => _activeEditorDrawer = 'effects'),
+                            child: Text(
+                              'FX',
+                              style: TextStyle(
+                                color: _activeEditorDrawer == 'effects'
+                                    ? AppColors.brandPrimary
+                                    : Colors.white70,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      TextButton(
-                        key: const Key('reel_editor_tab_stickers'),
-                        style: tabStyle,
-                        onPressed: () =>
-                            setState(() => _activeEditorDrawer = 'stickers'),
-                        child: Text(
-                          'Stickers',
-                          style: TextStyle(
-                            color: _activeEditorDrawer == 'stickers'
-                                ? AppColors.brandPrimary
-                                : Colors.white70,
+                          TextButton(
+                            key: const Key('reel_editor_tab_stickers'),
+                            style: tabStyle,
+                            onPressed: () => setState(
+                              () => _activeEditorDrawer = 'stickers',
+                            ),
+                            child: Text(
+                              'Stickers',
+                              style: TextStyle(
+                                color: _activeEditorDrawer == 'stickers'
+                                    ? AppColors.brandPrimary
+                                    : Colors.white70,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      TextButton(
-                        key: const Key('reel_editor_tab_trim'),
-                        style: tabStyle,
-                        onPressed: () async {
-                          final trimmed = await ReelAudioTrimmerSheet.show(
-                            context,
-                            trackTitle: _audio.title,
-                            totalDurationSec: _audio.durationSeconds,
-                            initialStartMs: _audioStartMs,
-                            initialEndMs: _audioEndMs,
-                          );
-                          if (trimmed != null && mounted) {
-                            setState(() {
-                              _audioStartMs = trimmed.startMs;
-                              _audioEndMs = trimmed.endMs;
-                            });
-                            unawaited(_syncStudioAudioTransport());
-                          }
-                        },
-                        child: const Text(
-                          'Trim',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              ElevatedButton(
-                key: const Key('reel_editor_next_to_publish_btn'),
-                onPressed: () {
-                  unawaited(_pauseStudioAudio());
-                  setState(() => _stage = _ReelStudioStage.publish);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.brandPrimary,
-                  foregroundColor: AppColors.brandContrast,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  minimumSize: const Size(56, 36),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text('Next'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (_activeEditorDrawer == 'lyrics')
-            TypographyPresetPicker(
-              selectedPreset: _typographyPreset,
-              onPresetSelected: (p) => setState(() => _typographyPreset = p),
-            )
-          else if (_activeEditorDrawer == 'effects')
-            AtmosphericEffectsDeck(
-              effects: _effects,
-              onToggle: ({filmGrain, bassPulse, kenBurnsMotion}) {
-                setState(() {
-                  _effects = _effects.copyWith(
-                    filmGrain: filmGrain,
-                    bassPulse: bassPulse,
-                    kenBurnsMotion: kenBurnsMotion,
-                  );
-                });
-              },
-            )
-          else
-            SizedBox(
-              height: 82,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: SovereignStickerPack.all.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 8),
-                itemBuilder: (context, idx) {
-                  final sticker = SovereignStickerPack.all[idx];
-                  final selected = _selectedStickerId == sticker.id;
-                  return GestureDetector(
-                    key: Key('reel_editor_sticker_${sticker.id}'),
-                    onTap: () {
-                      setState(() {
-                        _selectedStickerId = selected ? null : sticker.id;
-                      });
-                    },
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(18),
-                        border: selected
-                            ? Border.all(color: Colors.white, width: 2)
-                            : null,
-                      ),
-                      child: SovereignStickerGraphic(
-                        sticker: sticker,
-                        width: 96,
-                        height: 74,
+                          TextButton(
+                            key: const Key('reel_editor_tab_trim'),
+                            style: tabStyle,
+                            onPressed: () async {
+                              final trimmed = await ReelAudioTrimmerSheet.show(
+                                context,
+                                trackTitle: _audio.title,
+                                totalDurationSec: _audio.durationSeconds,
+                                initialStartMs: _audioStartMs,
+                                initialEndMs: _audioEndMs,
+                              );
+                              if (trimmed != null && mounted) {
+                                setState(() {
+                                  _audioStartMs = trimmed.startMs;
+                                  _audioEndMs = trimmed.endMs;
+                                });
+                                unawaited(_syncStudioAudioTransport());
+                              }
+                            },
+                            child: const Text(
+                              'Trim',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(width: 6),
+                  ElevatedButton(
+                    key: const Key('reel_editor_next_to_publish_btn'),
+                    onPressed: () {
+                      unawaited(_pauseStudioAudio());
+                      setState(() => _stage = _ReelStudioStage.publish);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.brandPrimary,
+                      foregroundColor: AppColors.brandContrast,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      minimumSize: const Size(56, 36),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Next'),
+                  ),
+                ],
               ),
-            ),
-        ],
+              const SizedBox(height: 8),
+              if (_activeEditorDrawer == 'lyrics')
+                TypographyPresetPicker(
+                  selectedPreset: _typographyPreset,
+                  onPresetSelected: (p) =>
+                      setState(() => _typographyPreset = p),
+                )
+              else if (_activeEditorDrawer == 'effects')
+                AtmosphericEffectsDeck(
+                  effects: _effects,
+                  onToggle: ({filmGrain, bassPulse, kenBurnsMotion}) {
+                    setState(() {
+                      _effects = _effects.copyWith(
+                        filmGrain: filmGrain,
+                        bassPulse: bassPulse,
+                        kenBurnsMotion: kenBurnsMotion,
+                      );
+                    });
+                  },
+                )
+              else
+                SizedBox(
+                  height: 82,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: SovereignStickerPack.all.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    itemBuilder: (context, idx) {
+                      final sticker = SovereignStickerPack.all[idx];
+                      final selected = _selectedStickerId == sticker.id;
+                      return GestureDetector(
+                        key: Key('reel_editor_sticker_${sticker.id}'),
+                        onTap: () {
+                          setState(() {
+                            _selectedStickerId = selected ? null : sticker.id;
+                          });
+                        },
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            border: selected
+                                ? Border.all(color: Colors.white, width: 2)
+                                : null,
+                          ),
+                          child: SovereignStickerGraphic(
+                            sticker: sticker,
+                            width: 96,
+                            height: 74,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
-    ),
-    ),
     );
   }
 }

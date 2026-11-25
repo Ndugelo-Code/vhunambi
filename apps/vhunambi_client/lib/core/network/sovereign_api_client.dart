@@ -200,6 +200,15 @@ class SovereignApiClient {
             final opts = error.requestOptions;
             opts.extra['_p61Retried'] = true;
             opts.headers.addAll(refreshed.authHeaders);
+
+            // Phase 84 (REEL98-01): Never replay a consumed single-use FormData stream.
+            final bodyBuilder = opts.extra['_p84BodyBuilder'];
+            if (bodyBuilder is Object Function()) {
+              opts.data = bodyBuilder();
+            } else if (opts.data is FormData) {
+              return handler.next(error);
+            }
+
             try {
               final client = retryDio ?? Dio();
               final replayed = await client.fetch<dynamic>(opts);

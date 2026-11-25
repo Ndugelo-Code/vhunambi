@@ -184,6 +184,85 @@ export async function uploadBytesToR2(
   };
 }
 
+export interface R2ByteRangeResult {
+  bytes: Uint8Array;
+  totalSize: number | null;
+  contentType: string | null;
+}
+
+/**
+ * Reads a bounded byte range [startByte, endByte] (inclusive) from R2 without
+ * loading the entire media object into Cloudflare Worker isolate RAM.
+ */
+export async function fetchR2ByteRange(
+  objectKey: string,
+  startByte: number,
+  endByte: number,
+  cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,
+): Promise<R2ByteRangeResult | null> {
+  const cleanKey = objectKey.replace(/^\/+/, '');
+  const safeStart = Math.max(0, Math.floor(startByte));
+  const safeEnd = Math.max(safeStart, Math.floor(endByte));
+  const length = safeEnd - safeStart + 1;
+
+  const mem = inMemoryR2Objects.get(cleanKey);
+  if (mem) {
+    if (safeStart >= mem.bytes.byteLength) {
+      return {
+        bytes: new Uint8Array(0),
+        totalSize: mem.bytes.byteLength,
+        contentType: mem.contentType,
+      };
+    }
+    const slice = mem.bytes.subarray(
+      safeStart,
+      Math.min(mem.bytes.byteLength, safeEnd + 1),
+    );
+    return {
+      bytes: slice,
+      totalSize: mem.bytes.byteLength,
+      contentType: mem.contentType,
+    };
+  }
+
+  const workerEnv = extractWorkerEnv(cOrEnv) as VhunambiWorkerEnv | undefined;
+  if (workerEnv?.VHUNAMBI_VAULT) {
+    const obj = await workerEnv.VHUNAMBI_VAULT.get(cleanKey, {
+      range: { offset: safeStart, length },
+    });
+    if (!obj) return null;
+    const arrBuf = await obj.arrayBuffer();
+    return {
+      bytes: new Uint8Array(arrBuf),
+      totalSize: typeof obj.size === 'number' ? obj.size : null,
+      contentType: obj.httpMetadata?.contentType ?? null,
+    };
+  }
+
+  const runtimeEnv = resolveRuntimeEnv(cOrEnv);
+  const client = createR2Client(cOrEnv);
+  if (!client || !runtimeEnv.R2_ENDPOINT) {
+    return null;
+  }
+
+  const bucket = runtimeEnv.R2_BUCKET || 'vhunambi-vault';
+  const endpoint = runtimeEnv.R2_ENDPOINT.replace(/\/+$/, '');
+  const resp = await client.fetch(`${endpoint}/${bucket}/${cleanKey}`, {
+    method: 'GET',
+    headers: { Range: `bytes=${safeStart}-${safeEnd}` },
+  });
+  if (!resp.ok && resp.status !== 206) {
+    return null;
+  }
+  const contentRange = resp.headers.get('content-range');
+  const totalMatch = contentRange?.match(/\/(\d+)$/);
+  return {
+    bytes: new Uint8Array(await resp.arrayBuffer()),
+    totalSize: totalMatch ? Number.parseInt(totalMatch[1], 10) : null,
+    contentType: resp.headers.get('content-type'),
+  };
+}
+
 export async function deleteR2Object(
   objectKey: string,
   cOrEnv?: Context | VhunambiWorkerEnv | Record<string, unknown> | null,

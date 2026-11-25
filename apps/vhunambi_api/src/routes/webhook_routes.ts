@@ -412,3 +412,227 @@ webhookRoutes.post('/ace-step', async (c) => {
 
   return c.json({ received: true });
 });
+
+/**
+ * POST /v1/webhooks/training
+ *
+ * Receives HMAC-SHA256 signed progress, dataset validation, and PEFT LoRA
+ * completion callbacks from RunPod Cloud Training workers (Phase 85).
+ */
+webhookRoutes.post('/training', async (c) => {
+  const signature = c.req.header('x-zrs-signature');
+  const rawBody = await c.req.text();
+  const runtimeEnv = resolveRuntimeEnv(c);
+
+  if (runtimeEnv.ZR_WEBHOOK_SECRET) {
+    const expectedSignature = crypto
+      .createHmac('sha256', runtimeEnv.ZR_WEBHOOK_SECRET)
+      .update(rawBody)
+      .digest('hex');
+
+    const expectedBuf = Buffer.from(expectedSignature.toLowerCase(), 'utf8');
+    const providedBuf = Buffer.from((signature ?? '').trim().toLowerCase(), 'utf8');
+    const matches =
+      expectedBuf.length === providedBuf.length &&
+      crypto.timingSafeEqual(expectedBuf, providedBuf);
+
+    if (!matches) {
+      return c.json(
+        { error: 'UNAUTHORIZED', message: 'Invalid training webhook signature' },
+        401,
+      );
+    }
+  }
+
+  let payload: Record<string, any>;
+  try {
+    payload = JSON.parse(rawBody) as Record<string, any>;
+  } catch {
+    return c.json({ error: 'PARSE_ERROR', message: 'Invalid JSON payload' }, 400);
+  }
+
+  const jobId = String(payload.job_id ?? payload.jobId ?? '').trim();
+  const loraId = String(payload.lora_id ?? payload.loraId ?? '').trim();
+  const statusRaw = String(payload.status ?? '').trim().toLowerCase();
+  if (!jobId || !loraId) {
+    return c.json(
+      { error: 'BAD_REQUEST', message: 'job_id and lora_id are required' },
+      400,
+    );
+  }
+
+  const existingRegistry = vhunambiDb.getLoraRegistryEntry(loraId);
+  const now = new Date().toISOString();
+
+  if (statusRaw === 'dataset_ready') {
+    const incomingTracks = Array.isArray(payload.tracks) ? payload.tracks : [];
+    const mappedTracks = incomingTracks.map((t: Record<string, any>, idx: number) => ({
+      id: String(t.id ?? `ldt_${loraId}_${idx}_${String(t.source_sha256 ?? idx).slice(0, 10)}`),
+      loraId,
+      sourceTrackId: t.source_track_id ? String(t.source_track_id) : null,
+      sourceR2Key: String(t.source_r2_key ?? ''),
+      sourceSha256: String(t.source_sha256 ?? `sha_${idx}`),
+      curatedWavR2Key: t.curated_wav_r2_key ? String(t.curated_wav_r2_key) : null,
+      curatedJsonR2Key: t.curated_json_r2_key ? String(t.curated_json_r2_key) : null,
+      title: String(t.title ?? `Track ${idx + 1}`),
+      vocalIsolated: Boolean(t.vocal_isolated),
+      durationSec: t.duration_sec != null ? Number(t.duration_sec) : null,
+      sampleRate: t.sample_rate != null ? Number(t.sample_rate) : null,
+      bitDepth: t.bit_depth != null ? Number(t.bit_depth) : null,
+      bpm: t.bpm != null ? Number(t.bpm) : null,
+      musicalKey: t.musical_key ? String(t.musical_key) : null,
+      language: String(t.language ?? 'en-ZA'),
+      license: String(t.license ?? 'owned'),
+      trainingWeight: Number(t.training_weight ?? 1.0),
+      validationStatus: (t.valid === false ? 'invalid' : 'valid') as 'valid' | 'invalid',
+      validationErrors: Array.isArray(t.errors) ? t.errors.map(String) : [],
+      metadataJson: {},
+      createdAt: now,
+      updatedAt: now,
+    }));
+    await vhunambiDb.upsertLoraDatasetTracksAsync(mappedTracks, c);
+
+    const validCount = Number(
+      payload.valid_tracks ?? mappedTracks.filter((x) => x.validationStatus === 'valid').length,
+    );
+    const minTracks = existingRegistry?.minTracks ?? 8;
+    await vhunambiDb.upsertLoraTrainingJobAsync(
+      {
+        id: jobId,
+        loraId,
+        jobType: 'dataset_prep',
+        status: 'dataset_ready',
+        progressPct: 100,
+        metricsJson: { validTracks: validCount, totalTracks: mappedTracks.length },
+        completedAt: now,
+      },
+      c,
+    );
+    if (existingRegistry?.status !== 'active') {
+      await vhunambiDb.upsertLoraRegistryAsync(
+        {
+          loraId,
+          status: validCount >= minTracks ? 'ready_to_train' : 'untrained',
+          trainingTracks: validCount,
+        },
+        c,
+      );
+    }
+    return c.json({ received: true, loraId, validTracks: validCount });
+  }
+
+  if (statusRaw === 'completed') {
+    const sha256 = String(payload.artifact_sha256 ?? payload.sha256 ?? '').trim();
+    const bytes = Number(payload.artifact_bytes ?? payload.bytes ?? 0);
+    if (bytes <= 64 || !/^[a-f0-9]{64}$/i.test(sha256)) {
+      return c.json(
+        {
+          error: 'INVALID_ARTIFACT_PROOF',
+          message: 'Verified .safetensors completion requires artifact_bytes > 64 and 64-hex SHA-256.',
+        },
+        422,
+      );
+    }
+
+    const r2Key = String(payload.artifact_r2_key ?? payload.r2_key ?? `loras/${loraId}.safetensors`);
+    const finalLoss = payload.final_loss != null ? Number(payload.final_loss) : null;
+    const trainingTracks = Number(payload.training_tracks ?? existingRegistry?.trainingTracks ?? 0);
+
+    await vhunambiDb.upsertLoraTrainingJobAsync(
+      {
+        id: jobId,
+        loraId,
+        jobType: 'peft_train',
+        status: 'completed',
+        progressPct: 100,
+        currentEpoch: Number(payload.total_epochs ?? payload.current_epoch ?? 0),
+        totalEpochs: Number(payload.total_epochs ?? 0),
+        currentLoss: finalLoss,
+        bestLoss: payload.best_loss != null ? Number(payload.best_loss) : finalLoss,
+        artifactR2Key: r2Key,
+        artifactSha256: sha256.toLowerCase(),
+        metricsJson: {
+          artifactBytes: bytes,
+          trainingTracks,
+          finalLoss,
+        },
+        completedAt: now,
+      },
+      c,
+    );
+
+    await vhunambiDb.upsertLoraRegistryAsync(
+      {
+        loraId,
+        r2Key,
+        status: 'active',
+        artifactSha256: sha256.toLowerCase(),
+        artifactBytes: bytes,
+        trainingTracks,
+        finalLoss,
+        trainedAt: now,
+      },
+      c,
+    );
+    return c.json({ received: true, loraId, status: 'active', sha256: sha256.toLowerCase() });
+  }
+
+  if (statusRaw === 'failed') {
+    const errMsg = String(payload.error ?? 'RunPod training failed');
+    await vhunambiDb.upsertLoraTrainingJobAsync(
+      {
+        id: jobId,
+        loraId,
+        status: 'failed',
+        errorMessage: errMsg,
+        completedAt: now,
+      },
+      c,
+    );
+    // Preserve active status if a previous verified .safetensors adapter is already live
+    if (existingRegistry?.status !== 'active') {
+      await vhunambiDb.upsertLoraRegistryAsync(
+        { loraId, status: 'failed' },
+        c,
+      );
+    }
+    return c.json({ received: true, loraId, status: 'failed' });
+  }
+
+  // Intermediate progress (downloading / preparing / training / validating / uploading)
+  const validInterim = new Set([
+    'queued',
+    'downloading',
+    'preparing',
+    'training',
+    'validating',
+    'uploading',
+  ]);
+  const mappedJobStatus = validInterim.has(statusRaw) ? statusRaw : 'training';
+  await vhunambiDb.upsertLoraTrainingJobAsync(
+    {
+      id: jobId,
+      loraId,
+      status: mappedJobStatus as any,
+      progressPct: Math.min(99, Math.max(0, Number(payload.progress_pct ?? payload.progress ?? 25))),
+      currentEpoch: Number(payload.current_epoch ?? payload.epoch ?? 0),
+      totalEpochs: Number(payload.total_epochs ?? 0),
+      currentLoss: payload.current_loss != null ? Number(payload.current_loss) : (payload.loss != null ? Number(payload.loss) : null),
+      bestLoss: payload.best_loss != null ? Number(payload.best_loss) : null,
+    },
+    c,
+  );
+  if (
+    existingRegistry?.status !== 'active' &&
+    (mappedJobStatus === 'training' || mappedJobStatus === 'validating' || mappedJobStatus === 'preparing')
+  ) {
+    await vhunambiDb.upsertLoraRegistryAsync(
+      {
+        loraId,
+        status: mappedJobStatus as any,
+      },
+      c,
+    );
+  }
+  return c.json({ received: true, loraId, status: mappedJobStatus });
+});

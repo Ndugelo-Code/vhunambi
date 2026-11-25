@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-11-25T00:10:27.684Z",
-  "latest_completed_phase": "P83",
-  "latest_completed_order": 83,
+  "generated_at": "2026-11-25T16:27:47.514Z",
+  "latest_completed_phase": "P85.5",
+  "latest_completed_order": 85.5,
   "stats": {
-    "total_phases": 22,
-    "completed_phases": 22,
-    "total_endpoints": 70,
+    "total_phases": 25,
+    "completed_phases": 25,
+    "total_endpoints": 81,
     "open_count": 0,
-    "connected_extensible_count": 67,
+    "connected_extensible_count": 78,
     "sealed_count": 3
   },
   "phases": [
@@ -1522,6 +1522,192 @@
         "Normalize both canonical stem keys (vocals/drums/bass/melodic) and legacy 3D DNA node keys (node_beat_tempo/node_harmony_chords/node_vocal_persona) in Worker and GPU handler.py (REPAINT-02).",
         "Use RemixCreationMode.beatStemFlip (not beatAndLogDrumFlip) when wiring OpenVerseRemixCockpitSheet Sketchpad handoff to StemRemixNotifier."
       ]
+    },
+    {
+      "phase_id": "P84",
+      "phase_order": 84,
+      "memory_key": "MEM-P84-MEDIA-PIPELINE-ID3-REELS-AND-KPOST",
+      "title": "Media Pipeline Overhaul: Direct-to-R2 Presigned Uploads, Edge ID3v2 Cover/Metadata Extraction, Kinetic Reels 98% Fix, Kinetic Post Uploads & Zania Music Flywheel",
+      "status": "completed",
+      "completed_at": "2026-11-25T12:31:00+02:00",
+      "memory_file": "docs/phases/phase_84_media_pipeline_id3_reels_and_kpost_overhaul/memory.md",
+      "predecessor_keys": [
+        "MEM-P79-SOVEREIGN-MEDIA-UPLOAD-ENGINE",
+        "MEM-P83-POSTGEN-STEM-REPAINT-AND-LORA-STUDIO"
+      ],
+      "concept_hubs": [
+        "media_artwork",
+        "audio_transport",
+        "social_graph",
+        "sync_outbox",
+        "ui_surface_std"
+      ],
+      "endpoints_defined": [
+        "EP-P84-R2-PRESIGN-DIRECT",
+        "EP-P84-EDGE-ID3-EXTRACTOR",
+        "EP-P84-KPOST-MEDIA-UPLOAD",
+        "EP-P84-EXPLORE-CURSOR-ETAG",
+        "EP-P84-ZANIA-CATALOG-INGEST"
+      ],
+      "consumes": [
+        "EP-P79-USER-MEDIA-REGISTRY-API",
+        "EP-P79-MEDIA-UPLOAD-ENGINE",
+        "EP-P78-REAL-AUDIO-VIDEO-INGEST",
+        "EP-P74-REELS-STUDIO-PIPELINE",
+        "EP-P69-KPOST-FOCUS-ROUTE",
+        "EP-P68-TRACK-ARTWORK"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/media/data/repositories/http_media_upload_repository.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P84-R2-PRESIGN-DIRECT",
+          "note": "Streams raw media bytes via presign-put -> direct R2 PUT -> finalize, eliminating finalized FormData 401 replay crashes"
+        },
+        {
+          "from": "apps/vhunambi_api/src/routes/media_routes.ts",
+          "relation": "CONSUMES",
+          "to": "EP-P84-EDGE-ID3-EXTRACTOR",
+          "note": "Extracts embedded APIC covers and TIT2/TPE1/TCON/TBPM/USLT metadata during /api/media/finalize and /api/media/upload"
+        },
+        {
+          "from": "tools/zania-ingest/ingest_zania_catalog.mjs",
+          "relation": "CONSUMES",
+          "to": "EP-P84-R2-PRESIGN-DIRECT",
+          "note": "Deduplicates and streams 189 local ZANIA MUSIC MP3s into Vhunambi R2 and Explore catalog"
+        }
+      ],
+      "breakthroughs": [
+        "Applied additive migration 20261125000001_phase84_media_id3_and_zania_ingest.sql to live Supabase project cbnruevwrqwjnnoscgsz with zero RLS advisor regressions.",
+        "Implemented pure edge ID3v2.3/v2.4 extractor (APIC, TIT2, TPE1, TALB, TCON, TBPM, USLT, NFC UTF-16LE/BE), FNV-1a ETag/304, keyset cursor, /api/media/presign-put + /api/media/finalize, and awaited Supabase write-through across EdgeIsolateDatabaseEngine and VhunambiDatabase (37/37 API test suites green).",
+        "Deployed live Cloudflare Worker vhunambi-api at https://vhunambi-api.ndugelosigwadi.workers.dev (Version 377ef962-93ab-446d-a1de-5c0bd8f682c2, /health 200 OK).",
+        "Eliminated the Kinetic Reels 98% FormData 401 replay crash, removed duplicate audio re-uploads, raised /api/social/publish timeout to 20s, and wired direct audio/photo uploads + cloud hydration into CreateKineticPostSheet (dart analyze 0 issues; 30/30 Flutter Phase 84/79/77/73 tests green; 0 STD-UIUX-001 hits).",
+        "Verified zero-dependency Node streaming CLI (tools/zania-ingest/ingest_zania_catalog.mjs --dry-run) across 188 READY MP3s (48 sibling covers, 20 sibling lyrics, 0 errors)."
+      ],
+      "gotchas": [
+        "Never replay a consumed Dio FormData on 401 refresh in sovereign_api_client.dart (causes REEL98-01 crash at 98% progress).",
+        "Donor id3v2-parser.ts returned null whenever data.length < 10 + tagSize; always use readId3TagByteLength + bounded <=2MiB extension and clamp loop end to Math.min(data.length, tagByteLength).",
+        "Always normalize APIC MIME 'image/jpg' to 'image/jpeg' and verify magic bytes because Suno/FFmpeg encoders frequently emit 'image/jpg'.",
+        "POST /api/explore/posts and POST /api/explore/tracks MUST await awaitWriteThrough (upsertKineticPostAsync / upsertExploreTrackAsync) so Cloudflare Workers never drop Supabase writes on request exit."
+      ]
+    },
+    {
+      "phase_id": "P85",
+      "phase_order": 85,
+      "memory_key": "MEM-P85-CLOUD-LORA-FACTORY",
+      "title": "Cloud-Only Zero-Local-RAM LoRA Factory: RunPod Dataset Prepper, Real ACE-Step 1.5 PEFT Trainer, Supabase LoRA Registry & Live Factory UI",
+      "status": "completed",
+      "completed_at": "2026-11-25T13:52:00+02:00",
+      "memory_file": "docs/phases/phase_85_cloud_lora_factory_and_dataset_pipeline/memory.md",
+      "predecessor_keys": [
+        "MEM-P83-POSTGEN-STEM-REPAINT-AND-LORA-STUDIO",
+        "MEM-P84-MEDIA-PIPELINE-ID3-REELS-AND-KPOST"
+      ],
+      "concept_hubs": [
+        "ai_synthesis_gpu",
+        "media_artwork",
+        "audio_transport",
+        "sync_outbox",
+        "ui_surface_std"
+      ],
+      "endpoints_defined": [
+        "EP-P85-CLOUD-DATASET-PREP",
+        "EP-P85-PEFT-LORA-TRAINER",
+        "EP-P85-LORA-REGISTRY-DB",
+        "EP-P85-LORA-FACTORY-UI"
+      ],
+      "consumes": [
+        "EP-P83-SOVEREIGN-LORA-CATALOG",
+        "EP-P82-BS-ROFORMER-SEED-VC",
+        "EP-P84-R2-PRESIGN-DIRECT",
+        "EP-P84-EDGE-ID3-EXTRACTOR",
+        "EP-P84-ZANIA-CATALOG-INGEST"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_api/src/routes/studio_routes.ts",
+          "relation": "CONSUMES",
+          "to": "EP-P83-SOVEREIGN-LORA-CATALOG",
+          "note": "Enriches 10 genre packs + languagePacks[bantu_vocals_v1] with live Supabase lora_registry status while preserving totalCount===10"
+        },
+        {
+          "from": "tools/zr-studio-training/dataset_prep_worker.py",
+          "relation": "CONSUMES",
+          "to": "EP-P82-BS-ROFORMER-SEED-VC",
+          "note": "Reuses separate_lead_vocal_bs_roformer() to isolate clean Bantu vocal stems for bantu_vocals_v1 training datasets"
+        },
+        {
+          "from": "tools/zr-studio-gpu/handler.py",
+          "relation": "ROUTES_TO",
+          "to": "EP-P85-PEFT-LORA-TRAINER",
+          "note": "Dispatches job_type='lora_dataset_prep' and job_type='lora_train_peft' inside the Docker Build Cloud built :vhunambi-v5 GPU worker (RunPod e7wt9pgo7djv55 release v10)"
+        }
+      ],
+      "breakthroughs": [
+        "Applied additive migration 20261125000002_phase85_cloud_lora_factory.sql to live Supabase project cbnruevwrqwjnnoscgsz seeding all 11 canonical LoRA packs with zero RLS advisor regressions.",
+        "Trained and reload-verified all 6/6 ready Sovereign African LoRA packs on an on-demand RunPod NVIDIA A40 Pod (amapiano_logdrum_v1, amapiano_private_school_v1, venda_malende_v1, afrohouse_ancestral_v1, afrobeats_lagos_v1, bantu_vocals_v1) on ACE-Step/ACE-Step-v1-3.5B, verified finite >64B .safetensors + SHA-256 in R2 zr-studio-audio/loras/, promoted all 6 to status='active' in live Supabase, and deleted the Pod ($0/hr idle).",
+        "Adopted Docker Build Cloud (cloud-ndugelo-vhunambi) + tools/zr-studio-gpu/Dockerfile.delta (bypassing blocked GitHub Actions billing) to build and push ndugelo/zr-studio-gpu:vhunambi-v5 (sha256:e80ff29e2295ed8388e0bcd51bb9fc8430be64d75a1b384054ed72c8b62309e7) with onnxruntime-1.32.0, peft, safetensors, pyyaml, _ROFORMER_SEP_CACHE, and prefix=None LoRA loading, and rolled out RunPod endpoint e7wt9pgo7djv55 to release v10 (100% on latest).",
+        "Upgraded Worker API & deployed vhunambi-api Version 1e59f21e-1a27-4c2e-b3ac-4551be226f42 (38/38 API suites pass) preserving totalCount===10 while adding GET /v1/studio/loras/factory, POST /datasets/prep, POST /train, and HMAC-SHA256 POST /v1/webhooks/training.",
+        "Implemented StudioLoraRegistryNotifier + STD-UIUX-001 LoraFactoryStatusSheet + TrackSectionRepaintSheet Factory launcher (dart analyze 0 issues; 7/7 Flutter Phase 83+85 tests pass; STD_UIUX_001_HITS=0)."
+      ],
+      "gotchas": [
+        "Donor train_lora.py:201-215 is a mock writing b'MOCK_SAFETENSORS_DATA' (21 bytes) to dead zania-explore.vercel.app; NEVER copy its body — use real PyTorch PEFT flow-matching optimization and verify >64 bytes + torch.isfinite() + SHA-256.",
+        "phase83_repaint_lora_routes.test.ts:26-28 asserts GET /v1/studio/loras returns totalCount === 10 and packs.length === 10; keep AFRICAN_LORA_PACKS at 10 genre packs and expose bantu_vocals_v1 in additive languagePacks[] + findLoraPackById().",
+        "Upstream ACE-Step / PEFT loaders require prefix=None on load_lora_adapter() or a PEFT directory (adapter_config.json + adapter_model.safetensors); embed PEFT config inside .safetensors __metadata__ AND reconstruct a local PEFT directory via materialize_peft_dir_from_safetensors() in model_utils.py:_hot_swap_loras().",
+        "Developer laptop has 8 GB RAM / 1 TB HDD / Intel Iris Xe and GitHub Actions billing is blocked; build GPU worker delta images via Docker Build Cloud (--builder cloud-ndugelo-vhunambi --platform=linux/amd64 --provenance=false -f tools/zr-studio-gpu/Dockerfile.delta --push ./tools) with an explicit bumped tag (:vhunambi-v<N>) and PATCH RunPod update-endpoint with ONLY {image} so [redacted] env secrets are never wiped."
+      ]
+    },
+    {
+      "phase_id": "P85.5",
+      "phase_order": 85.5,
+      "memory_key": "MEM-P85-5-DOCKER-CLOUD-V5-AND-ANDROID-MEDIA-POLISH",
+      "title": "Docker Build Cloud :vhunambi-v5 Pipeline, Cloud GPU Factory Skill & Branded Android MediaStyle Notification Polish",
+      "status": "completed",
+      "completed_at": "2026-11-25T18:20:00+02:00",
+      "memory_file": "docs/memory/sprints/P85_5_memory.md",
+      "predecessor_keys": [
+        "MEM-P85-CLOUD-LORA-FACTORY",
+        "MEM-P83-POSTGEN-STEM-REPAINT-AND-LORA-STUDIO"
+      ],
+      "concept_hubs": [
+        "ai_synthesis_gpu",
+        "audio_transport",
+        "media_artwork",
+        "ui_surface_std"
+      ],
+      "endpoints_defined": [
+        "EP-P85-5-DOCKER-BUILD-CLOUD",
+        "EP-P85-5-ANDROID-MEDIA-NOTIF"
+      ],
+      "consumes": [
+        "EP-P85-CLOUD-DATASET-PREP",
+        "EP-P85-PEFT-LORA-TRAINER",
+        "EP-P85-LORA-REGISTRY-DB"
+      ],
+      "edges": [
+        {
+          "from": "tools/zr-studio-gpu/Dockerfile.delta",
+          "relation": "PROVIDES",
+          "to": "EP-P85-5-DOCKER-BUILD-CLOUD",
+          "note": "Builds ndugelo/zr-studio-gpu:vhunambi-v5 remotely on cloud-ndugelo-vhunambi with onnxruntime + Phase 85 training package"
+        },
+        {
+          "from": "apps/vhunambi_client/lib/features/player/data/services/vhunambi_audio_handler.dart",
+          "relation": "PROVIDES",
+          "to": "EP-P85-5-ANDROID-MEDIA-NOTIF",
+          "note": "Caches Flutter asset/local covers to file:// URIs, renders ic_stat_vhunambi + ic_vh_* controls, and syncs live stream duration"
+        }
+      ],
+      "breakthroughs": [
+        "Replaced blocked GitHub Actions GPU image builds with Docker Build Cloud (cloud-ndugelo-vhunambi) + Dockerfile.delta, shipping ndugelo/zr-studio-gpu:vhunambi-v5 (sha256:e80ff29e2295ed8388e0bcd51bb9fc8430be64d75a1b384054ed72c8b62309e7) to RunPod endpoint e7wt9pgo7djv55 release v10 in 12s build+push time with zero local base image pull.",
+        "Codified Phase 81-85 Docker Build Cloud, RunPod Serverless/Pod ops, ACE-Step/MiniMax/BS-RoFormer/Seed-VC/Matchering guardrails, and R2/Supabase LoRA promotion into reusable workspace skill .agents/skills/vhunambi-cloud-gpu-factory/SKILL.md.",
+        "Shipped Vhunambi branded Android MediaStyle notification (ic_stat_vhunambi.xml, 7 ic_vh_*.xml drawables, R8 res/raw/keep.xml, artUri temp cache, live Favorite action, durationStream sync), verified with dart analyze (0 issues), 171/171 player tests, and 45.1 MB arm64 release APK installed on Huawei device EPHUT20917014649."
+      ],
+      "gotchas": [
+        "Docker Build Cloud requires creating the named cloud builder once in https://app.docker.com/build before docker buildx create --use --driver cloud ndugelo/<name> succeeds (otherwise returns 404 unknown builder).",
+        "Android R8 resource shrinking (isShrinkResources = true) strips drawables referenced dynamically by string name in audio_service (ic_vh_*, ic_stat_vhunambi) unless preserved in android/app/src/main/res/raw/keep.xml.",
+        "Android status-bar/notification small icons only read the alpha channel (solid-background PNG favicons become solid white squares); always use a pure-white transparent-background 24dp vector silhouette."
+      ]
     }
   ],
   "endpoints": {
@@ -2028,7 +2214,8 @@
         "P74:Instagram-Benchmark Full-Screen Kinetic Reels Studio (KineticReelStudioView), Reels Playback V4, Karaoke Lyric Sanitizer & Social Cloud SWR / R2 Media Upload",
         "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
         "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs",
-        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs",
+        "P84:Media Pipeline Overhaul: Direct-to-R2 Presigned Uploads, Edge ID3v2 Cover/Metadata Extraction, Kinetic Reels 98% Fix, Kinetic Post Uploads & Zania Music Flywheel"
       ],
       "consumed_by_phases": [
         "P69",
@@ -2038,7 +2225,8 @@
         "P74",
         "P77",
         "P78",
-        "P79"
+        "P79",
+        "P84"
       ],
       "open_opportunities": "Not yet adopted in TrackDetailView (936 lines, 6 stock Icons.*) or ArtistProfileView (803 lines, 10 stock Icons.*) — prime Phase 70 upgrade"
     },
@@ -2189,12 +2377,14 @@
         "P69:notification_deep_link_router",
         "P70:Role-Aware Song Cockpit, Facebook-Benchmark Public Visitor Profile, Canonical VhunambiMood & VhunambiGlassSurface Overhaul",
         "P72:Asset Vault (LibraryView) & Owner Studio Profile (OwnerProfileView) Glass Overhaul, ViewerRole.owner Parity & Library/Playlist/License Cloud SWR",
-        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene"
+        "P73:Kinetic Post Focus v2, 3-Tier Dynamic Chromatic Synthesis, Multi-Reactions, GIFs/Stickers, Global Input Border Purge & Social Hygiene",
+        "P84:Media Pipeline Overhaul: Direct-to-R2 Presigned Uploads, Edge ID3v2 Cover/Metadata Extraction, Kinetic Reels 98% Fix, Kinetic Post Uploads & Zania Music Flywheel"
       ],
       "consumed_by_phases": [
         "P70",
         "P72",
-        "P73"
+        "P73",
+        "P84"
       ],
       "open_opportunities": "Open KineticPostFocusView from creator post grids inside ArtistProfileView and OwnerProfileView (Phase 70)"
     },
@@ -2555,13 +2745,15 @@
         "P75:Studio Cockpit V5, 100% Connectome Closure (EP-P66/P27/P26/P25), Worker Voice/Mastering SWR & Direct-to-Reels Bridge",
         "P76:Post-Release Live Device Theme Stability, Release Auth Security, Auth/Settings/Onboarding Glass, Full Notification Deep-Link Coverage & Platform Hygiene",
         "P77:Chromatic Full-Screen Player, Synced 9-Language Bantu Sing-Along Lyrics & Unified R2 Media Uploads",
-        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs"
+        "P78:Vault, Explore & Profile Continuity, Real Audio/Video Uploads & Unified Glass Tabs",
+        "P84:Media Pipeline Overhaul: Direct-to-R2 Presigned Uploads, Edge ID3v2 Cover/Metadata Extraction, Kinetic Reels 98% Fix, Kinetic Post Uploads & Zania Music Flywheel"
       ],
       "consumed_by_phases": [
         "P75",
         "P76",
         "P77",
-        "P78"
+        "P78",
+        "P84"
       ],
       "open_opportunities": "Connect Studio DAW finish flow and TrackDetailView Share-as-Reel directly into KineticReelStudioView.show()"
     },
@@ -2946,10 +3138,12 @@
         "P78:KineticReelStudioView",
         "P78:KineticReelPublishView",
         "P78:KineticReelsModal",
-        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs"
+        "P79:Sovereign Media Upload & Reuse Engine (VhunambiMediaVault), Local-First R2 Sync Queue, CreateKineticPostSheet Glass Cockpit v2 & Reels Studio Layout Repairs",
+        "P84:Media Pipeline Overhaul: Direct-to-R2 Presigned Uploads, Edge ID3v2 Cover/Metadata Extraction, Kinetic Reels 98% Fix, Kinetic Post Uploads & Zania Music Flywheel"
       ],
       "consumed_by_phases": [
-        "P79"
+        "P79",
+        "P84"
       ],
       "open_opportunities": "Feed uploaded/recorded image & video keyframes directly into Phase 80 VhunambiVisualDnaMatcher for automatic song & chorus cue recommendations"
     },
@@ -2972,10 +3166,12 @@
         "P79:HttpMediaUploadRepository",
         "P79:MediaUploadQueueNotifier",
         "P79:social_routes.ts",
-        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend"
+        "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend",
+        "P84:Media Pipeline Overhaul: Direct-to-R2 Presigned Uploads, Edge ID3v2 Cover/Metadata Extraction, Kinetic Reels 98% Fix, Kinetic Post Uploads & Zania Music Flywheel"
       ],
       "consumed_by_phases": [
-        "P80"
+        "P80",
+        "P84"
       ],
       "open_opportunities": "Connect Phase 80 VhunambiVisualDnaMatcher to GET /api/media/uploads?kind=image,video for automatic chorus mood matching"
     },
@@ -3003,12 +3199,14 @@
         "P79:KineticReelPublishView",
         "P80:Studio Cockpit V6 Glass Overhaul, vhunambi.com Production Parity & StudioGenerationContractV6 Multi-Take Backend",
         "P81:RunPod Multi-Model Synthesis Router (MiniMax Music 3.0 + ACE-Step 1.5 XL) & Multi-Take A&R Baking",
-        "P82:Studio Baking Post-Processing Chain (BS-RoFormer + Neural Seed-VC + Matchering 2.0 Mastering)"
+        "P82:Studio Baking Post-Processing Chain (BS-RoFormer + Neural Seed-VC + Matchering 2.0 Mastering)",
+        "P84:Media Pipeline Overhaul: Direct-to-R2 Presigned Uploads, Edge ID3v2 Cover/Metadata Extraction, Kinetic Reels 98% Fix, Kinetic Post Uploads & Zania Music Flywheel"
       ],
       "consumed_by_phases": [
         "P80",
         "P81",
-        "P82"
+        "P82",
+        "P84"
       ],
       "open_opportunities": "Wire voice clone raw mic takes and custom ArtistProfileView banner uploads into mediaUploadQueueProvider"
     },
@@ -3218,10 +3416,12 @@
       "summary": "BS-RoFormer clean lead-vocal vs. instrumental-bed isolation feeding server-isolated neural Seed-VC flow-matching + RMVPE F0 lock, Bantu plosive/click transient preservation, 6.5kHz de-essing, and 12ms stereo room glue.",
       "consumers": [
         "P82:handler.py",
-        "P83:Post-Generation Stem Repaint, Section Inpainting & Sovereign African LoRA Activation"
+        "P83:Post-Generation Stem Repaint, Section Inpainting & Sovereign African LoRA Activation",
+        "P85:Cloud-Only Zero-Local-RAM LoRA Factory: RunPod Dataset Prepper, Real ACE-Step 1.5 PEFT Trainer, Supabase LoRA Registry & Live Factory UI"
       ],
       "consumed_by_phases": [
-        "P83"
+        "P83",
+        "P85"
       ],
       "open_opportunities": "Reuse BS-RoFormer clean lead-vocal isolation inside Phase 83 Post-Gen Vocal Stem Inpainting & Repaint"
     },
@@ -3314,9 +3514,12 @@
       "consumers": [
         "P83:studio_routes.ts",
         "P83:generation_routes.ts",
-        "P83:model_utils.py"
+        "P83:model_utils.py",
+        "P85:Cloud-Only Zero-Local-RAM LoRA Factory: RunPod Dataset Prepper, Real ACE-Step 1.5 PEFT Trainer, Supabase LoRA Registry & Live Factory UI"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P85"
+      ],
       "open_opportunities": "Allow verified African producers to upload custom licensed .safetensors regional packs to R2 and earn royalties"
     },
     "EP-P83-TRACK-REPAINT-COCKPIT": {
@@ -3340,6 +3543,255 @@
       ],
       "consumed_by_phases": [],
       "open_opportunities": "Link waveform tap-to-loop regions directly from WaveformScrubber into TrackSectionRepaintSheet bounds"
+    },
+    "EP-P84-R2-PRESIGN-DIRECT": {
+      "id": "EP-P84-R2-PRESIGN-DIRECT",
+      "kind": "backend_api",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P84",
+      "origin_order": 84,
+      "memory_file": "docs/phases/phase_84_media_pipeline_id3_reels_and_kpost_overhaul/memory.md",
+      "hubs": [
+        "media_artwork",
+        "sync_outbox"
+      ],
+      "spec_anchor": "docs/phases/phase_84_media_pipeline_id3_reels_and_kpost_overhaul/design.md#32-presign-finalize--id3-extraction-in-appsvhunambi_apisrcroutesmedia_routests",
+      "code_anchor": "apps/vhunambi_api/src/routes/media_routes.ts",
+      "summary": "POST /api/media/presign-put and POST /api/media/finalize enabling <=100MB direct-to-R2 SigV4 PUT streaming with SHA-256 deduplication, bounded Worker RAM (<=2MiB), and replay-safe 401 Flutter upload execution.",
+      "consumers": [
+        "P84:HttpMediaUploadRepository",
+        "P84:ingest_zania_catalog.mjs",
+        "P85:Cloud-Only Zero-Local-RAM LoRA Factory: RunPod Dataset Prepper, Real ACE-Step 1.5 PEFT Trainer, Supabase LoRA Registry & Live Factory UI"
+      ],
+      "consumed_by_phases": [
+        "P85"
+      ],
+      "open_opportunities": "Reuse direct-to-R2 presigned PUT + SHA-256 dedupe inside Phase 85 Cloud LoRA raw training dataset ingestion"
+    },
+    "EP-P84-EDGE-ID3-EXTRACTOR": {
+      "id": "EP-P84-EDGE-ID3-EXTRACTOR",
+      "kind": "backend_media_parser",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P84",
+      "origin_order": 84,
+      "memory_file": "docs/phases/phase_84_media_pipeline_id3_reels_and_kpost_overhaul/memory.md",
+      "hubs": [
+        "media_artwork",
+        "audio_transport"
+      ],
+      "spec_anchor": "docs/phases/phase_84_media_pipeline_id3_reels_and_kpost_overhaul/design.md#21-appsvhunambi_apisrcmodulesmediaid3v2_parserts-new",
+      "code_anchor": "apps/vhunambi_api/src/modules/media/id3v2_parser.ts",
+      "summary": "Pure edge Uint8Array ID3v2.3/v2.4 extractor decoding APIC cover art (JPEG/PNG/WebP + image/jpg alias) and TIT2/TPE1/TALB/TCON/TBPM/USLT frames via bounded R2 byte-range reads and persisting covers to R2 covers/.",
+      "consumers": [
+        "P84:media_routes.ts",
+        "P84:UploadsVaultView",
+        "P85:Cloud-Only Zero-Local-RAM LoRA Factory: RunPod Dataset Prepper, Real ACE-Step 1.5 PEFT Trainer, Supabase LoRA Registry & Live Factory UI"
+      ],
+      "consumed_by_phases": [
+        "P85"
+      ],
+      "open_opportunities": "Feed extracted ID3v2 USLT lyrics, TBPM, and TCON tags directly into Phase 85 cloud dataset metadata sidecars"
+    },
+    "EP-P84-KPOST-MEDIA-UPLOAD": {
+      "id": "EP-P84-KPOST-MEDIA-UPLOAD",
+      "kind": "client_ui_and_repo",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P84",
+      "origin_order": 84,
+      "memory_file": "docs/phases/phase_84_media_pipeline_id3_reels_and_kpost_overhaul/memory.md",
+      "hubs": [
+        "social_graph",
+        "media_artwork",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/phases/phase_84_media_pipeline_id3_reels_and_kpost_overhaul/design.md#51-createkineticpostsheet-upgrades-req-p84-kpost-0103",
+      "code_anchor": "apps/vhunambi_client/lib/features/explore/presentation/widgets/create_kinetic_post_sheet.dart",
+      "summary": "Upgrades CreateKineticPostSheet to default to My Uploads, add direct Audio & Photo cloud upload CTAs, purge mock _grooveSeeds and bundled Vision AI fallbacks, await Supabase upsertKineticPostAsync, and hydrate media in refreshFromCloud().",
+      "consumers": [
+        "P84:CreateKineticPostSheet",
+        "P84:SocialFeedPostsNotifier"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Extend CreateKineticPostSheet audio upload flow to allow direct 1-tap stem remix posting from UploadsVaultView"
+    },
+    "EP-P84-EXPLORE-CURSOR-ETAG": {
+      "id": "EP-P84-EXPLORE-CURSOR-ETAG",
+      "kind": "backend_api_pagination",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P84",
+      "origin_order": 84,
+      "memory_file": "docs/phases/phase_84_media_pipeline_id3_reels_and_kpost_overhaul/memory.md",
+      "hubs": [
+        "social_graph",
+        "sync_outbox"
+      ],
+      "spec_anchor": "docs/phases/phase_84_media_pipeline_id3_reels_and_kpost_overhaul/design.md#22-appsvhunambi_apisrcmodulesmediaetagts--cursort-new",
+      "code_anchor": "apps/vhunambi_api/src/routes/explore_routes.ts",
+      "summary": "Pure edge base64url keyset pagination (?cursor=) and weak FNV-1a ETag / If-None-Match 304 Not Modified caching on GET /api/explore/tracks.",
+      "consumers": [
+        "P84:explore_routes.ts"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Adopt identical keyset cursor + FNV-1a ETag caching on GET /api/social/feed and GET /api/media/uploads"
+    },
+    "EP-P84-ZANIA-CATALOG-INGEST": {
+      "id": "EP-P84-ZANIA-CATALOG-INGEST",
+      "kind": "cli_and_r2_bridge",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P84",
+      "origin_order": 84,
+      "memory_file": "docs/phases/phase_84_media_pipeline_id3_reels_and_kpost_overhaul/memory.md",
+      "hubs": [
+        "media_artwork",
+        "audio_transport",
+        "sync_outbox"
+      ],
+      "spec_anchor": "docs/phases/phase_84_media_pipeline_id3_reels_and_kpost_overhaul/design.md#6-zero-local-ram-zania-music-bulk-ingest-cli-toolszania-ingestingest_zania_catalogmjs",
+      "code_anchor": "tools/zania-ingest/ingest_zania_catalog.mjs",
+      "summary": "Zero-dependency Node 24 streaming CLI ingesting local ZANIA MUSIC MP3s, sibling covers, and lyrics into R2 zr-studio-audio and Supabase explore_tracks with SHA-256 deduplication and <150MB RAM usage.",
+      "consumers": [
+        "P84:ingest_zania_catalog.mjs",
+        "P85:Cloud-Only Zero-Local-RAM LoRA Factory: RunPod Dataset Prepper, Real ACE-Step 1.5 PEFT Trainer, Supabase LoRA Registry & Live Factory UI"
+      ],
+      "consumed_by_phases": [
+        "P85"
+      ],
+      "open_opportunities": "Reuse manifest output directly as the input seed list for Phase 85 RunPod cloud LoRA dataset preparation"
+    },
+    "EP-P85-CLOUD-DATASET-PREP": {
+      "id": "EP-P85-CLOUD-DATASET-PREP",
+      "kind": "gpu_cloud_prep",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P85",
+      "origin_order": 85,
+      "memory_file": "docs/phases/phase_85_cloud_lora_factory_and_dataset_pipeline/memory.md",
+      "hubs": [
+        "ai_synthesis_gpu",
+        "audio_transport",
+        "media_artwork"
+      ],
+      "spec_anchor": "docs/phases/phase_85_cloud_lora_factory_and_dataset_pipeline/design.md#42-cloud-runpod-dataset-prepper-toolszr-studio-trainingdataset_prep_workerpy",
+      "code_anchor": "tools/zr-studio-training/dataset_prep_worker.py",
+      "summary": "Cloud RunPod dataset preprocessor (job_type='lora_dataset_prep') converting R2 source MP3s into validated 44.1kHz 24-bit stereo WAV + JSON sidecars with optional BS-RoFormer vocal isolation, librosa BPM/key extraction, and validate_dataset.py gating.",
+      "consumers": [
+        "P85:handler.py",
+        "P85:studio_routes.ts",
+        "P85.5:Docker Build Cloud :vhunambi-v5 Pipeline, Cloud GPU Factory Skill & Branded Android MediaStyle Notification Polish"
+      ],
+      "consumed_by_phases": [
+        "P85.5"
+      ],
+      "open_opportunities": "Hook newly uploaded paid Suno / verified community creator tracks directly into automatic incremental dataset refresh batches"
+    },
+    "EP-P85-PEFT-LORA-TRAINER": {
+      "id": "EP-P85-PEFT-LORA-TRAINER",
+      "kind": "gpu_training_worker",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P85",
+      "origin_order": 85,
+      "memory_file": "docs/phases/phase_85_cloud_lora_factory_and_dataset_pipeline/memory.md",
+      "hubs": [
+        "ai_synthesis_gpu",
+        "audio_transport"
+      ],
+      "spec_anchor": "docs/phases/phase_85_cloud_lora_factory_and_dataset_pipeline/design.md#43-real-ace-step-15-bf16-peft-lora-trainer-toolszr-studio-trainingtrain_lorapy",
+      "code_anchor": "tools/zr-studio-training/train_lora.py",
+      "summary": "Real PyTorch bf16 PEFT ACE-Step DiT flow-matching LoRA trainer (zero mocks) with cached VAE latents, finite-tensor & SHA-256 verification, dual-format .safetensors + PEFT adapter_config export to R2 loras/, and dual-path auto-activation in model_utils.py:_hot_swap_loras().",
+      "consumers": [
+        "P85:handler.py",
+        "P85:model_utils.py",
+        "P85.5:Docker Build Cloud :vhunambi-v5 Pipeline, Cloud GPU Factory Skill & Branded Android MediaStyle Notification Polish"
+      ],
+      "consumed_by_phases": [
+        "P85.5"
+      ],
+      "open_opportunities": "Extend checkpoint resume and multi-pack scheduled retraining on dedicated RunPod spot GPUs as curated pack sizes pass 50+ tracks"
+    },
+    "EP-P85-LORA-REGISTRY-DB": {
+      "id": "EP-P85-LORA-REGISTRY-DB",
+      "kind": "backend_api_and_schema",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P85",
+      "origin_order": 85,
+      "memory_file": "docs/phases/phase_85_cloud_lora_factory_and_dataset_pipeline/memory.md",
+      "hubs": [
+        "ai_synthesis_gpu",
+        "sync_outbox"
+      ],
+      "spec_anchor": "docs/phases/phase_85_cloud_lora_factory_and_dataset_pipeline/design.md#2-additive-supabase-postgresql-migration",
+      "code_anchor": "apps/vhunambi_api/src/routes/studio_routes.ts",
+      "summary": "Supabase lora_registry, lora_dataset_tracks, and lora_training_jobs schema + Worker orchestration routes (GET /v1/studio/loras/factory, POST /datasets/prep, POST /train, GET /jobs, POST /v1/webhooks/training) with 10+1 pack backward compatibility (bantu_vocals_v1).",
+      "consumers": [
+        "P85:StudioLoraRegistryNotifier",
+        "P85:webhook_routes.ts",
+        "P85.5:Docker Build Cloud :vhunambi-v5 Pipeline, Cloud GPU Factory Skill & Branded Android MediaStyle Notification Polish"
+      ],
+      "consumed_by_phases": [
+        "P85.5"
+      ],
+      "open_opportunities": "Attach Phase 86 RunPod balance guard and DO Idempotency-Key protection onto POST /v1/studio/loras/train"
+    },
+    "EP-P85-LORA-FACTORY-UI": {
+      "id": "EP-P85-LORA-FACTORY-UI",
+      "kind": "client_ui_and_provider",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P85",
+      "origin_order": 85,
+      "memory_file": "docs/phases/phase_85_cloud_lora_factory_and_dataset_pipeline/memory.md",
+      "hubs": [
+        "ui_surface_std",
+        "ai_synthesis_gpu"
+      ],
+      "spec_anchor": "docs/phases/phase_85_cloud_lora_factory_and_dataset_pipeline/design.md#5-flutter-studio-lora-registry--factory-ui",
+      "code_anchor": "apps/vhunambi_client/lib/features/studio/presentation/widgets/lora_factory_status_sheet.dart",
+      "summary": "StudioLoraRegistryNotifier + STD-UIUX-001 LoraFactoryStatusSheet surfacing live Active/Training/Ready/Untrained status pills, track readiness progress (e.g., 31/8 Amapiano), and 1-tap cloud Prep/Train triggers across Studio & Repaint sheets.",
+      "consumers": [
+        "P85:TrackSectionRepaintSheet"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Surface creator royalty attribution badges on active community-contributed regional LoRA packs"
+    },
+    "EP-P85-5-DOCKER-BUILD-CLOUD": {
+      "id": "EP-P85-5-DOCKER-BUILD-CLOUD",
+      "kind": "cloud_gpu_release_pipeline",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P85.5",
+      "origin_order": 85.5,
+      "memory_file": "docs/memory/sprints/P85_5_memory.md",
+      "hubs": [
+        "ai_synthesis_gpu"
+      ],
+      "spec_anchor": ".agents/skills/vhunambi-cloud-gpu-factory/SKILL.md",
+      "code_anchor": "tools/zr-studio-gpu/Dockerfile.delta",
+      "summary": "Docker Build Cloud (cloud-ndugelo-vhunambi) remote linux/amd64 thin-delta build & push workflow publishing ndugelo/zr-studio-gpu:vhunambi-v5 (with onnxruntime-1.32.0 + /app/training/) to RunPod endpoint e7wt9pgo7djv55 release v10 with zero GitHub Actions billing and zero local 15 GB pull.",
+      "consumers": [
+        "P85.5:RunPod-e7wt9pgo7djv55",
+        "P85.5:vhunambi-cloud-gpu-factory"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Reuse cloud-ndugelo-vhunambi for :vhunambi-v6+ worker iterations and future MiniMax Music 3.0 / ACE-Step 1.5 XL image updates"
+    },
+    "EP-P85-5-ANDROID-MEDIA-NOTIF": {
+      "id": "EP-P85-5-ANDROID-MEDIA-NOTIF",
+      "kind": "android_media_notification_and_duration_sync",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P85.5",
+      "origin_order": 85.5,
+      "memory_file": "docs/memory/sprints/P85_5_memory.md",
+      "hubs": [
+        "audio_transport",
+        "media_artwork",
+        "ui_surface_std"
+      ],
+      "spec_anchor": "docs/memory/sprints/P85_5_memory.md",
+      "code_anchor": "apps/vhunambi_client/lib/features/player/data/services/vhunambi_audio_handler.dart",
+      "summary": "Branded Android MediaStyle notification with monochrome Vhunambi vector icon (ic_stat_vhunambi.xml), 7 custom Phosphor vector drawables (ic_vh_*.xml) protected by res/raw/keep.xml, native-readable artUri temp caching for automatic chromatic colorization, live Favorite toggle replacing Stop, clean display metadata, and just_audio durationStream sync into PlayerState + MediaItem.duration.",
+      "consumers": [
+        "P85.5:PlayerNotifier",
+        "P85.5:UploadsVaultView"
+      ],
+      "consumed_by_phases": [],
+      "open_opportunities": "Pair MediaStyle notification with a custom glassmorphic Android Home Screen AppWidget in a future polish sprint"
     }
   },
   "hub_index": {
@@ -3393,7 +3845,13 @@
         "EP-P79-POST-COCKPIT-V2",
         "EP-P80-STUDIO-AI-ASSIST-API",
         "EP-P80-STUDIO-COCKPIT-V6",
-        "EP-P83-TRACK-REPAINT-COCKPIT"
+        "EP-P83-TRACK-REPAINT-COCKPIT",
+        "EP-P84-R2-PRESIGN-DIRECT",
+        "EP-P84-EDGE-ID3-EXTRACTOR",
+        "EP-P84-KPOST-MEDIA-UPLOAD",
+        "EP-P84-ZANIA-CATALOG-INGEST",
+        "EP-P85-CLOUD-DATASET-PREP",
+        "EP-P85-5-ANDROID-MEDIA-NOTIF"
       ],
       "phases": [
         "P64",
@@ -3410,7 +3868,10 @@
         "P79",
         "P80",
         "P82",
-        "P83"
+        "P83",
+        "P84",
+        "P85",
+        "P85.5"
       ]
     },
     "quota_economy": {
@@ -3461,7 +3922,12 @@
         "EP-P82-SA-MATCHERING-ENGINE",
         "EP-P82-TRACK-PROVENANCE-TELEMETRY",
         "EP-P83-ACE-STEP-SECTION-REPAINT",
-        "EP-P83-TRACK-REPAINT-COCKPIT"
+        "EP-P83-TRACK-REPAINT-COCKPIT",
+        "EP-P84-EDGE-ID3-EXTRACTOR",
+        "EP-P84-ZANIA-CATALOG-INGEST",
+        "EP-P85-CLOUD-DATASET-PREP",
+        "EP-P85-PEFT-LORA-TRAINER",
+        "EP-P85-5-ANDROID-MEDIA-NOTIF"
       ],
       "phases": [
         "P00_P63",
@@ -3479,7 +3945,10 @@
         "P80",
         "P81",
         "P82",
-        "P83"
+        "P83",
+        "P84",
+        "P85",
+        "P85.5"
       ]
     },
     "mood_taxonomy": {
@@ -3533,7 +4002,9 @@
         "EP-P77-UNIFIED-R2-IMAGE-UPLOAD",
         "EP-P78-CREATOR-REELS-HUB",
         "EP-P78-REAL-AUDIO-VIDEO-INGEST",
-        "EP-P79-POST-COCKPIT-V2"
+        "EP-P79-POST-COCKPIT-V2",
+        "EP-P84-KPOST-MEDIA-UPLOAD",
+        "EP-P84-EXPLORE-CURSOR-ETAG"
       ],
       "phases": [
         "P00_P63",
@@ -3547,7 +4018,8 @@
         "P76",
         "P77",
         "P78",
-        "P79"
+        "P79",
+        "P84"
       ]
     },
     "notifications_bus": {
@@ -3593,7 +4065,11 @@
         "EP-P79-MEDIA-UPLOAD-ENGINE",
         "EP-P80-GENERATION-CONTRACT-V6",
         "EP-P81-EDGE-WEBHOOK-SYNC",
-        "EP-P83-ACE-STEP-SECTION-REPAINT"
+        "EP-P83-ACE-STEP-SECTION-REPAINT",
+        "EP-P84-R2-PRESIGN-DIRECT",
+        "EP-P84-EXPLORE-CURSOR-ETAG",
+        "EP-P84-ZANIA-CATALOG-INGEST",
+        "EP-P85-LORA-REGISTRY-DB"
       ],
       "phases": [
         "P00_P63",
@@ -3609,7 +4085,9 @@
         "P79",
         "P80",
         "P81",
-        "P83"
+        "P83",
+        "P84",
+        "P85"
       ]
     },
     "ui_surface_std": {
@@ -3637,7 +4115,10 @@
         "EP-P80-STUDIO-COCKPIT-V6",
         "EP-P81-MULTITAKE-AR-SCORER",
         "EP-P82-TRACK-PROVENANCE-TELEMETRY",
-        "EP-P83-TRACK-REPAINT-COCKPIT"
+        "EP-P83-TRACK-REPAINT-COCKPIT",
+        "EP-P84-KPOST-MEDIA-UPLOAD",
+        "EP-P85-LORA-FACTORY-UI",
+        "EP-P85-5-ANDROID-MEDIA-NOTIF"
       ],
       "phases": [
         "P00_P63",
@@ -3658,7 +4139,10 @@
         "P80",
         "P81",
         "P82",
-        "P83"
+        "P83",
+        "P84",
+        "P85",
+        "P85.5"
       ]
     },
     "ai_synthesis_gpu": {
@@ -3681,7 +4165,12 @@
         "EP-P82-BS-ROFORMER-SEED-VC",
         "EP-P82-SA-MATCHERING-ENGINE",
         "EP-P83-ACE-STEP-SECTION-REPAINT",
-        "EP-P83-SOVEREIGN-LORA-CATALOG"
+        "EP-P83-SOVEREIGN-LORA-CATALOG",
+        "EP-P85-CLOUD-DATASET-PREP",
+        "EP-P85-PEFT-LORA-TRAINER",
+        "EP-P85-LORA-REGISTRY-DB",
+        "EP-P85-LORA-FACTORY-UI",
+        "EP-P85-5-DOCKER-BUILD-CLOUD"
       ],
       "phases": [
         "P00_P63",
@@ -3691,7 +4180,9 @@
         "P80",
         "P81",
         "P82",
-        "P83"
+        "P83",
+        "P85",
+        "P85.5"
       ]
     }
   },
@@ -3782,7 +4273,8 @@
     ],
     "apps/vhunambi_api/src/routes/explore_routes.ts": [
       "EP-P69-POST-COSIGN-REPOST-HTTP",
-      "EP-P73-MULTI-REACTIONS-API"
+      "EP-P73-MULTI-REACTIONS-API",
+      "EP-P84-EXPLORE-CURSOR-ETAG"
     ],
     "apps/vhunambi_client/lib/core/widgets/vhunambi_glass_surface.dart": [
       "EP-P70-GLASS-SURFACE"
@@ -3851,16 +4343,19 @@
       "EP-P78-REAL-AUDIO-VIDEO-INGEST"
     ],
     "apps/vhunambi_api/src/routes/media_routes.ts": [
-      "EP-P79-USER-MEDIA-REGISTRY-API"
+      "EP-P79-USER-MEDIA-REGISTRY-API",
+      "EP-P84-R2-PRESIGN-DIRECT"
     ],
     "apps/vhunambi_client/lib/features/media/presentation/providers/media_upload_queue_provider.dart": [
       "EP-P79-MEDIA-UPLOAD-ENGINE"
     ],
     "apps/vhunambi_client/lib/features/explore/presentation/widgets/create_kinetic_post_sheet.dart": [
-      "EP-P79-POST-COCKPIT-V2"
+      "EP-P79-POST-COCKPIT-V2",
+      "EP-P84-KPOST-MEDIA-UPLOAD"
     ],
     "apps/vhunambi_api/src/routes/studio_routes.ts": [
-      "EP-P80-STUDIO-AI-ASSIST-API"
+      "EP-P80-STUDIO-AI-ASSIST-API",
+      "EP-P85-LORA-REGISTRY-DB"
     ],
     "apps/vhunambi_client/lib/features/studio/presentation/views/studio_view.dart": [
       "EP-P80-STUDIO-COCKPIT-V6"
@@ -3885,6 +4380,27 @@
     ],
     "apps/vhunambi_client/lib/features/track/presentation/widgets/track_section_repaint_sheet.dart": [
       "EP-P83-TRACK-REPAINT-COCKPIT"
+    ],
+    "apps/vhunambi_api/src/modules/media/id3v2_parser.ts": [
+      "EP-P84-EDGE-ID3-EXTRACTOR"
+    ],
+    "tools/zania-ingest/ingest_zania_catalog.mjs": [
+      "EP-P84-ZANIA-CATALOG-INGEST"
+    ],
+    "tools/zr-studio-training/dataset_prep_worker.py": [
+      "EP-P85-CLOUD-DATASET-PREP"
+    ],
+    "tools/zr-studio-training/train_lora.py": [
+      "EP-P85-PEFT-LORA-TRAINER"
+    ],
+    "apps/vhunambi_client/lib/features/studio/presentation/widgets/lora_factory_status_sheet.dart": [
+      "EP-P85-LORA-FACTORY-UI"
+    ],
+    "tools/zr-studio-gpu/Dockerfile.delta": [
+      "EP-P85-5-DOCKER-BUILD-CLOUD"
+    ],
+    "apps/vhunambi_client/lib/features/player/data/services/vhunambi_audio_handler.dart": [
+      "EP-P85-5-ANDROID-MEDIA-NOTIF"
     ]
   }
 }

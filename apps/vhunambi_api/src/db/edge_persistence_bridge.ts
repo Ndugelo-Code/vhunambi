@@ -14,6 +14,15 @@ import {
   type VhunambiMoodId,
 } from '../utils/mood_taxonomy.js';
 import {
+  ALL_SOVEREIGN_LORA_PACKS,
+} from '../modules/synthesis/lora_catalog.js';
+import {
+  getTrainingHyperparamDefaults,
+  type LoraRegistryStatus,
+  type SourceTrackCandidate,
+  type VhunambiLoraId,
+} from '../modules/synthesis/training_dataset_schema.js';
+import {
   SupabaseCloudDriver,
   computeWalletTotalsFromLedgerRows,
   normalizeBeatLicenseRow,
@@ -195,6 +204,8 @@ export interface UserMediaUploadRecord {
   remoteUrl: string;
   thumbnailUrl: string | null;
   sourceSurface: string;
+  id3Metadata: Record<string, unknown>;
+  contentSha256: string | null;
   createdAt: string;
   deletedAt: string | null;
 }
@@ -205,6 +216,17 @@ export function normalizeUserMediaUploadRow(
   const kindRaw = String(raw.media_kind ?? raw.mediaKind ?? 'image').toLowerCase();
   const mediaKind: MediaUploadKindWire =
     kindRaw === 'audio' || kindRaw === 'video' ? kindRaw : 'image';
+  const rawMeta = raw.id3_metadata_json ?? raw.id3Metadata;
+  let id3Metadata: Record<string, unknown> = {};
+  if (rawMeta && typeof rawMeta === 'object') {
+    id3Metadata = { ...(rawMeta as Record<string, unknown>) };
+  } else if (typeof rawMeta === 'string' && rawMeta.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(rawMeta) as Record<string, unknown>;
+      if (parsed && typeof parsed === 'object') id3Metadata = parsed;
+    } catch {}
+  }
+  const rawSha = raw.content_sha256 ?? raw.contentSha256;
   return {
     id: String(raw.id ?? ''),
     creatorId: canonicalizeCreatorId(
@@ -228,6 +250,11 @@ export function normalizeUserMediaUploadRow(
         ? String(raw.thumbnail_url ?? raw.thumbnailUrl)
         : null,
     sourceSurface: String(raw.source_surface ?? raw.sourceSurface ?? 'vault'),
+    id3Metadata,
+    contentSha256:
+      rawSha != null && String(rawSha).trim() !== ''
+        ? String(rawSha).trim().toLowerCase()
+        : null,
     createdAt: String(
       raw.created_at ?? raw.createdAt ?? new Date().toISOString(),
     ),
@@ -479,6 +506,93 @@ export interface ExploreTrackRecord {
   trendingScore: number;
   songDna: Record<string, unknown>;
   createdAt: string;
+  contentSha256?: string | null;
+  lyricsText?: string;
+  sourceOrigin?: string;
+}
+
+export interface LoraRegistryRecord {
+  loraId: string;
+  displayName: string;
+  packType: 'genre' | 'language' | 'mixed';
+  genre: string;
+  region: string;
+  r2Key: string;
+  adapterConfigR2Key: string | null;
+  defaultWeight: number;
+  loraRank: number;
+  loraAlpha: number;
+  minTracks: number;
+  recommendedTracks: number;
+  status: LoraRegistryStatus;
+  artifactSha256: string | null;
+  artifactBytes: number;
+  trainingTracks: number;
+  version: string;
+  finalLoss: number | null;
+  trainedAt: string | null;
+  metadataJson: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LoraDatasetTrackRecord {
+  id: string;
+  loraId: string;
+  sourceTrackId: string | null;
+  sourceR2Key: string;
+  sourceSha256: string;
+  curatedWavR2Key: string | null;
+  curatedJsonR2Key: string | null;
+  title: string;
+  vocalIsolated: boolean;
+  durationSec: number | null;
+  sampleRate: number | null;
+  bitDepth: number | null;
+  bpm: number | null;
+  musicalKey: string | null;
+  language: string;
+  license: string;
+  trainingWeight: number;
+  validationStatus: 'pending' | 'valid' | 'invalid' | 'excluded';
+  validationErrors: string[];
+  metadataJson: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type LoraTrainingJobStatus =
+  | 'queued'
+  | 'downloading'
+  | 'preparing'
+  | 'training'
+  | 'validating'
+  | 'uploading'
+  | 'dataset_ready'
+  | 'completed'
+  | 'failed';
+
+export interface LoraTrainingJobRecord {
+  id: string;
+  loraId: string;
+  jobType: 'dataset_prep' | 'peft_train';
+  runpodJobId: string | null;
+  executionTarget: 'serverless' | 'pod';
+  status: LoraTrainingJobStatus;
+  progressPct: number;
+  currentEpoch: number;
+  totalEpochs: number;
+  currentLoss: number | null;
+  bestLoss: number | null;
+  hyperparamsJson: Record<string, unknown>;
+  metricsJson: Record<string, unknown>;
+  artifactR2Key: string | null;
+  artifactSha256: string | null;
+  errorMessage: string | null;
+  triggeredBy: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
 }
 
 export interface PlaylistRecord {
@@ -1107,6 +1221,9 @@ export class EdgeIsolateDatabaseEngine {
           durationMs: Number(t.duration_sec ?? 180) * 1000,
           stemsAvailable: Object.keys(stems).length > 0,
           isNew: Boolean(t.is_featured ?? parsedData.isNew ?? false),
+          contentSha256: t.content_sha256 ?? parsedData.contentSha256 ?? null,
+          lyricsText: t.lyrics_text ?? parsedData.lyricsText ?? '',
+          sourceOrigin: t.source_origin ?? parsedData.sourceOrigin ?? 'vhunambi_studio',
         }),
         created_at: createdIso,
         updated_at: updatedIso,
@@ -1514,9 +1631,9 @@ export class EdgeIsolateDatabaseEngine {
           EdgeIsolateDatabaseEngine.withTimeoutResult(
             driver.selectRows<Record<string, any>>(
               'explore_tracks',
-              'select=*&order=updated_at.desc&limit=200',
+              'select=*&order=updated_at.desc&limit=500',
             ),
-            3500,
+            4500,
           ),
           EdgeIsolateDatabaseEngine.withTimeoutResult(
             driver.selectRows<Record<string, any>>(
@@ -3389,6 +3506,13 @@ export class EdgeIsolateDatabaseEngine {
       stemsAvailable,
       discoveryStage,
       trendingScore,
+      contentSha256:
+        typeof data.contentSha256 === 'string' ? data.contentSha256 : null,
+      lyricsText: typeof data.lyricsText === 'string' ? data.lyricsText : '',
+      sourceOrigin:
+        typeof data.sourceOrigin === 'string'
+          ? data.sourceOrigin
+          : 'vhunambi_studio',
       songDna: (data.songDna as Record<string, unknown>) ?? {
         genre: r.genre,
         subGenre: data.subGenre,
@@ -3530,6 +3654,7 @@ export class EdgeIsolateDatabaseEngine {
   public upsertExploreTrack(
     input: Record<string, any>,
     recordMutation: boolean = true,
+    skipMirror: boolean = false,
   ): ExploreTrackRecord {
     const now = new Date().toISOString();
     const id = String(input.id || `trk_${Date.now()}_${randomUUID().slice(0, 6)}`);
@@ -3567,6 +3692,12 @@ export class EdgeIsolateDatabaseEngine {
     const allowOpenStemsRemix = Boolean(
       input.allowOpenStemsRemix ?? input.stemsAvailable ?? false,
     );
+    const contentSha256 =
+      typeof input.contentSha256 === 'string' && input.contentSha256.trim()
+        ? input.contentSha256.trim().toLowerCase()
+        : null;
+    const sourceOrigin = String(input.sourceOrigin ?? 'vhunambi_studio');
+    const lyricsText = String(input.lyricsText ?? input.lyrics ?? '');
     const dataJson = {
       subGenre: input.subGenre ?? 'Sgija',
       language: input.language ?? 'isiZulu',
@@ -3586,6 +3717,9 @@ export class EdgeIsolateDatabaseEngine {
       isNew: Boolean(input.isNew ?? true),
       trendingRank: input.trendingRank ?? null,
       provenanceType: input.provenanceType ?? 'humanCreated',
+      ...(contentSha256 ? { contentSha256 } : {}),
+      sourceOrigin,
+      ...(lyricsText ? { lyricsText } : {}),
     };
 
     const row = {
@@ -3609,40 +3743,43 @@ export class EdgeIsolateDatabaseEngine {
     };
     this.exploreTracks.set(id, row);
 
-    this.mirrorWriteThrough('explore_tracks.upsert', async (driver) => {
-      await driver.upsertRow(
-        'explore_tracks',
-        {
-          id,
-          title: row.title,
-          artist: artistName,
-          creator_id: artistId,
-          genre,
-          sub_genre: String(dataJson.subGenre ?? ''),
-          region: String(dataJson.province ?? 'South Africa'),
-          mood: String(dataJson.mood ?? 'Vibrant'),
-          language: String(dataJson.language ?? 'isiZulu'),
-          discovery_stage: stage,
-          bpm: Math.round(bpm),
-          musical_key: String(dataJson.musicalKey ?? 'Am'),
-          duration_sec: Math.max(1, Math.round(dataJson.durationMs / 1000)),
-          audio_url: row.audio_url,
-          cover_url: String(dataJson.coverUrl ?? ''),
-          stems_json: input.stemUrls ?? input.stems ?? {},
-          plays_count: playCount,
-          likes_count: likeCount,
-          cosigns_count: cosignCount,
-          is_featured: Boolean(dataJson.isNew),
-          mood_id: normalizedMoodId,
-          description,
-          allow_open_stems_remix: allowOpenStemsRemix,
-          data_json: dataJson,
-          created_at: Date.parse(row.created_at) || Date.now(),
-          updated_at: Date.now(),
-        },
-        'id',
-      );
-    });
+    const supabasePayload = {
+      id,
+      title: row.title,
+      artist: artistName,
+      creator_id: artistId,
+      genre,
+      sub_genre: String(dataJson.subGenre ?? ''),
+      region: String(dataJson.province ?? 'South Africa'),
+      mood: String(dataJson.mood ?? 'Vibrant'),
+      language: String(dataJson.language ?? 'isiZulu'),
+      discovery_stage: stage,
+      bpm: Math.round(bpm),
+      musical_key: String(dataJson.musicalKey ?? 'Am'),
+      duration_sec: Math.max(1, Math.round(dataJson.durationMs / 1000)),
+      audio_url: row.audio_url,
+      cover_url: String(dataJson.coverUrl ?? ''),
+      stems_json: input.stemUrls ?? input.stems ?? {},
+      plays_count: playCount,
+      likes_count: likeCount,
+      cosigns_count: cosignCount,
+      is_featured: Boolean(dataJson.isNew),
+      mood_id: normalizedMoodId,
+      description,
+      allow_open_stems_remix: allowOpenStemsRemix,
+      content_sha256: contentSha256,
+      source_origin: sourceOrigin,
+      lyrics_text: lyricsText,
+      data_json: dataJson,
+      created_at: Date.parse(row.created_at) || Date.now(),
+      updated_at: Date.now(),
+    };
+
+    if (!skipMirror) {
+      this.mirrorWriteThrough('explore_tracks.upsert', async (driver) => {
+        await driver.upsertRow('explore_tracks', supabasePayload, 'id');
+      });
+    }
 
     if (recordMutation) {
       this.appendMutation({
@@ -3657,6 +3794,63 @@ export class EdgeIsolateDatabaseEngine {
     }
 
     return this.mapExploreTrackRow(row);
+  }
+
+  public async upsertExploreTrackAsync(
+    input: Record<string, any>,
+    cOrEnv?: unknown,
+  ): Promise<ExploreTrackRecord> {
+    const track = this.upsertExploreTrack(input, true, true);
+    const contentSha256 =
+      typeof input.contentSha256 === 'string' && input.contentSha256.trim()
+        ? input.contentSha256.trim().toLowerCase()
+        : null;
+    const sourceOrigin = String(input.sourceOrigin ?? 'vhunambi_studio');
+    const lyricsText = String(input.lyricsText ?? input.lyrics ?? '');
+    const row = this.exploreTracks.get(track.id);
+    const dataJson = this.parseJsonField(row?.data_json);
+    await this.awaitWriteThrough(
+      'explore_tracks.upsert_async',
+      async (driver) => {
+        await driver.upsertRow(
+          'explore_tracks',
+          {
+            id: track.id,
+            title: track.title,
+            artist: track.artist,
+            creator_id: track.creatorId,
+            genre: track.genre,
+            sub_genre: String(dataJson.subGenre ?? ''),
+            region: String(dataJson.province ?? 'South Africa'),
+            mood: String(dataJson.mood ?? 'Vibrant'),
+            language: String(dataJson.language ?? 'isiZulu'),
+            discovery_stage: track.discoveryStage,
+            bpm: Math.round(track.bpm),
+            musical_key: String(dataJson.musicalKey ?? 'Am'),
+            duration_sec: Math.max(1, Math.round(track.durationMs / 1000)),
+            audio_url: track.audioUrl,
+            cover_url: String(track.coverUrl ?? ''),
+            stems_json: input.stemUrls ?? input.stems ?? {},
+            plays_count: track.playsCount,
+            likes_count: track.likesCount,
+            cosigns_count: track.cosignsCount,
+            is_featured: Boolean(dataJson.isNew),
+            mood_id: track.moodId,
+            description: track.description,
+            allow_open_stems_remix: track.allowOpenStemsRemix,
+            content_sha256: contentSha256,
+            source_origin: sourceOrigin,
+            lyrics_text: lyricsText,
+            data_json: dataJson,
+            created_at: Date.parse(track.createdAt) || Date.now(),
+            updated_at: Date.now(),
+          },
+          'id',
+        );
+      },
+      cOrEnv,
+    );
+    return track;
   }
 
   public getExploreDiscoveryBundle(options: ExploreFeedOptions = {}): {
@@ -3787,7 +3981,10 @@ export class EdgeIsolateDatabaseEngine {
     return row ? this.mapKineticPostRow(row, viewerCreatorId) : null;
   }
 
-  public upsertKineticPost(input: Record<string, any>): Record<string, any> {
+  public upsertKineticPost(
+    input: Record<string, any>,
+    skipMirror = false,
+  ): Record<string, any> {
     const now = new Date().toISOString();
     const id = String(input.id || `kpost_${Date.now()}_${randomUUID().slice(0, 6)}`);
     const existing = this.getKineticPostById(id);
@@ -3852,35 +4049,80 @@ export class EdgeIsolateDatabaseEngine {
 
     const createdMs = Date.parse(createdAt) || Date.now();
     const updatedMs = Date.parse(now) || Date.now();
-    this.mirrorWriteThrough(async (driver) => {
-      await driver.upsertRow(
-        'kinetic_posts',
-        {
-          id,
-          creator_id: creatorId,
-          creator_name: creatorName,
-          creator_handle: creatorHandle,
-          avatar_url: String(input.avatarUrl ?? input.creatorAvatarUrl ?? ''),
-          track_id: input.trackId ? String(input.trackId) : null,
-          track_title: String(input.trackTitle ?? 'Untitled'),
-          genre: String(input.genre ?? 'Amapiano'),
-          caption,
-          audio_preview_url: String(input.audioPreviewUrl ?? ''),
-          cover_url: String(input.coverUrl ?? ''),
-          like_count: likeCount,
-          cosign_count: cosignCount,
-          repost_count: repostCount,
-          comment_count: commentCount,
-          discovery_stage: discoveryStage,
-          data_json: mergedPayload,
-          created_at: createdMs,
-          updated_at: updatedMs,
-        },
-        'id',
-      );
-    });
+    const supabaseRow = {
+      id,
+      creator_id: creatorId,
+      creator_name: creatorName,
+      creator_handle: creatorHandle,
+      avatar_url: String(input.avatarUrl ?? input.creatorAvatarUrl ?? ''),
+      track_id: input.trackId ? String(input.trackId) : null,
+      track_title: String(input.trackTitle ?? 'Untitled'),
+      genre: String(input.genre ?? 'Amapiano'),
+      caption,
+      audio_preview_url: String(
+        input.audioPreviewUrl ?? input.audioUrl ?? '',
+      ),
+      cover_url: String(input.coverUrl ?? ''),
+      like_count: likeCount,
+      cosign_count: cosignCount,
+      repost_count: repostCount,
+      comment_count: commentCount,
+      discovery_stage: discoveryStage,
+      data_json: mergedPayload,
+      created_at: createdMs,
+      updated_at: updatedMs,
+    };
+
+    if (!skipMirror) {
+      this.mirrorWriteThrough(async (driver) => {
+        await driver.upsertRow('kinetic_posts', supabaseRow, 'id');
+      });
+    }
 
     return this.getKineticPostById(id)!;
+  }
+
+  public async upsertKineticPostAsync(
+    input: Record<string, any>,
+    cOrEnv?: unknown,
+  ): Promise<Record<string, any>> {
+    const post = this.upsertKineticPost(input, true);
+    const createdMs = Date.parse(String(post.createdAt ?? '')) || Date.now();
+    const updatedMs = Date.now();
+    await this.awaitWriteThrough(
+      'kinetic_posts.upsert_async',
+      async (driver) => {
+        await driver.upsertRow(
+          'kinetic_posts',
+          {
+            id: post.id,
+            creator_id: post.creatorId,
+            creator_name: post.creatorName,
+            creator_handle: post.creatorHandle,
+            avatar_url: String(post.avatarUrl ?? post.creatorAvatarUrl ?? ''),
+            track_id: post.trackId ? String(post.trackId) : null,
+            track_title: String(post.trackTitle ?? 'Untitled'),
+            genre: String(post.genre ?? 'Amapiano'),
+            caption: String(post.caption ?? ''),
+            audio_preview_url: String(
+              post.audioPreviewUrl ?? post.audioUrl ?? '',
+            ),
+            cover_url: String(post.coverUrl ?? ''),
+            like_count: Number(post.likeCount ?? 0),
+            cosign_count: Number(post.cosignCount ?? 0),
+            repost_count: Number(post.repostCount ?? 0),
+            comment_count: Number(post.commentCount ?? 0),
+            discovery_stage: String(post.discoveryStage ?? 'freshCrate'),
+            data_json: post,
+            created_at: createdMs,
+            updated_at: updatedMs,
+          },
+          'id',
+        );
+      },
+      cOrEnv,
+    );
+    return post;
   }
 
   private parseJsonField(raw: unknown): Record<string, any> {
@@ -8112,6 +8354,8 @@ export class EdgeIsolateDatabaseEngine {
             remote_url: record.remoteUrl,
             thumbnail_url: record.thumbnailUrl,
             source_surface: record.sourceSurface,
+            id3_metadata_json: record.id3Metadata,
+            content_sha256: record.contentSha256,
             created_at: record.createdAt,
             deleted_at: record.deletedAt,
           },
@@ -8151,6 +8395,8 @@ export class EdgeIsolateDatabaseEngine {
             remote_url: record.remoteUrl,
             thumbnail_url: record.thumbnailUrl,
             source_surface: record.sourceSurface,
+            id3_metadata_json: record.id3Metadata,
+            content_sha256: record.contentSha256,
             created_at: record.createdAt,
             deleted_at: record.deletedAt,
           },
@@ -8166,6 +8412,25 @@ export class EdgeIsolateDatabaseEngine {
     const found = this.userMediaUploads.get(id);
     if (!found || found.deletedAt) return null;
     return found;
+  }
+
+  public findUserMediaUploadBySha256(
+    creatorId: string,
+    sha256: string,
+  ): UserMediaUploadRecord | null {
+    const cid = canonicalizeCreatorId(creatorId);
+    const target = sha256.trim().toLowerCase();
+    if (!target) return null;
+    for (const u of this.userMediaUploads.values()) {
+      if (
+        !u.deletedAt &&
+        canonicalizeCreatorId(u.creatorId) === cid &&
+        u.contentSha256?.toLowerCase() === target
+      ) {
+        return u;
+      }
+    }
+    return null;
   }
 
   public listUserMediaUploads(
@@ -8283,6 +8548,547 @@ export class EdgeIsolateDatabaseEngine {
       cOrEnv,
     );
     return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 85: Cloud LoRA Registry, Curated Dataset & Training Jobs Ledger
+  // ---------------------------------------------------------------------------
+  private readonly loraRegistry = new Map<string, LoraRegistryRecord>();
+  private readonly loraDatasetTracks = new Map<string, LoraDatasetTrackRecord[]>();
+  private readonly loraTrainingJobs = new Map<string, LoraTrainingJobRecord>();
+
+  private ensureSeededLoraRegistry(): void {
+    if (this.loraRegistry.size > 0) return;
+    const now = new Date().toISOString();
+    for (const pack of ALL_SOVEREIGN_LORA_PACKS) {
+      const hp = getTrainingHyperparamDefaults(pack.loraId as VhunambiLoraId);
+      this.loraRegistry.set(pack.loraId, {
+        loraId: pack.loraId,
+        displayName: pack.label,
+        packType: pack.packType ?? 'genre',
+        genre: pack.genre,
+        region: pack.region,
+        r2Key: pack.r2Key,
+        adapterConfigR2Key: `loras/${pack.loraId}/adapter_config.json`,
+        defaultWeight: pack.defaultWeight,
+        loraRank: hp.loraRank,
+        loraAlpha: hp.loraAlpha,
+        minTracks: hp.minTracks,
+        recommendedTracks: hp.recommendedTracks,
+        status: 'untrained',
+        artifactSha256: null,
+        artifactBytes: 0,
+        trainingTracks: 0,
+        version: 'v1',
+        finalLoss: null,
+        trainedAt: null,
+        metadataJson: {},
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
+
+  private static parseJsonSafe(raw: unknown): Record<string, unknown> {
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      return raw as Record<string, unknown>;
+    }
+    if (typeof raw === 'string' && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        // ignore invalid JSON
+      }
+    }
+    return {};
+  }
+
+  private hydrateLoraRegistryRows(rows: Array<Record<string, unknown>>): void {
+    this.ensureSeededLoraRegistry();
+    for (const r of rows) {
+      const loraId = String(r.lora_id ?? r.loraId ?? '').trim();
+      if (!loraId) continue;
+      const prev = this.loraRegistry.get(loraId);
+      const now = new Date().toISOString();
+      this.loraRegistry.set(loraId, {
+        loraId,
+        displayName: String(r.display_name ?? r.displayName ?? prev?.displayName ?? loraId),
+        packType: (String(r.pack_type ?? r.packType ?? prev?.packType ?? 'genre') as 'genre' | 'language' | 'mixed'),
+        genre: String(r.genre ?? prev?.genre ?? 'Amapiano'),
+        region: String(r.region ?? prev?.region ?? 'South Africa'),
+        r2Key: String(r.r2_key ?? r.r2Key ?? prev?.r2Key ?? `loras/${loraId}.safetensors`),
+        adapterConfigR2Key:
+          r.adapter_config_r2_key != null || r.adapterConfigR2Key != null
+            ? String(r.adapter_config_r2_key ?? r.adapterConfigR2Key)
+            : (prev?.adapterConfigR2Key ?? null),
+        defaultWeight: Number(r.default_weight ?? r.defaultWeight ?? prev?.defaultWeight ?? 0.85),
+        loraRank: Number(r.lora_rank ?? r.loraRank ?? prev?.loraRank ?? 16),
+        loraAlpha: Number(r.lora_alpha ?? r.loraAlpha ?? prev?.loraAlpha ?? 32),
+        minTracks: Number(r.min_tracks ?? r.minTracks ?? prev?.minTracks ?? 8),
+        recommendedTracks: Number(r.recommended_tracks ?? r.recommendedTracks ?? prev?.recommendedTracks ?? 15),
+        status: String(r.status ?? prev?.status ?? 'untrained') as LoraRegistryStatus,
+        artifactSha256:
+          r.artifact_sha256 != null || r.artifactSha256 != null
+            ? String(r.artifact_sha256 ?? r.artifactSha256)
+            : (prev?.artifactSha256 ?? null),
+        artifactBytes: Number(r.artifact_bytes ?? r.artifactBytes ?? prev?.artifactBytes ?? 0),
+        trainingTracks: Number(r.training_tracks ?? r.trainingTracks ?? prev?.trainingTracks ?? 0),
+        version: String(r.version ?? prev?.version ?? 'v1'),
+        finalLoss:
+          r.final_loss != null || r.finalLoss != null
+            ? Number(r.final_loss ?? r.finalLoss)
+            : (prev?.finalLoss ?? null),
+        trainedAt:
+          r.trained_at != null || r.trainedAt != null
+            ? String(r.trained_at ?? r.trainedAt)
+            : (prev?.trainedAt ?? null),
+        metadataJson: EdgeIsolateDatabaseEngine.parseJsonSafe(r.metadata_json ?? r.metadataJson),
+        createdAt: String(r.created_at ?? r.createdAt ?? prev?.createdAt ?? now),
+        updatedAt: String(r.updated_at ?? r.updatedAt ?? now),
+      });
+    }
+  }
+
+  public async listAllExploreTrackCandidatesAsync(
+    cOrEnv?: unknown,
+  ): Promise<SourceTrackCandidate[]> {
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (driver.isConfigured()) {
+      const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+        driver.selectRows<Record<string, any>>(
+          'explore_tracks',
+          'select=id,title,genre,sub_genre,audio_url,content_sha256,bpm,lyrics_text,source_origin&order=updated_at.desc&limit=500',
+        ),
+        4500,
+      );
+      if (res.ok && Array.isArray(res.value)) {
+        return res.value.map((r) => ({
+          id: String(r.id ?? ''),
+          title: String(r.title ?? 'Untitled Track'),
+          genre: String(r.genre ?? 'Amapiano'),
+          subGenre: typeof r.sub_genre === 'string' ? r.sub_genre : undefined,
+          audioUrl: String(r.audio_url ?? ''),
+          contentSha256:
+            typeof r.content_sha256 === 'string' ? r.content_sha256 : undefined,
+          bpm: typeof r.bpm === 'number' ? r.bpm : Number(r.bpm ?? 114),
+          lyricsText: typeof r.lyrics_text === 'string' ? r.lyrics_text : '',
+          sourceOrigin:
+            typeof r.source_origin === 'string' ? r.source_origin : 'vhunambi_studio',
+        }));
+      }
+    }
+    return Array.from(this.exploreTracks.values()).map((r) => {
+      const data = EdgeIsolateDatabaseEngine.parseJsonSafe(r.data_json);
+      return {
+        id: String(r.id),
+        title: String(r.title ?? 'Untitled Track'),
+        genre: String(r.genre ?? 'Amapiano'),
+        subGenre: typeof data.subGenre === 'string' ? data.subGenre : undefined,
+        audioUrl: String(r.audio_url ?? ''),
+        contentSha256:
+          typeof data.contentSha256 === 'string' ? data.contentSha256 : undefined,
+        bpm: Number(r.bpm ?? 114),
+        lyricsText: typeof data.lyricsText === 'string' ? data.lyricsText : '',
+        sourceOrigin:
+          typeof data.sourceOrigin === 'string' ? data.sourceOrigin : 'vhunambi_studio',
+      };
+    });
+  }
+
+  public getLoraRegistryEntry(loraId: string): LoraRegistryRecord | null {
+    this.ensureSeededLoraRegistry();
+    return this.loraRegistry.get(loraId) ?? null;
+  }
+
+  public async listLoraRegistryAsync(
+    cOrEnv?: unknown,
+  ): Promise<LoraRegistryRecord[]> {
+    this.ensureSeededLoraRegistry();
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (driver.isConfigured()) {
+      const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+        driver.selectRows<Record<string, unknown>>(
+          'lora_registry',
+          'select=*&order=lora_id.asc&limit=50',
+        ),
+        3500,
+      );
+      if (res.ok && Array.isArray(res.value)) {
+        this.hydrateLoraRegistryRows(res.value);
+      }
+    }
+    return ALL_SOVEREIGN_LORA_PACKS.map(
+      (p) => this.loraRegistry.get(p.loraId)!,
+    ).filter(Boolean);
+  }
+
+  public async upsertLoraRegistryAsync(
+    patch: Partial<LoraRegistryRecord> & { loraId: string },
+    cOrEnv?: unknown,
+  ): Promise<LoraRegistryRecord> {
+    this.ensureSeededLoraRegistry();
+    const prev = this.loraRegistry.get(patch.loraId);
+    const now = new Date().toISOString();
+    const hp = getTrainingHyperparamDefaults(patch.loraId as VhunambiLoraId);
+    const merged: LoraRegistryRecord = {
+      loraId: patch.loraId,
+      displayName: patch.displayName ?? prev?.displayName ?? patch.loraId,
+      packType: patch.packType ?? prev?.packType ?? 'genre',
+      genre: patch.genre ?? prev?.genre ?? 'Amapiano',
+      region: patch.region ?? prev?.region ?? 'South Africa',
+      r2Key: patch.r2Key ?? prev?.r2Key ?? `loras/${patch.loraId}.safetensors`,
+      adapterConfigR2Key:
+        patch.adapterConfigR2Key !== undefined
+          ? patch.adapterConfigR2Key
+          : (prev?.adapterConfigR2Key ?? `loras/${patch.loraId}/adapter_config.json`),
+      defaultWeight: patch.defaultWeight ?? prev?.defaultWeight ?? 0.85,
+      loraRank: patch.loraRank ?? prev?.loraRank ?? hp.loraRank,
+      loraAlpha: patch.loraAlpha ?? prev?.loraAlpha ?? hp.loraAlpha,
+      minTracks: patch.minTracks ?? prev?.minTracks ?? hp.minTracks,
+      recommendedTracks:
+        patch.recommendedTracks ?? prev?.recommendedTracks ?? hp.recommendedTracks,
+      status: patch.status ?? prev?.status ?? 'untrained',
+      artifactSha256:
+        patch.artifactSha256 !== undefined
+          ? patch.artifactSha256
+          : (prev?.artifactSha256 ?? null),
+      artifactBytes: patch.artifactBytes ?? prev?.artifactBytes ?? 0,
+      trainingTracks: patch.trainingTracks ?? prev?.trainingTracks ?? 0,
+      version: patch.version ?? prev?.version ?? 'v1',
+      finalLoss:
+        patch.finalLoss !== undefined ? patch.finalLoss : (prev?.finalLoss ?? null),
+      trainedAt:
+        patch.trainedAt !== undefined ? patch.trainedAt : (prev?.trainedAt ?? null),
+      metadataJson: patch.metadataJson ?? prev?.metadataJson ?? {},
+      createdAt: prev?.createdAt ?? now,
+      updatedAt: now,
+    };
+    this.loraRegistry.set(merged.loraId, merged);
+
+    await this.awaitWriteThrough(
+      'lora_registry.upsert',
+      async (driver) => {
+        await driver.upsertRow(
+          'lora_registry',
+          {
+            lora_id: merged.loraId,
+            display_name: merged.displayName,
+            pack_type: merged.packType,
+            genre: merged.genre,
+            region: merged.region,
+            r2_key: merged.r2Key,
+            adapter_config_r2_key: merged.adapterConfigR2Key,
+            default_weight: merged.defaultWeight,
+            lora_rank: merged.loraRank,
+            lora_alpha: merged.loraAlpha,
+            min_tracks: merged.minTracks,
+            recommended_tracks: merged.recommendedTracks,
+            status: merged.status,
+            artifact_sha256: merged.artifactSha256,
+            artifact_bytes: merged.artifactBytes,
+            training_tracks: merged.trainingTracks,
+            version: merged.version,
+            final_loss: merged.finalLoss,
+            trained_at: merged.trainedAt,
+            metadata_json: merged.metadataJson,
+            created_at: merged.createdAt,
+            updated_at: merged.updatedAt,
+          },
+          'lora_id',
+        );
+      },
+      cOrEnv,
+    );
+    return merged;
+  }
+
+  public async listLoraDatasetTracksAsync(
+    loraId: string,
+    cOrEnv?: unknown,
+  ): Promise<LoraDatasetTrackRecord[]> {
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (driver.isConfigured()) {
+      const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+        driver.selectRows<Record<string, unknown>>(
+          'lora_dataset_tracks',
+          `select=*&lora_id=eq.${encodeURIComponent(loraId)}&order=created_at.desc&limit=500`,
+        ),
+        3500,
+      );
+      if (res.ok && Array.isArray(res.value)) {
+        const mapped = res.value.map((r) => ({
+          id: String(r.id ?? ''),
+          loraId: String(r.lora_id ?? loraId),
+          sourceTrackId: r.source_track_id ? String(r.source_track_id) : null,
+          sourceR2Key: String(r.source_r2_key ?? ''),
+          sourceSha256: String(r.source_sha256 ?? ''),
+          curatedWavR2Key: r.curated_wav_r2_key ? String(r.curated_wav_r2_key) : null,
+          curatedJsonR2Key: r.curated_json_r2_key ? String(r.curated_json_r2_key) : null,
+          title: String(r.title ?? 'Untitled'),
+          vocalIsolated: Boolean(r.vocal_isolated),
+          durationSec: r.duration_sec != null ? Number(r.duration_sec) : null,
+          sampleRate: r.sample_rate != null ? Number(r.sample_rate) : null,
+          bitDepth: r.bit_depth != null ? Number(r.bit_depth) : null,
+          bpm: r.bpm != null ? Number(r.bpm) : null,
+          musicalKey: r.musical_key ? String(r.musical_key) : null,
+          language: String(r.language ?? 'en-ZA'),
+          license: String(r.license ?? 'owned'),
+          trainingWeight: Number(r.training_weight ?? 1.0),
+          validationStatus: String(r.validation_status ?? 'pending') as
+            | 'pending'
+            | 'valid'
+            | 'invalid'
+            | 'excluded',
+          validationErrors: Array.isArray(r.validation_errors_json)
+            ? r.validation_errors_json.map(String)
+            : [],
+          metadataJson: EdgeIsolateDatabaseEngine.parseJsonSafe(r.metadata_json),
+          createdAt: String(r.created_at ?? new Date().toISOString()),
+          updatedAt: String(r.updated_at ?? new Date().toISOString()),
+        }));
+        this.loraDatasetTracks.set(loraId, mapped);
+        return mapped;
+      }
+    }
+    return this.loraDatasetTracks.get(loraId) ?? [];
+  }
+
+  public async upsertLoraDatasetTracksAsync(
+    tracks: LoraDatasetTrackRecord[],
+    cOrEnv?: unknown,
+  ): Promise<void> {
+    if (tracks.length === 0) return;
+    for (const t of tracks) {
+      const list = this.loraDatasetTracks.get(t.loraId) ?? [];
+      const idx = list.findIndex(
+        (x) => x.sourceSha256 === t.sourceSha256 || x.id === t.id,
+      );
+      if (idx >= 0) list[idx] = t;
+      else list.push(t);
+      this.loraDatasetTracks.set(t.loraId, list);
+    }
+
+    await this.awaitWriteThrough(
+      'lora_dataset_tracks.upsert',
+      async (driver) => {
+        for (const t of tracks) {
+          await driver.upsertRow(
+            'lora_dataset_tracks',
+            {
+              id: t.id,
+              lora_id: t.loraId,
+              source_track_id: t.sourceTrackId,
+              source_r2_key: t.sourceR2Key,
+              source_sha256: t.sourceSha256,
+              curated_wav_r2_key: t.curatedWavR2Key,
+              curated_json_r2_key: t.curatedJsonR2Key,
+              title: t.title,
+              vocal_isolated: t.vocalIsolated,
+              duration_sec: t.durationSec,
+              sample_rate: t.sampleRate,
+              bit_depth: t.bitDepth,
+              bpm: t.bpm,
+              musical_key: t.musicalKey,
+              language: t.language,
+              license: t.license,
+              training_weight: t.trainingWeight,
+              validation_status: t.validationStatus,
+              validation_errors_json: t.validationErrors,
+              metadata_json: t.metadataJson,
+              created_at: t.createdAt,
+              updated_at: t.updatedAt,
+            },
+            'id',
+          );
+        }
+      },
+      cOrEnv,
+    );
+  }
+
+  private hydrateLoraTrainingJobRow(
+    r: Record<string, unknown>,
+  ): LoraTrainingJobRecord {
+    const now = new Date().toISOString();
+    return {
+      id: String(r.id ?? ''),
+      loraId: String(r.lora_id ?? r.loraId ?? ''),
+      jobType: String(r.job_type ?? r.jobType ?? 'peft_train') as
+        | 'dataset_prep'
+        | 'peft_train',
+      runpodJobId:
+        r.runpod_job_id != null || r.runpodJobId != null
+          ? String(r.runpod_job_id ?? r.runpodJobId)
+          : null,
+      executionTarget: String(
+        r.execution_target ?? r.executionTarget ?? 'serverless',
+      ) as 'serverless' | 'pod',
+      status: String(r.status ?? 'queued') as LoraTrainingJobStatus,
+      progressPct: Number(r.progress_pct ?? r.progressPct ?? 0),
+      currentEpoch: Number(r.current_epoch ?? r.currentEpoch ?? 0),
+      totalEpochs: Number(r.total_epochs ?? r.totalEpochs ?? 0),
+      currentLoss:
+        r.current_loss != null || r.currentLoss != null
+          ? Number(r.current_loss ?? r.currentLoss)
+          : null,
+      bestLoss:
+        r.best_loss != null || r.bestLoss != null
+          ? Number(r.best_loss ?? r.bestLoss)
+          : null,
+      hyperparamsJson: EdgeIsolateDatabaseEngine.parseJsonSafe(
+        r.hyperparams_json ?? r.hyperparamsJson,
+      ),
+      metricsJson: EdgeIsolateDatabaseEngine.parseJsonSafe(
+        r.metrics_json ?? r.metricsJson,
+      ),
+      artifactR2Key:
+        r.artifact_r2_key != null || r.artifactR2Key != null
+          ? String(r.artifact_r2_key ?? r.artifactR2Key)
+          : null,
+      artifactSha256:
+        r.artifact_sha256 != null || r.artifactSha256 != null
+          ? String(r.artifact_sha256 ?? r.artifactSha256)
+          : null,
+      errorMessage:
+        r.error_message != null || r.errorMessage != null
+          ? String(r.error_message ?? r.errorMessage)
+          : null,
+      triggeredBy: String(r.triggered_by ?? r.triggeredBy ?? 'system'),
+      createdAt: String(r.created_at ?? r.createdAt ?? now),
+      updatedAt: String(r.updated_at ?? r.updatedAt ?? now),
+      completedAt:
+        r.completed_at != null || r.completedAt != null
+          ? String(r.completed_at ?? r.completedAt)
+          : null,
+    };
+  }
+
+  public async listLoraTrainingJobsAsync(
+    loraId?: string,
+    cOrEnv?: unknown,
+  ): Promise<LoraTrainingJobRecord[]> {
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (driver.isConfigured()) {
+      const filter = loraId
+        ? `select=*&lora_id=eq.${encodeURIComponent(loraId)}&order=created_at.desc&limit=50`
+        : 'select=*&order=created_at.desc&limit=50';
+      const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+        driver.selectRows<Record<string, unknown>>('lora_training_jobs', filter),
+        3500,
+      );
+      if (res.ok && Array.isArray(res.value)) {
+        for (const r of res.value) {
+          const job = this.hydrateLoraTrainingJobRow(r);
+          if (job.id) this.loraTrainingJobs.set(job.id, job);
+        }
+      }
+    }
+    const items = Array.from(this.loraTrainingJobs.values()).filter(
+      (j) => !loraId || j.loraId === loraId,
+    );
+    items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return items.slice(0, 50);
+  }
+
+  public async getLoraTrainingJobAsync(
+    jobId: string,
+    cOrEnv?: unknown,
+  ): Promise<LoraTrainingJobRecord | null> {
+    const cached = this.loraTrainingJobs.get(jobId);
+    const driver = this.resolveCloudDriver(cOrEnv);
+    if (driver.isConfigured()) {
+      const res = await EdgeIsolateDatabaseEngine.withTimeoutResult(
+        driver.selectRows<Record<string, unknown>>(
+          'lora_training_jobs',
+          `select=*&id=eq.${encodeURIComponent(jobId)}&limit=1`,
+        ),
+        3000,
+      );
+      if (res.ok && res.value[0]) {
+        const job = this.hydrateLoraTrainingJobRow(res.value[0]);
+        this.loraTrainingJobs.set(job.id, job);
+        return job;
+      }
+    }
+    return cached ?? null;
+  }
+
+  public async upsertLoraTrainingJobAsync(
+    job: Partial<LoraTrainingJobRecord> & { id: string; loraId: string },
+    cOrEnv?: unknown,
+  ): Promise<LoraTrainingJobRecord> {
+    const prev = this.loraTrainingJobs.get(job.id);
+    const now = new Date().toISOString();
+    const merged: LoraTrainingJobRecord = {
+      id: job.id,
+      loraId: job.loraId,
+      jobType: job.jobType ?? prev?.jobType ?? 'peft_train',
+      runpodJobId:
+        job.runpodJobId !== undefined ? job.runpodJobId : (prev?.runpodJobId ?? null),
+      executionTarget: job.executionTarget ?? prev?.executionTarget ?? 'serverless',
+      status: job.status ?? prev?.status ?? 'queued',
+      progressPct: job.progressPct ?? prev?.progressPct ?? 0,
+      currentEpoch: job.currentEpoch ?? prev?.currentEpoch ?? 0,
+      totalEpochs: job.totalEpochs ?? prev?.totalEpochs ?? 0,
+      currentLoss:
+        job.currentLoss !== undefined ? job.currentLoss : (prev?.currentLoss ?? null),
+      bestLoss: job.bestLoss !== undefined ? job.bestLoss : (prev?.bestLoss ?? null),
+      hyperparamsJson: job.hyperparamsJson ?? prev?.hyperparamsJson ?? {},
+      metricsJson: job.metricsJson ?? prev?.metricsJson ?? {},
+      artifactR2Key:
+        job.artifactR2Key !== undefined
+          ? job.artifactR2Key
+          : (prev?.artifactR2Key ?? null),
+      artifactSha256:
+        job.artifactSha256 !== undefined
+          ? job.artifactSha256
+          : (prev?.artifactSha256 ?? null),
+      errorMessage:
+        job.errorMessage !== undefined ? job.errorMessage : (prev?.errorMessage ?? null),
+      triggeredBy: job.triggeredBy ?? prev?.triggeredBy ?? 'system',
+      createdAt: prev?.createdAt ?? now,
+      updatedAt: now,
+      completedAt:
+        job.completedAt !== undefined ? job.completedAt : (prev?.completedAt ?? null),
+    };
+    this.loraTrainingJobs.set(merged.id, merged);
+
+    await this.awaitWriteThrough(
+      'lora_training_jobs.upsert',
+      async (driver) => {
+        await driver.upsertRow(
+          'lora_training_jobs',
+          {
+            id: merged.id,
+            lora_id: merged.loraId,
+            job_type: merged.jobType,
+            runpod_job_id: merged.runpodJobId,
+            execution_target: merged.executionTarget,
+            status: merged.status,
+            progress_pct: merged.progressPct,
+            current_epoch: merged.currentEpoch,
+            total_epochs: merged.totalEpochs,
+            current_loss: merged.currentLoss,
+            best_loss: merged.bestLoss,
+            hyperparams_json: merged.hyperparamsJson,
+            metrics_json: merged.metricsJson,
+            artifact_r2_key: merged.artifactR2Key,
+            artifact_sha256: merged.artifactSha256,
+            error_message: merged.errorMessage,
+            triggered_by: merged.triggeredBy,
+            created_at: merged.createdAt,
+            updated_at: merged.updatedAt,
+            completed_at: merged.completedAt,
+          },
+          'id',
+        );
+      },
+      cOrEnv,
+    );
+    return merged;
   }
 }
 

@@ -18,7 +18,12 @@ export interface CfR2ObjectBody {
 }
 
 export interface CfR2Bucket {
-  get(key: string): Promise<CfR2ObjectBody | null>;
+  get(
+    key: string,
+    options?: {
+      range?: { offset?: number; length?: number; suffix?: number };
+    },
+  ): Promise<CfR2ObjectBody | null>;
   put(
     key: string,
     value: ReadableStream | ArrayBuffer | Uint8Array | string,

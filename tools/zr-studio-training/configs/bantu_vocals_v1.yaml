@@ -1,0 +1,19 @@
+# VHUNAMBI Phase 85 — Bantu Vocals & Phonetics Specialist LoRA
+dataset:
+  s3_prefix: "training-data/curated/"
+  lora_id: "bantu_vocals_v1"
+  extract_vocals: true
+
+training:
+  lora_name: "bantu_vocals_v1"
+  lora_rank: 32
+  lora_alpha: 64
+  epochs: 20
+  batch_size: 1
+  grad_accum_steps: 4
+  learning_rate: 5.0e-5
+  warmup_steps: 120
+  precision: "bf16"
+
+output:
+  r2_key: "loras/bantu_vocals_v1.safetensors"

@@ -51,9 +51,14 @@ class PlayerState {
   }
 
   String get formattedDuration {
-    if (currentTrack != null) return currentTrack!.formattedDuration;
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final effective = duration > Duration.zero
+        ? duration
+        : (currentTrack?.duration ?? Duration.zero);
+    final minutes = effective.inMinutes;
+    final seconds = effective.inSeconds.remainder(60).toString().padLeft(
+      2,
+      '0',
+    );
     return '$minutes:$seconds';
   }
 

@@ -201,8 +201,7 @@ class HttpSocialRepository implements ISocialRepository {
         );
     final counts = Map<KineticReactionType, int>.from(prev.reactionCounts);
     final prevRx = prev.myReaction;
-    final nextRx =
-        (reaction != null && prevRx == reaction) ? null : reaction;
+    final nextRx = (reaction != null && prevRx == reaction) ? null : reaction;
 
     if (prevRx != null && counts.containsKey(prevRx)) {
       final dec = (counts[prevRx]! - 1).clamp(0, 999999);
@@ -242,7 +241,8 @@ class HttpSocialRepository implements ISocialRepository {
         : (mimeType.startsWith('video/') ? 'gallery_video' : 'artwork');
     if (_shouldSkipNetwork) {
       return (
-        url: '/r2/social/local/${DateTime.now().millisecondsSinceEpoch}_$filename',
+        url:
+            '/r2/social/local/${DateTime.now().millisecondsSinceEpoch}_$filename',
         mediaKind: kind,
         mimeType: mimeType,
         sizeBytes: bytes.length,
@@ -1118,28 +1118,29 @@ class HttpSocialRepository implements ISocialRepository {
     Map<String, dynamic> payload,
   ) async {
     if (_shouldSkipNetwork) return _publishClipFallback();
-    try {
-      final response = await _dio.post<Map<String, dynamic>>(
-        '$_baseUrl/social/publish',
-        data: payload,
+    final response = await _dio.post<Map<String, dynamic>>(
+      '$_baseUrl/social/publish',
+      data: payload,
+      options: Options(
+        sendTimeout: const Duration(seconds: 20),
+        receiveTimeout: const Duration(seconds: 20),
+      ),
+    );
+    if (response.statusCode == 201 && response.data != null) {
+      final d = response.data!;
+      return (
+        clipId:
+            d['clipId'] as String? ??
+            'clip_${DateTime.now().millisecondsSinceEpoch}',
+        shareUrl: d['shareUrl'] as String? ?? 'https://vhunambi.com/reels',
+        publishedAt:
+            DateTime.tryParse(d['publishedAt'] as String? ?? '') ??
+            DateTime.now(),
       );
-      if (response.statusCode == 201 && response.data != null) {
-        final d = response.data!;
-        return (
-          clipId:
-              d['clipId'] as String? ??
-              'clip_${DateTime.now().millisecondsSinceEpoch}',
-          shareUrl: d['shareUrl'] as String? ?? 'https://vhunambi.com/reels',
-          publishedAt:
-              DateTime.tryParse(d['publishedAt'] as String? ?? '') ??
-              DateTime.now(),
-        );
-      }
-    } catch (e) {
-      debugPrint('[HttpSocialRepository] publishClip fallback: $e');
     }
-
-    return _publishClipFallback();
+    throw StateError(
+      'Failed to publish Kinetic Reel (HTTP ${response.statusCode ?? "unknown"})',
+    );
   }
 
   ({String clipId, String shareUrl, DateTime publishedAt})

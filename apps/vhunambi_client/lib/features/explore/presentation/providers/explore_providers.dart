@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vhunambi_client/core/auth/auth_providers.dart';
 import 'package:vhunambi_client/core/constants/app_assets.dart';
@@ -823,10 +824,17 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
     if (repo == null) return false;
     final bundle = await repo.fetchExploreBundle(genre: genre, stage: stage);
     if (!mounted || !bundle.isFromCloud || bundle.posts.isEmpty) return false;
+    return mergeCloudPosts(bundle.posts);
+  }
 
+  @visibleForTesting
+  bool mergeRemotePostsPayloadForTest(List<Map<String, dynamic>> rawPosts) =>
+      mergeCloudPosts(rawPosts);
+
+  bool mergeCloudPosts(List<Map<String, dynamic>> rawPosts) {
     final existingById = {for (final p in state) p.id: p};
     final hydrated = <SocialMusicPost>[];
-    for (final raw in bundle.posts) {
+    for (final raw in rawPosts) {
       final id = (raw['id'] ?? '').toString();
       if (id.isEmpty) continue;
       final existing = existingById[id];
@@ -850,8 +858,7 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
           existing.copyWith(
             likeCount:
                 (raw['likeCount'] as num?)?.toInt() ?? existing.likeCount,
-            isLikedByMe:
-                (raw['isLikedByMe'] as bool?) ?? existing.isLikedByMe,
+            isLikedByMe: (raw['isLikedByMe'] as bool?) ?? existing.isLikedByMe,
             reactionCounts: parsedCounts,
             myReaction: parsedMyReaction,
             clearMyReaction: hasMyReaction && parsedMyReaction == null,
@@ -867,21 +874,108 @@ class SocialFeedPostsNotifier extends StateNotifier<List<SocialMusicPost>> {
         final parsedMyReaction = KineticReactionType.fromWire(
           raw['myReaction'] ?? raw['my_reaction'],
         );
+        final rawImages = raw['imageAttachments'] ?? raw['image_attachments'];
+        final parsedImages = <KineticPostImageAttachment>[
+          if (rawImages is List)
+            ...rawImages
+                .map((item) {
+                  if (item is Map) {
+                    final map = Map<String, dynamic>.from(item);
+                    final url = AppConstants.normalizeCloudMediaUrl(
+                      (map['imageUrl'] ?? map['image_url'] ?? '').toString(),
+                    );
+                    return KineticPostImageAttachment.fromJson(
+                      <String, dynamic>{...map, 'imageUrl': url},
+                    );
+                  }
+                  final url = AppConstants.normalizeCloudMediaUrl(
+                    item.toString(),
+                  );
+                  return KineticPostImageAttachment(imageUrl: url);
+                })
+                .where((att) => att.imageUrl.isNotEmpty),
+        ];
+        final rawPrimaryObj = raw['imageAttachment'] ?? raw['image_attachment'];
+        KineticPostImageAttachment? parsedPrimaryImage;
+        if (rawPrimaryObj is Map) {
+          final map = Map<String, dynamic>.from(rawPrimaryObj);
+          final url = AppConstants.normalizeCloudMediaUrl(
+            (map['imageUrl'] ?? map['image_url'] ?? '').toString(),
+          );
+          if (url.isNotEmpty) {
+            parsedPrimaryImage = KineticPostImageAttachment.fromJson(
+              <String, dynamic>{...map, 'imageUrl': url},
+            );
+          }
+        } else if (rawPrimaryObj is String && rawPrimaryObj.trim().isNotEmpty) {
+          parsedPrimaryImage = KineticPostImageAttachment(
+            imageUrl: AppConstants.normalizeCloudMediaUrl(rawPrimaryObj.trim()),
+          );
+        }
+        parsedPrimaryImage ??= parsedImages.isNotEmpty
+            ? parsedImages.first
+            : null;
+
+        final rawAudioMap = raw['audioAttachment'] ?? raw['audio_attachment'];
+        final parsedAudioAttachment = rawAudioMap is Map
+            ? KineticPostAudioAttachment.fromJson(
+                Map<String, dynamic>.from(rawAudioMap),
+              )
+            : null;
+        final rawAudioUrl =
+            (raw['audioUrl'] ??
+                    raw['audio_url'] ??
+                    raw['audioPreviewUrl'] ??
+                    raw['audio_preview_url'] ??
+                    '')
+                .toString()
+                .trim();
+        final rawCoverUrl = (raw['coverUrl'] ?? raw['cover_url'] ?? '')
+            .toString()
+            .trim();
+
         hydrated.add(
           SocialMusicPost(
             id: id,
-            creatorId: (raw['creatorId'] ?? 'creator_cern').toString(),
-            creatorName: (raw['creatorName'] ?? 'Creator').toString(),
-            creatorHandle: (raw['creatorHandle'] ?? '@creator').toString(),
+            creatorId: (raw['creatorId'] ?? raw['creator_id'] ?? 'creator_cern')
+                .toString(),
+            creatorName:
+                (raw['creatorName'] ?? raw['creator_name'] ?? 'Creator')
+                    .toString(),
+            creatorHandle:
+                (raw['creatorHandle'] ?? raw['creator_handle'] ?? '@creator')
+                    .toString(),
             publishedAt:
-                DateTime.tryParse((raw['createdAt'] ?? '').toString()) ??
+                DateTime.tryParse(
+                  (raw['createdAt'] ?? raw['created_at'] ?? '').toString(),
+                ) ??
                 DateTime.now(),
             caption: (raw['caption'] ?? '').toString(),
+            imageAttachment: parsedPrimaryImage,
+            imageAttachments: parsedImages.isNotEmpty
+                ? parsedImages
+                : (parsedPrimaryImage != null
+                      ? <KineticPostImageAttachment>[parsedPrimaryImage]
+                      : const <KineticPostImageAttachment>[]),
+            audioAttachment: parsedAudioAttachment,
             track: Track.fromJson(<String, dynamic>{
-              'id': raw['attachmentId'] ?? id,
-              'title': raw['trackTitle'] ?? raw['caption'] ?? 'Cloud Post',
-              'creatorName': raw['creatorName'] ?? 'Creator',
+              'id':
+                  raw['trackId'] ??
+                  raw['track_id'] ??
+                  raw['attachmentId'] ??
+                  id,
+              'title':
+                  raw['trackTitle'] ??
+                  raw['track_title'] ??
+                  raw['caption'] ??
+                  'Cloud Post',
+              'creatorName':
+                  raw['creatorName'] ?? raw['creator_name'] ?? 'Creator',
               'genre': raw['genre'] ?? 'Amapiano',
+              if (rawAudioUrl.isNotEmpty)
+                'audioUrl': AppConstants.normalizeCloudMediaUrl(rawAudioUrl),
+              if (rawCoverUrl.isNotEmpty)
+                'coverUrl': AppConstants.normalizeCloudMediaUrl(rawCoverUrl),
             }),
             likeCount: (raw['likeCount'] as num?)?.toInt() ?? 0,
             isLikedByMe:

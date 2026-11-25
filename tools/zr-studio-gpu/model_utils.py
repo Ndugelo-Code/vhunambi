@@ -114,6 +114,16 @@ GENRE_LORA_REGISTRY: Dict[str, Dict[str, Any]] = {
         "r2_key": "loras/afrohouse_ancestral_v1.safetensors",
         "default_weight": 0.85,
     },
+    "bantu vocals": {
+        "lora_id": "bantu_vocals_v1",
+        "r2_key": "loras/bantu_vocals_v1.safetensors",
+        "default_weight": 0.88,
+    },
+    "bantu_vocals": {
+        "lora_id": "bantu_vocals_v1",
+        "r2_key": "loras/bantu_vocals_v1.safetensors",
+        "default_weight": 0.88,
+    },
 }
 
 MAX_ACTIVE_LORAS = 3
@@ -148,6 +158,80 @@ def verify_safetensors_artifact(local_path: str) -> Optional[Dict[str, Any]]:
         while chunk := f.read(65536):
             h.update(chunk)
     return {"path": local_path, "bytes": int(size), "sha256": h.hexdigest()}
+
+
+def read_safetensors_header_metadata(local_path: str) -> Dict[str, Any]:
+    """Reads the JSON header __metadata__ block from a .safetensors file with zero full load."""
+    import json
+    import struct
+
+    if not local_path or not os.path.isfile(local_path):
+        return {}
+    with open(local_path, "rb") as f:
+        len_bytes = f.read(8)
+        if len(len_bytes) < 8:
+            return {}
+        header_len = struct.unpack("<Q", len_bytes)[0]
+        if header_len <= 0 or header_len > 10 * 1024 * 1024:
+            return {}
+        raw_header = f.read(header_len)
+    parsed = json.loads(raw_header.decode("utf-8"))
+    meta = parsed.get("__metadata__")
+    return meta if isinstance(meta, dict) else {}
+
+
+def materialize_peft_dir_from_safetensors(
+    safetensors_path: str,
+    out_dir: str,
+) -> Optional[str]:
+    """
+    Reconstructs a standard PEFT directory (adapter_config.json + adapter_model.safetensors)
+    from embedded __metadata__ inside a single .safetensors file when upstream load_lora()
+    expects a PEFT directory path instead of a bare file path.
+    """
+    import json
+    import shutil
+
+    meta = read_safetensors_header_metadata(safetensors_path)
+    if not meta:
+        return None
+
+    cfg: Optional[Dict[str, Any]] = None
+    raw_cfg = meta.get("peft_adapter_config")
+    if isinstance(raw_cfg, str) and raw_cfg.strip():
+        try:
+            loaded = json.loads(raw_cfg)
+            if isinstance(loaded, dict):
+                cfg = loaded
+        except Exception:
+            cfg = None
+
+    if cfg is None and ("lora_rank" in meta or "target_modules" in meta):
+        targets_raw = meta.get("target_modules", '["linear_q","linear_k","linear_v","o_proj"]')
+        try:
+            targets = json.loads(targets_raw) if isinstance(targets_raw, str) else list(targets_raw)
+        except Exception:
+            targets = ["linear_q", "linear_k", "linear_v", "o_proj"]
+        cfg = {
+            "peft_type": "LORA",
+            "base_model_name_or_path": str(meta.get("base_model") or "ACE-Step-1.5-XL-Base"),
+            "inference_mode": True,
+            "r": int(meta.get("lora_rank") or 16),
+            "lora_alpha": int(meta.get("lora_alpha") or 32),
+            "lora_dropout": 0.05,
+            "bias": "none",
+            "target_modules": targets,
+        }
+
+    if cfg is None:
+        return None
+
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "adapter_config.json"), "w", encoding="utf-8") as cf:
+        json.dump(cfg, cf, indent=2)
+    shutil.copy2(safetensors_path, os.path.join(out_dir, "adapter_model.safetensors"))
+    shutil.copy2(safetensors_path, os.path.join(out_dir, "pytorch_lora_weights.safetensors"))
+    return out_dir
 
 
 def inspect_volume_lora_inventory(cache_dir: Optional[str] = None) -> Dict[str, Any]:
@@ -562,12 +646,57 @@ class ZRModelManager:
                 continue
 
             pipeline_ok = True
-            if self._pipeline is not None and hasattr(self._pipeline, "load_lora"):
-                try:
-                    self._pipeline.load_lora(local_path, lora_weight=weight)
-                except Exception as exc:
-                    pipeline_ok = False
-                    print(f"[ZR-WARN] LoRA load failed ({local_path}): {exc}", flush=True)
+            if self._pipeline is not None:
+                loaded_direct = False
+                dit = getattr(self._pipeline, "ace_step_transformer", None)
+                if dit is not None and hasattr(dit, "load_lora_adapter"):
+                    try:
+                        if hasattr(dit, "unload_lora"):
+                            try:
+                                dit.unload_lora()
+                            except Exception:
+                                pass
+                        dit.load_lora_adapter(
+                            local_path,
+                            adapter_name="ace_step_lora",
+                            with_alpha=True,
+                            prefix=None,
+                        )
+                        try:
+                            from diffusers.utils.peft_utils import set_weights_and_activate_adapters  # type: ignore
+
+                            set_weights_and_activate_adapters(dit, ["ace_step_lora"], [weight])
+                        except Exception:
+                            pass
+                        loaded_direct = True
+                    except Exception as exc_dit:
+                        print(f"[ZR-WARN] Direct transformer load_lora_adapter failed ({local_path}): {exc_dit}", flush=True)
+
+                if not loaded_direct and hasattr(self._pipeline, "load_lora"):
+                    try:
+                        self._pipeline.load_lora(local_path, lora_weight=weight)
+                        loaded_direct = True
+                    except Exception as exc:
+                        print(f"[ZR-WARN] Single-file load_lora failed ({local_path}): {exc}", flush=True)
+
+                if not loaded_direct:
+                    peft_dir = os.path.join(self.lora_cache_dir, f"{lora_id}_peft")
+                    mat_dir = materialize_peft_dir_from_safetensors(local_path, peft_dir)
+                    if mat_dir is not None:
+                        try:
+                            if hasattr(self._pipeline, "load_lora"):
+                                self._pipeline.load_lora(mat_dir, lora_weight=weight)
+                                loaded_direct = True
+                            elif hasattr(self._pipeline, "ace_step_transformer") and hasattr(
+                                self._pipeline.ace_step_transformer, "load_lora_adapter"
+                            ):
+                                self._pipeline.ace_step_transformer.load_lora_adapter(mat_dir)
+                                loaded_direct = True
+                        except Exception as exc2:
+                            print(f"[ZR-WARN] Reconstructed PEFT dir load failed ({mat_dir}): {exc2}", flush=True)
+                    elif not hasattr(self._pipeline, "load_lora"):
+                        loaded_direct = True
+                pipeline_ok = loaded_direct
 
             if pipeline_ok:
                 loaded_entries.append({

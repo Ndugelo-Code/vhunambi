@@ -175,6 +175,23 @@ def runpod_handler(job: dict) -> dict:
     song_spec = dict(job_input.get("song_spec", {}) or {})
     webhook_url = job_input.get("webhook_url", "")
 
+    raw_job_type = str(job_input.get("job_type") or "").strip().lower()
+    if raw_job_type in ("lora_dataset_prep", "lora_train_peft"):
+        training_sib = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "zr-studio-training"))
+        if os.path.isdir(training_sib) and training_sib not in sys.path:
+            sys.path.insert(0, training_sib)
+        if raw_job_type == "lora_dataset_prep":
+            try:
+                from training.dataset_prep_worker import run_cloud_dataset_prep  # type: ignore
+            except ImportError:
+                from dataset_prep_worker import run_cloud_dataset_prep  # type: ignore
+            return run_cloud_dataset_prep(job_input, webhook_fn=send_webhook)
+        try:
+            from training.train_lora import run_cloud_peft_training  # type: ignore
+        except ImportError:
+            from train_lora import run_cloud_peft_training  # type: ignore
+        return run_cloud_peft_training(job_input, webhook_fn=send_webhook)
+
     melody_conditioning = job_input.get("melody_conditioning") or {}
     reference_audio_url = (
         job_input.get("reference_audio_url")

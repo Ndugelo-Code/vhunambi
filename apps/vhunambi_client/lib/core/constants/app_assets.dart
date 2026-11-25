@@ -14,7 +14,8 @@ abstract final class AppAssets {
   static const String vhunambiWordmark = '$brandingDir/vhunambi_wordmark.png';
 
   /// Raw wordmark with original textured background.
-  static const String vhunambiWordmarkRaw = '$brandingDir/vhunambi_wordmark_raw.png';
+  static const String vhunambiWordmarkRaw =
+      '$brandingDir/vhunambi_wordmark_raw.png';
 
   /// Isolated 512x512 golden crest monogram glyph.
   static const String vhunambiGlyph = '$brandingDir/vhunambi_glyph.png';
@@ -29,16 +30,20 @@ abstract final class AppAssets {
   static const String appIconFullBleed = '$brandingDir/app_icon_fullbleed.png';
 
   /// Compact brand mark SVG (header) — VH-006.
-  static const String vhunambiCompactMark = '$brandingDir/vhunambi_compact_mark.svg';
+  static const String vhunambiCompactMark =
+      '$brandingDir/vhunambi_compact_mark.svg';
 
   /// Full lockup SVG (wordmark + icon) for splash/onboarding — VH-006.
-  static const String vhunambiFullLockup = '$brandingDir/vhunambi_full_lockup.svg';
+  static const String vhunambiFullLockup =
+      '$brandingDir/vhunambi_full_lockup.svg';
 
   /// Master brand showcase artboard.
-  static const String brandShowcase = '$brandingDir/Vhunambi Music Brand Showcase.png';
+  static const String brandShowcase =
+      '$brandingDir/Vhunambi Music Brand Showcase.png';
 
   /// Master moodboard artboard.
-  static const String appMoodboard = '$brandingDir/Vhunambi Music App Moodboard.png';
+  static const String appMoodboard =
+      '$brandingDir/Vhunambi Music App Moodboard.png';
 
   // ---------------------------------------------------------------------------
   // Parent Company Attribution (assets/branding/madonisoftware/)
@@ -73,7 +78,8 @@ abstract final class AppAssets {
   static const String timbreProducer = '$artworkDir/timbre_producer.png';
 
   /// 512x512 Heritage Crate vinyl artwork (African Sunset Melodies).
-  static const String heritageCrateCover = '$artworkDir/heritage_crate_cover.png';
+  static const String heritageCrateCover =
+      '$artworkDir/heritage_crate_cover.png';
 
   /// 720x1280 mobile portrait hero backdrop (Music, Feel, Escape).
   static const String splashHero = '$artworkDir/splash_hero.png';
@@ -124,10 +130,14 @@ abstract final class AppAssets {
         g.contains('isicathamiya')) {
       return timbreElder;
     }
-    if (g.contains('afrobeats') || g.contains('r&b') || g.contains('highlife')) {
+    if (g.contains('afrobeats') ||
+        g.contains('r&b') ||
+        g.contains('highlife')) {
       return timbreCrooner;
     }
-    if (g.contains('tshiven') || g.contains('shangaan') || g.contains('kwaito')) {
+    if (g.contains('tshiven') ||
+        g.contains('shangaan') ||
+        g.contains('kwaito')) {
       return timbreCantor;
     }
     if (g.contains('spoken') || g.contains('bongo') || g.contains('soul')) {
@@ -159,7 +169,10 @@ abstract final class AppAssets {
       if (stripped.isNotEmpty) return stripped;
     }
     if (raw.startsWith('assets/')) return raw;
-    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    if (raw.startsWith('/r2/') ||
+        raw.startsWith('/mock-storage/') ||
+        raw.startsWith('http://') ||
+        raw.startsWith('https://')) {
       return AppConstants.normalizeCloudMediaUrl(raw);
     }
     return resolveGenreCoverAsset(genre, seedId: seedId);
