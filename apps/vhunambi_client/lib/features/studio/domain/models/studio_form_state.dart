@@ -236,6 +236,12 @@ class StudioFormState {
   /// Original song ID when seeded via 1-tap Remix (`StudioPastSongsRemixShelf`).
   final String? sourceTrackId;
 
+  /// Optional explicit Sovereign African LoRA Pack override (`EP-P83-SOVEREIGN-LORA-CATALOG`).
+  final String? selectedLoraId;
+
+  /// Blend strength weight for [selectedLoraId] (`0.10..1.20`).
+  final double selectedLoraWeight;
+
   const StudioFormState({
     this.prompt = '',
     this.referenceAudioPath,
@@ -285,6 +291,8 @@ class StudioFormState {
     this.sourcePhotoPath,
     this.sourcePhotoUrl,
     this.sourceTrackId,
+    this.selectedLoraId,
+    this.selectedLoraWeight = 0.85,
   }) : batchCount = batchCount < 1 ? 1 : (batchCount > 4 ? 4 : batchCount),
        branchStemLockModes =
            branchStemLockModes ??
@@ -458,6 +466,9 @@ class StudioFormState {
     bool clearSourcePhoto = false,
     String? sourceTrackId,
     bool clearSourceTrackId = false,
+    String? selectedLoraId,
+    bool clearSelectedLoraId = false,
+    double? selectedLoraWeight,
   }) {
     return StudioFormState(
       prompt: prompt ?? this.prompt,
@@ -505,6 +516,13 @@ class StudioFormState {
       sourceTrackId: clearSourceTrackId
           ? null
           : (sourceTrackId ?? this.sourceTrackId),
+      selectedLoraId: clearSelectedLoraId
+          ? null
+          : (selectedLoraId ?? this.selectedLoraId),
+      selectedLoraWeight: (selectedLoraWeight ?? this.selectedLoraWeight).clamp(
+        0.10,
+        1.20,
+      ),
     );
   }
 
@@ -541,7 +559,9 @@ class StudioFormState {
           listEquals(selectedVoiceIds, other.selectedVoiceIds) &&
           sourcePhotoPath == other.sourcePhotoPath &&
           sourcePhotoUrl == other.sourcePhotoUrl &&
-          sourceTrackId == other.sourceTrackId;
+          sourceTrackId == other.sourceTrackId &&
+          selectedLoraId == other.selectedLoraId &&
+          selectedLoraWeight == other.selectedLoraWeight;
 
   @override
   int get hashCode => Object.hashAll([
@@ -574,5 +594,86 @@ class StudioFormState {
     sourcePhotoPath,
     sourcePhotoUrl,
     sourceTrackId,
+    selectedLoraId,
+    selectedLoraWeight,
   ]);
 }
+
+/// Curated African Style LoRA Pack metadata mirrored 1:1 with Worker `lora_catalog.ts`.
+@immutable
+class AfricanLoraPackOption {
+  final String loraId;
+  final String label;
+  final String region;
+  final double defaultWeight;
+
+  const AfricanLoraPackOption({
+    required this.loraId,
+    required this.label,
+    required this.region,
+    this.defaultWeight = 0.85,
+  });
+}
+
+const List<AfricanLoraPackOption> kAfricanLoraPacks = <AfricanLoraPackOption>[
+  AfricanLoraPackOption(
+    loraId: 'amapiano_logdrum_v1',
+    label: 'Amapiano Log Drum',
+    region: 'Gauteng / SA',
+    defaultWeight: 0.85,
+  ),
+  AfricanLoraPackOption(
+    loraId: 'amapiano_private_school_v1',
+    label: 'Private School Rhodes',
+    region: 'Joburg / SA',
+    defaultWeight: 0.85,
+  ),
+  AfricanLoraPackOption(
+    loraId: 'sgija_bacardi_v1',
+    label: 'Sgija & Bacardi',
+    region: 'Tshwane / SA',
+    defaultWeight: 0.86,
+  ),
+  AfricanLoraPackOption(
+    loraId: 'gqom_durban_v1',
+    label: 'Durban Gqom Sub',
+    region: 'KZN / Durban',
+    defaultWeight: 0.88,
+  ),
+  AfricanLoraPackOption(
+    loraId: 'maskandi_picking_v1',
+    label: 'Maskandi Picking',
+    region: 'KZN / SA',
+    defaultWeight: 0.82,
+  ),
+  AfricanLoraPackOption(
+    loraId: 'venda_malende_v1',
+    label: 'Venda Malende',
+    region: 'Limpopo / Venda',
+    defaultWeight: 0.85,
+  ),
+  AfricanLoraPackOption(
+    loraId: 'afrobeats_lagos_v1',
+    label: 'Lagos Afrobeats',
+    region: 'West & Pan-Africa',
+    defaultWeight: 0.80,
+  ),
+  AfricanLoraPackOption(
+    loraId: 'kwaito_township_v1',
+    label: 'Township Kwaito',
+    region: 'Soweto / SA',
+    defaultWeight: 0.82,
+  ),
+  AfricanLoraPackOption(
+    loraId: 'afro_gospel_choir_v1',
+    label: 'Afro-Gospel Choir',
+    region: 'Southern Africa',
+    defaultWeight: 0.84,
+  ),
+  AfricanLoraPackOption(
+    loraId: 'afrohouse_ancestral_v1',
+    label: 'Ancestral Afro House',
+    region: 'Southern & East Africa',
+    defaultWeight: 0.85,
+  ),
+];

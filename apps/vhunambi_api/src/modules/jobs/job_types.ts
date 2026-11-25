@@ -1,4 +1,10 @@
-import { MasterMediaObjectManifest } from '../dna/dna_types.js';
+import {
+  LoraRuntimeMetrics,
+  MasterMediaObjectManifest,
+  MasteringMetrics,
+  RepaintHistoryEntry,
+  SvcMetrics,
+} from '../dna/dna_types.js';
 
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 export type PipelineStep =
@@ -64,6 +70,14 @@ export interface GenerationJob {
   coverUrl?: string;
   lyrics?: string;
   durationSec?: number;
+  sampleRateHz?: number;
+  masteringMode?: 'streaming' | 'club';
+  masteringMetrics?: MasteringMetrics;
+  svcMetrics?: SvcMetrics;
+  parentGenerationId?: string;
+  loraMetrics?: LoraRuntimeMetrics;
+  repaintHistory?: RepaintHistoryEntry[];
+  repaintMetadata?: Record<string, unknown>;
   errorMessage?: string;
   providerTaskId?: string;
   createdAt: Date;

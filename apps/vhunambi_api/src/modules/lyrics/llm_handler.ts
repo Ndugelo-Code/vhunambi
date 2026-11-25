@@ -4,6 +4,7 @@ import type { VhunambiWorkerEnv } from '../../types/cloudflare_worker_types.js';
 import { getLanguageContext } from '../bantu/language_context.js';
 import { VENDA_IDIOMS } from '../bantu/tshi_venda.js';
 import { getGenrePreset } from '../synthesis/constants.js';
+import { resolveRecommendedLoraForGenre } from '../synthesis/lora_catalog.js';
 import { sanitizeLyricsForClient } from './lyrics_sanitizer.js';
 
 export interface StanzaItem {
@@ -328,65 +329,12 @@ export function planSonicArrangementFromPrompt(
   const preset = getGenrePreset(genre);
   const langCtx = getLanguageContext(language);
   const cleanPrompt = prompt.trim() || `${genre} sunset groove`;
-  const gNorm = (genre || 'amapiano').toLowerCase().replace(/[^a-z]/g, '');
-
-  const loraMap: Record<
-    string,
-    { loraId: string; r2Key: string; weight: number }
-  > = {
-    amapiano: {
-      loraId: 'amapiano_logdrum_v1',
-      r2Key: 'loras/amapiano_logdrum_v1.safetensors',
-      weight: 0.85,
-    },
-    privateschoolamapiano: {
-      loraId: 'amapiano_logdrum_v1',
-      r2Key: 'loras/amapiano_logdrum_v1.safetensors',
-      weight: 0.85,
-    },
-    gqom: {
-      loraId: 'gqom_durban_v1',
-      r2Key: 'loras/gqom_durban_v1.safetensors',
-      weight: 0.88,
-    },
-    maskandi: {
-      loraId: 'maskandi_picking_v1',
-      r2Key: 'loras/maskandi_picking_v1.safetensors',
-      weight: 0.82,
-    },
-    venda: {
-      loraId: 'venda_malende_v1',
-      r2Key: 'loras/venda_malende_v1.safetensors',
-      weight: 0.85,
-    },
-    afrobeats: {
-      loraId: 'afrobeats_lagos_v1',
-      r2Key: 'loras/afrobeats_lagos_v1.safetensors',
-      weight: 0.80,
-    },
-    kwaito: {
-      loraId: 'kwaito_township_v1',
-      r2Key: 'loras/kwaito_township_v1.safetensors',
-      weight: 0.82,
-    },
-    gospel: {
-      loraId: 'afro_gospel_choir_v1',
-      r2Key: 'loras/afro_gospel_choir_v1.safetensors',
-      weight: 0.84,
-    },
-    afrohouse: {
-      loraId: 'afrohouse_ancestral_v1',
-      r2Key: 'loras/afrohouse_ancestral_v1.safetensors',
-      weight: 0.85,
-    },
+  const recLora = resolveRecommendedLoraForGenre(genre);
+  const recommendedLoRA = {
+    loraId: recLora.loraId,
+    r2Key: recLora.r2Key,
+    weight: recLora.defaultWeight,
   };
-  const loraKey =
-    loraMap[gNorm] !== undefined
-      ? gNorm
-      : Object.keys(loraMap)
-        .filter((k) => gNorm.includes(k))
-        .sort((a, b) => b.length - a.length)[0];
-  const recommendedLoRA = (loraKey ? loraMap[loraKey] : undefined) ?? loraMap.amapiano;
 
   const sonicTags = [
     genre.toLowerCase(),

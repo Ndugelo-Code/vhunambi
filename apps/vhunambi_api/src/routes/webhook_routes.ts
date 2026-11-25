@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import crypto from 'node:crypto';
 import { extractWorkerEnv, resolveRuntimeEnv } from '../config/env.js';
 import { vhunambiDb } from '../db/vhunambi_db.js';
@@ -7,7 +7,11 @@ import {
   updateJobProgress,
   completeJob,
   failJob,
+  normalizeLoraMetrics,
+  normalizeMasteringMetrics,
+  normalizeSvcMetrics,
   notifyGenerationCompletedOnce,
+  recordRepaintCompletionOnParent,
 } from '../modules/jobs/job_store.js';
 import type {
   GenerationTakeRecord,
@@ -18,6 +22,30 @@ import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
 import { broadcastGenerationEventToDo } from '../modules/realtime/generation_session_do.js';
 
 export const webhookRoutes = new Hono<{ Bindings: VhunambiWorkerEnv }>();
+
+async function syncWebhookProgressAsync(
+  c: Context<{ Bindings: VhunambiWorkerEnv }>,
+  generationId: string,
+  updates: { status: 'running'; step: PipelineStep; progressPct: number },
+): Promise<void> {
+  const work = async () => {
+    if (!getJob(generationId)) {
+      await vhunambiDb.syncGenerationJobFromCloud(generationId, c);
+    }
+    await vhunambiDb.updateGenerationJobAsync(generationId, updates, c);
+  };
+  const promise = work();
+  try {
+    const execCtx = c.executionCtx;
+    if (execCtx && typeof execCtx.waitUntil === 'function') {
+      execCtx.waitUntil(promise);
+      return;
+    }
+  } catch {
+    // Hono throws accessing c.executionCtx in Node / simulated-edge tests
+  }
+  await promise;
+}
 
 function mapWebhookStageToStep(rawStatus: string): PipelineStep {
   switch (rawStatus.trim().toLowerCase()) {
@@ -87,6 +115,11 @@ webhookRoutes.post('/ace-step', async (c) => {
     resolved_engine?: string | null;
     attribution_tag?: string | null;
     takes?: Array<Record<string, unknown>> | null;
+    sample_rate_hz?: number | null;
+    mastering_metrics?: Record<string, unknown> | null;
+    svc_metrics?: Record<string, unknown> | null;
+    lora_metrics?: Record<string, unknown> | null;
+    repaint_metadata?: Record<string, unknown> | null;
     error?: string | null;
     progress?: number | null;
     message?: string | null;
@@ -160,6 +193,11 @@ webhookRoutes.post('/ace-step', async (c) => {
       step,
       progressPct,
     });
+    await syncWebhookProgressAsync(c, generationId, {
+      status: 'running',
+      step,
+      progressPct,
+    });
     await broadcastGenerationEventToDo(workerEnv, {
       generationId,
       status: 'running',
@@ -221,6 +259,23 @@ webhookRoutes.post('/ace-step', async (c) => {
           ]
           : [];
 
+      const sampleRateHz =
+        typeof payload.sample_rate_hz === 'number' &&
+        Number.isFinite(payload.sample_rate_hz)
+          ? payload.sample_rate_hz
+          : existingJob?.sampleRateHz;
+      const masteringMetrics =
+        normalizeMasteringMetrics(payload.mastering_metrics) ??
+        existingJob?.masteringMetrics;
+      const svcMetrics =
+        normalizeSvcMetrics(payload.svc_metrics) ?? existingJob?.svcMetrics;
+      const loraMetrics =
+        normalizeLoraMetrics(payload.lora_metrics) ?? existingJob?.loraMetrics;
+      const repaintMetadata =
+        (payload.repaint_metadata && typeof payload.repaint_metadata === 'object'
+          ? payload.repaint_metadata
+          : undefined) ?? existingJob?.repaintMetadata;
+
       completeJob(generationId, {
         masterMp3Url,
         stemsZipUrl,
@@ -229,6 +284,11 @@ webhookRoutes.post('/ace-step', async (c) => {
         takes,
         attributionTag,
         resolvedEngine,
+        ...(sampleRateHz ? { sampleRateHz } : {}),
+        ...(masteringMetrics ? { masteringMetrics } : {}),
+        ...(svcMetrics ? { svcMetrics } : {}),
+        ...(loraMetrics ? { loraMetrics } : {}),
+        ...(repaintMetadata ? { repaintMetadata } : {}),
       });
 
       const updatedJob = getJob(generationId) ?? {
@@ -249,6 +309,11 @@ webhookRoutes.post('/ace-step', async (c) => {
         takes,
         attributionTag,
         resolvedEngine,
+        ...(sampleRateHz ? { sampleRateHz } : {}),
+        ...(masteringMetrics ? { masteringMetrics } : {}),
+        ...(svcMetrics ? { svcMetrics } : {}),
+        ...(loraMetrics ? { loraMetrics } : {}),
+        ...(repaintMetadata ? { repaintMetadata } : {}),
         createdAt: existingJob?.createdAt ?? new Date(),
         updatedAt: new Date(),
       };
@@ -258,6 +323,38 @@ webhookRoutes.post('/ace-step', async (c) => {
         'audio_synthesis',
         c,
       );
+
+      const parentId =
+        updatedJob.parentGenerationId ??
+        (repaintMetadata?.parent_job_id
+          ? String(repaintMetadata.parent_job_id)
+          : undefined);
+      if (parentId) {
+        const activeLoraIds =
+          loraMetrics?.loadedLoras
+            ?.filter((l) => l.loaded && l.loraId)
+            .map((l) => l.loraId) ?? [];
+        await recordRepaintCompletionOnParent(
+          parentId,
+          {
+            repaintId: generationId,
+            task: String(repaintMetadata?.task ?? 'repaint'),
+            startSec: Number(repaintMetadata?.start_sec ?? 0),
+            endSec: Number(repaintMetadata?.end_sec ?? 8),
+            targetStem: String(repaintMetadata?.target_stem ?? 'full'),
+            ...(repaintMetadata?.stem_locks &&
+            typeof repaintMetadata.stem_locks === 'object'
+              ? {
+                  stemLocks: repaintMetadata.stem_locks as Record<string, string>,
+                }
+              : {}),
+            ...(activeLoraIds.length > 0 ? { activeLoras: activeLoraIds } : {}),
+            createdAtIso: new Date().toISOString(),
+          },
+          c,
+        );
+      }
+
       await notifyGenerationCompletedOnce(updatedJob, c);
       await broadcastGenerationEventToDo(workerEnv, {
         generationId,
@@ -271,6 +368,9 @@ webhookRoutes.post('/ace-step', async (c) => {
         resolvedEngine,
         attributionTag,
         takes,
+        ...(sampleRateHz ? { sampleRateHz } : {}),
+        ...(masteringMetrics ? { masteringMetrics } : {}),
+        ...(svcMetrics ? { svcMetrics } : {}),
       });
       console.info(
         `[Webhook] Job ${generationId} (owner=${realCreatorId}) complete -> ${audio_url} (takes: ${takes.length}, stems: ${stem_urls ? 'yes' : 'no'})`,

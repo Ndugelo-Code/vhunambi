@@ -1,9 +1,27 @@
-# Fast delta image: only the Python worker modules change on top of vhunambi-v2.
-# Build:  docker buildx build --provenance=false -f Dockerfile.delta -t ndugelo/zr-studio-gpu:vhunambi-v3 --push .
-FROM ndugelo/zr-studio-gpu:vhunambi-v2
+# Fast delta image: upgrades vhunambi-v3 to Multi-Model Audio Engine vhunambi-v4
+# Build:  docker buildx build --provenance=false -f Dockerfile.delta -t ndugelo/zr-studio-gpu:vhunambi-v4 --push .
+FROM ndugelo/zr-studio-gpu:vhunambi-v3
 WORKDIR /app
-COPY model_utils.py mmo_extractor.py stem_mastering_worker.py seed_vc_worker.py handler.py /app/
-# Fail the build if the patched modules do not import cleanly.
-RUN python -m py_compile /app/model_utils.py /app/stem_mastering_worker.py /app/handler.py
+
+ENV PYTHONUNBUFFERED=1 \
+    HF_HOME=/runpod-volume/hf_cache \
+    HUGGINGFACE_HUB_CACHE=/runpod-volume/hf_cache/hub \
+    ZR_LORA_CACHE_DIR=/runpod-volume/lora_cache \
+    ZR_ROFORMER_CACHE_DIR=/runpod-volume/roformer_cache \
+    ZR_SEED_VC_CACHE_DIR=/runpod-volume/seed_vc_cache \
+    ZR_REF_MASTERS_DIR=/runpod-volume/ref_masters
+
+RUN pip install --no-cache-dir "soxr>=0.4.0" "matchering>=2.0.6" "audio-separator>=0.24.0"
+
+COPY model_router.py model_utils.py mmo_extractor.py stem_mastering_worker.py seed_vc_worker.py handler.py /app/
+
+RUN python -m py_compile \
+    /app/model_router.py \
+    /app/model_utils.py \
+    /app/mmo_extractor.py \
+    /app/stem_mastering_worker.py \
+    /app/seed_vc_worker.py \
+    /app/handler.py
+
 CMD [ "python", "-u", "/app/handler.py" ]
 

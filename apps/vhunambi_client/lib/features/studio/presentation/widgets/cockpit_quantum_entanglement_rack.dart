@@ -35,6 +35,8 @@ class _CockpitQuantumEntanglementRackState
   Widget build(BuildContext context) {
     final biomeGraph = ref.watch(myceliumBiomeGraphProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
     final lockedCount = biomeGraph.clusters.values
         .where((c) => c.stemLockMode == StemLockMode.lockedPure44k)
         .length;
@@ -42,9 +44,9 @@ class _CockpitQuantumEntanglementRackState
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.darkSurfaceElevated.withValues(alpha: 0.72)
-            : AppColors.lightSurfaceElevated.withValues(alpha: 0.9),
+        color: AppColors.surfaceElevatedOf(
+          context,
+        ).withValues(alpha: isDark ? 0.78 : 0.94),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: AppColors.brandPrimary.withValues(alpha: 0.25),
@@ -85,9 +87,7 @@ class _CockpitQuantumEntanglementRackState
                           style: AppTypography.caption.copyWith(
                             fontWeight: FontWeight.w800,
                             fontSize: 11.5,
-                            color: isDark
-                                ? AppColors.darkTextPrimary
-                                : AppColors.lightTextPrimary,
+                            color: textPrimary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -118,7 +118,7 @@ class _CockpitQuantumEntanglementRackState
                             ? PhosphorIconsBold.caretUp
                             : PhosphorIconsBold.caretDown,
                         size: 12,
-                        color: isDark ? Colors.white60 : Colors.black54,
+                        color: textSecondary,
                       ),
                     ],
                   ),
@@ -173,9 +173,9 @@ class _CockpitQuantumEntanglementRackState
       width: width,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF0A1422).withValues(alpha: 0.85)
-            : Colors.white.withValues(alpha: 0.92),
+        color: AppColors.surfaceSecondaryOf(
+          context,
+        ).withValues(alpha: isDark ? 0.85 : 0.96),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: domainColor.withValues(alpha: 0.45),
@@ -203,7 +203,7 @@ class _CockpitQuantumEntanglementRackState
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : Colors.black87,
+                    color: AppColors.textPrimaryOf(context),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -314,42 +314,57 @@ class _CockpitQuantumEntanglementRackState
     Key? primaryLockKey,
   }) {
     final isSelected = currentMode == targetMode;
-    final widgetKey = primaryLockKey ?? Key('cockpit_stem_lock_${domain.name}_${targetMode.name}');
+    final widgetKey =
+        primaryLockKey ??
+        Key('cockpit_stem_lock_${domain.name}_${targetMode.name}');
 
     return Expanded(
-      child: GestureDetector(
-        key: widgetKey,
-        onTap: () {
-          HapticFeedback.selectionClick();
-          ref
-              .read(songDnaGraphProvider.notifier)
-              .setStemLockMode(domain.legacyBranchRootId, targetMode);
-          ref
-              .read(studioFormProvider.notifier)
-              .setClusterStemLockMode(domain, targetMode);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? activeColor.withValues(alpha: 0.22)
-                : Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(5),
-            border: Border.all(
-              color: isSelected ? activeColor : Colors.white12,
-              width: 0.8,
-            ),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 8.5,
-                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-                color: isSelected ? activeColor : Colors.white60,
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          key: widgetKey,
+          borderRadius: BorderRadius.circular(8),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            ref
+                .read(songDnaGraphProvider.notifier)
+                .setStemLockMode(domain.legacyBranchRootId, targetMode);
+            ref
+                .read(studioFormProvider.notifier)
+                .setClusterStemLockMode(domain, targetMode);
+          },
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? activeColor.withValues(alpha: 0.22)
+                    : AppColors.surfaceElevatedOf(
+                        context,
+                      ).withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isSelected
+                      ? activeColor
+                      : AppColors.borderSubtleOf(context),
+                  width: 0.9,
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              child: Center(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                    color: isSelected
+                        ? activeColor
+                        : AppColors.textSecondaryOf(context),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
           ),
         ),

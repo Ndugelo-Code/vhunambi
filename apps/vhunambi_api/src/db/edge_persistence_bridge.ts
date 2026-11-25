@@ -6583,6 +6583,34 @@ export class EdgeIsolateDatabaseEngine {
         : existingJob?.manifestUrl,
       manifest,
       visionMeta,
+      sampleRateHz:
+        (typeof rawManifestObj?.sampleRateHz === 'number'
+          ? rawManifestObj.sampleRateHz
+          : undefined) ??
+        (typeof rawSpec?.sampleRateHz === 'number' ? rawSpec.sampleRateHz : undefined) ??
+        existingJob?.sampleRateHz,
+      masteringMode:
+        rawSpec?.masteringMode === 'club' || rawSpec?.masteringMode === 'streaming'
+          ? rawSpec.masteringMode
+          : existingJob?.masteringMode,
+      masteringMetrics:
+        (rawManifestObj?.masteringMetrics as GenerationJob['masteringMetrics']) ??
+        existingJob?.masteringMetrics,
+      svcMetrics:
+        (rawManifestObj?.svcMetrics as GenerationJob['svcMetrics']) ??
+        existingJob?.svcMetrics,
+      loraMetrics:
+        (rawManifestObj?.loraMetrics as GenerationJob['loraMetrics']) ??
+        existingJob?.loraMetrics,
+      repaintHistory: Array.isArray(rawManifestObj?.repaintHistory)
+        ? (rawManifestObj.repaintHistory as GenerationJob['repaintHistory'])
+        : existingJob?.repaintHistory,
+      parentGenerationId:
+        typeof rawManifestObj?.parentGenerationId === 'string'
+          ? rawManifestObj.parentGenerationId
+          : typeof rawSpec?.parentGenerationId === 'string'
+            ? rawSpec.parentGenerationId
+            : existingJob?.parentGenerationId,
       coverUrl: resolvedCoverUrl,
       lyrics: gj.lyrics_text ? String(gj.lyrics_text) : existingJob?.lyrics,
       durationSec: Number(gj.duration_sec ?? existingJob?.durationSec ?? 180),
@@ -6611,10 +6639,29 @@ export class EdgeIsolateDatabaseEngine {
   private buildGenerationManifestPayload(
     job: GenerationJob,
   ): Record<string, unknown> | null {
-    if (!job.manifest && !job.visionMeta) return null;
+    if (
+      !job.manifest &&
+      !job.visionMeta &&
+      !job.masteringMetrics &&
+      !job.svcMetrics &&
+      !job.loraMetrics &&
+      !job.repaintHistory &&
+      !job.parentGenerationId &&
+      !job.sampleRateHz
+    ) {
+      return null;
+    }
     return {
       ...(job.manifest ?? {}),
       ...(job.visionMeta ? { visionMeta: job.visionMeta } : {}),
+      ...(job.sampleRateHz ? { sampleRateHz: job.sampleRateHz } : {}),
+      ...(job.masteringMetrics ? { masteringMetrics: job.masteringMetrics } : {}),
+      ...(job.svcMetrics ? { svcMetrics: job.svcMetrics } : {}),
+      ...(job.loraMetrics ? { loraMetrics: job.loraMetrics } : {}),
+      ...(job.repaintHistory ? { repaintHistory: job.repaintHistory } : {}),
+      ...(job.parentGenerationId
+        ? { parentGenerationId: job.parentGenerationId }
+        : {}),
     };
   }
 
@@ -6656,6 +6703,14 @@ export class EdgeIsolateDatabaseEngine {
       manifestUrl: job.manifestUrl ?? existing?.job.manifestUrl,
       manifest: job.manifest ?? existing?.job.manifest,
       visionMeta: job.visionMeta ?? existing?.job.visionMeta,
+      sampleRateHz: job.sampleRateHz ?? existing?.job.sampleRateHz,
+      masteringMode: job.masteringMode ?? existing?.job.masteringMode,
+      masteringMetrics: job.masteringMetrics ?? existing?.job.masteringMetrics,
+      svcMetrics: job.svcMetrics ?? existing?.job.svcMetrics,
+      loraMetrics: job.loraMetrics ?? existing?.job.loraMetrics,
+      repaintHistory: job.repaintHistory ?? existing?.job.repaintHistory,
+      parentGenerationId:
+        job.parentGenerationId ?? existing?.job.parentGenerationId,
       coverUrl: job.coverUrl ?? existing?.job.coverUrl,
       lyrics: job.lyrics ?? existing?.job.lyrics,
     };

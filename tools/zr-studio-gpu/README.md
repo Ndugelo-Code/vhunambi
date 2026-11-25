@@ -1,6 +1,11 @@
-# ZR Studio GPU Worker (`ndugelo/zr-studio-gpu:vhunambi-v3`)
+# ZR Studio GPU Worker (`ndugelo/zr-studio-gpu:vhunambi-v4`)
 
-Containerized Runpod Serverless GPU worker executing the 5-stage ZR Studio neural audio & MMO telemetry pipeline:
+Containerized Runpod Serverless GPU worker executing the Phase 81 Multi-Model Audio Engine (`ZRMultiModelRouter` + 5-stage DSP & MMO telemetry pipeline) and Phase 82 Studio Baking Post-Processing Chain (`44.1/48 kHz` upsampling, `BS-RoFormer` lead-vocal isolation, neural `Seed-VC` timbre transfer with Bantu plosive/click preservation, and 6-genre SA `Matchering 2.0` + `pyloudnorm` broadcast mastering):
+
+0. **Multi-Model Router (`model_router.py` — `:vhunambi-v4` on `L40S 48GB` + `100 GB` `/runpod-volume`)**:
+   - **`minimax_music_3` (`MiniMaxAI/MiniMax-Music3`, `<= 300s` sweet spot / `360s` hard cap):** Primary Studio Bake engine for vocal songs, duets (`[Voice A]`/`[Voice B]`), and arrangement tags (`[Log Drum Drop]`, `[Guitar Solo]`), emitting `32 kHz` WAV cleanly upsampled via `soxr` (`441/320` polyphase) to `44.1 kHz` with mandatory `"MiniMax-Music3"` attribution.
+   - **`ace_step_xl_sft` / `ace_step_xl_base` / `ace_step_xl_turbo` (`ACE-Step 1.5 XL` — `MIT` License):** Handles instrumentals (shielding `sglang-omni` from HTTP `400`), Reference Audio / Seed-VC voice cloning (`xl-base` + `/runpod-volume/lora_cache`), and rapid `12`-step drafts (`xl-turbo`). Strictly **zero `YuE2` (`CC BY-NC 4.0`)**.
+   - **Multi-Take A&R Scorer:** Renders `1..4` unique crypto-seeded takes (`audio/{job_id}/take_{i}.mp3`), scores across non-silence, crest-factor pocket, vocal presence, and anti-clipping, and promotes the highest-scoring take to `master.mp3`.
 
 1. **Stage 1 (`ace_step_synthesis`)**: Neural music synthesis via **ACE-Step 1.5 (3.5B)** (`bf16` precision) with dynamic genre LoRA adapter hot-loading (`loras/*.safetensors` fetched from Cloudflare R2 to `/tmp/zr_lora_cache`), Latin-script Bantu language guard (prevents `LangSegment` CJK misclassification), and ACE-Step lyric sanitizer (strips non-structural brackets). Fallback: `zr_harmonic_multi_stem_synthesizer`.
 2. **Stage 2 (`demucs_stem_separation`)**: 4-stem (`bass`, `drums`, `vocals`, `melodic`) separation via Hybrid Demucs (`htdemucs`) with zero-crossing phase alignment. **Used ONLY for Stem Mixer deck — NOT for master re-summing.**

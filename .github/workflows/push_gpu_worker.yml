@@ -12,7 +12,7 @@ on:
 
 jobs:
   build-and-push:
-    name: Build & Push ndugelo/zr-studio-gpu:vhunambi-v1
+    name: Build & Push ndugelo/zr-studio-gpu:vhunambi-v4
     runs-on: ubuntu-latest
 
     steps:
@@ -32,11 +32,11 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./tools/zr-studio-gpu
-          file: ./tools/zr-studio-gpu/Dockerfile
+          file: ./tools/zr-studio-gpu/Dockerfile.delta
           platforms: linux/amd64
           push: true
-          tags: ndugelo/zr-studio-gpu:vhunambi-v1
+          tags: ndugelo/zr-studio-gpu:vhunambi-v4
           cache-from: |
-            type=registry,ref=ndugelo/zr-studio-gpu:latest
-            type=registry,ref=ndugelo/zr-studio-gpu:vhunambi-v1
+            type=registry,ref=ndugelo/zr-studio-gpu:vhunambi-v3
+            type=registry,ref=ndugelo/zr-studio-gpu:vhunambi-v4
 

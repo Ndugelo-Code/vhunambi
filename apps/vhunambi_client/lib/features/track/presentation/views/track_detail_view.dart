@@ -32,6 +32,7 @@ import '../../../social/presentation/providers/creator_wallet_provider.dart';
 import '../../../social/presentation/providers/reels_comments_provider.dart';
 import '../../../social/presentation/widgets/threaded_comments_section.dart';
 import '../../../content_studio/presentation/views/kinetic_reel_studio_view.dart';
+import '../../../studio/domain/models/studio_genre_catalog.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import '../../domain/models/track_detail_models.dart';
 import '../providers/track_providers.dart';
@@ -40,6 +41,7 @@ import '../widgets/lyrics_teleprompter.dart';
 import '../widgets/more_like_this_shelf.dart';
 import '../widgets/prompt_attribution_card.dart';
 import '../widgets/track_living_biome_preview_card.dart';
+import '../widgets/track_section_repaint_sheet.dart';
 import '../widgets/stem_separation_lab.dart';
 import '../widgets/track_actions_bar.dart';
 import '../widgets/track_hero_section.dart';
@@ -130,13 +132,24 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
   }
 
   void _handleRemix(TrackDetailEntity track) {
-    // Write prompt and genre into StudioFormNotifier
-    ref.read(studioFormProvider.notifier).updatePrompt(track.prompt);
-    ref.read(studioFormProvider.notifier).setGenre(track.genre);
+    // Write full track lineage, audio ref, genre, language, and lyrics into StudioFormNotifier
+    final formNotifier = ref.read(studioFormProvider.notifier);
+    formNotifier.applyPastTrackRemix(
+      trackId: track.id,
+      title: track.title,
+      genre: track.genre,
+      region: regionForGenre(track.genre),
+      language: track.language,
+      referenceAudioPath: track.audioUrl,
+      lyrics: track.lyrics,
+    );
+    if (track.prompt.trim().isNotEmpty) {
+      formNotifier.updatePrompt(track.prompt);
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Prompt transferred to Studio: "${track.prompt}"'),
-        backgroundColor: AppColors.surfaceElevated,
+        content: Text('Loaded "${track.title}" stems & DNA into Studio Remix.'),
+        backgroundColor: AppColors.surfaceElevatedOf(context),
       ),
     );
     if (widget.onNavigateToStudio != null) {
@@ -850,6 +863,41 @@ class _TrackDetailViewState extends ConsumerState<TrackDetailView> {
                           ),
                           label: Text(
                             'Master Track (Studio Polisher)',
+                            style: AppTypography.bodyLarge.copyWith(
+                              color: AppColors.brandPrimary,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                              color: AppColors.brandPrimary,
+                            ),
+                            minimumSize: const Size.fromHeight(48),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: AppRadius.inputBorder,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: AppSpacing.sm),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: OutlinedButton.icon(
+                          key: const Key('track_detail_open_repaint_btn'),
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            TrackSectionRepaintSheet.show(
+                              context,
+                              track: track,
+                            );
+                          },
+                          icon: const PhosphorIcon(
+                            PhosphorIconsRegular.magicWand,
+                            color: AppColors.brandPrimary,
+                            size: 20,
+                          ),
+                          label: Text(
+                            'Section Repaint & Inpaint (XL-Base)',
                             style: AppTypography.bodyLarge.copyWith(
                               color: AppColors.brandPrimary,
                             ),

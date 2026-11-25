@@ -96,11 +96,60 @@ export interface SongSectionBlueprint {
   visualPresetOverride?: 'subtle_drift' | 'logdrum_punch' | 'hyperkinetic';
 }
 
+export interface MasteringMetrics {
+  mode?: 'streaming' | 'club' | string;
+  profileId?: string;
+  integratedLufs?: number;
+  targetLufs?: number;
+  truePeakDbtp?: number;
+  sampleRateHz?: number;
+  engine?: string;
+}
+
+export interface SvcMetrics {
+  applied?: boolean;
+  engine?: string;
+  referenceDecoded?: boolean;
+  similarityScore?: number;
+  bantuTransientsPreserved?: boolean;
+  polishApplied?: boolean;
+}
+
+export interface LoraRuntimeMetrics {
+  requestedCount?: number;
+  loadedCount?: number;
+  loadedLoras?: Array<{
+    loraId: string;
+    r2Key: string;
+    weight: number;
+    sha256?: string;
+    loaded: boolean;
+  }>;
+}
+
+export interface RepaintHistoryEntry {
+  repaintId: string;
+  task: 'repaint' | 'lego' | 'complete' | string;
+  startSec: number;
+  endSec: number;
+  targetStem: string;
+  stemLocks?: Record<string, string>;
+  activeLoras?: string[];
+  createdAtIso: string;
+}
+
 export interface MasterMediaObjectManifest extends Omit<SongMetadataDNA, 'version' | 'alignment'> {
   schemaVersion: '2.0';
   version?: string;
   provenance: 'measured' | 'synthesized';
   alignment: LyricWordTimestampV2[];
+  sampleRateHz?: number;
+  resolvedEngine?: string;
+  attributionTag?: string | null;
+  masteringMetrics?: MasteringMetrics;
+  svcMetrics?: SvcMetrics;
+  loraMetrics?: LoraRuntimeMetrics;
+  repaintHistory?: RepaintHistoryEntry[];
 
   assets: {
     masterMp3Url: string;

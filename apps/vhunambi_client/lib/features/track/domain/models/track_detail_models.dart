@@ -148,6 +148,15 @@ class TrackDetailEntity {
   final String musicalKey;
   final String moodId;
   final bool allowOpenStemsRemix;
+  final double? integratedLufs;
+  final String? masteringProfile;
+  final String? attributionTag;
+  final int? sampleRateHz;
+  final bool voiceCloneApplied;
+  final List<TrackTakeRecord> takes;
+  final List<TrackRepaintEntry> repaintHistory;
+  final List<String> activeLoras;
+  final int selectedTakeIndex;
 
   const TrackDetailEntity({
     required this.id,
@@ -181,6 +190,15 @@ class TrackDetailEntity {
     this.musicalKey = 'F#m',
     this.moodId = 'uplifting',
     this.allowOpenStemsRemix = false,
+    this.integratedLufs,
+    this.masteringProfile,
+    this.attributionTag,
+    this.sampleRateHz,
+    this.voiceCloneApplied = false,
+    this.takes = const [],
+    this.repaintHistory = const [],
+    this.activeLoras = const [],
+    this.selectedTakeIndex = 0,
   });
 
   bool get isCommercial => licenseType == LicenseType.commercial;
@@ -222,6 +240,15 @@ class TrackDetailEntity {
     String? musicalKey,
     String? moodId,
     bool? allowOpenStemsRemix,
+    double? integratedLufs,
+    String? masteringProfile,
+    String? attributionTag,
+    int? sampleRateHz,
+    bool? voiceCloneApplied,
+    List<TrackTakeRecord>? takes,
+    List<TrackRepaintEntry>? repaintHistory,
+    List<String>? activeLoras,
+    int? selectedTakeIndex,
   }) {
     return TrackDetailEntity(
       id: id,
@@ -249,8 +276,57 @@ class TrackDetailEntity {
       musicalKey: musicalKey ?? this.musicalKey,
       moodId: moodId ?? this.moodId,
       allowOpenStemsRemix: allowOpenStemsRemix ?? this.allowOpenStemsRemix,
+      integratedLufs: integratedLufs ?? this.integratedLufs,
+      masteringProfile: masteringProfile ?? this.masteringProfile,
+      attributionTag: attributionTag ?? this.attributionTag,
+      sampleRateHz: sampleRateHz ?? this.sampleRateHz,
+      voiceCloneApplied: voiceCloneApplied ?? this.voiceCloneApplied,
+      takes: takes ?? this.takes,
+      repaintHistory: repaintHistory ?? this.repaintHistory,
+      activeLoras: activeLoras ?? this.activeLoras,
+      selectedTakeIndex: selectedTakeIndex ?? this.selectedTakeIndex,
     );
   }
+}
+
+/// Multi-take A&R candidate metadata hydrated on Track Detail (`EP-P81-MULTITAKE-AR-SCORER`).
+@immutable
+class TrackTakeRecord {
+  final int takeIndex;
+  final int seed;
+  final String engineUsed;
+  final String audioUrl;
+  final double? score;
+  final String? attribution;
+
+  const TrackTakeRecord({
+    required this.takeIndex,
+    required this.seed,
+    required this.engineUsed,
+    required this.audioUrl,
+    this.score,
+    this.attribution,
+  });
+}
+
+/// Post-generation section repaint revision entry (`EP-P83-ACE-STEP-SECTION-REPAINT`).
+@immutable
+class TrackRepaintEntry {
+  final String repaintId;
+  final String task;
+  final double startSec;
+  final double endSec;
+  final String targetStem;
+  final String createdAtIso;
+
+  const TrackRepaintEntry({
+    required this.repaintId,
+    required this.task,
+    required this.startSec,
+    required this.endSec,
+    required this.targetStem,
+    required this.createdAtIso,
+  });
 }
 
 /// Discussion thread entry (REQ-TRK-11).

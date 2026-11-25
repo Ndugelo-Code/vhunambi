@@ -4917,12 +4917,41 @@ export class VhunambiDatabase {
 
     let manifest: GenerationJob['manifest'];
     let visionMeta: Record<string, unknown> | undefined;
+    let masteringMetrics: GenerationJob['masteringMetrics'];
+    let svcMetrics: GenerationJob['svcMetrics'];
+    let loraMetrics: GenerationJob['loraMetrics'];
+    let repaintHistory: GenerationJob['repaintHistory'];
+    let parentGenerationId: string | undefined;
+    let sampleRateHz: number | undefined;
     if (r.manifest_json) {
       try {
         const parsedManifest = JSON.parse(String(r.manifest_json)) as Record<string, unknown>;
         manifest = parsedManifest as unknown as GenerationJob['manifest'];
         if (parsedManifest.visionMeta && typeof parsedManifest.visionMeta === 'object') {
           visionMeta = parsedManifest.visionMeta as Record<string, unknown>;
+        }
+        if (
+          parsedManifest.masteringMetrics &&
+          typeof parsedManifest.masteringMetrics === 'object'
+        ) {
+          masteringMetrics =
+            parsedManifest.masteringMetrics as GenerationJob['masteringMetrics'];
+        }
+        if (parsedManifest.svcMetrics && typeof parsedManifest.svcMetrics === 'object') {
+          svcMetrics = parsedManifest.svcMetrics as GenerationJob['svcMetrics'];
+        }
+        if (parsedManifest.loraMetrics && typeof parsedManifest.loraMetrics === 'object') {
+          loraMetrics = parsedManifest.loraMetrics as GenerationJob['loraMetrics'];
+        }
+        if (Array.isArray(parsedManifest.repaintHistory)) {
+          repaintHistory =
+            parsedManifest.repaintHistory as GenerationJob['repaintHistory'];
+        }
+        if (typeof parsedManifest.parentGenerationId === 'string') {
+          parentGenerationId = parsedManifest.parentGenerationId;
+        }
+        if (typeof parsedManifest.sampleRateHz === 'number') {
+          sampleRateHz = parsedManifest.sampleRateHz;
         }
       } catch {
         manifest = undefined;
@@ -4991,6 +5020,24 @@ export class VhunambiDatabase {
       manifestUrl: r.manifest_url ? String(r.manifest_url) : undefined,
       manifest,
       visionMeta,
+      sampleRateHz:
+        sampleRateHz ??
+        (typeof generationSpec?.sampleRateHz === 'number'
+          ? generationSpec.sampleRateHz
+          : undefined),
+      ...(generationSpec?.masteringMode === 'club' ||
+        generationSpec?.masteringMode === 'streaming'
+        ? { masteringMode: generationSpec.masteringMode }
+        : {}),
+      masteringMetrics,
+      svcMetrics,
+      loraMetrics,
+      repaintHistory,
+      parentGenerationId:
+        parentGenerationId ??
+        (typeof generationSpec?.parentGenerationId === 'string'
+          ? generationSpec.parentGenerationId
+          : undefined),
       coverUrl: r.cover_url ? String(r.cover_url) : undefined,
       lyrics: r.lyrics_text ? String(r.lyrics_text) : undefined,
       durationSec: r.duration_sec !== null && r.duration_sec !== undefined ? Number(r.duration_sec) : undefined,
@@ -5081,10 +5128,25 @@ export class VhunambiDatabase {
         job.stemsZipUrl ?? null,
         JSON.stringify(job.stemUrls ?? {}),
         job.manifestUrl ?? null,
-        job.manifest || job.visionMeta
+        job.manifest ||
+          job.visionMeta ||
+          job.masteringMetrics ||
+          job.svcMetrics ||
+          job.loraMetrics ||
+          job.repaintHistory ||
+          job.parentGenerationId ||
+          job.sampleRateHz
           ? JSON.stringify({
             ...(job.manifest ?? {}),
             ...(job.visionMeta ? { visionMeta: job.visionMeta } : {}),
+            ...(job.sampleRateHz ? { sampleRateHz: job.sampleRateHz } : {}),
+            ...(job.masteringMetrics ? { masteringMetrics: job.masteringMetrics } : {}),
+            ...(job.svcMetrics ? { svcMetrics: job.svcMetrics } : {}),
+            ...(job.loraMetrics ? { loraMetrics: job.loraMetrics } : {}),
+            ...(job.repaintHistory ? { repaintHistory: job.repaintHistory } : {}),
+            ...(job.parentGenerationId
+              ? { parentGenerationId: job.parentGenerationId }
+              : {}),
           })
           : null,
         job.errorMessage ?? null,

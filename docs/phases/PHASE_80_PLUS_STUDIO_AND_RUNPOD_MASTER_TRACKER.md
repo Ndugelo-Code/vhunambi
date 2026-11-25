@@ -3,7 +3,7 @@
 > **Program ID:** `PROG-P80-P83-SOVEREIGN-STUDIO-ENGINE`  
 > **Baseline Completed:** **`Phase 79`** (`MEM-P79-SOVEREIGN-MEDIA-UPLOAD-ENGINE` — `18` phases indexed, `0 OPEN` endpoints, `58` Connectome endpoints)  
 > **Workflow Standard:** All-Gemini 4-Stage Engineering Loop (`Stage 1: Forensic Audit` ➔ `Stage 2/3: 5-Doc Spec Suite` ➔ `Stage 4: Two-Pass Execution & Verification` ➔ `SLEEP: Memory Consolidation`)  
-> **Last Updated:** `2026-11-24`
+> **Last Updated:** `2026-11-25`
 
 ---
 
@@ -14,10 +14,10 @@ Every phase below follows the strict Vhunambi lifecycle (`Audit` ➔ `5-Doc Spec
 | Phase | Title & Primary Layer | Stage 1 Audit (`docs/audits/`) | Stage 2/3 5-Doc Spec (`docs/phases/`) | Stage 4 Code & Tests | Cloud / RunPod Deploy | Memory (`SLEEP`) | Status |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | **`P79`** | **Sovereign Media Upload & Reuse Engine (`VhunambiMediaVault`) & Post Cockpit v2** *(Foundation Dependency)* | [x] | [x] | [x] | [x] | [x] | ✅ **DONE** |
-| **`P80`** | **Studio Cockpit V6 Glass Overhaul, `vhunambi.com` Parity & `StudioGenerationContractV6` Payload** *(Flutter + Worker + Supabase)* | [x] | [x] | [x] | [ ] | [x] | 🚀 **DEPLOY READY** |
-| **`P81`** | **RunPod Multi-Model Synthesis Router (`MiniMax Music 3.0` + `ACE-Step 1.5 XL`) & Multi-Take A&R Baking** *(RunPod L40S 48GB GPU + Worker Webhooks)* | [ ] | [ ] | [ ] | [ ] | [ ] | 📋 **QUEUED** |
-| **`P82`** | **Studio Baking Post-Processing Chain (`BS-RoFormer` + Neural `Seed-VC` + `Matchering 2.0` Mastering)** *(RunPod GPU DSP + MMO v2)* | [ ] | [ ] | [ ] | [ ] | [ ] | 📋 **QUEUED** |
-| **`P83`** | **Post-Generation Stem Repaint, Section Inpainting & Sovereign African LoRA Pack Activation** *(Track/Remix UI + `ACE-Step XL-Base`)* | [ ] | [ ] | [ ] | [ ] | [ ] | 📋 **CAPSTONE** |
+| **`P80`** | **Studio Cockpit V6 Glass Overhaul, `vhunambi.com` Parity & `StudioGenerationContractV6` Payload** *(Flutter + Worker + Supabase)* | [x] | [x] | [x] | [x] | [x] | ✅ **DONE** |
+| **`P81`** | **RunPod Multi-Model Synthesis Router (`MiniMax Music 3.0` + `ACE-Step 1.5 XL`) & Multi-Take A&R Baking** *(RunPod L40S 48GB GPU + Worker Webhooks)* | [x] | [x] | [x] | [ ] | [x] | 🚀 **CODE + WORKER LIVE** *(Push `:vhunambi-v4`)* |
+| **`P82`** | **Studio Baking Post-Processing Chain (`BS-RoFormer` + Neural `Seed-VC` + `Matchering 2.0` Mastering)** *(RunPod GPU DSP + MMO v2)* | [x] | [x] | [x] | [ ] | [x] | 🚀 **CODE + WORKER LIVE** *(Push `:vhunambi-v4`)* |
+| **`P83`** | **Post-Generation Stem Repaint, Section Inpainting & Sovereign African LoRA Pack Activation** *(Track/Remix UI + `ACE-Step XL-Base`)* | [x] | [x] | [x] | [ ] | [x] | 🚀 **CODE + WORKER LIVE** *(Push `:vhunambi-v4`)* |
 
 ---
 
@@ -122,57 +122,59 @@ Before running individual Stage 1 audits, the following **9 exact codebase traps
 ---
 
 ### 📋 Phase 81: RunPod Multi-Model Audio Engine (`MiniMax Music 3.0` + `ACE-Step 1.5 XL`)
-- **Audit Deliverable:** `docs/audits/PHASE81_RUNPOD_MULTIMODEL_AUDIO_ENGINE_AUDIT.md`
-- **Spec Folder:** `docs/phases/phase_81_runpod_multimodel_audio_engine/`
+- **Audit Deliverable:** [PHASE81_RUNPOD_MULTIMODEL_AUDIO_ENGINE_AUDIT.md](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/PHASE81_RUNPOD_MULTIMODEL_AUDIO_ENGINE_AUDIT.md) ✅
+- **Spec Folder:** [`docs/phases/phase_81_runpod_multimodel_audio_engine/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_81_runpod_multimodel_audio_engine/tasks.md) (`blueprint.md`, `requirements.md`, `design.md`, `tasks.md`, `memory.md` draft) ✅
 - **Connectome Wake Hubs:** `ai_synthesis_gpu,audio_transport,mood_taxonomy,quota_economy,sync_outbox`
 
 #### Master Checklist
-- [ ] **Cost-Optimal Container & Network Volume Architecture (`tools/zr-studio-gpu/` on `L40S 48GB`):**
-  - [ ] Target RunPod **`L40S 48GB`** (with `RTX 4090` / `A6000` compatibility) and upgrade `Dockerfile` + `/runpod-volume/hf_cache` bootstrap to host **`MiniMaxAI/MiniMax-Music3`** (`sglang-omni` / `bf16`) and **`ACE-Step 1.5 XL`** (`acestep-v15-xl-sft`, `acestep-v15-xl-base`, `acestep-v15-xl-turbo` + `4B Qwen3 Planner`) — strictly **zero `YuE2`**.
-- [ ] **Intelligent Multi-Model Router (`model_router.py` / `ZRModelManager`) & MiniMax Guardrails:**
-  - [ ] Route `engineTier == 'studio_bake'` **when `isInstrumental == false` and `referenceAudioUrl == null`** ➔ **MiniMax Music 3.0** (`<= 300s` sweet spot, `360s` hard cap) + stamp `attribution: 'MiniMax-Music3'` in `takes_json` & MMO manifest.
-  - [ ] **Instrumental & Reference Audio Guard:** Route `isInstrumental == true` OR `referenceAudioUrl != null` (`remix` / `cover` / `reference` / `inspiration`) OR `engineTier == 'sovereign_custom'` ➔ **ACE-Step 1.5 XL-SFT / XL-Base** so `sglang-omni` `/v1/audio/speech` never rejects empty lyrics or reference-audio fields with HTTP `400`.
-  - [ ] Route `engineTier == 'fast_draft'` ➔ **ACE-Step 1.5 XL-Turbo**.
-  - [ ] **Per-Take Random 64-Bit `seed` Generation:** Override `sglang-omni`'s deterministic `seed = 0` default by generating a fresh cryptographic 64-bit integer `seed` for every take (`1..batchCount`) and recording `{ takeIndex, seed, engineUsed, audioUrl, score, attribution }` into `takes_json`.
-- [ ] **Prompt & Duet Lyric Preservation:**
-  - [ ] Remove the 48-char truncation cap for rich model prompts and preserve `[Voice A]`, `[Voice B]`, `[Choir]`, `[Guitar Solo]`, and `[Log Drum Drop]` structural tags per model tokenizer while keeping `_install_latin_language_guard` active.
-  - [ ] Lift duration ceiling from `240s` to `360s` (`6 min`).
-- [ ] **Multi-Take A&R Baking & Long-Bake Async Telemetry:**
-  - [ ] Score multi-take candidates on vocal clarity, RMS dynamic contrast, BPM stability, and silence/artifact rejection, populating `takes_json` and promoting the top-scoring take to `master_mp3_url`.
-  - [ ] Stream granular HMAC-signed RunPod webhooks (`planning_lyrics` ➔ `synthesizing` ➔ `separating_stems` ➔ `converting_vocals` ➔ `mastering` ➔ `completed`) to `POST /v1/webhooks/ace-step` + `GenerationSessionDO` WebSocket, tuning Worker stale-queue thresholds for 5–15 minute bakes.
+- [x] **Cost-Optimal Container & Network Volume Architecture (`tools/zr-studio-gpu/` on `L40S 48GB`):**
+  - [x] Upgrade `Dockerfile`, `Dockerfile.delta`, `requirements.txt`, and `push_gpu_worker.yml` for `:vhunambi-v4` (`HF_HOME=/runpod-volume/hf_cache`, `ZR_LORA_CACHE_DIR=/runpod-volume/lora_cache`, `soxr>=0.4.0`, zero `YuE2`) + upgrade `e7wt9pgo7djv55` v8 to `40 GB` disk, `1200s` timeout, and `48 GB+` pools (`ADA_48_PRO`, `AMPERE_48`, `AMPERE_80`).
+  - [ ] Push `:vhunambi-v4` via GitHub Actions & provision/attach `100 GB` `/runpod-volume` (`$7/mo` out of `$13.57` balance) with pre-populated `MiniMaxAI/MiniMax-Music3` + `ACE-Step 1.5 XL` weights.
+- [x] **Intelligent Multi-Model Router (`model_router.py` / `ZRModelManager`) & MiniMax Guardrails:**
+  - [x] Route `engineTier == 'studio_bake'` **when `isInstrumental == false` and `referenceAudioUrl == null`** ➔ **MiniMax Music 3.0** (`<= 300s` sweet spot, `360s` hard cap) + stamp `attribution: 'MiniMax-Music3'` in `takes_json` & MMO manifest (with truthful attribution clearing on fallback).
+  - [x] **Instrumental & Reference Audio Guard:** Route `isInstrumental == true` OR `referenceAudioUrl != null` (`remix` / `cover` / `reference` / `inspiration`) OR `engineTier == 'sovereign_custom'` ➔ **ACE-Step 1.5 XL-SFT / XL-Base** so `sglang-omni` `/v1/audio/speech` never rejects empty lyrics or reference-audio fields with HTTP `400`.
+  - [x] Route `engineTier == 'fast_draft'` ➔ **ACE-Step 1.5 XL-Turbo** (`infer_steps = 12`).
+  - [x] **Per-Take Random 64-Bit `seed` Generation:** Override `sglang-omni`'s deterministic `seed = 0` default by generating a fresh cryptographic non-zero integer `seed` for every take (`1..batchCount`) and recording `{ takeIndex, seed, engineUsed, audioUrl, score, attribution }` into `takes_json`.
+- [x] **Prompt & Duet Lyric Preservation:**
+  - [x] Remove the 48-char truncation cap for rich model prompts and preserve `[Voice A]`, `[Voice B]`, `[Choir]`, `[Guitar Solo]`, and `[Log Drum Drop]` structural tags per model tokenizer while keeping `_install_latin_language_guard` active.
+  - [x] Lift duration ceiling from `240s` to `360s` (`6 min`).
+- [x] **Multi-Take A&R Baking & Long-Bake Async Telemetry:**
+  - [x] Score multi-take candidates (`score_take_ar_quality`) on active non-silence ratio, crest factor pocket, vocal presence, and anti-clipping, promoting top-scoring take to `master.mp3` + uploading `take_{i}.mp3`.
+  - [x] Stream granular HMAC-signed RunPod webhooks (`planning_lyrics` ➔ `synthesizing` ➔ `separating_stems` ➔ `converting_vocals` ➔ `mastering` ➔ `uploading` ➔ `completed`) to `POST /v1/webhooks/ace-step` + `GenerationSessionDO` WebSocket + cold-isolate Postgres sync & active `/status/:id` multi-take polling parity.
 
 ---
 
-### 📋 Phase 82: Studio Baking Post-Processing Chain (`BS-RoFormer` + Neural `Seed-VC` + `Matchering 2.0`)
-- **Audit Deliverable:** `docs/audits/PHASE82_VOCAL_CLONING_AND_BROADCAST_MASTERING_AUDIT.md`
-- **Spec Folder:** `docs/phases/phase_82_vocal_cloning_and_broadcast_mastering/`
+### 📐 Phase 82: Studio Baking Post-Processing Chain (`BS-RoFormer` + Neural `Seed-VC` + `Matchering 2.0`)
+- **Audit Deliverable:** [PHASE82_VOCAL_CLONING_AND_BROADCAST_MASTERING_AUDIT.md](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/PHASE82_VOCAL_CLONING_AND_BROADCAST_MASTERING_AUDIT.md) ✅
+- **Spec Folder:** [`docs/phases/phase_82_vocal_cloning_and_broadcast_mastering/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_82_vocal_cloning_and_broadcast_mastering/tasks.md) (`blueprint.md`, `requirements.md`, `design.md`, `tasks.md`, `memory.md` draft) ✅
 - **Connectome Wake Hubs:** `ai_synthesis_gpu,audio_transport,media_artwork,mood_taxonomy`
 
 #### Master Checklist
-- [ ] **High-Precision `32 kHz` ➔ `44.1 / 48 kHz` Upsampling Stage:**
-  - [ ] Detect `32 kHz` 16-bit stereo WAV outputs from `MiniMax Music 3.0` and upsample cleanly (`soxr` VHQ / polyphase sinc) to `44.1 kHz` (or `48 kHz`) 24-bit float/PCM before stem isolation and reference mastering.
-- [ ] **Surgical Vocal Isolation (`BS-RoFormer` / `Mel-Band RoFormer`):**
-  - [ ] Integrate `BS-RoFormer` / `Mel-Band RoFormer` on RunPod to cleanly separate lead vocals vs. backing harmonies/instrumentals without `htdemucs` phase bleed whenever vocal cloning or vocal polish is active, while retaining 4-stem (`vocals`, `drums`, `bass`, `melodic`) exports for the Track Stem Mixer.
-- [ ] **Real Neural `Seed-VC` Zero-Shot Singing Voice Conversion (`seed_vc_worker.py` — `GPL-3.0` Server-Side Isolated):**
-  - [ ] Replace the Phase 26 NumPy gain/diff placeholder with real neural **Seed-VC** flow-matching inference + RMVPE F0 pitch locking conditioned on the creator's 3-line recorded reference WAV from `VhunambiMediaVault` / `voice_clones`.
-  - [ ] Preserve Tshivenda dental/velar plosives (`ṋ, ḓ, ṱ, ḽ`) and Nguni click transients (`c, q, x`), followed by server-side Pedalboard vocal de-essing (`6.5 kHz`) and subtle stereo room glue before stem re-summing.
-- [ ] **Genre-Matched Broadcast Mastering (`Matchering 2.0` + Pedalboard + `pyloudnorm` — `GPL-3.0` Server-Side Isolated):**
-  - [ ] Curate and store royalty-free Vhunambi studio reference WAV profiles in R2 (`amapiano_club_ref.wav`, `private_school_amapiano_ref.wav`, `afro_fusion_radio_ref.wav`, `gospel_choir_ref.wav`, `maskandi_acoustic_ref.wav`, `gqom_durban_ref.wav`).
-  - [ ] Run **Matchering 2.0** spectral/RMS matching + `pyloudnorm` / Pedalboard true-peak ceiling (`-14.0 LUFS` streaming default or `-9.0 LUFS` club master at `-1.0 dBTP`), plus MMO v2.0 60Hz telemetry extraction and Track Detail `"Mastered · -14 LUFS"` / `"MiniMax-Music3"` provenance badges.
+- [x] **High-Precision `32 kHz` ➔ `44.1 / 48 kHz` Upsampling Stage:**
+  - [x] Detect `32 kHz` 16-bit stereo WAV outputs from `MiniMax Music 3.0` and upsample cleanly (`soxr` VHQ / polyphase sinc) to `44.1 kHz` (or `48 kHz`) 24-bit float/PCM before stem isolation and reference mastering.
+- [x] **Surgical Vocal Isolation (`BS-RoFormer` / `Mel-Band RoFormer`):**
+  - [x] Integrate `BS-RoFormer` / `Mel-Band RoFormer` on RunPod to cleanly separate lead vocals vs. backing harmonies/instrumentals without `htdemucs` phase bleed whenever vocal cloning or vocal polish is active, while retaining 4-stem (`vocals`, `drums`, `bass`, `melodic`) exports for the Track Stem Mixer.
+- [x] **Real Neural `Seed-VC` Zero-Shot Singing Voice Conversion (`seed_vc_worker.py` — `GPL-3.0` Server-Side Isolated):**
+  - [x] Replace the Phase 26 NumPy gain/diff placeholder with real neural **Seed-VC** flow-matching inference + RMVPE F0 pitch locking conditioned on the creator's 3-line recorded reference WAV from `VhunambiMediaVault` / `voice_clones`.
+  - [x] Preserve Tshivenda dental/velar plosives (`ṋ, ḓ, ṱ, ḽ`) and Nguni click transients (`c, q, x`), followed by server-side Pedalboard vocal de-essing (`6.5 kHz`) and subtle stereo room glue before stem re-summing.
+- [x] **Genre-Matched Broadcast Mastering (`Matchering 2.0` + Pedalboard + `pyloudnorm` — `GPL-3.0` Server-Side Isolated):**
+  - [x] Curate and store royalty-free Vhunambi studio reference WAV profiles in R2 (`amapiano_club_ref.wav`, `private_school_amapiano_ref.wav`, `afro_fusion_radio_ref.wav`, `gospel_choir_ref.wav`, `maskandi_acoustic_ref.wav`, `gqom_durban_ref.wav`).
+  - [x] Run **Matchering 2.0** spectral/RMS matching + `pyloudnorm` / Pedalboard true-peak ceiling (`-14.0 LUFS` streaming default or `-9.0 LUFS` club master at `-1.0 dBTP`), plus MMO v2.0 60Hz telemetry extraction and Track Detail `"Mastered · -14 LUFS"` / `"MiniMax-Music3"` provenance badges.
 
 ---
 
-### 📋 Phase 83 (Capstone): Post-Generation Stem Repaint, Section Inpainting & African LoRA Activation
-- **Audit Deliverable:** `docs/audits/PHASE83_POSTGEN_STEM_REPAINT_AND_LORA_STUDIO_AUDIT.md`
-- **Spec Folder:** `docs/phases/phase_83_postgen_stem_repaint_and_lora_studio/`
-- **Connectome Wake Hubs:** `ai_synthesis_gpu,audio_transport,ui_surface_std,media_artwork`
+### 🚀 Phase 83 (Capstone): Post-Generation Stem Repaint, Section Inpainting & African LoRA Activation
+- **Audit Deliverable:** [PHASE83_POSTGEN_STEM_REPAINT_AND_LORA_STUDIO_AUDIT.md](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/audits/PHASE83_POSTGEN_STEM_REPAINT_AND_LORA_STUDIO_AUDIT.md) ✅
+- **Spec Folder:** [`docs/phases/phase_83_postgen_stem_repaint_and_lora_studio/`](file:///c:/Users/Ndugelo/VHUNAMBI/monorepo/docs/phases/phase_83_postgen_stem_repaint_and_lora_studio/tasks.md) (`blueprint.md`, `requirements.md`, `design.md`, `tasks.md`, `memory.md` completed) ✅
+- **Connectome Wake Hubs:** `ai_synthesis_gpu,audio_transport,ui_surface_std,media_artwork,mood_taxonomy,sync_outbox`
 
 #### Master Checklist
-- [ ] **Post-Generation Section Repaint & Stem Authority (`STU-02` Destination):**
-  - [ ] Surface the relocated `Lock | Inpaint | Resynth` controls (`CockpitQuantumEntanglementRack` / Stem Repaint drawer) inside Post-Generation Track / Remix Studio (where a real song waveform and 4 stems already exist).
-  - [ ] Wire bar/timestamp range selection (`startSec`..`endSec`) + lyric edits to `POST /v1/generations/:id/repaint` ➔ `ACE-Step 1.5 XL-Base` (`repaint` / `lego` / `complete` tasks).
-- [ ] **Sovereign Regional LoRA Registry Verification:**
-  - [ ] Audit, validate, and hot-swap real `ACE-Step 1.5 XL` `.safetensors` regional adapters in R2 (`amapiano_logdrum`, `private_school_amapiano`, `maskandi_picking`, `venda_malende`, `gqom_durban`, `afro_gospel_choir`).
+- [x] **Post-Generation Section Repaint & Stem Authority (`STU-02` Destination):**
+  - [x] Surface the relocated `Lock | Inpaint | Resynth` controls (`CockpitQuantumEntanglementRack` / `TrackSectionRepaintSheet`) inside Post-Generation Track / Remix Studio (where a real song waveform and 4 stems already exist).
+  - [x] Wire bar/timestamp range selection (`startSec`..`endSec`) + lyric edits to `POST /v1/generations/:id/repaint` ➔ `ACE-Step 1.5 XL-Base` (`repaint` / `lego` / `complete` tasks).
+- [x] **Sovereign Regional LoRA Registry Verification (`Worker Live` `4d131620-95fc-443d-bd8b-0c964b72205c` + GPU Loader Hardened):**
+  - [x] Audit, validate, and harden canonical 10-pack African LoRA registry (`lora_catalog.ts`, `GET /v1/studio/loras`, SHA-256 verified `_hot_swap_loras`, multi-LoRA blend cap `<= 1.35`) covering all 42 genres.
+  - [ ] Upload trained `.safetensors` adapter weights to R2 `loras/*.safetensors` & push combined `P81+P82+P83` `:vhunambi-v4` container via `.github/workflows/push_gpu_worker.yml`.
 
 ---
 

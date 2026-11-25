@@ -233,6 +233,17 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
       _ => 'ai_writes',
     };
 
+    final explicitLoras =
+        (formSnapshot?.selectedLoraId != null &&
+            formSnapshot!.selectedLoraId!.trim().isNotEmpty)
+        ? <Map<String, dynamic>>[
+            <String, dynamic>{
+              'loraId': formSnapshot.selectedLoraId!.trim(),
+              'weight': formSnapshot.selectedLoraWeight,
+            },
+          ]
+        : null;
+
     // 2. Submit full V6 cockpit contract to backend API
     final submissionService = _ref.read(generationSubmissionServiceProvider);
     final response = await submissionService.submitGeneration(
@@ -264,6 +275,7 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
       melodyReferenceId: resolvedMelodyRefId,
       referenceAudioUrl: resolvedRefAudioUrl,
       pregenStemLocks: resolvedStemLocks,
+      loras: explicitLoras,
     );
     if (!mounted) return;
 
@@ -425,7 +437,8 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
     }
   }
 
-  /// Switches the active rendered take (`1..batchCount`) in the multi-take switcher.
+  /// Switches the active rendered take (`1..batchCount`) in the multi-take switcher
+  /// and synchronizes the vaulted `LibraryTrack.remoteAudioUrl`.
   void selectActiveTake(int index) {
     final current = state;
     if (current == null || current.takes.isEmpty) return;
@@ -434,8 +447,33 @@ class GenerationPipelineNotifier extends StateNotifier<GenerationProgressState?>
     state = updated;
     final nextTrack = updated.activeCompletedTrack;
     if (nextTrack != null && nextTrack.masterMp3Url.isNotEmpty) {
+      final normalizedUrl = AppConstants.normalizeCloudMediaUrl(
+        nextTrack.masterMp3Url,
+      );
       try {
-        _ref.read(playerStateProvider.notifier).playTrack(nextTrack.toTrack());
+        _ref
+            .read(playerStateProvider.notifier)
+            .playTrack(
+              nextTrack.copyWith(masterMp3Url: normalizedUrl).toTrack(),
+            );
+      } catch (_) {}
+      try {
+        final vaultTracks = _ref.read(libraryTracksProvider);
+        final existing = vaultTracks.cast<LibraryTrack?>().firstWhere(
+          (t) => t?.id == nextTrack.id,
+          orElse: () => null,
+        );
+        if (existing != null && existing.remoteAudioUrl != normalizedUrl) {
+          _ref
+              .read(libraryTracksProvider.notifier)
+              .addTrack(
+                existing.copyWith(
+                  remoteAudioUrl: normalizedUrl,
+                  durationSeconds: nextTrack.duration.inSeconds,
+                  updatedAtMs: DateTime.now().millisecondsSinceEpoch,
+                ),
+              );
+        }
       } catch (_) {}
     }
   }

@@ -4,7 +4,11 @@ import {
   SongMetadataDNA,
   LyricWordTimestamp,
   LyricWordTimestampV2,
+  LoraRuntimeMetrics,
   MasterMediaObjectManifest,
+  MasteringMetrics,
+  RepaintHistoryEntry,
+  SvcMetrics,
   StemRole,
   TransientEvent,
   MpcPadSliceManifest,
@@ -40,6 +44,13 @@ export interface CompileManifestInput extends CompileDnaInput {
   stemUrls?: Partial<Record<StemRole, string>>;
   provenance?: 'measured' | 'synthesized';
   melodyPattern?: MelodyPatternManifest;
+  sampleRateHz?: number;
+  resolvedEngine?: string;
+  attributionTag?: string | null;
+  masteringMetrics?: MasteringMetrics;
+  svcMetrics?: SvcMetrics;
+  loraMetrics?: LoraRuntimeMetrics;
+  repaintHistory?: RepaintHistoryEntry[];
 }
 
 /**
@@ -548,6 +559,21 @@ export function compileMasterMediaObjectManifest(
 
     schemaVersion: '2.0',
     provenance: manifestInput.provenance || 'synthesized',
+    ...(manifestInput.sampleRateHz ? { sampleRateHz: manifestInput.sampleRateHz } : {}),
+    ...(manifestInput.resolvedEngine
+      ? { resolvedEngine: manifestInput.resolvedEngine }
+      : {}),
+    ...(manifestInput.attributionTag !== undefined
+      ? { attributionTag: manifestInput.attributionTag }
+      : {}),
+    ...(manifestInput.masteringMetrics
+      ? { masteringMetrics: manifestInput.masteringMetrics }
+      : {}),
+    ...(manifestInput.svcMetrics ? { svcMetrics: manifestInput.svcMetrics } : {}),
+    ...(manifestInput.loraMetrics ? { loraMetrics: manifestInput.loraMetrics } : {}),
+    ...(manifestInput.repaintHistory && manifestInput.repaintHistory.length > 0
+      ? { repaintHistory: manifestInput.repaintHistory }
+      : {}),
 
     assets: {
       masterMp3Url,

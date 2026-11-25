@@ -381,30 +381,60 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
                       .read(generationProgressProvider.notifier)
                       .selectActiveTake(i),
                   borderRadius: AppRadius.pillBorder,
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 40),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: state.activeTakeIndex == i
-                          ? AppColors.brandPrimary
-                          : AppColors.surfaceSecondaryOf(context),
-                      borderRadius: AppRadius.pillBorder,
-                      border: Border.all(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
                         color: state.activeTakeIndex == i
                             ? AppColors.brandPrimary
-                            : AppColors.borderSubtleOf(context),
+                            : AppColors.surfaceSecondaryOf(context),
+                        borderRadius: AppRadius.pillBorder,
+                        border: Border.all(
+                          color: state.activeTakeIndex == i
+                              ? AppColors.brandPrimary
+                              : AppColors.borderSubtleOf(context),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      'Take ${i + 1}',
-                      style: AppTypography.caption.copyWith(
-                        color: state.activeTakeIndex == i
-                            ? AppColors.brandContrast
-                            : AppColors.textPrimaryOf(context),
-                        fontWeight: FontWeight.w800,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (i == 0 && state.takes[i].score != null) ...[
+                            PhosphorIcon(
+                              PhosphorIconsFill.sparkle,
+                              size: 13,
+                              color: state.activeTakeIndex == i
+                                  ? AppColors.brandContrast
+                                  : AppColors.coinGold,
+                            ),
+                            const SizedBox(width: 5),
+                          ],
+                          Text(
+                            'Take ${i + 1}',
+                            style: AppTypography.caption.copyWith(
+                              color: state.activeTakeIndex == i
+                                  ? AppColors.brandContrast
+                                  : AppColors.textPrimaryOf(context),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          if (state.takes[i].score != null) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              key: Key('pipeline_take_score_$i'),
+                              '${(state.takes[i].score! * 100).round()}%',
+                              style: AppTypography.badge.copyWith(
+                                color: state.activeTakeIndex == i
+                                    ? AppColors.brandContrast
+                                    : AppColors.textSecondaryOf(context),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
@@ -447,9 +477,9 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.surfaceSecondary,
+                color: AppColors.surfaceSecondaryOf(context),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.borderSubtle),
+                border: Border.all(color: AppColors.borderSubtleOf(context)),
               ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 220),
@@ -458,7 +488,7 @@ class _GenerationPipelineCardState extends ConsumerState<GenerationPipelineCard>
                   child: Text(
                     state.generatedLyrics!,
                     style: AppTypography.caption.copyWith(
-                      color: AppColors.textPrimary,
+                      color: AppColors.textPrimaryOf(context),
                       height: 1.5,
                     ),
                   ),
@@ -683,7 +713,7 @@ class _SkeletonBar extends StatelessWidget {
       child: Container(
         height: height,
         decoration: BoxDecoration(
-          color: AppColors.surfaceSecondary,
+          color: AppColors.surfaceSecondaryOf(context),
           borderRadius: AppRadius.pillBorder,
         ),
       ),
@@ -773,9 +803,9 @@ class _ReadyTrackCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
+        color: AppColors.surfaceSecondaryOf(context),
         borderRadius: AppRadius.cardBorder,
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

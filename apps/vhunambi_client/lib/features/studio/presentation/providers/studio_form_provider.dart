@@ -167,6 +167,21 @@ class StudioFormNotifier extends StateNotifier<StudioFormState> {
     state = state.copyWith(engineTier: tier);
   }
 
+  void setSelectedLora(String? loraId, {double? weight}) {
+    final normalized = loraId?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      state = state.copyWith(
+        clearSelectedLoraId: true,
+        selectedLoraWeight: weight,
+      );
+      return;
+    }
+    state = state.copyWith(
+      selectedLoraId: normalized,
+      selectedLoraWeight: weight,
+    );
+  }
+
   void setBatchCount(int count) {
     state = state.copyWith(batchCount: count.clamp(1, 4));
   }

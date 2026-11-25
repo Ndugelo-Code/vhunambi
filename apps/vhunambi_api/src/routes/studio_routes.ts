@@ -1,9 +1,29 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { improveStudioPromptWithLLM } from '../modules/lyrics/llm_handler.js';
+import {
+  AFRICAN_LORA_PACKS,
+  resolveRecommendedLoraForGenre,
+} from '../modules/synthesis/lora_catalog.js';
 import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
 
 export const studioRoutes = new Hono<{ Bindings: VhunambiWorkerEnv }>();
+
+/**
+ * GET /v1/studio/loras
+ * Exposes the canonical Sovereign African Style LoRA Pack catalog (`EP-P83-SOVEREIGN-LORA-CATALOG`).
+ */
+studioRoutes.get('/loras', (c) => {
+  const genre = c.req.query('genre') ?? 'Amapiano';
+  const recommended = resolveRecommendedLoraForGenre(genre);
+  return c.json({
+    success: true,
+    totalCount: AFRICAN_LORA_PACKS.length,
+    genre,
+    recommended,
+    packs: AFRICAN_LORA_PACKS,
+  });
+});
 
 const ImprovePromptSchema = z.object({
   prompt: z.string().trim().min(2).max(2000),

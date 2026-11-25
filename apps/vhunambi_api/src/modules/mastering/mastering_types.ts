@@ -48,7 +48,7 @@ export type StemEqBands = z.infer<typeof StemEqBandsSchema>;
 
 export const StemMasteringRecipeSchema = z.object({
   presetId: z.string().default('amapiano_club_knock'),
-  targetLufs: z.union([z.literal(-9.5), z.literal(-14.0)]).default(-9.5),
+  targetLufs: z.union([z.literal(-9.0), z.literal(-9.5), z.literal(-14.0)]).default(-9.5),
   sketchpadLayerMix: z.number().min(0).max(1).default(0.0).optional(),
   vocals: z.object({
     flavor: VocalCleanseFlavorSchema.default('studio_clean'),

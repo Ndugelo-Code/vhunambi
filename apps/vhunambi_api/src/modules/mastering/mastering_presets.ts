@@ -276,27 +276,61 @@ export function enrichManifestWithMasteringRecipe(
     Math.max(0, recipe.drums.transientAttackSnap) * 0.18 +
     recipe.drums.parallelCrushMix * 0.15;
   const melodicBoost = 1.0 + recipe.melodic.stereoWidthBoost * 0.15;
-  const lufsBoost = recipe.targetLufs === -9.5 ? 1.18 : 1.08;
+  const lufsBoost = recipe.targetLufs >= -9.5 ? 1.18 : 1.08;
 
   const baseId = manifest.id;
-  const masteredMp3Url = `/mock-storage/${baseId}_mastered.mp3`;
-  const masteredWavUrl = `/mock-storage/${baseId}_mastered.wav`;
+  const existingMasterUrl = manifest.assets?.masterMp3Url ?? '';
+  const isLiveCloudR2 =
+    existingMasterUrl.startsWith('https://') ||
+    existingMasterUrl.startsWith('http://') ||
+    existingMasterUrl.startsWith('/r2/');
+
+  const existingStems = manifest.assets?.stemUrls as
+    | (Partial<Record<'vocals' | 'drums' | 'bass' | 'melodic' | 'instrumental', string>>)
+    | undefined;
+
+  const masteredMp3Url = isLiveCloudR2
+    ? existingMasterUrl
+    : `/mock-storage/${baseId}_mastered.mp3`;
+  const masteredWavUrl = isLiveCloudR2
+    ? (manifest.assets?.masterWavUrl ?? existingMasterUrl)
+    : `/mock-storage/${baseId}_mastered.wav`;
+  const stemUrls =
+    isLiveCloudR2 && existingStems
+      ? {
+        vocals: existingStems.vocals || `/mock-storage/${baseId}_vocals_mastered.wav`,
+        drums: existingStems.drums || `/mock-storage/${baseId}_drums_mastered.wav`,
+        bass: existingStems.bass || `/mock-storage/${baseId}_bass_mastered.wav`,
+        melodic:
+          existingStems.melodic ||
+          existingStems.instrumental ||
+          `/mock-storage/${baseId}_melodic_mastered.wav`,
+      }
+      : {
+        vocals: `/mock-storage/${baseId}_vocals_mastered.wav`,
+        drums: `/mock-storage/${baseId}_drums_mastered.wav`,
+        bass: `/mock-storage/${baseId}_bass_mastered.wav`,
+        melodic: `/mock-storage/${baseId}_melodic_mastered.wav`,
+      };
 
   const curves = manifest.modulationBus.encodedCurvesBase64;
 
   return {
     ...manifest,
     provenance: 'measured',
+    masteringMetrics: {
+      ...(manifest.masteringMetrics ?? {}),
+      mode: recipe.targetLufs <= -13.0 ? 'streaming' : 'club',
+      profileId: recipe.presetId,
+      targetLufs: recipe.targetLufs,
+      integratedLufs: manifest.masteringMetrics?.integratedLufs ?? recipe.targetLufs,
+      truePeakDbtp: manifest.masteringMetrics?.truePeakDbtp ?? -1.0,
+    },
     assets: {
       ...manifest.assets,
       masterMp3Url: masteredMp3Url,
       masterWavUrl: masteredWavUrl,
-      stemUrls: {
-        vocals: `/mock-storage/${baseId}_vocals_mastered.wav`,
-        drums: `/mock-storage/${baseId}_drums_mastered.wav`,
-        bass: `/mock-storage/${baseId}_bass_mastered.wav`,
-        melodic: `/mock-storage/${baseId}_melodic_mastered.wav`,
-      },
+      stemUrls,
     },
     modulationBus: {
       ...manifest.modulationBus,

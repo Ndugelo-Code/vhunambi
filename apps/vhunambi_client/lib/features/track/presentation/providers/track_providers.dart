@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -141,6 +142,153 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
 
       final body = JsonSafe.decodeMap(response.body);
       if (body == null) return null;
+
+      final masteringMap = JsonSafe.asMap(
+        body['masteringMetrics'] ?? body['mastering_metrics'],
+      );
+      final svcMap = JsonSafe.asMap(body['svcMetrics'] ?? body['svc_metrics']);
+      final rawLufs =
+          masteringMap['integratedLufs'] ?? masteringMap['integrated_lufs'];
+      final integratedLufs = rawLufs is num
+          ? rawLufs.toDouble()
+          : double.tryParse(JsonSafe.asString(rawLufs));
+      final masteringProfile = JsonSafe.asString(
+        masteringMap['profileId'] ?? masteringMap['profile_id'],
+      );
+      final attributionTag = JsonSafe.asString(
+        body['attributionTag'] ?? body['attribution_tag'],
+      );
+      final rawSr =
+          body['sampleRateHz'] ??
+          body['sample_rate_hz'] ??
+          masteringMap['sampleRateHz'] ??
+          masteringMap['sample_rate_hz'];
+      final sampleRateHz = rawSr is num
+          ? rawSr.toInt()
+          : int.tryParse(JsonSafe.asString(rawSr));
+      final rawCloneApplied = svcMap['applied'];
+      final voiceCloneApplied = rawCloneApplied is bool
+          ? rawCloneApplied
+          : JsonSafe.asString(rawCloneApplied).toLowerCase() == 'true';
+
+      final rawRepaintList = body['repaintHistory'] ?? body['repaint_history'];
+      final parsedRepaintHistory = <TrackRepaintEntry>[];
+      if (rawRepaintList is List) {
+        for (final item in rawRepaintList) {
+          final m = JsonSafe.asMap(item);
+          final rpId = JsonSafe.asString(m['repaintId'] ?? m['repaint_id']);
+          if (rpId.isEmpty) continue;
+          final sRaw = m['startSec'] ?? m['start_sec'];
+          final eRaw = m['endSec'] ?? m['end_sec'];
+          parsedRepaintHistory.add(
+            TrackRepaintEntry(
+              repaintId: rpId,
+              task: JsonSafe.asString(m['task'], 'repaint'),
+              startSec: sRaw is num
+                  ? sRaw.toDouble()
+                  : (double.tryParse('$sRaw') ?? 0.0),
+              endSec: eRaw is num
+                  ? eRaw.toDouble()
+                  : (double.tryParse('$eRaw') ?? 8.0),
+              targetStem: JsonSafe.asString(
+                m['targetStem'] ?? m['target_stem'],
+                'full',
+              ),
+              createdAtIso: JsonSafe.asString(
+                m['createdAtIso'] ?? m['created_at_iso'],
+              ),
+            ),
+          );
+        }
+      }
+
+      final loraMap = JsonSafe.asMap(
+        body['loraMetrics'] ?? body['lora_metrics'],
+      );
+      final parsedActiveLoras = <String>[];
+      final loadedList = loraMap['loadedLoras'] ?? loraMap['loaded_loras'];
+      if (loadedList is List) {
+        for (final entry in loadedList) {
+          final m = JsonSafe.asMap(entry);
+          final isLoaded = m['loaded'] is bool ? m['loaded'] as bool : false;
+          final loraId = JsonSafe.asString(m['loraId'] ?? m['lora_id']);
+          if (isLoaded &&
+              loraId.isNotEmpty &&
+              !parsedActiveLoras.contains(loraId)) {
+            parsedActiveLoras.add(loraId);
+          }
+        }
+      }
+      final rawActiveLoras = body['activeLoras'] ?? body['active_loras'];
+      if (rawActiveLoras is List) {
+        for (final entry in rawActiveLoras) {
+          final id = JsonSafe.asString(entry);
+          if (id.isNotEmpty && !parsedActiveLoras.contains(id)) {
+            parsedActiveLoras.add(id);
+          }
+        }
+      }
+
+      final rawTakesList = body['takes'];
+      final parsedTakes = <TrackTakeRecord>[];
+      if (rawTakesList is List) {
+        for (var idx = 0; idx < rawTakesList.length; idx++) {
+          final m = JsonSafe.asMap(rawTakesList[idx]);
+          final tUrl = JsonSafe.asString(m['audioUrl'] ?? m['audio_url']);
+          if (tUrl.isEmpty) continue;
+          final rawIdx = m['takeIndex'] ?? m['take_index'];
+          final rawSeed = m['seed'];
+          final rawScore = m['score'];
+          parsedTakes.add(
+            TrackTakeRecord(
+              takeIndex: rawIdx is num ? rawIdx.toInt() : idx,
+              seed: rawSeed is num ? rawSeed.toInt() : (idx + 1),
+              engineUsed: JsonSafe.asString(
+                m['engineUsed'] ?? m['engine_used'],
+                'ace_step_xl_base',
+              ),
+              audioUrl: AppConstants.normalizeCloudMediaUrl(
+                tUrl,
+                overrideOrigin: origin,
+              ),
+              score: rawScore is num ? rawScore.toDouble() : null,
+              attribution: JsonSafe.asString(m['attribution']).isEmpty
+                  ? null
+                  : JsonSafe.asString(m['attribution']),
+            ),
+          );
+        }
+      }
+
+      if (integratedLufs != null ||
+          masteringProfile.isNotEmpty ||
+          attributionTag.isNotEmpty ||
+          sampleRateHz != null ||
+          voiceCloneApplied ||
+          parsedRepaintHistory.isNotEmpty ||
+          parsedActiveLoras.isNotEmpty ||
+          parsedTakes.isNotEmpty) {
+        if (!mounted) return null;
+        state = state.copyWith(
+          integratedLufs: integratedLufs ?? state.integratedLufs,
+          masteringProfile: masteringProfile.isNotEmpty
+              ? masteringProfile
+              : state.masteringProfile,
+          attributionTag: attributionTag.isNotEmpty
+              ? attributionTag
+              : state.attributionTag,
+          sampleRateHz: sampleRateHz ?? state.sampleRateHz,
+          voiceCloneApplied: voiceCloneApplied || state.voiceCloneApplied,
+          repaintHistory: parsedRepaintHistory.isNotEmpty
+              ? parsedRepaintHistory
+              : state.repaintHistory,
+          activeLoras: parsedActiveLoras.isNotEmpty
+              ? parsedActiveLoras
+              : state.activeLoras,
+          takes: parsedTakes.isNotEmpty ? parsedTakes : state.takes,
+        );
+      }
+
       final assets = JsonSafe.asMap(body['assets']);
       final stemUrls = JsonSafe.asMap(assets['stemUrls']);
       if (stemUrls.isEmpty) return null;
@@ -164,6 +312,8 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
       final bUrl = resolveStem(JsonSafe.asString(stemUrls['bass']), 'bass');
       final iRaw = JsonSafe.asString(stemUrls['instrumental']).isNotEmpty
           ? JsonSafe.asString(stemUrls['instrumental'])
+          : JsonSafe.asString(stemUrls['melodic']).isNotEmpty
+          ? JsonSafe.asString(stemUrls['melodic'])
           : JsonSafe.asString(stemUrls['other']);
       final iUrl = resolveStem(iRaw, 'inst');
 
@@ -196,6 +346,125 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailEntity> {
     } catch (err) {
       debugPrint('[TrackDetail] loadManifestFromCloud fallback: $err');
       return null;
+    } finally {
+      if (ownsClient) {
+        httpClient.close();
+      }
+    }
+  }
+
+  /// Selects an alternate multi-take output (`EP-P81-MULTITAKE-AR-SCORER`) on Track Detail.
+  void selectTake(int index) {
+    if (index < 0 || index >= state.takes.length) return;
+    final chosen = state.takes[index];
+    state = state.copyWith(
+      selectedTakeIndex: index,
+      audioUrl: chosen.audioUrl,
+      attributionTag: chosen.attribution ?? state.attributionTag,
+    );
+  }
+
+  /// Dispatches `POST /v1/generations/:id/repaint` (`EP-P83-ACE-STEP-SECTION-REPAINT`).
+  Future<String?> submitSectionRepaint({
+    required double startSec,
+    required double endSec,
+    String task = 'repaint',
+    String targetStem = 'full',
+    Map<String, String>? stemLocks,
+    String? editPrompt,
+    String? editLyrics,
+    List<Map<String, dynamic>>? loras,
+    http.Client? client,
+    String? apiBaseUrl,
+  }) async {
+    if (endSec - startSec < 2.0) {
+      return 'Repaint window must be at least 2 seconds.';
+    }
+    if (_isTestEnv() && client == null) {
+      final localId = 'gen_repaint_${DateTime.now().millisecondsSinceEpoch}';
+      final entry = TrackRepaintEntry(
+        repaintId: localId,
+        task: task,
+        startSec: startSec,
+        endSec: endSec,
+        targetStem: targetStem,
+        createdAtIso: DateTime.now().toIso8601String(),
+      );
+      state = state.copyWith(
+        repaintHistory: <TrackRepaintEntry>[...state.repaintHistory, entry],
+      );
+      return null;
+    }
+
+    final ownsClient = client == null;
+    final httpClient = client ?? http.Client();
+    final origin = AppConstants.resolveApiRootUrl(overrideOrigin: apiBaseUrl);
+
+    try {
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (ref != null) {
+        try {
+          headers.addAll(ref!.read(authHeadersProvider));
+        } catch (_) {}
+      }
+      final uri = Uri.parse('$origin/v1/generations/$trackId/repaint');
+      final response = await httpClient
+          .post(
+            uri,
+            headers: headers,
+            body: jsonEncode(<String, dynamic>{
+              'startSec': startSec,
+              'endSec': endSec,
+              'task': task,
+              'targetStem': targetStem,
+              if (stemLocks != null && stemLocks.isNotEmpty)
+                'stemLocks': stemLocks,
+              if (editPrompt != null && editPrompt.trim().isNotEmpty)
+                'editPrompt': editPrompt.trim(),
+              if (editLyrics != null && editLyrics.trim().isNotEmpty)
+                'editLyrics': editLyrics.trim(),
+              if (loras != null && loras.isNotEmpty) 'loras': loras,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      if (!mounted) return null;
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return 'Section repaint failed (${response.statusCode}).';
+      }
+
+      final data = JsonSafe.decodeMap(response.body) ?? <String, dynamic>{};
+      final rpId = JsonSafe.asString(
+        data['generationId'],
+        'gen_repaint_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      final loraIds = <String>[...state.activeLoras];
+      if (loras != null) {
+        for (final l in loras) {
+          final id = JsonSafe.asString(l['loraId']);
+          if (id.isNotEmpty && !loraIds.contains(id)) {
+            loraIds.add(id);
+          }
+        }
+      }
+      state = state.copyWith(
+        repaintHistory: <TrackRepaintEntry>[
+          ...state.repaintHistory,
+          TrackRepaintEntry(
+            repaintId: rpId,
+            task: task,
+            startSec: startSec,
+            endSec: endSec,
+            targetStem: targetStem,
+            createdAtIso: DateTime.now().toIso8601String(),
+          ),
+        ],
+        activeLoras: loraIds,
+      );
+      return null;
+    } catch (err) {
+      debugPrint('[TrackDetail] submitSectionRepaint error: $err');
+      return 'Unable to reach section repaint engine.';
     } finally {
       if (ownsClient) {
         httpClient.close();

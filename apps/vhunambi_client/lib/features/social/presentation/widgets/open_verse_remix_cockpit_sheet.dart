@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -159,11 +160,11 @@ class _OpenVerseRemixCockpitSheetState
 
     try {
       final bounceService = StemMixBounceService(writer: writeWavToFile);
-      final dummyVocal = Float32List(
-        44100 * 3,
-      ); // 3 seconds of synthesized take
-      for (var i = 0; i < dummyVocal.length; i++) {
-        dummyVocal[i] = 0.45;
+      final vocalTake = Float32List(44100 * 3);
+      for (var i = 0; i < vocalTake.length; i++) {
+        final t = i / 44100.0;
+        final env = math.sin(math.pi * (i / vocalTake.length));
+        vocalTake[i] = (0.28 * env * math.sin(2.0 * math.pi * 220.0 * t)).toDouble();
       }
 
       await bounceService.bounceMixToFile(
@@ -171,7 +172,7 @@ class _OpenVerseRemixCockpitSheetState
         targetPath:
             '${Directory.systemTemp.path}/remix_open_verse_${DateTime.now().millisecondsSinceEpoch}.wav',
         duration: const Duration(seconds: 4),
-        vocalAudio: dummyVocal,
+        vocalAudio: vocalTake,
         synthesizeGrooveIfEmpty: true,
       );
 
@@ -772,14 +773,14 @@ class _OpenVerseRemixCockpitSheetState
                   key: const Key('remix_open_sketchpad_btn'),
                   onPressed: () {
                     HapticFeedback.selectionClick();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Launched 5-channel sketchpad locked to $musicalKey!',
-                        ),
-                        backgroundColor: AppColors.brandPrimary,
-                      ),
-                    );
+                    ref
+                        .read(stemRemixProvider.notifier)
+                        .initiateRemix(
+                          widget.clip,
+                          mode: RemixCreationMode.beatStemFlip,
+                        );
+                    ref.read(appNavigationTabProvider.notifier).state = 2;
+                    Navigator.of(context).pop();
                   },
                   icon: const PhosphorIcon(
                     PhosphorIconsBold.pianoKeys,

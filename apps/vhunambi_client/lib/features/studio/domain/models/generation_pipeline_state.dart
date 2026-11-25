@@ -75,6 +75,9 @@ class GenerationTake {
   final String? stemsZipUrl;
   final String? coverUrl;
   final int durationSec;
+  final String? engineUsed;
+  final double? score;
+  final String? attribution;
 
   const GenerationTake({
     required this.takeIndex,
@@ -83,6 +86,9 @@ class GenerationTake {
     this.stemsZipUrl,
     this.coverUrl,
     this.durationSec = 180,
+    this.engineUsed,
+    this.score,
+    this.attribution,
   });
 
   factory GenerationTake.fromJson(Map<String, dynamic> json, {int index = 0}) {
@@ -99,6 +105,9 @@ class GenerationTake {
       durationSec:
           ((json['durationSec'] ?? json['duration_sec']) as num?)?.toInt() ??
           180,
+      engineUsed: (json['engineUsed'] ?? json['engine_used'])?.toString(),
+      score: (json['score'] as num?)?.toDouble(),
+      attribution: json['attribution']?.toString(),
     );
   }
 }

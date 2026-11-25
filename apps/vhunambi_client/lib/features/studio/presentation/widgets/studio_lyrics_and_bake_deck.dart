@@ -515,6 +515,98 @@ class _StudioLyricsAndBakeDeckState
             ],
           ),
 
+          if (state.engineTier == StudioEngineTier.sovereignCustom) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                Text(
+                  'African Style LoRA Pack',
+                  style: AppTypography.caption.copyWith(
+                    color: textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  state.selectedLoraId == null
+                      ? 'Auto (${state.genre})'
+                      : 'Weight ${state.selectedLoraWeight.toStringAsFixed(2)}',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.brandPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              key: const Key('studio_lora_picker'),
+              height: 44,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: kAfricanLoraPacks.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                itemBuilder: (context, idx) {
+                  final pack = kAfricanLoraPacks[idx];
+                  final isSelected = state.selectedLoraId == pack.loraId;
+                  return InkWell(
+                    key: Key('studio_lora_chip_${pack.loraId}'),
+                    borderRadius: AppRadius.pillBorder,
+                    onTap: () {
+                      unawaited(HapticFeedback.selectionClick());
+                      notifier.setSelectedLora(
+                        isSelected ? null : pack.loraId,
+                        weight: pack.defaultWeight,
+                      );
+                    },
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.brandPrimary.withValues(alpha: 0.18)
+                            : AppColors.surfaceSecondaryOf(context),
+                        borderRadius: AppRadius.pillBorder,
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.brandPrimary
+                              : AppColors.borderSubtleOf(context),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PhosphorIcon(
+                            PhosphorIconsRegular.vinylRecord,
+                            size: 14,
+                            color: isSelected
+                                ? AppColors.brandPrimary
+                                : textSecondary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            pack.label,
+                            style: AppTypography.caption.copyWith(
+                              color: isSelected
+                                  ? AppColors.brandPrimary
+                                  : textPrimary,
+                              fontWeight: isSelected
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+
           const SizedBox(height: AppSpacing.md),
 
           // Song Length Slider (10s - 360s, 300s sweet spot marker)

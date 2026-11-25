@@ -64,9 +64,11 @@ class TrackSonicTelemetryCard extends StatelessWidget {
                   color: AppColors.brandPrimary,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Song Description & Sonic DNA',
-                  style: AppTypography.titleSmall.copyWith(color: textPrimary),
+                Expanded(
+                  child: Text(
+                    'Song Description & Sonic DNA',
+                    style: AppTypography.titleSmall.copyWith(color: textPrimary),
+                  ),
                 ),
               ],
             ),
@@ -96,6 +98,39 @@ class TrackSonicTelemetryCard extends StatelessWidget {
                   icon: PhosphorIconsRegular.calendarBlank,
                   label: _formatDate(track.createdAt),
                 ),
+                if (track.integratedLufs != null)
+                  _TelemetryChip(
+                    key: const Key('track_mastering_provenance_chip'),
+                    icon: PhosphorIconsRegular.slidersHorizontal,
+                    label:
+                        'Mastered · ${track.integratedLufs!.toStringAsFixed(1)} LUFS',
+                  ),
+                if (track.attributionTag != null &&
+                    track.attributionTag!.trim().isNotEmpty)
+                  _TelemetryChip(
+                    key: const Key('track_engine_attribution_chip'),
+                    icon: PhosphorIconsRegular.cpu,
+                    label: track.attributionTag!.trim(),
+                  ),
+                if (track.voiceCloneApplied)
+                  const _TelemetryChip(
+                    key: Key('track_voice_clone_chip'),
+                    icon: PhosphorIconsRegular.microphoneStage,
+                    label: 'Seed-VC Voice',
+                  ),
+                if (track.repaintHistory.isNotEmpty)
+                  _TelemetryChip(
+                    key: const Key('track_repaint_history_chip'),
+                    icon: PhosphorIconsRegular.magicWand,
+                    label:
+                        'Repainted · ${track.repaintHistory.length} ${track.repaintHistory.length == 1 ? 'edit' : 'edits'}',
+                  ),
+                if (track.activeLoras.isNotEmpty)
+                  _TelemetryChip(
+                    key: const Key('track_lora_provenance_chip'),
+                    icon: PhosphorIconsRegular.vinylRecord,
+                    label: 'LoRA · ${track.activeLoras.first}',
+                  ),
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -146,7 +181,7 @@ class _TelemetryChip extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _TelemetryChip({required this.icon, required this.label});
+  const _TelemetryChip({super.key, required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -160,11 +195,13 @@ class _TelemetryChip extends StatelessWidget {
         children: <Widget>[
           PhosphorIcon(icon, size: 14, color: textSecondary),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: AppTypography.caption.copyWith(
-              color: textPrimary,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              label,
+              style: AppTypography.caption.copyWith(
+                color: textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

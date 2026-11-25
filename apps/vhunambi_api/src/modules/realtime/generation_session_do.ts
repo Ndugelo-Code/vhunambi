@@ -6,6 +6,7 @@ import type {
   GenerationTakeRecord,
   ResolvedAudioEngine,
 } from '../jobs/job_types.js';
+import type { MasteringMetrics, SvcMetrics } from '../dna/dna_types.js';
 
 export interface GenerationPipelineEventPayload {
   generationId: string;
@@ -26,6 +27,9 @@ export interface GenerationPipelineEventPayload {
   resolvedEngine?: ResolvedAudioEngine;
   attributionTag?: string | null;
   takes?: GenerationTakeRecord[];
+  sampleRateHz?: number;
+  masteringMetrics?: MasteringMetrics;
+  svcMetrics?: SvcMetrics;
   error?: string;
   timestamp?: number;
 }
@@ -47,9 +51,12 @@ export function buildDualDialectPipelineEventFrame(
 
   let stepIndex = 1;
   let statusMessage = 'Starting synthesis pipeline...';
-  if (rawStep === 'writing_lyrics') {
+  if (rawStep === 'writing_lyrics' || rawStep === 'planning_lyrics') {
     stepIndex = 2;
     statusMessage = 'Composing authentic dialect lyrics...';
+  } else if (rawStep === 'converting_vocals') {
+    stepIndex = 3;
+    statusMessage = 'Cloning and polishing vocal stems...';
   } else if (
     rawStep === 'producing_beat' ||
     rawStep === 'synthesizing' ||
@@ -94,6 +101,12 @@ export function buildDualDialectPipelineEventFrame(
         coverUrl: payload.coverUrl ?? null,
         lyrics: payload.lyrics ?? null,
         duration_seconds: payload.durationSec ?? 180,
+        resolved_engine: payload.resolvedEngine ?? null,
+        attribution_tag: payload.attributionTag ?? null,
+        takes: payload.takes ?? [],
+        ...(payload.sampleRateHz ? { sample_rate_hz: payload.sampleRateHz } : {}),
+        ...(payload.masteringMetrics ? { mastering_metrics: payload.masteringMetrics } : {}),
+        ...(payload.svcMetrics ? { svc_metrics: payload.svcMetrics } : {}),
       }
       : null;
 

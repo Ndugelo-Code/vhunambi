@@ -1,5 +1,5 @@
 import { getGenrePreset, hasGenrePreset } from './constants.js';
-import { sanitizeLyricsForAceStep } from '../lyrics/lyrics_sanitizer.js';
+import { formatLyricsForEngine } from '../lyrics/lyrics_sanitizer.js';
 import {
   generateLocalMockLyrics,
   planSonicArrangementFromPrompt,
@@ -58,12 +58,16 @@ export interface SongSpecInput {
   clonedVoiceReferenceUrl?: string;
   pregenStemLocks?: Record<string, 'lockedPure44k' | 'harmonicInpaint' | 'elasticResynth'>;
   lockedStemsPayload?: Record<string, string>;
+  masteringMode?: 'streaming' | 'club';
+  sampleRateHz?: 44100 | 48000;
+  loras?: Array<{ loraId?: string; path?: string; weight?: number }>;
 }
 
 export interface CompiledSynthesisPrompt {
   caption: string;
   richPrompt?: string;
   lyrics: string;
+  isInstrumental: boolean;
   sonicTags?: string[];
   arrangementStructure?: string[];
   loras?: Array<{
@@ -84,6 +88,8 @@ export interface CompiledSynthesisPrompt {
   takeSeeds: number[];
   audioMode: ReferenceAudioMode;
   visibility: 'public' | 'private';
+  masteringMode: 'streaming' | 'club';
+  sampleRateHz: 44100 | 48000;
   voiceCast?: VoiceCastInput;
   metadata: {
     bpm: number;
@@ -135,7 +141,7 @@ export interface CompiledSynthesisPrompt {
  * - `studio_bake` vocal/duet -> `minimax_music_3` (`MiniMax-Music3` attribution required)
  */
 export function resolveTargetAudioEngine(input: {
-  engineTier?: StudioEngineTier;
+  engineTier?: StudioEngineTier | string;
   isInstrumental?: boolean;
   audioMode?: ReferenceAudioMode;
   referenceAudioUrl?: string;
@@ -144,7 +150,13 @@ export function resolveTargetAudioEngine(input: {
   resolvedEngine: ResolvedAudioEngine;
   attributionTag: string | null;
 } {
-  const tier = input.engineTier ?? 'studio_bake';
+  const rawTier = String(input.engineTier ?? 'studio_bake').trim().toLowerCase();
+  if (rawTier.includes('yue')) {
+    throw new Error(
+      'YuE2 (CC BY-NC 4.0) is prohibited in commercial Vhunambi production',
+    );
+  }
+  const tier = (rawTier as StudioEngineTier) || 'studio_bake';
   const hasReference =
     Boolean(input.referenceAudioUrl?.trim()) &&
     (input.audioMode ?? 'none') !== 'none';
@@ -325,10 +337,11 @@ export function compileSongSpec(input: SongSpecInput): CompiledSynthesisPrompt {
 
   const resolvedLyrics = input.isInstrumental
     ? ''
-    : sanitizeLyricsForAceStep(
+    : formatLyricsForEngine(
       input.lyrics && input.lyrics.trim().length > 0
         ? input.lyrics
         : generateLocalMockLyrics(promptSeed, input.genre, input.language).rawLyrics,
+      resolvedEngine,
     );
 
   const svcConfig = effectiveCloneId
@@ -366,19 +379,29 @@ export function compileSongSpec(input: SongSpecInput): CompiledSynthesisPrompt {
       }
       : undefined;
 
+  const resolvedLoras =
+    Array.isArray(input.loras) && input.loras.length > 0
+      ? input.loras.slice(0, 3).map((item) => ({
+        loraId: item.loraId ?? plan.recommendedLoRA.loraId,
+        path: item.path || plan.recommendedLoRA.r2Key,
+        weight: typeof item.weight === 'number' ? item.weight : 0.85,
+      }))
+      : [
+        {
+          loraId: plan.recommendedLoRA.loraId,
+          path: plan.recommendedLoRA.r2Key,
+          weight: plan.recommendedLoRA.weight,
+        },
+      ];
+
   return {
     caption,
     ...(input.prompt?.trim() ? { richPrompt: input.prompt.trim().slice(0, 4000) } : {}),
     lyrics: resolvedLyrics,
+    isInstrumental: Boolean(input.isInstrumental),
     sonicTags: plan.sonicTags,
     arrangementStructure: plan.arrangementStructure,
-    loras: [
-      {
-        loraId: plan.recommendedLoRA.loraId,
-        path: plan.recommendedLoRA.r2Key,
-        weight: plan.recommendedLoRA.weight,
-      },
-    ],
+    loras: resolvedLoras,
     inferenceConfig: {
       precision: 'bf16',
       inferSteps: resolvedEngine === 'ace_step_xl_turbo' ? 12 : 60,
@@ -392,6 +415,8 @@ export function compileSongSpec(input: SongSpecInput): CompiledSynthesisPrompt {
     takeSeeds,
     audioMode,
     visibility,
+    masteringMode: input.masteringMode === 'club' ? 'club' : 'streaming',
+    sampleRateHz: input.sampleRateHz === 48000 ? 48000 : 44100,
     ...(input.voiceCast ? { voiceCast: input.voiceCast } : {}),
     metadata: {
       bpm,

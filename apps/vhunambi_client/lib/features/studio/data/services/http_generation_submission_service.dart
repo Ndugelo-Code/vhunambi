@@ -75,6 +75,7 @@ class HttpGenerationSubmissionService {
     String? sourcePhotoUrl,
     String? sourceTrackId,
     Map<String, dynamic>? voiceCast,
+    List<Map<String, dynamic>>? loras,
   }) async {
     if (_shouldSkipNetwork) {
       return <String, dynamic>{
@@ -128,6 +129,7 @@ class HttpGenerationSubmissionService {
             'referenceAudioUrl': referenceAudioUrl,
           if (pregenStemLocks != null && pregenStemLocks.isNotEmpty)
             'pregenStemLocks': pregenStemLocks,
+          if (loras != null && loras.isNotEmpty) 'loras': loras,
         },
         options: Options(
           receiveTimeout: const Duration(seconds: 15),
@@ -259,6 +261,9 @@ class HttpGenerationSubmissionService {
                     stemsZipUrl: normalizedTakeStems,
                     coverUrl: take.coverUrl,
                     durationSec: take.durationSec,
+                    engineUsed: take.engineUsed,
+                    score: take.score,
+                    attribution: take.attribution,
                   ),
                 );
               }

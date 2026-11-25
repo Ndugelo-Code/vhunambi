@@ -11,10 +11,12 @@ import type { VhunambiWorkerEnv } from '../types/cloudflare_worker_types.js';
 import { compileSongSpec } from '../modules/synthesis/prompt_compiler.js';
 import { sanitizeLyricsForClient } from '../modules/lyrics/lyrics_sanitizer.js';
 import {
+  dispatchRepaintJob,
   dispatchSynthesisJob,
   checkRunPodJobStatus,
   checkRunPodEndpointHealth,
 } from '../modules/synthesis/runpod_adapter.js';
+import { normalizeRequestedLoraSpecs } from '../modules/synthesis/lora_catalog.js';
 import { simulateSynthesisPipeline } from '../modules/synthesis/mock_worker.js';
 import { getVoiceCloneProfile } from '../modules/voices/voice_catalog.js';
 import { compileMasterMediaObjectManifest } from '../modules/dna/dna_compiler.js';
@@ -25,6 +27,11 @@ import {
   getMasteringPresetForGenre,
   enrichManifestWithMasteringRecipe,
 } from '../modules/mastering/mastering_presets.js';
+import type {
+  GenerationTakeRecord,
+  PipelineStep,
+  ResolvedAudioEngine,
+} from '../modules/jobs/job_types.js';
 import {
   createJob,
   getJob,
@@ -111,6 +118,20 @@ const SubmitGenerationSchema = z.object({
     .optional(),
   /** Phase 63: Optional base64 payloads for pure 44.1 kHz locked stems */
   lockedStemsPayload: z.record(z.string(), z.string()).optional(),
+  /** Phase 82: Broadcast mastering loudness mode & studio sample rate */
+  masteringMode: z.enum(['streaming', 'club']).default('streaming'),
+  sampleRateHz: z.union([z.literal(44100), z.literal(48000)]).default(44100),
+  /** Phase 83: Explicit Sovereign African LoRA Pack overrides */
+  loras: z
+    .array(
+      z.object({
+        loraId: z.string().min(1),
+        path: z.string().optional(),
+        weight: z.number().min(0.1).max(1.2).default(0.85),
+      }),
+    )
+    .max(3)
+    .optional(),
 });
 
 generationRoutes.post('/', async (c) => {
@@ -131,11 +152,19 @@ generationRoutes.post('/', async (c) => {
 
     const effectiveCloneId =
       input.voiceCast?.clonedVoiceProfileId ?? input.clonedVoiceProfileId;
-    const clonedProfile = effectiveCloneId
+    let clonedProfile = effectiveCloneId
       ? getVoiceCloneProfile(effectiveCloneId)
       : undefined;
+    if (effectiveCloneId && !clonedProfile) {
+      await vhunambiDb.syncVoicesFromCloud(false, c);
+      clonedProfile = getVoiceCloneProfile(effectiveCloneId);
+    }
     const effectiveCloneRefUrl =
       input.voiceCast?.clonedVoiceReferenceUrl ?? clonedProfile?.r2ReferenceUrl;
+
+    const resolvedExplicitLoras = input.loras?.length
+      ? normalizeRequestedLoraSpecs(input.genre, input.loras)
+      : undefined;
 
     // 1. Compile prompt & multi-model routing spec (MiniMax 3.0 vs ACE-Step 1.5 XL)
     const compiledPrompt = compileSongSpec({
@@ -143,6 +172,9 @@ generationRoutes.post('/', async (c) => {
       tempoBpm: input.tempoBpm ?? input.bpm,
       selectedVoiceId: input.selectedVoiceId ?? input.voiceCast?.selectedVoiceIds?.[0],
       clonedVoiceProfileId: effectiveCloneId,
+      masteringMode: input.masteringMode,
+      sampleRateHz: input.sampleRateHz,
+      ...(resolvedExplicitLoras ? { loras: resolvedExplicitLoras } : {}),
       ...(effectiveCloneRefUrl ? { clonedVoiceReferenceUrl: effectiveCloneRefUrl } : {}),
     });
 
@@ -163,6 +195,8 @@ generationRoutes.post('/', async (c) => {
         referenceAudioUrl: input.referenceAudioUrl,
         visibility: input.visibility,
         attributionTag: compiledPrompt.attributionTag,
+        masteringMode: compiledPrompt.masteringMode,
+        sampleRateHz: compiledPrompt.sampleRateHz,
         voiceCast: (input.voiceCast ?? undefined) as Record<string, unknown> | undefined,
         generationSpec: {
           contractVersion: input.contractVersion,
@@ -175,6 +209,8 @@ generationRoutes.post('/', async (c) => {
           takeSeeds: compiledPrompt.takeSeeds,
           sourcePhotoUrl: input.sourcePhotoUrl,
           sourceTrackId: input.sourceTrackId,
+          masteringMode: compiledPrompt.masteringMode,
+          sampleRateHz: compiledPrompt.sampleRateHz,
         },
         takes: [],
         trackTitle: input.trackTitle,
@@ -289,6 +325,8 @@ generationRoutes.post('/', async (c) => {
         audioMode: compiledPrompt.audioMode,
         durationSec: compiledPrompt.metadata.durationSec,
         visibility: compiledPrompt.visibility,
+        masteringMode: compiledPrompt.masteringMode,
+        sampleRateHz: compiledPrompt.sampleRateHz,
         takeSeeds: compiledPrompt.takeSeeds,
         takes: [],
         status: 'queued',
@@ -360,18 +398,49 @@ generationRoutes.get('/:id', async (c) => {
   ) {
     const liveStatus = await checkRunPodJobStatus(job.providerTaskId, c);
     if (liveStatus.status === 'COMPLETED' && liveStatus.audioUrl) {
-      const completedTakes =
-        job.takes && job.takes.length > 0
-          ? job.takes
-          : [
+      const resolvedEng = (liveStatus.resolvedEngine ??
+        job.resolvedEngine ??
+        'minimax_music_3') as ResolvedAudioEngine;
+      const resolvedAttr =
+        liveStatus.attributionTag !== undefined
+          ? liveStatus.attributionTag
+          : resolvedEng === 'minimax_music_3'
+            ? 'MiniMax-Music3'
+            : (job.attributionTag ?? null);
+      const completedTakes: GenerationTakeRecord[] =
+        Array.isArray(liveStatus.takes) && liveStatus.takes.length > 0
+          ? liveStatus.takes.map((raw, idx) => ({
+            takeIndex: Number(raw.takeIndex ?? raw.take_index ?? idx),
+            seed: Number(raw.seed ?? idx + 1),
+            engineUsed: String(
+              raw.engineUsed ?? raw.engine_used ?? resolvedEng,
+            ),
+            audioUrl: String(
+              raw.audioUrl ?? raw.audio_url ?? liveStatus.audioUrl,
+            ),
+            durationSec:
+              raw.durationSec !== undefined
+                ? Number(raw.durationSec)
+                : raw.duration_sec !== undefined
+                  ? Number(raw.duration_sec)
+                  : job!.durationSec,
+            score: raw.score !== undefined ? Number(raw.score) : undefined,
+            attribution:
+              raw.attribution !== undefined
+                ? (raw.attribution as string | null)
+                : resolvedAttr,
+          }))
+          : job.takes && job.takes.length > 0
+            ? job.takes
+            : [
               {
                 takeIndex: 0,
                 seed: 1,
-                engineUsed: job.resolvedEngine ?? 'minimax_music_3',
+                engineUsed: resolvedEng,
                 audioUrl: liveStatus.audioUrl,
                 durationSec: job.durationSec ?? 180,
                 score: 1.0,
-                attribution: job.attributionTag ?? null,
+                attribution: resolvedAttr,
               },
             ];
       completeJob(id, {
@@ -380,6 +449,17 @@ generationRoutes.get('/:id', async (c) => {
         stemUrls: liveStatus.stemUrls,
         manifestUrl: liveStatus.manifestUrl,
         takes: completedTakes,
+        resolvedEngine: resolvedEng,
+        attributionTag: resolvedAttr,
+        ...(liveStatus.sampleRateHz ? { sampleRateHz: liveStatus.sampleRateHz } : {}),
+        ...(liveStatus.masteringMetrics
+          ? { masteringMetrics: liveStatus.masteringMetrics }
+          : {}),
+        ...(liveStatus.svcMetrics ? { svcMetrics: liveStatus.svcMetrics } : {}),
+        ...(liveStatus.loraMetrics ? { loraMetrics: liveStatus.loraMetrics } : {}),
+        ...(liveStatus.repaintMetadata
+          ? { repaintMetadata: liveStatus.repaintMetadata }
+          : {}),
       });
       const updated = getJob(id) ?? job;
       await vhunambiDb.upsertGenerationJobAsync(
@@ -392,9 +472,20 @@ generationRoutes.get('/:id', async (c) => {
     } else if (liveStatus.status === 'FAILED') {
       failJob(id, liveStatus.error || 'RunPod GPU job failed');
     } else if (liveStatus.status === 'IN_PROGRESS') {
+      const stageRaw = String(liveStatus.stage ?? 'synthesizing')
+        .trim()
+        .toLowerCase();
+      const validStep: PipelineStep =
+        stageRaw === 'planning_lyrics' ||
+          stageRaw === 'separating_stems' ||
+          stageRaw === 'converting_vocals' ||
+          stageRaw === 'mastering' ||
+          stageRaw === 'uploading'
+          ? (stageRaw as PipelineStep)
+          : 'synthesizing';
       updateJobProgress(id, {
         status: 'running',
-        step: 'synthesizing',
+        step: validStep,
         progressPct: liveStatus.progress ?? 60,
       });
     } else if (liveStatus.status === 'IN_QUEUE') {
@@ -452,6 +543,17 @@ generationRoutes.get('/:id', async (c) => {
     manifestUrl: currentJob.manifestUrl,
     ...(resolvedCoverUrl ? { coverUrl: resolvedCoverUrl } : {}),
     ...(currentJob.lyrics ? { lyrics: currentJob.lyrics } : {}),
+    ...(currentJob.sampleRateHz ? { sampleRateHz: currentJob.sampleRateHz } : {}),
+    ...(currentJob.masteringMode ? { masteringMode: currentJob.masteringMode } : {}),
+    ...(currentJob.masteringMetrics
+      ? { masteringMetrics: currentJob.masteringMetrics }
+      : {}),
+    ...(currentJob.svcMetrics ? { svcMetrics: currentJob.svcMetrics } : {}),
+    ...(currentJob.loraMetrics ? { loraMetrics: currentJob.loraMetrics } : {}),
+    ...(currentJob.repaintHistory ? { repaintHistory: currentJob.repaintHistory } : {}),
+    ...(currentJob.parentGenerationId
+      ? { parentGenerationId: currentJob.parentGenerationId }
+      : {}),
     durationSec: currentJob.durationSec,
     errorMessage: currentJob.errorMessage,
     updatedAt: currentJob.updatedAt.toISOString(),
@@ -477,7 +579,33 @@ generationRoutes.get('/:id/manifest', async (c) => {
   }
 
   if (job.manifest) {
-    return c.json(job.manifest, 200);
+    return c.json(
+      {
+        ...job.manifest,
+        ...(job.manifest.sampleRateHz || job.sampleRateHz
+          ? { sampleRateHz: job.manifest.sampleRateHz ?? job.sampleRateHz }
+          : {}),
+        ...(job.manifest.resolvedEngine || job.resolvedEngine
+          ? { resolvedEngine: job.manifest.resolvedEngine ?? job.resolvedEngine }
+          : {}),
+        ...(job.manifest.attributionTag !== undefined || job.attributionTag !== undefined
+          ? { attributionTag: job.manifest.attributionTag ?? job.attributionTag ?? null }
+          : {}),
+        ...(job.manifest.masteringMetrics || job.masteringMetrics
+          ? { masteringMetrics: job.manifest.masteringMetrics ?? job.masteringMetrics }
+          : {}),
+        ...(job.manifest.svcMetrics || job.svcMetrics
+          ? { svcMetrics: job.manifest.svcMetrics ?? job.svcMetrics }
+          : {}),
+        ...(job.manifest.loraMetrics || job.loraMetrics
+          ? { loraMetrics: job.manifest.loraMetrics ?? job.loraMetrics }
+          : {}),
+        ...(job.manifest.repaintHistory || job.repaintHistory
+          ? { repaintHistory: job.manifest.repaintHistory ?? job.repaintHistory }
+          : {}),
+      },
+      200,
+    );
   }
 
   const manifest = compileMasterMediaObjectManifest({
@@ -490,6 +618,13 @@ generationRoutes.get('/:id/manifest', async (c) => {
     stemsZipUrl: job.stemsZipUrl,
     stemUrls: job.stemUrls as any,
     provenance: job.manifestUrl ? 'measured' : 'synthesized',
+    ...(job.sampleRateHz ? { sampleRateHz: job.sampleRateHz } : {}),
+    ...(job.resolvedEngine ? { resolvedEngine: job.resolvedEngine } : {}),
+    ...(job.attributionTag !== undefined ? { attributionTag: job.attributionTag } : {}),
+    ...(job.masteringMetrics ? { masteringMetrics: job.masteringMetrics } : {}),
+    ...(job.svcMetrics ? { svcMetrics: job.svcMetrics } : {}),
+    ...(job.loraMetrics ? { loraMetrics: job.loraMetrics } : {}),
+    ...(job.repaintHistory ? { repaintHistory: job.repaintHistory } : {}),
   });
 
   return c.json(manifest, 200);
@@ -557,6 +692,9 @@ generationRoutes.post('/:id/master', async (c) => {
         durationSec: job.durationSec || 180,
         manifestUrl: `/v1/generations/${id}/manifest`,
         manifest: enrichedManifest,
+        ...(enrichedManifest.masteringMetrics
+          ? { masteringMetrics: enrichedManifest.masteringMetrics }
+          : {}),
       },
       c,
     );
@@ -574,5 +712,237 @@ generationRoutes.post('/:id/master', async (c) => {
       manifest: enrichedManifest,
     },
     200,
+  );
+});
+
+const STEM_LOCK_ALIAS_MAP: Record<string, 'vocals' | 'drums' | 'bass' | 'melodic'> = {
+  vocals: 'vocals',
+  node_vocals: 'vocals',
+  node_vocal_persona: 'vocals',
+  node_branch_vocal: 'vocals',
+  drums: 'drums',
+  node_drums: 'drums',
+  node_beat_tempo: 'drums',
+  node_branch_beat: 'drums',
+  node_sketchpad_groove: 'drums',
+  bass: 'bass',
+  node_bass: 'bass',
+  melodic: 'melodic',
+  instrumental: 'melodic',
+  other: 'melodic',
+  node_melodic: 'melodic',
+  node_harmony_chords: 'melodic',
+  node_branch_instruments: 'melodic',
+  node_spatial_atmosphere: 'melodic',
+};
+
+function normalizeStemLockPayload(
+  raw?: Record<string, string>,
+): Record<string, 'lockedPure44k' | 'harmonicInpaint' | 'elasticResynth'> {
+  const out: Record<string, 'lockedPure44k' | 'harmonicInpaint' | 'elasticResynth'> = {};
+  if (!raw) return out;
+  for (const [k, v] of Object.entries(raw)) {
+    const role = STEM_LOCK_ALIAS_MAP[k.trim().toLowerCase()];
+    if (
+      role &&
+      (v === 'lockedPure44k' || v === 'harmonicInpaint' || v === 'elasticResynth')
+    ) {
+      if (k.trim().toLowerCase() === role || !out[role]) {
+        out[role] = v;
+      }
+    }
+  }
+  return out;
+}
+
+const RepaintGenerationSchema = z
+  .object({
+    startSec: z.number().min(0),
+    endSec: z.number().min(2),
+    task: z.enum(['repaint', 'lego', 'complete']).default('repaint'),
+    targetStem: z
+      .enum(['full', 'vocals', 'drums', 'bass', 'melodic'])
+      .default('full'),
+    stemLocks: z
+      .record(
+        z.string(),
+        z.enum(['lockedPure44k', 'harmonicInpaint', 'elasticResynth']),
+      )
+      .optional(),
+    editPrompt: z.string().max(2000).optional(),
+    editLyrics: z.string().max(8000).optional(),
+    loras: z
+      .array(
+        z.object({
+          loraId: z.string().min(1),
+          path: z.string().optional(),
+          weight: z.number().min(0.1).max(1.2).default(0.85),
+        }),
+      )
+      .max(3)
+      .optional(),
+    masteringMode: z.enum(['streaming', 'club']).default('streaming'),
+    sampleRateHz: z.union([z.literal(44100), z.literal(48000)]).default(44100),
+  })
+  .refine((d) => d.endSec - d.startSec >= 2, {
+    message: 'Repaint window (endSec - startSec) must be at least 2 seconds',
+  });
+
+/**
+ * POST /v1/generations/:id/repaint
+ * Phase 83 (`EP-P83-ACE-STEP-SECTION-REPAINT`): Dispatches section repaint / stem lego / extend
+ * on ACE-Step 1.5 XL-Base and links child revision back to parent generation.
+ */
+generationRoutes.post('/:id/repaint', async (c) => {
+  const parentId = c.req.param('id');
+  let parentJob = getJob(parentId);
+  if (!isNodeSqliteAvailable() && !parentJob) {
+    parentJob = (await vhunambiDb.syncGenerationJobFromCloud(parentId, c)) ?? undefined;
+  }
+  const isSeededTrack = parentId.startsWith('trk_') || parentId.startsWith('seed_') || parentId.startsWith('seed-');
+  if (!parentJob && !isSeededTrack) {
+    return c.json(
+      { error: 'NOT_FOUND', message: `Generation job ${parentId} not found` },
+      404,
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json(
+      { error: 'INVALID_JSON', message: 'Request body must be valid JSON' },
+      400,
+    );
+  }
+
+  const parsed = RepaintGenerationSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      { error: 'INVALID_REPAINT_REQUEST', details: parsed.error.flatten() },
+      400,
+    );
+  }
+
+  const input = parsed.data;
+  const creatorId = canonicalizeCreatorId(
+    c.get('authUser')?.creatorId ?? parentJob?.creatorId ?? 'creator_cern',
+  );
+  const genre = parentJob?.genre ?? 'Amapiano';
+  const language = parentJob?.language ?? 've';
+  const title = parentJob?.trackTitle ?? 'Studio Master';
+  const durationSec = parentJob?.durationSec ?? 180;
+  const bpm = Number((parentJob?.generationSpec?.bpm as number | undefined) ?? 112);
+  const musicalKey = String(parentJob?.generationSpec?.musicalKey ?? 'F#m');
+  const normalizedLocks = normalizeStemLockPayload(input.stemLocks);
+  const resolvedLoras = normalizeRequestedLoraSpecs(genre, input.loras);
+
+  const repaintJobId = `gen_repaint_${Date.now()}_${nanoid(6)}`;
+  const runtimeEnv = resolveRuntimeEnv(c);
+  const forwardedProto = c.req.header('x-forwarded-proto');
+  const hostHeader = c.req.header('x-forwarded-host') || c.req.header('host');
+  const websocketUrl = resolveGenerationWsUrl(
+    c.req.url,
+    forwardedProto,
+    hostHeader,
+    runtimeEnv.PORT,
+    repaintJobId,
+  );
+
+  const created = createJob(
+    {
+      generationId: repaintJobId,
+      parentGenerationId: parentId,
+      creatorId,
+      engineTier: 'sovereign_custom',
+      resolvedEngine: 'ace_step_xl_base',
+      attributionTag: null,
+      audioMode: 'remix',
+      masteringMode: input.masteringMode,
+      sampleRateHz: input.sampleRateHz,
+      trackTitle: `${title} (Repaint)`,
+      genre,
+      language,
+      durationSec,
+      ...(input.editLyrics ? { lyrics: input.editLyrics } : {}),
+      generationSpec: {
+        parentGenerationId: parentId,
+        repaintTask: input.task,
+        startSec: input.startSec,
+        endSec: input.endSec,
+        targetStem: input.targetStem,
+        stemLocks: normalizedLocks,
+        loras: resolvedLoras,
+        masteringMode: input.masteringMode,
+        sampleRateHz: input.sampleRateHz,
+      },
+      repaintMetadata: {
+        parent_job_id: parentId,
+        task: input.task,
+        start_sec: input.startSec,
+        end_sec: input.endSec,
+        target_stem: input.targetStem,
+        stem_locks: normalizedLocks,
+      },
+    },
+    creatorId,
+  );
+  await vhunambiDb.upsertGenerationJobAsync(created, creatorId, 'audio_synthesis', c);
+
+  const dispatchResult = await dispatchRepaintJob(
+    repaintJobId,
+    {
+      parentGenerationId: parentId,
+      sourceAudioUrl:
+        parentJob?.masterMp3Url ??
+        parentJob?.manifest?.assets?.masterMp3Url ??
+        `/mock-storage/${parentId}.mp3`,
+      sourceStemUrls: parentJob?.stemUrls ?? parentJob?.manifest?.assets?.stemUrls,
+      task: input.task,
+      startSec: input.startSec,
+      endSec: input.endSec,
+      targetStem: input.targetStem,
+      stemLocks: normalizedLocks,
+      genre,
+      bpm,
+      musicalKey,
+      language,
+      durationSec,
+      title,
+      editPrompt: input.editPrompt,
+      editLyrics: input.editLyrics ?? parentJob?.lyrics,
+      loras: resolvedLoras,
+      masteringMode: input.masteringMode,
+      sampleRateHz: input.sampleRateHz,
+    },
+    creatorId,
+    c,
+  );
+
+  setJobProviderTaskId(repaintJobId, dispatchResult.jobId);
+  await vhunambiDb.updateGenerationJobAsync(
+    repaintJobId,
+    { providerTaskId: dispatchResult.jobId },
+    c,
+  );
+
+  return c.json(
+    {
+      success: true,
+      generationId: repaintJobId,
+      parentGenerationId: parentId,
+      resolvedEngine: 'ace_step_xl_base',
+      attributionTag: null,
+      task: input.task,
+      repaintRange: { startSec: input.startSec, endSec: input.endSec },
+      targetStem: input.targetStem,
+      stemLocks: normalizedLocks,
+      activeLoras: resolvedLoras,
+      status: 'queued',
+      pollUrl: `/v1/generations/${repaintJobId}`,
+      websocketUrl,
+    },
+    201,
   );
 });

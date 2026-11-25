@@ -5,7 +5,13 @@ import {
   PipelineStep,
   ResolvedAudioEngine,
 } from './job_types.js';
-import { MasterMediaObjectManifest } from '../dna/dna_types.js';
+import {
+  LoraRuntimeMetrics,
+  MasterMediaObjectManifest,
+  MasteringMetrics,
+  RepaintHistoryEntry,
+  SvcMetrics,
+} from '../dna/dna_types.js';
 import { canonicalizeCreatorId, vhunambiDb } from '../../db/vhunambi_db.js';
 
 export function createJob(
@@ -83,6 +89,121 @@ export function updateJobProgress(
   vhunambiDb.updateGenerationJob(generationId, updates);
 }
 
+export function normalizeMasteringMetrics(
+  raw: unknown,
+): MasteringMetrics | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const m = raw as Record<string, unknown>;
+  const integrated = m.integratedLufs ?? m.integrated_lufs;
+  const target = m.targetLufs ?? m.target_lufs;
+  const truePeak = m.truePeakDbtp ?? m.true_peak_dbtp;
+  const sampleRate = m.sampleRateHz ?? m.sample_rate_hz;
+  return {
+    ...(m.mode !== undefined ? { mode: String(m.mode) } : {}),
+    ...(m.profileId !== undefined || m.profile_id !== undefined
+      ? { profileId: String(m.profileId ?? m.profile_id) }
+      : {}),
+    ...(typeof integrated === 'number' && Number.isFinite(integrated)
+      ? { integratedLufs: integrated }
+      : {}),
+    ...(typeof target === 'number' && Number.isFinite(target)
+      ? { targetLufs: target }
+      : {}),
+    ...(typeof truePeak === 'number' && Number.isFinite(truePeak)
+      ? { truePeakDbtp: truePeak }
+      : {}),
+    ...(typeof sampleRate === 'number' && Number.isFinite(sampleRate)
+      ? { sampleRateHz: sampleRate }
+      : {}),
+    ...(m.engine !== undefined ? { engine: String(m.engine) } : {}),
+  };
+}
+
+export function normalizeSvcMetrics(raw: unknown): SvcMetrics | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const s = raw as Record<string, unknown>;
+  const sim = s.similarityScore ?? s.similarity_score;
+  const refDec = s.referenceDecoded ?? s.reference_decoded;
+  const bantu = s.bantuTransientsPreserved ?? s.bantu_transients_preserved;
+  const polish = s.polishApplied ?? s.polish_applied;
+  return {
+    ...(s.applied !== undefined ? { applied: Boolean(s.applied) } : {}),
+    ...(s.engine !== undefined ? { engine: String(s.engine) } : {}),
+    ...(refDec !== undefined ? { referenceDecoded: Boolean(refDec) } : {}),
+    ...(typeof sim === 'number' && Number.isFinite(sim)
+      ? { similarityScore: sim }
+      : {}),
+    ...(bantu !== undefined ? { bantuTransientsPreserved: Boolean(bantu) } : {}),
+    ...(polish !== undefined ? { polishApplied: Boolean(polish) } : {}),
+  };
+}
+
+export function normalizeLoraMetrics(raw: unknown): LoraRuntimeMetrics | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const l = raw as Record<string, unknown>;
+  const reqCount = l.requestedCount ?? l.requested_count;
+  const loadCount = l.loadedCount ?? l.loaded_count;
+  const rawList = Array.isArray(l.loadedLoras ?? l.loaded_loras)
+    ? ((l.loadedLoras ?? l.loaded_loras) as Array<Record<string, unknown>>)
+    : undefined;
+  return {
+    ...(typeof reqCount === 'number' && Number.isFinite(reqCount)
+      ? { requestedCount: reqCount }
+      : {}),
+    ...(typeof loadCount === 'number' && Number.isFinite(loadCount)
+      ? { loadedCount: loadCount }
+      : {}),
+    ...(rawList
+      ? {
+          loadedLoras: rawList.map((item) => ({
+            loraId: String(item.loraId ?? item.lora_id ?? ''),
+            r2Key: String(item.r2Key ?? item.r2_key ?? ''),
+            weight: Number(item.weight ?? 0.85),
+            ...(item.sha256 ? { sha256: String(item.sha256) } : {}),
+            loaded: Boolean(item.loaded),
+          })),
+        }
+      : {}),
+  };
+}
+
+export async function recordRepaintCompletionOnParent(
+  parentId: string,
+  entry: RepaintHistoryEntry,
+  cOrEnv?: unknown,
+): Promise<void> {
+  const parent =
+    getJob(parentId) ??
+    (await vhunambiDb.syncGenerationJobFromCloud(parentId, cOrEnv)) ??
+    undefined;
+  if (!parent) return;
+  const existing = Array.isArray(parent.repaintHistory)
+    ? parent.repaintHistory.filter((item) => item.repaintId !== entry.repaintId)
+    : [];
+  const nextHistory = [...existing, entry];
+  const updatedManifest = parent.manifest
+    ? {
+        ...parent.manifest,
+        repaintHistory: nextHistory,
+      }
+    : undefined;
+  vhunambiDb.updateGenerationJob(parentId, {
+    repaintHistory: nextHistory,
+    ...(updatedManifest ? { manifest: updatedManifest } : {}),
+  });
+  const latest = getJob(parentId) ?? {
+    ...parent,
+    repaintHistory: nextHistory,
+    ...(updatedManifest ? { manifest: updatedManifest } : {}),
+  };
+  await vhunambiDb.upsertGenerationJobAsync(
+    latest,
+    latest.creatorId ?? 'creator_cern',
+    'audio_synthesis',
+    cOrEnv,
+  );
+}
+
 export function completeJob(
   generationId: string,
   result: {
@@ -97,6 +218,11 @@ export function completeJob(
     takes?: GenerationTakeRecord[];
     attributionTag?: string | null;
     resolvedEngine?: ResolvedAudioEngine;
+    sampleRateHz?: number;
+    masteringMetrics?: MasteringMetrics;
+    svcMetrics?: SvcMetrics;
+    loraMetrics?: LoraRuntimeMetrics;
+    repaintMetadata?: Record<string, unknown>;
   },
 ): void {
   const existing = getJob(generationId);
@@ -121,6 +247,11 @@ export function completeJob(
       ? { attributionTag: result.attributionTag }
       : {}),
     ...(result.resolvedEngine ? { resolvedEngine: result.resolvedEngine } : {}),
+    ...(result.sampleRateHz ? { sampleRateHz: result.sampleRateHz } : {}),
+    ...(result.masteringMetrics ? { masteringMetrics: result.masteringMetrics } : {}),
+    ...(result.svcMetrics ? { svcMetrics: result.svcMetrics } : {}),
+    ...(result.loraMetrics ? { loraMetrics: result.loraMetrics } : {}),
+    ...(result.repaintMetadata ? { repaintMetadata: result.repaintMetadata } : {}),
   });
 }
 
@@ -144,12 +275,19 @@ export async function notifyGenerationCompletedOnce(
   const title = job.trackTitle || 'Studio Master';
   const genre = job.genre || 'Amapiano';
   const durationSec = job.durationSec ?? 180;
+  const measuredLufs =
+    job.masteringMetrics?.integratedLufs ??
+    job.manifest?.masteringMetrics?.integratedLufs;
+  const lufsSuffix =
+    typeof measuredLufs === 'number' && Number.isFinite(measuredLufs)
+      ? ` · ${measuredLufs.toFixed(1)} LUFS`
+      : '';
   await vhunambiDb.upsertNotificationAsync(
     {
       id: `notif_gen_${job.generationId}`,
       userId: creatorId,
       title: `Studio Track Ready: "${title}"`,
-      message: `Mastered ${genre} track (${durationSec}s) is ready to play.`,
+      message: `Mastered ${genre} track (${durationSec}s${lufsSuffix}) is ready to play.`,
       isRead: false,
       category: 'creatorActivity',
       subtype: 'studio_render',
@@ -165,6 +303,15 @@ export async function notifyGenerationCompletedOnce(
         resolvedEngine: job.resolvedEngine ?? 'minimax_music_3',
         attributionTag: job.attributionTag ?? null,
         batchCount: job.batchCount ?? 1,
+        ...(typeof measuredLufs === 'number' && Number.isFinite(measuredLufs)
+          ? { integratedLufs: measuredLufs }
+          : {}),
+        ...(job.masteringMetrics?.profileId
+          ? { masteringProfile: job.masteringMetrics.profileId }
+          : {}),
+        ...(job.svcMetrics?.applied !== undefined
+          ? { voiceCloneApplied: Boolean(job.svcMetrics.applied) }
+          : {}),
       },
     },
     cOrEnv,

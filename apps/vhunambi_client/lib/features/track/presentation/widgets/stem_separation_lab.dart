@@ -83,7 +83,9 @@ class StemSeparationLab extends StatelessWidget {
               if (!stemState.isReady && !stemState.isProcessing)
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3A2508),
+                    backgroundColor: AppColors.brandPrimary.withValues(
+                      alpha: 0.16,
+                    ),
                     foregroundColor: AppColors.brandPrimary,
                     side: const BorderSide(color: AppColors.brandPrimary),
                     shape: const RoundedRectangleBorder(
@@ -96,7 +98,10 @@ class StemSeparationLab extends StatelessWidget {
                     elevation: 0,
                   ),
                   onPressed: onSeparateStems,
-                  icon: const PhosphorIcon(PhosphorIconsRegular.sliders, size: 16),
+                  icon: const PhosphorIcon(
+                    PhosphorIconsRegular.sliders,
+                    size: 16,
+                  ),
                   label: const Text(
                     'Separate',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
@@ -173,7 +178,10 @@ class StemSeparationLab extends StatelessWidget {
               Center(
                 child: TextButton.icon(
                   onPressed: onOpenFullMixer,
-                  icon: const PhosphorIcon(PhosphorIconsRegular.faders, size: 16),
+                  icon: const PhosphorIcon(
+                    PhosphorIconsRegular.faders,
+                    size: 16,
+                  ),
                   label: const Text('Open Pocket Stem Mixer Deck'),
                 ),
               ),
@@ -197,8 +205,8 @@ class StemSeparationLab extends StatelessWidget {
           color: stem.isSoloed
               ? AppColors.brandPrimary
               : (stem.isMuted
-                  ? AppColors.borderSubtle.withAlpha(50)
-                  : AppColors.borderSubtle),
+                    ? AppColors.borderSubtle.withAlpha(50)
+                    : AppColors.borderSubtle),
         ),
       ),
       child: Row(
