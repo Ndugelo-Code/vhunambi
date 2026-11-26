@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-11-25T16:27:47.514Z",
-  "latest_completed_phase": "P85.5",
-  "latest_completed_order": 85.5,
+  "generated_at": "2026-11-26T05:58:35.339Z",
+  "latest_completed_phase": "P85.6",
+  "latest_completed_order": 85.6,
   "stats": {
-    "total_phases": 25,
-    "completed_phases": 25,
-    "total_endpoints": 81,
+    "total_phases": 26,
+    "completed_phases": 26,
+    "total_endpoints": 82,
     "open_count": 0,
-    "connected_extensible_count": 78,
+    "connected_extensible_count": 79,
     "sealed_count": 3
   },
   "phases": [
@@ -1707,6 +1707,51 @@
         "Docker Build Cloud requires creating the named cloud builder once in https://app.docker.com/build before docker buildx create --use --driver cloud ndugelo/<name> succeeds (otherwise returns 404 unknown builder).",
         "Android R8 resource shrinking (isShrinkResources = true) strips drawables referenced dynamically by string name in audio_service (ic_vh_*, ic_stat_vhunambi) unless preserved in android/app/src/main/res/raw/keep.xml.",
         "Android status-bar/notification small icons only read the alpha channel (solid-background PNG favicons become solid white squares); always use a pure-white transparent-background 24dp vector silhouette."
+      ]
+    },
+    {
+      "phase_id": "P85.6",
+      "phase_order": 85.6,
+      "memory_key": "MEM-P85-6-NOTIFICATION-CRASH-AND-ZANIA-DISCOVERY",
+      "title": "Android Notification Compact-Index Crash Hotfix & Zania Catalog Explore Search / Creator Directory",
+      "status": "completed",
+      "completed_at": "2026-11-26T07:55:00+02:00",
+      "memory_file": "docs/memory/sprints/P85_6_memory.md",
+      "predecessor_keys": [
+        "MEM-P85-5-DOCKER-CLOUD-V5-AND-ANDROID-MEDIA-POLISH",
+        "MEM-P84-MEDIA-PIPELINE-ID3-REELS-AND-KPOST"
+      ],
+      "concept_hubs": [
+        "audio_transport",
+        "social_graph",
+        "media_artwork"
+      ],
+      "endpoints_defined": [
+        "EP-P85-6-EXPLORE-CREATOR-DIRECTORY"
+      ],
+      "consumes": [
+        "EP-P85-5-ANDROID-MEDIA-NOTIF",
+        "EP-P84-ZANIA-CATALOG-INGEST",
+        "EP-P84-EXPLORE-CURSOR-ETAG"
+      ],
+      "edges": [
+        {
+          "from": "apps/vhunambi_client/lib/features/explore/presentation/views/explore_search_view.dart",
+          "relation": "CONSUMES",
+          "to": "EP-P85-6-EXPLORE-CREATOR-DIRECTORY",
+          "note": "Debounced cloud search merges remote tracks/creators with local cache"
+        }
+      ],
+      "breakthroughs": [
+        "Fixed the release-build tap-to-play crash (RemoteServiceException: Bad notification ... IndexOutOfBoundsException: Index: 3, Size: 3) by setting kAndroidCompactActionIndices to [0, 1, 2]; confirmed working on Huawei JNY-LX1 after installing the 45.1 MB arm64 release APK.",
+        "Deployed vhunambi-api Version 06bcbc04-310c-4f73-b6fd-656d8f054c79; live GET /api/explore/tracks?search=zania returns total=186 and GET /api/explore/creators?search=zania returns creator_zania_catalog with trackCount=186.",
+        "Root cause of Zania tracks missing from Explore search: client searched only a hardcoded 6-creator list plus a small cached track list, backend search ignored creatorId/handle, and EdgeIsolate cold-start hydrated only 200 explore_tracks."
+      ],
+      "gotchas": [
+        "audio_service 0.18.19 AudioService.java builds notification compact view from nativeActions only (play/pause/prev/next); MediaControl.custom actions go to PlaybackStateCompat.CustomAction, so androidCompactActionIndices must index only the native actions (max index 2 for prev/play/next) or Android SystemUI crashes the app.",
+        "On the 8 GB Windows dev host with the IDE open, `dart analyze`, `npm test` and combined `flutter test` runs hang for tens of minutes; run tsc via `node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit`, run API tests individually via `node --import tsx test/<file>.test.ts`, and prefer building the APK directly over chained analyze/test commands.",
+        "Supabase public.explore_tracks uses columns artist, creator_id, plays_count, likes_count, cosigns_count, discovery_stage; there is no public.tracks table, and public.creators has no email/name/creator_id columns (use id, handle, display_name).",
+        "Register endpoint /api/auth/register requires handle, email and password."
       ]
     }
   ],
@@ -3629,9 +3674,12 @@
       "code_anchor": "apps/vhunambi_api/src/routes/explore_routes.ts",
       "summary": "Pure edge base64url keyset pagination (?cursor=) and weak FNV-1a ETag / If-None-Match 304 Not Modified caching on GET /api/explore/tracks.",
       "consumers": [
-        "P84:explore_routes.ts"
+        "P84:explore_routes.ts",
+        "P85.6:Android Notification Compact-Index Crash Hotfix & Zania Catalog Explore Search / Creator Directory"
       ],
-      "consumed_by_phases": [],
+      "consumed_by_phases": [
+        "P85.6"
+      ],
       "open_opportunities": "Adopt identical keyset cursor + FNV-1a ETag caching on GET /api/social/feed and GET /api/media/uploads"
     },
     "EP-P84-ZANIA-CATALOG-INGEST": {
@@ -3651,10 +3699,12 @@
       "summary": "Zero-dependency Node 24 streaming CLI ingesting local ZANIA MUSIC MP3s, sibling covers, and lyrics into R2 zr-studio-audio and Supabase explore_tracks with SHA-256 deduplication and <150MB RAM usage.",
       "consumers": [
         "P84:ingest_zania_catalog.mjs",
-        "P85:Cloud-Only Zero-Local-RAM LoRA Factory: RunPod Dataset Prepper, Real ACE-Step 1.5 PEFT Trainer, Supabase LoRA Registry & Live Factory UI"
+        "P85:Cloud-Only Zero-Local-RAM LoRA Factory: RunPod Dataset Prepper, Real ACE-Step 1.5 PEFT Trainer, Supabase LoRA Registry & Live Factory UI",
+        "P85.6:Android Notification Compact-Index Crash Hotfix & Zania Catalog Explore Search / Creator Directory"
       ],
       "consumed_by_phases": [
-        "P85"
+        "P85",
+        "P85.6"
       ],
       "open_opportunities": "Reuse manifest output directly as the input seed list for Phase 85 RunPod cloud LoRA dataset preparation"
     },
@@ -3788,10 +3838,35 @@
       "summary": "Branded Android MediaStyle notification with monochrome Vhunambi vector icon (ic_stat_vhunambi.xml), 7 custom Phosphor vector drawables (ic_vh_*.xml) protected by res/raw/keep.xml, native-readable artUri temp caching for automatic chromatic colorization, live Favorite toggle replacing Stop, clean display metadata, and just_audio durationStream sync into PlayerState + MediaItem.duration.",
       "consumers": [
         "P85.5:PlayerNotifier",
-        "P85.5:UploadsVaultView"
+        "P85.5:UploadsVaultView",
+        "P85.6:Android Notification Compact-Index Crash Hotfix & Zania Catalog Explore Search / Creator Directory"
+      ],
+      "consumed_by_phases": [
+        "P85.6"
+      ],
+      "open_opportunities": "Pair MediaStyle notification with a custom glassmorphic Android Home Screen AppWidget in a future polish sprint"
+    },
+    "EP-P85-6-EXPLORE-CREATOR-DIRECTORY": {
+      "id": "EP-P85-6-EXPLORE-CREATOR-DIRECTORY",
+      "kind": "backend_api_and_client_search",
+      "state": "CONNECTED_EXTENSIBLE",
+      "origin_phase": "P85.6",
+      "origin_order": 85.6,
+      "memory_file": "docs/memory/sprints/P85_6_memory.md",
+      "hubs": [
+        "social_graph",
+        "media_artwork"
+      ],
+      "spec_anchor": "docs/memory/sprints/P85_6_memory.md",
+      "code_anchor": "apps/vhunambi_api/src/routes/explore_routes.ts",
+      "summary": "GET /api/explore/creators (creators + track counts + top genres + search), creatorId/handle/sub-genre/description matching in GET /api/explore/tracks search, 500-row explore_tracks + creators hydration, Flutter ExploreCreatorsNotifier, cloud-merged ExploreSearchView, cursor-paged ExploreTracksNotifier.refreshFromCloud, and Track.creatorId matching in creatorCatalogTracksProvider.",
+      "consumers": [
+        "P85.6:ExploreSearchView",
+        "P85.6:ExploreCreatorsNotifier",
+        "P85.6:creatorCatalogTracksProvider"
       ],
       "consumed_by_phases": [],
-      "open_opportunities": "Pair MediaStyle notification with a custom glassmorphic Android Home Screen AppWidget in a future polish sprint"
+      "open_opportunities": "Add server-side creator follow counts and Zania creator banner/avatar assets to the directory payload"
     }
   },
   "hub_index": {
@@ -3851,7 +3926,8 @@
         "EP-P84-KPOST-MEDIA-UPLOAD",
         "EP-P84-ZANIA-CATALOG-INGEST",
         "EP-P85-CLOUD-DATASET-PREP",
-        "EP-P85-5-ANDROID-MEDIA-NOTIF"
+        "EP-P85-5-ANDROID-MEDIA-NOTIF",
+        "EP-P85-6-EXPLORE-CREATOR-DIRECTORY"
       ],
       "phases": [
         "P64",
@@ -3871,7 +3947,8 @@
         "P83",
         "P84",
         "P85",
-        "P85.5"
+        "P85.5",
+        "P85.6"
       ]
     },
     "quota_economy": {
@@ -3948,7 +4025,8 @@
         "P83",
         "P84",
         "P85",
-        "P85.5"
+        "P85.5",
+        "P85.6"
       ]
     },
     "mood_taxonomy": {
@@ -4004,7 +4082,8 @@
         "EP-P78-REAL-AUDIO-VIDEO-INGEST",
         "EP-P79-POST-COCKPIT-V2",
         "EP-P84-KPOST-MEDIA-UPLOAD",
-        "EP-P84-EXPLORE-CURSOR-ETAG"
+        "EP-P84-EXPLORE-CURSOR-ETAG",
+        "EP-P85-6-EXPLORE-CREATOR-DIRECTORY"
       ],
       "phases": [
         "P00_P63",
@@ -4019,7 +4098,8 @@
         "P77",
         "P78",
         "P79",
-        "P84"
+        "P84",
+        "P85.6"
       ]
     },
     "notifications_bus": {
@@ -4274,7 +4354,8 @@
     "apps/vhunambi_api/src/routes/explore_routes.ts": [
       "EP-P69-POST-COSIGN-REPOST-HTTP",
       "EP-P73-MULTI-REACTIONS-API",
-      "EP-P84-EXPLORE-CURSOR-ETAG"
+      "EP-P84-EXPLORE-CURSOR-ETAG",
+      "EP-P85-6-EXPLORE-CREATOR-DIRECTORY"
     ],
     "apps/vhunambi_client/lib/core/widgets/vhunambi_glass_surface.dart": [
       "EP-P70-GLASS-SURFACE"

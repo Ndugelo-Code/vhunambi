@@ -53,9 +53,27 @@ final exploreSortByProvider = StateProvider<ExploreSortBy>(
   (ref) => ExploreSortBy.newest,
 );
 
-/// Featured Creator deck records (REQ-EXP-06).
-final exploreCreatorsProvider = Provider<List<CreatorProfile>>((ref) {
-  return const [
+/// Featured + cloud-hydrated Creator directory deck (REQ-EXP-06).
+final exploreCreatorsProvider =
+    StateNotifierProvider<ExploreCreatorsNotifier, List<CreatorProfile>>((ref) {
+      final repo = ref.watch(exploreRepositoryProvider);
+      final notifier = ExploreCreatorsNotifier(repository: repo);
+      Future<void>.microtask(notifier.refreshFromCloud);
+      return notifier;
+    });
+
+class ExploreCreatorsNotifier extends StateNotifier<List<CreatorProfile>>
+    with SafeNotifierMixin<List<CreatorProfile>> {
+  static const List<CreatorProfile> _seededCreators = [
+    CreatorProfile(
+      id: 'creator_zania_catalog',
+      name: 'Zania Music Catalog',
+      handle: '@zania_catalog',
+      initials: 'ZM',
+      trackCount: 186,
+      primaryGenres: ['Afrobeats', 'Amapiano', 'Mzansi Pop'],
+      isVerified: true,
+    ),
     CreatorProfile(
       id: 'creator_sigwa',
       name: 'Sigwa & Inaf',
@@ -108,7 +126,29 @@ final exploreCreatorsProvider = Provider<List<CreatorProfile>>((ref) {
       isVerified: true,
     ),
   ];
-});
+
+  final HttpExploreRepository? repository;
+
+  ExploreCreatorsNotifier({this.repository}) : super(_seededCreators);
+
+  Future<void> refreshFromCloud() async {
+    final repo = repository;
+    if (repo == null) return;
+    final remote = await repo.fetchExploreCreators(limit: 100);
+    if (!mounted || remote.isEmpty) return;
+
+    final byId = <String, CreatorProfile>{};
+    for (final c in remote) {
+      if (c.id.isNotEmpty) byId[c.id] = c;
+    }
+    for (final c in _seededCreators) {
+      byId.putIfAbsent(c.id, () => c);
+    }
+    final merged = byId.values.toList()
+      ..sort((a, b) => b.trackCount.compareTo(a.trackCount));
+    state = List<CreatorProfile>.unmodifiable(merged);
+  }
+}
 
 /// HTTP repository backing dynamic Explore discovery feeds & genre radio (Phase 59).
 final exploreRepositoryProvider = Provider<HttpExploreRepository>((ref) {
@@ -306,30 +346,45 @@ class ExploreTracksNotifier extends StateNotifier<List<Track>>
   }
 
   /// Hydrates dynamic African catalog tracks from `GET /api/explore/tracks`
-  /// with non-destructive offline seed fallback when disconnected.
+  /// across cursor pages so large creator catalogs (e.g. Zania 186-track drop)
+  /// populate Explore completely with non-destructive offline seed fallback.
   Future<bool> refreshFromCloud({
     String? genre,
     String? stage,
-    String sort = 'trending',
+    String sort = 'newest',
     bool mergeWithSeeds = true,
   }) async {
     final repo = _repository;
     if (repo == null) return false;
-    final remoteTracks = await repo.fetchExploreTracks(
-      genre: genre,
-      stage: stage,
-      sort: sort,
-    );
-    if (!mounted || remoteTracks.isEmpty) return false;
+    final collected = <Track>[];
+    final seenIds = <String>{};
+    String? cursor;
+    for (var page = 0; page < 4; page++) {
+      final res = await repo.fetchExploreTracksPage(
+        genre: genre,
+        stage: stage,
+        sort: sort,
+        cursor: cursor,
+        limit: 100,
+      );
+      if (res.items.isEmpty) break;
+      for (final track in res.items) {
+        if (seenIds.add(track.id)) {
+          collected.add(track);
+        }
+      }
+      cursor = res.nextCursor;
+      if (cursor == null || cursor.isEmpty) break;
+    }
+    if (!mounted || collected.isEmpty) return false;
 
     if (!mergeWithSeeds) {
-      state = List<Track>.unmodifiable(remoteTracks);
+      state = List<Track>.unmodifiable(collected);
     } else {
-      final remoteIds = remoteTracks.map((t) => t.id).toSet();
       final retainedLocal = state
-          .where((t) => !remoteIds.contains(t.id))
+          .where((t) => !seenIds.contains(t.id))
           .toList(growable: false);
-      state = List<Track>.unmodifiable([...remoteTracks, ...retainedLocal]);
+      state = List<Track>.unmodifiable([...collected, ...retainedLocal]);
     }
     unawaited(
       ExploreCacheRepository.saveCachedTracks(
@@ -435,6 +490,8 @@ List<Track> filterExploreTracks({
 
     return track.title.toLowerCase().contains(normalizedQuery) ||
         track.creatorName.toLowerCase().contains(normalizedQuery) ||
+        (track.creatorHandle ?? '').toLowerCase().contains(normalizedQuery) ||
+        (track.creatorId ?? '').toLowerCase().contains(normalizedQuery) ||
         track.genre.toLowerCase().contains(normalizedQuery) ||
         track.language.toLowerCase().contains(normalizedQuery) ||
         (track.mood ?? '').toLowerCase().contains(normalizedQuery);

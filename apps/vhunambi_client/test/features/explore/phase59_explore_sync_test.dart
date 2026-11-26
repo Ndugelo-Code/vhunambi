@@ -47,6 +47,7 @@ void main() {
         id: 'trk_roundtrip_1',
         title: 'Thohoyandou Bounce',
         creatorName: 'Makhadzi Wave',
+        creatorId: 'creator_makhadzi',
         genre: 'Lekompo',
         language: 'Tshivenḓa',
         duration: Duration(minutes: 3, seconds: 25),
@@ -73,6 +74,7 @@ void main() {
       expect(decoded.id, original.id);
       expect(decoded.title, original.title);
       expect(decoded.creatorName, original.creatorName);
+      expect(decoded.creatorId, 'creator_makhadzi');
       expect(decoded.genre, original.genre);
       expect(decoded.language, original.language);
       expect(decoded.duration, original.duration);

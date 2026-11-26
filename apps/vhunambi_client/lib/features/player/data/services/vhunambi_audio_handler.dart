@@ -77,9 +77,12 @@ const String kAudioNotificationIcon = 'drawable/ic_stat_vhunambi';
 const String kAudioCustomActionToggleFavorite = 'toggle_favorite';
 const String kAudioCustomActionCloseDismiss = 'close_dismiss';
 
-/// Compact notification action slots: previous, play/pause, next inside
-/// the 5-button strip `[ heart, prev, play/pause, next, close ]`.
-const List<int> kAndroidCompactActionIndices = <int>[1, 2, 3];
+/// Compact notification action slots indexing into `AudioService.java`'s
+/// `nativeActions` list (`[0]=previous`, `[1]=play/pause`, `[2]=next`).
+/// `MediaControl.custom` actions live in `PlaybackStateCompat.CustomAction`
+/// (`customActions`), not `nativeActions`, so indexing past 2 causes
+/// `IndexOutOfBoundsException: Index: 3, Size: 3` on Android < 13 SystemUI.
+const List<int> kAndroidCompactActionIndices = <int>[0, 1, 2];
 
 /// System actions advertised to the OS transport (REQ-AUD-04).
 const Set<MediaAction> kAudioSystemActions = <MediaAction>{

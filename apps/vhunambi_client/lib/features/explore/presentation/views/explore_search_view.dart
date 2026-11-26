@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
@@ -37,6 +38,11 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   ExploreSearchCategory _selectedCategory = ExploreSearchCategory.top;
+  Timer? _searchDebounce;
+  String _remoteQuery = '';
+  bool _isSearchingCloud = false;
+  List<Track> _remoteTracks = const <Track>[];
+  List<CreatorProfile> _remoteCreators = const <CreatorProfile>[];
 
   @override
   void initState() {
@@ -51,9 +57,51 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _scheduleCloudSearch(String rawQuery, {bool immediate = false}) {
+    _searchDebounce?.cancel();
+    final trimmed = rawQuery.trim();
+    if (trimmed.isEmpty) {
+      if (_remoteQuery.isNotEmpty || _isSearchingCloud) {
+        setState(() {
+          _remoteQuery = '';
+          _isSearchingCloud = false;
+          _remoteTracks = const <Track>[];
+          _remoteCreators = const <CreatorProfile>[];
+        });
+      }
+      return;
+    }
+
+    Future<void> runSearch() async {
+      if (!mounted) return;
+      final repo = ref.read(exploreRepositoryProvider);
+      setState(() {
+        _isSearchingCloud = true;
+      });
+      final results = await Future.wait<dynamic>([
+        repo.fetchExploreTracks(search: trimmed, sort: 'newest', limit: 100),
+        repo.fetchExploreCreators(search: trimmed, limit: 50),
+      ]);
+      if (!mounted || _searchController.text.trim() != trimmed) return;
+      setState(() {
+        _remoteQuery = trimmed;
+        _isSearchingCloud = false;
+        _remoteTracks = results[0] as List<Track>;
+        _remoteCreators = results[1] as List<CreatorProfile>;
+      });
+    }
+
+    if (immediate) {
+      unawaited(runSearch());
+    } else {
+      _searchDebounce = Timer(const Duration(milliseconds: 250), runSearch);
+    }
   }
 
   void _executeSearch(String query) {
@@ -65,11 +113,13 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
       ref.read(recentSearchesProvider.notifier).addQuery(query.trim());
     }
     setState(() {});
+    _scheduleCloudSearch(query, immediate: true);
   }
 
   void _clearSearch() {
     _searchController.clear();
     setState(() {});
+    _scheduleCloudSearch('', immediate: true);
   }
 
   @override
@@ -159,8 +209,12 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
                                     .read(recentSearchesProvider.notifier)
                                     .addQuery(val.trim());
                               }
+                              _scheduleCloudSearch(val, immediate: true);
                             },
-                            onChanged: (_) => setState(() {}),
+                            onChanged: (val) {
+                              setState(() {});
+                              _scheduleCloudSearch(val);
+                            },
                           ),
                         ),
                         if (_searchController.text.isNotEmpty)
@@ -340,14 +394,23 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
     required List<CreatorProfile> creators,
   }) {
     final lowerQ = query.toLowerCase();
-    final matchedTracks = tracks
-        .where(
-          (t) =>
-              t.title.toLowerCase().contains(lowerQ) ||
-              t.creatorName.toLowerCase().contains(lowerQ) ||
-              t.genre.toLowerCase().contains(lowerQ),
-        )
-        .toList();
+    final trackMap = <String, Track>{};
+    if (_remoteQuery.toLowerCase() == lowerQ) {
+      for (final t in _remoteTracks) {
+        trackMap[t.id] = t;
+      }
+    }
+    for (final t in tracks) {
+      if (t.title.toLowerCase().contains(lowerQ) ||
+          t.creatorName.toLowerCase().contains(lowerQ) ||
+          (t.creatorHandle ?? '').toLowerCase().contains(lowerQ) ||
+          (t.creatorId ?? '').toLowerCase().contains(lowerQ) ||
+          t.genre.toLowerCase().contains(lowerQ) ||
+          t.language.toLowerCase().contains(lowerQ)) {
+        trackMap.putIfAbsent(t.id, () => t);
+      }
+    }
+    final matchedTracks = trackMap.values.toList(growable: false);
 
     final matchedReels = reels
         .where(
@@ -358,17 +421,29 @@ class _ExploreSearchViewState extends ConsumerState<ExploreSearchView> {
         )
         .toList();
 
-    final matchedCreators = creators
-        .where(
-          (c) =>
-              c.name.toLowerCase().contains(lowerQ) ||
-              c.handle.toLowerCase().contains(lowerQ) ||
-              c.primaryGenres.any((g) => g.toLowerCase().contains(lowerQ)),
-        )
-        .toList();
+    final creatorMap = <String, CreatorProfile>{};
+    if (_remoteQuery.toLowerCase() == lowerQ) {
+      for (final c in _remoteCreators) {
+        creatorMap[c.id] = c;
+      }
+    }
+    for (final c in creators) {
+      if (c.name.toLowerCase().contains(lowerQ) ||
+          c.handle.toLowerCase().contains(lowerQ) ||
+          c.id.toLowerCase().contains(lowerQ) ||
+          c.primaryGenres.any((g) => g.toLowerCase().contains(lowerQ))) {
+        creatorMap.putIfAbsent(c.id, () => c);
+      }
+    }
+    final matchedCreators = creatorMap.values.toList(growable: false);
 
     return Column(
       children: [
+        if (_isSearchingCloud)
+          const LinearProgressIndicator(
+            minHeight: 2,
+            color: AppColors.brandPrimary,
+          ),
         // Category Filter Tabs
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,

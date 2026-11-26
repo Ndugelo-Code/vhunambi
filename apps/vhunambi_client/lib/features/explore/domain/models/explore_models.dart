@@ -36,6 +36,32 @@ class CreatorProfile {
     this.isVerified = false,
   });
 
+  factory CreatorProfile.fromJson(Map<String, dynamic> json) {
+    final name = (json['name'] ?? json['displayName'] ?? 'Creator').toString();
+    final rawHandle = (json['handle'] ?? '').toString().trim();
+    final handle = rawHandle.isEmpty
+        ? '@${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_')}'
+        : (rawHandle.startsWith('@') ? rawHandle : '@$rawHandle');
+    final rawInitials = (json['initials'] ?? '').toString().trim();
+    final initials = rawInitials.isNotEmpty
+        ? rawInitials
+        : (name.length >= 2 ? name.substring(0, 2).toUpperCase() : 'VH');
+    final genresRaw = json['primaryGenres'];
+    final genres = genresRaw is List
+        ? genresRaw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
+        : const <String>[];
+    return CreatorProfile(
+      id: (json['id'] ?? '').toString(),
+      name: name,
+      handle: handle,
+      initials: initials,
+      trackCount: (json['trackCount'] as num?)?.toInt() ?? 0,
+      avatarUrl: json['avatarUrl'] as String?,
+      primaryGenres: List<String>.unmodifiable(genres),
+      isVerified: json['isVerified'] as bool? ?? false,
+    );
+  }
+
   String get trackCountLabel => '$trackCount songs';
 
   /// Primary genre label shown under the creator name.

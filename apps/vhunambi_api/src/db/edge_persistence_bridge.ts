@@ -927,7 +927,7 @@ export class EdgeIsolateDatabaseEngine {
             driver.selectRows<Record<string, any>>('creators', 'select=*&limit=300'),
             driver.selectRows<Record<string, any>>('users', 'select=*&limit=300'),
             driver.selectRows<Record<string, any>>('auth_sessions', 'select=*&revoked=eq.false&order=rotated_at.desc&limit=300'),
-            driver.selectRows<Record<string, any>>('explore_tracks', 'select=*&limit=200'),
+            driver.selectRows<Record<string, any>>('explore_tracks', 'select=*&order=updated_at.desc&limit=500'),
             driver.selectRows<Record<string, any>>('kinetic_posts', 'select=*&order=created_at.desc&limit=200'),
             driver.selectRows<Record<string, any>>('published_clips', 'select=*&order=created_at.desc&limit=200'),
             driver.selectRows<Record<string, any>>('reel_comments', 'select=*&order=timestamp_ms.desc&limit=400'),
@@ -1626,7 +1626,7 @@ export class EdgeIsolateDatabaseEngine {
     }
 
     const syncPromise = (async (): Promise<boolean> => {
-      const [tracksRes, postsRes, commentsRes, interactionsRes] =
+      const [tracksRes, postsRes, commentsRes, interactionsRes, creatorsRes] =
         await Promise.all([
           EdgeIsolateDatabaseEngine.withTimeoutResult(
             driver.selectRows<Record<string, any>>(
@@ -1656,8 +1656,42 @@ export class EdgeIsolateDatabaseEngine {
             ),
             3500,
           ),
+          EdgeIsolateDatabaseEngine.withTimeoutResult(
+            driver.selectRows<Record<string, any>>(
+              'creators',
+              'select=*&limit=300',
+            ),
+            3500,
+          ),
         ]);
 
+      if (creatorsRes.ok) {
+        for (const cr of creatorsRes.value) {
+          const cid = canonicalizeCreatorId(String(cr.id ?? ''));
+          if (!cid) continue;
+          const existing = this.creators.get(cid);
+          this.creators.set(cid, {
+            ...(existing ?? {}),
+            id: cid,
+            handle: String(
+              cr.handle ?? existing?.handle ?? `@${cid.replace(/^creator_/, '')}`,
+            ),
+            displayName: String(
+              cr.display_name ?? existing?.displayName ?? cid,
+            ),
+            avatarUrl: String(cr.avatar_url ?? existing?.avatarUrl ?? ''),
+            archetype: String(cr.archetype ?? existing?.archetype ?? 'Producer'),
+            tier: String(cr.tier ?? existing?.tier ?? 'verified'),
+            reputationScore: Number(
+              cr.reputation_score ?? existing?.reputationScore ?? 100,
+            ),
+            createdAt: String(
+              cr.created_at ?? existing?.createdAt ?? new Date().toISOString(),
+            ),
+            updatedAt: new Date(Number(cr.updated_at || Date.now())).toISOString(),
+          });
+        }
+      }
       if (tracksRes.ok) this.hydrateExploreTrackRows(tracksRes.value);
       if (postsRes.ok) this.hydrateKineticPostRows(postsRes.value);
       if (commentsRes.ok) this.hydrateReelCommentRows(commentsRes.value);
@@ -3578,7 +3612,11 @@ export class EdgeIsolateDatabaseEngine {
         (t) =>
           t.title.toLowerCase().includes(q) ||
           t.artist.toLowerCase().includes(q) ||
+          t.creatorId.toLowerCase().includes(q) ||
+          t.creatorHandle.toLowerCase().includes(q) ||
           t.genre.toLowerCase().includes(q) ||
+          t.subGenre.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q) ||
           t.province.toLowerCase().includes(q),
       );
     }
@@ -3595,6 +3633,103 @@ export class EdgeIsolateDatabaseEngine {
       items: mapped.slice(0, limit),
       total: mapped.length,
       serverSeq: this.getLatestSeq(),
+    };
+  }
+
+  public getExploreCreators(
+    options: { search?: string; limit?: number } = {},
+  ): {
+    items: Array<{
+      id: string;
+      name: string;
+      handle: string;
+      initials: string;
+      trackCount: number;
+      avatarUrl: string | null;
+      primaryGenres: string[];
+      isVerified: boolean;
+    }>;
+    total: number;
+  } {
+    const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
+    const trackStats = new Map<string, { count: number; genres: Map<string, number> }>();
+    for (const raw of this.exploreTracks.values()) {
+      const track = this.mapExploreTrackRow(raw);
+      const cid = canonicalizeCreatorId(track.creatorId);
+      const bucket = trackStats.get(cid) ?? { count: 0, genres: new Map<string, number>() };
+      bucket.count += 1;
+      bucket.genres.set(track.genre, (bucket.genres.get(track.genre) ?? 0) + 1);
+      trackStats.set(cid, bucket);
+    }
+
+    const toInitials = (name: string): string => {
+      const parts = name.trim().split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+      }
+      return name.trim().slice(0, 2).toUpperCase() || 'VH';
+    };
+
+    const byId = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        handle: string;
+        initials: string;
+        trackCount: number;
+        avatarUrl: string | null;
+        primaryGenres: string[];
+        isVerified: boolean;
+      }
+    >();
+
+    for (const cr of this.creators.values()) {
+      const cid = canonicalizeCreatorId(String(cr.id ?? ''));
+      if (!cid || cid.startsWith('creator_probe_') || cid.startsWith('creator_p6')) {
+        continue;
+      }
+      const stats = trackStats.get(cid);
+      const genres = stats
+        ? Array.from(stats.genres.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([g]) => g)
+        : [];
+      const name = String(cr.displayName ?? cr.handle ?? cid);
+      const handle = String(cr.handle ?? `@${cid.replace(/^creator_/, '')}`);
+      byId.set(cid, {
+        id: cid,
+        name,
+        handle: handle.startsWith('@') ? handle : `@${handle}`,
+        initials: toInitials(name),
+        trackCount: stats?.count ?? 0,
+        avatarUrl: cr.avatarUrl ? String(cr.avatarUrl) : null,
+        primaryGenres: genres.length > 0 ? genres : ['Afro Fusion'],
+        isVerified: String(cr.tier ?? '') !== 'unverified',
+      });
+    }
+
+    let items = Array.from(byId.values());
+    if (options.search && options.search.trim() !== '') {
+      const q = options.search.trim().toLowerCase();
+      items = items.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.handle.toLowerCase().includes(q) ||
+          c.id.toLowerCase().includes(q) ||
+          c.primaryGenres.some((g) => g.toLowerCase().includes(q)),
+      );
+    }
+
+    items.sort((a, b) => {
+      if (b.trackCount !== a.trackCount) return b.trackCount - a.trackCount;
+      return a.name.localeCompare(b.name);
+    });
+
+    return {
+      items: items.slice(0, limit),
+      total: items.length,
     };
   }
 

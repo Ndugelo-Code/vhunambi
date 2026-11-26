@@ -10,7 +10,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/vhunambi_glass_surface.dart';
-import '../../../studio/domain/models/studio_form_state.dart';
 import '../../../studio/presentation/providers/studio_form_provider.dart';
 import '../../../studio/presentation/providers/studio_lora_registry_provider.dart';
 import '../../../studio/presentation/widgets/cockpit_quantum_entanglement_rack.dart';

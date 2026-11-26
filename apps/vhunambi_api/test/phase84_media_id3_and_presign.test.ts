@@ -275,6 +275,27 @@ async function run(): Promise<void> {
   });
   assert.deepEqual(upsertedTables, ['kinetic_posts', 'explore_tracks']);
 
+  // 5. Explore creator directory & creatorId/handle track search matching
+  await edge.upsertExploreTrackAsync({
+    id: 'trk_p84_zania_15',
+    creatorId: 'creator_zania_catalog',
+    creatorName: 'marcelsigwadi',
+    creatorHandle: '@zaniamusic',
+    title: 'Stardust',
+    genre: 'Ambient',
+    audioUrl: '/r2/media/creator_zania_catalog/stardust.mp3',
+  });
+  const byCreatorId = edge.getExploreTracks({ search: 'zania_catalog' });
+  assert.equal(byCreatorId.items.some((t) => t.id === 'trk_p84_zania_15'), true);
+  const byHandle = edge.getExploreTracks({ search: '@zaniamusic' });
+  assert.equal(byHandle.items.some((t) => t.id === 'trk_p84_zania_15'), true);
+
+  const creatorsRes = await app.request('/api/explore/creators');
+  assert.equal(creatorsRes.status, 200);
+  const creatorsJson = (await creatorsRes.json()) as Record<string, any>;
+  assert.equal(creatorsJson.success, true);
+  assert.ok(Array.isArray(creatorsJson.items));
+
   console.log('[Phase 84 Test] ALL ASSERTIONS PASSED!');
 }
 

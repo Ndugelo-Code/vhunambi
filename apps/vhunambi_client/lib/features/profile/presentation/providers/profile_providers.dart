@@ -40,12 +40,25 @@ final creatorCatalogTracksProvider = Provider.family<List<Track>, String>((
   final seenIds = <String>{};
   final results = <Track>[];
 
-  bool matchesCreator(String? creatorName, String? creatorHandle) {
-    final handleSlug = (creatorHandle ?? '')
+  bool matchesCreator(Track track) {
+    final trackCid = (track.creatorId ?? '').trim().toLowerCase();
+    final rawTrackCid = trackCid.isNotEmpty
+        ? extractRawCreatorId(trackCid).toLowerCase()
+        : '';
+    final canonicalTrackCid = trackCid.isNotEmpty
+        ? canonicalizeCreatorId(trackCid, fallback: '')
+        : '';
+    if (trackCid == artistId.toLowerCase() ||
+        rawTrackCid == rawTarget ||
+        (canonicalTrackCid.isNotEmpty &&
+            canonicalTrackCid == canonicalTarget)) {
+      return true;
+    }
+    final handleSlug = (track.creatorHandle ?? '')
         .trim()
         .toLowerCase()
         .replaceFirst(RegExp(r'^@+'), '');
-    final nameSlug = (creatorName ?? '').trim().toLowerCase();
+    final nameSlug = track.creatorName.trim().toLowerCase();
     final canonicalFromHandle = handleSlug.isNotEmpty
         ? canonicalizeCreatorId(handleSlug, fallback: '')
         : '';
@@ -55,8 +68,7 @@ final creatorCatalogTracksProvider = Provider.family<List<Track>, String>((
   }
 
   for (final track in exploreTracks) {
-    if (matchesCreator(track.creatorName, track.creatorHandle) &&
-        seenIds.add(track.id)) {
+    if (matchesCreator(track) && seenIds.add(track.id)) {
       results.add(track);
     }
   }
@@ -73,10 +85,10 @@ final creatorKineticPostsProvider =
 
       return posts.where((post) {
         final cid = canonicalizeCreatorId(post.creatorId, fallback: '');
-        final handleSlug = post.creatorHandle
-            .trim()
-            .toLowerCase()
-            .replaceFirst(RegExp(r'^@+'), '');
+        final handleSlug = post.creatorHandle.trim().toLowerCase().replaceFirst(
+          RegExp(r'^@+'),
+          '',
+        );
         return cid == canonicalTarget ||
             extractRawCreatorId(post.creatorId).toLowerCase() == rawTarget ||
             handleSlug == rawTarget;
@@ -588,6 +600,21 @@ final List<ArtistProfileEntity> seededArtistProfiles = [
     topGenres: ['Amapiano', 'Afro House', 'Tshivenḓa Folk'],
     vocalArchetypeTitle: 'Venda Royal Matriarch',
     vocalArchetypeLanguage: 'Tshivenḓa',
+  ),
+  const ArtistProfileEntity(
+    id: 'creator_zania_catalog',
+    username: 'zania_catalog',
+    displayName: 'Zania Music Catalog',
+    monogram: 'ZM',
+    bio:
+        'Official curated Zania Music catalog across Amapiano, Afrobeats, Mzansi Pop, Afro House, Jazz, and Cinematic instrumentals.',
+    isVerified: true,
+    songCount: 186,
+    likeCount: 0,
+    playCount: 0,
+    followerCount: 1200,
+    dayStreak: 7,
+    topGenres: ['Afrobeats', 'Amapiano', 'Mzansi Pop'],
   ),
   const ArtistProfileEntity(
     id: 'creator_khakhathi',

@@ -129,6 +129,16 @@ exploreRoutes.get('/tracks', async (c) => {
   return c.json(payload);
 });
 
+// GET /api/explore/creators — Dynamic creator directory with track stats & search
+exploreRoutes.get('/creators', async (c) => {
+  await vhunambiDb.syncExploreFromCloud(false, c);
+  const search = c.req.query('search');
+  const rawLimit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : 50;
+  const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 50, 1), 200);
+  const result = vhunambiDb.getExploreCreators({ search, limit });
+  return c.json({ success: true, items: result.items, total: result.total });
+});
+
 // POST /api/explore/tracks — Publish or update a track in the Explore catalog (Durable Write-Through)
 exploreRoutes.post('/tracks', async (c) => {
   try {

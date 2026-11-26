@@ -10,7 +10,6 @@ import 'package:vhunambi_client/features/media/data/repositories/http_media_uplo
 import 'package:vhunambi_client/features/media/domain/models/uploaded_media_asset.dart';
 import 'package:vhunambi_client/features/media/presentation/providers/media_upload_queue_provider.dart';
 import 'package:vhunambi_client/features/studio/data/services/http_generation_submission_service.dart';
-import 'package:vhunambi_client/features/studio/domain/models/generation_pipeline_state.dart';
 import 'package:vhunambi_client/features/studio/domain/models/studio_form_state.dart';
 import 'package:vhunambi_client/features/studio/domain/models/studio_genre_catalog.dart';
 import 'package:vhunambi_client/features/studio/presentation/providers/generation_pipeline_providers.dart';

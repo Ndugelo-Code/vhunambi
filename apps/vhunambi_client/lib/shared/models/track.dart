@@ -50,6 +50,10 @@ class Track {
   /// Optional mood tag powering the Explore mood filter engine (Blueprint 01 §5.2).
   final String? mood;
 
+  /// Canonical creator ID (e.g. `creator_zania_catalog`) linking tracks to
+  /// their creator profile across Explore search and profile catalogs.
+  final String? creatorId;
+
   /// Optional creator handle (e.g. `@sigwa_inaf`) rendered in Explore footers.
   final String? creatorHandle;
 
@@ -75,6 +79,7 @@ class Track {
     this.isNew = false,
     this.trendingRank,
     this.mood,
+    this.creatorId,
     this.creatorHandle,
     this.stemUrls,
     this.provenanceType = AudioProvenanceType.hybridCoCreation,
@@ -124,6 +129,7 @@ class Track {
     bool? isNew,
     int? trendingRank,
     String? mood,
+    String? creatorId,
     String? creatorHandle,
     Map<StemType, String>? stemUrls,
     AudioProvenanceType? provenanceType,
@@ -143,6 +149,7 @@ class Track {
       isNew: isNew ?? this.isNew,
       trendingRank: trendingRank ?? this.trendingRank,
       mood: mood ?? this.mood,
+      creatorId: creatorId ?? this.creatorId,
       creatorHandle: creatorHandle ?? this.creatorHandle,
       stemUrls: stemUrls ?? this.stemUrls,
       provenanceType: provenanceType ?? this.provenanceType,
@@ -168,6 +175,7 @@ class Track {
     'isNew': isNew,
     if (trendingRank != null) 'trendingRank': trendingRank,
     if (mood != null) 'mood': mood,
+    if (creatorId != null) 'creatorId': creatorId,
     if (creatorHandle != null) 'creatorHandle': creatorHandle,
     if (stemUrls != null)
       'stemUrls': <String, String>{
@@ -249,6 +257,12 @@ class Track {
       isNew: json['isNew'] as bool? ?? false,
       trendingRank: (json['trendingRank'] as num?)?.toInt(),
       mood: json['mood'] as String?,
+      creatorId:
+          (json['creatorId'] ??
+                  json['creator_id'] ??
+                  json['artistId'] ??
+                  json['artist_id'])
+              as String?,
       creatorHandle:
           (json['creatorHandle'] ?? json['creator_handle']) as String?,
       stemUrls: parsedStems,

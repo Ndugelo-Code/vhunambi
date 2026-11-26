@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:vhunambi_client/core/constants/app_constants.dart';
+import 'package:vhunambi_client/features/explore/domain/models/explore_models.dart';
 import 'package:vhunambi_client/features/social/domain/models/kinetic_reaction.dart';
 import 'package:vhunambi_client/features/social/domain/models/reel_comment.dart';
 import 'package:vhunambi_client/shared/models/track.dart';
@@ -75,8 +76,8 @@ class HttpExploreRepository {
            dio ??
            Dio(
              BaseOptions(
-               connectTimeout: const Duration(seconds: 4),
-               receiveTimeout: const Duration(seconds: 4),
+               connectTimeout: const Duration(seconds: 8),
+               receiveTimeout: const Duration(seconds: 12),
                headers: <String, dynamic>{
                  'Content-Type': 'application/json',
                  'Accept': 'application/json',
@@ -161,10 +162,31 @@ class HttpExploreRepository {
     String? stage,
     String sort = 'trending',
     String? search,
+    String? cursor,
     int limit = 50,
   }) async {
+    final page = await fetchExploreTracksPage(
+      genre: genre,
+      stage: stage,
+      sort: sort,
+      search: search,
+      cursor: cursor,
+      limit: limit,
+    );
+    return page.items;
+  }
+
+  /// Fetches a keyset-paginated slice from `GET /api/explore/tracks`.
+  Future<({List<Track> items, String? nextCursor})> fetchExploreTracksPage({
+    String? genre,
+    String? stage,
+    String sort = 'trending',
+    String? search,
+    String? cursor,
+    int limit = 100,
+  }) async {
     if (_shouldSkipNetwork) {
-      return const <Track>[];
+      return (items: const <Track>[], nextCursor: null);
     }
     try {
       final response = await _dio.get<Map<String, dynamic>>(
@@ -176,6 +198,7 @@ class HttpExploreRepository {
           'sort': sort,
           if (search != null && search.trim().isNotEmpty)
             'search': search.trim(),
+          if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
           'limit': limit,
         },
       );
@@ -184,15 +207,47 @@ class HttpExploreRepository {
             (response.data!['items'] ?? response.data!['tracks'])
                 as List<dynamic>? ??
             const <dynamic>[];
-        return list
+        final items = list
             .whereType<Map>()
             .map((e) => Track.fromJson(Map<String, dynamic>.from(e)))
             .toList(growable: false);
+        final next = response.data!['nextCursor'] as String?;
+        return (items: items, nextCursor: next);
       }
     } catch (e) {
       debugPrint('[HttpExploreRepository] fetchExploreTracks fallback: $e');
     }
-    return const <Track>[];
+    return (items: const <Track>[], nextCursor: null);
+  }
+
+  /// Fetches dynamic creator profiles from `GET /api/explore/creators`.
+  Future<List<CreatorProfile>> fetchExploreCreators({
+    String? search,
+    int limit = 50,
+  }) async {
+    if (_shouldSkipNetwork) {
+      return const <CreatorProfile>[];
+    }
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/explore/creators',
+        queryParameters: <String, dynamic>{
+          if (search != null && search.trim().isNotEmpty)
+            'search': search.trim(),
+          'limit': limit,
+        },
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final list = response.data!['items'] as List<dynamic>? ?? const [];
+        return list
+            .whereType<Map>()
+            .map((e) => CreatorProfile.fromJson(Map<String, dynamic>.from(e)))
+            .toList(growable: false);
+      }
+    } catch (e) {
+      debugPrint('[HttpExploreRepository] fetchExploreCreators fallback: $e');
+    }
+    return const <CreatorProfile>[];
   }
 
   /// Fetches curated genre radio harmonic rotation via `GET /api/explore/radio/:genre`.

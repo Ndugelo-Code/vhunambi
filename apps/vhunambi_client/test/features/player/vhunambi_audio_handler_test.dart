@@ -294,7 +294,14 @@ void main() {
         playing.controls.last.customAction?.name,
         kAudioCustomActionCloseDismiss,
       );
-      expect(playing.androidCompactActionIndices, <int>[1, 2, 3]);
+      expect(playing.androidCompactActionIndices, <int>[0, 1, 2]);
+      final nativeActionCount = playing.controls
+          .where((c) => c.action != MediaAction.custom)
+          .length;
+      expect(nativeActionCount, 3);
+      for (final idx in playing.androidCompactActionIndices!) {
+        expect(idx, lessThan(nativeActionCount));
+      }
       expect(playing.systemActions, contains(MediaAction.seek));
       expect(playing.systemActions, contains(MediaAction.stop));
       expect(playing.processingState, AudioProcessingState.ready);
@@ -332,7 +339,7 @@ void main() {
         'African AI Music Synthesis & Creator Playback',
       );
       expect(kAudioNotificationIcon, 'drawable/ic_stat_vhunambi');
-      expect(kAndroidCompactActionIndices, <int>[1, 2, 3]);
+      expect(kAndroidCompactActionIndices, <int>[0, 1, 2]);
       expect(vhunambiAudioServiceConfig.artDownscaleWidth, 512);
       expect(vhunambiAudioServiceConfig.artDownscaleHeight, 512);
       expect(vhunambiAudioServiceConfig.preloadArtwork, isTrue);

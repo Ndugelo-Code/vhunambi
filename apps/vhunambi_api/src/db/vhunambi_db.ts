@@ -2240,7 +2240,11 @@ export class VhunambiDatabase {
         (t) =>
           t.title.toLowerCase().includes(q) ||
           t.artist.toLowerCase().includes(q) ||
+          t.creatorId.toLowerCase().includes(q) ||
+          t.creatorHandle.toLowerCase().includes(q) ||
           t.genre.toLowerCase().includes(q) ||
+          t.subGenre.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q) ||
           t.province.toLowerCase().includes(q),
       );
     }
@@ -2257,6 +2261,97 @@ export class VhunambiDatabase {
       items: mapped.slice(0, limit),
       total: mapped.length,
       serverSeq: this.getLatestSeq(),
+    };
+  }
+
+  public getExploreCreators(
+    options: { search?: string; limit?: number } = {},
+  ): {
+    items: Array<{
+      id: string;
+      name: string;
+      handle: string;
+      initials: string;
+      trackCount: number;
+      avatarUrl: string | null;
+      primaryGenres: string[];
+      isVerified: boolean;
+    }>;
+    total: number;
+  } {
+    const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
+    const creatorRows = this.db
+      .prepare('SELECT id, handle, display_name, avatar_url, tier FROM creators')
+      .all() as Array<Record<string, any>>;
+    const trackRows = this.db
+      .prepare('SELECT * FROM explore_tracks')
+      .all() as Array<Record<string, any>>;
+
+    const trackStats = new Map<string, { count: number; genres: Map<string, number> }>();
+    for (const raw of trackRows) {
+      const track = this.mapExploreTrackRow(raw);
+      const cid = canonicalizeCreatorId(track.creatorId);
+      const bucket = trackStats.get(cid) ?? { count: 0, genres: new Map<string, number>() };
+      bucket.count += 1;
+      bucket.genres.set(track.genre, (bucket.genres.get(track.genre) ?? 0) + 1);
+      trackStats.set(cid, bucket);
+    }
+
+    const toInitials = (name: string): string => {
+      const parts = name.trim().split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+      }
+      return name.trim().slice(0, 2).toUpperCase() || 'VH';
+    };
+
+    let items = creatorRows
+      .filter((cr) => {
+        const cid = canonicalizeCreatorId(String(cr.id ?? ''));
+        return Boolean(cid) && !cid.startsWith('creator_probe_') && !cid.startsWith('creator_p6');
+      })
+      .map((cr) => {
+        const cid = canonicalizeCreatorId(String(cr.id ?? ''));
+        const stats = trackStats.get(cid);
+        const genres = stats
+          ? Array.from(stats.genres.entries())
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 3)
+              .map(([g]) => g)
+          : [];
+        const name = String(cr.display_name ?? cr.handle ?? cid);
+        const handle = String(cr.handle ?? `@${cid.replace(/^creator_/, '')}`);
+        return {
+          id: cid,
+          name,
+          handle: handle.startsWith('@') ? handle : `@${handle}`,
+          initials: toInitials(name),
+          trackCount: stats?.count ?? 0,
+          avatarUrl: cr.avatar_url ? String(cr.avatar_url) : null,
+          primaryGenres: genres.length > 0 ? genres : ['Afro Fusion'],
+          isVerified: String(cr.tier ?? '') !== 'unverified',
+        };
+      });
+
+    if (options.search && options.search.trim() !== '') {
+      const q = options.search.trim().toLowerCase();
+      items = items.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.handle.toLowerCase().includes(q) ||
+          c.id.toLowerCase().includes(q) ||
+          c.primaryGenres.some((g) => g.toLowerCase().includes(q)),
+      );
+    }
+
+    items.sort((a, b) => {
+      if (b.trackCount !== a.trackCount) return b.trackCount - a.trackCount;
+      return a.name.localeCompare(b.name);
+    });
+
+    return {
+      items: items.slice(0, limit),
+      total: items.length,
     };
   }
 
